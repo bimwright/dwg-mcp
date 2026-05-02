@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "bimwright-dwg": {
+      "command": "bimwright-dwg",
+      "args": []
+    }
+  }
+}
