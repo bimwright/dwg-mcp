@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>Bimwright.Dwg.Tests</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
+    <PackageReference Include="xunit" Version="2.6.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.5.4" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\server\Bimwright.Dwg.Server.csproj" />
+  </ItemGroup>
+  <!-- Include shared source that doesn't depend on AutoCAD API -->
+  <ItemGroup>
+    <Compile Include="..\..\src\shared\Clustering\SpatialClusterer.cs" LinkBase="Shared\Clustering" />
+    <Compile Include="..\..\src\shared\Rewriting\RewriteTypes.cs" LinkBase="Shared\Rewriting" />
+    <Compile Include="..\..\src\shared\Rewriting\RewriteRequestBuilder.cs" LinkBase="Shared\Rewriting" />
+    <Compile Include="..\..\src\shared\Rewriting\BboxFitSizer.cs" LinkBase="Shared\Rewriting" />
+    <Compile Include="..\..\src\shared\Rewriting\FinalTextScalePolicy.cs" LinkBase="Shared\Rewriting" />
+    <Compile Include="..\..\src\shared\Rewriting\TextMetrics.cs" LinkBase="Shared\Rewriting" />
+    <Compile Include="..\..\src\shared\Unicode\UnicodeScaleHeuristics.cs" LinkBase="Shared\Unicode" />
+    <Compile Include="..\..\src\shared\Infrastructure\CommandResult.cs" LinkBase="Shared\Infrastructure" />
+    <Compile Include="..\..\src\shared\Infrastructure\ClusterStateStore.cs" LinkBase="Shared\Infrastructure" />
+  </ItemGroup>
+</Project>
