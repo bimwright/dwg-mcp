@@ -1,0 +1,46 @@
+name: build
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  server:
+    name: server
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Build server
+        run: dotnet build src/server/Bimwright.Dwg.Server.csproj -c Release
+
+      - name: Run tests
+        run: dotnet test tests/Bimwright.Dwg.Tests/Bimwright.Dwg.Tests.csproj -c Release
+
+  plugin-acad24:
+    name: plugin-acad24
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Build plugin
+        run: dotnet build src/plugin-acad24/Bimwright.Dwg.Plugin.Acad24.csproj -c Release
+
+      - name: Upload plugin artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: plugin-acad24
+          path: src/plugin-acad24/bin/Release/net48/
