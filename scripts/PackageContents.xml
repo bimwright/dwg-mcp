@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ApplicationPackage
+  SchemaVersion="1.0"
+  AppVersion="0.1.0"
+  AutodeskProduct="AutoCAD"
+  Name="Bimwright.Dwg"
+  Description="MCP gateway plugin for AI-assisted text translation in AutoCAD"
+  ProductCode="{8A3F7B2D-1C4E-4D5F-9A6B-7E8C9D0F1A2B}">
+  <CompanyDetails Name="Bimwright" />
+  <RuntimeRequirements OS="Win64" Platform="AutoCAD" SeriesMin="R24.0" SeriesMax="R24.0" />
+  <Components>
+    <ComponentEntry AppName="Bimwright.Dwg.Plugin.Acad24" ModuleName="./Contents/Bimwright.Dwg.Plugin.Acad24.dll" />
+  </Components>
+</ApplicationPackage>
