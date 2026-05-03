@@ -11,6 +11,13 @@ namespace Bimwright.Dwg.Plugin
         private readonly Dictionary<string, IAcadCommand> _commands;
         private readonly string _authToken;
 
+        public static bool SendCodeEnabled { get; private set; }
+
+        public static void SetSendCodeEnabled(bool enabled)
+        {
+            SendCodeEnabled = enabled;
+        }
+
         public CommandDispatcher(string authToken)
         {
             _authToken = authToken;
@@ -39,6 +46,9 @@ namespace Bimwright.Dwg.Plugin
 
                 var cmd = (string)request["cmd"];
                 var parameters = request["params"];
+
+                if (string.Equals(cmd, "send_code", StringComparison.Ordinal) && !SendCodeEnabled)
+                    return ErrorJson(id, "send_code is disabled. Run MCPENABLECODE in AutoCAD and start the MCP server with --enable-send-code to opt in.");
 
                 if (!_commands.TryGetValue(cmd, out var handler))
                     return ErrorJson(id, $"unknown command: {cmd}");

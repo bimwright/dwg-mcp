@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Security.Cryptography;
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.GraphicsInterface;
 
@@ -23,6 +24,8 @@ namespace Bimwright.Dwg.Plugin
         internal const string FontTypeFace = "Open Sans Condensed Light";
         internal const string FontDownloadUrl =
             "https://github.com/googlefonts/opensans/raw/main/fonts/ttf/OpenSans-CondensedLight.ttf";
+        internal const string FontFileSha256 =
+            "BD09013EBB713EF8BDF17FD7BAC92E51A6FF2F2E6844F561AE0CDA2A457A9ED0";
 
         internal static UnicodeStyleInfo EnsureStyle(Database db)
         {
@@ -199,13 +202,18 @@ namespace Bimwright.Dwg.Plugin
                 AppDomain.CurrentDomain.BaseDirectory,
                 "Fonts",
                 FontFileName);
-            if (File.Exists(bundledFont)) return bundledFont;
+            if (File.Exists(bundledFont) && HasExpectedSha256(bundledFont, FontFileSha256))
+                return bundledFont;
 
             var cacheDir = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "Bimwright", "Fonts");
             var cachePath = Path.Combine(cacheDir, FontFileName);
-            if (File.Exists(cachePath)) return cachePath;
+            if (File.Exists(cachePath))
+            {
+                if (HasExpectedSha256(cachePath, FontFileSha256)) return cachePath;
+                try { File.Delete(cachePath); } catch { }
+            }
 
             Directory.CreateDirectory(cacheDir);
             ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
@@ -213,8 +221,23 @@ namespace Bimwright.Dwg.Plugin
             {
                 wc.DownloadFile(FontDownloadUrl, cachePath);
             }
+            if (!HasExpectedSha256(cachePath, FontFileSha256))
+            {
+                try { File.Delete(cachePath); } catch { }
+                throw new InvalidOperationException("Downloaded OpenSans-CondensedLight.ttf failed SHA256 verification.");
+            }
             downloaded = true;
             return cachePath;
+        }
+
+        private static bool HasExpectedSha256(string path, string expectedHex)
+        {
+            using (var sha = SHA256.Create())
+            using (var stream = File.OpenRead(path))
+            {
+                var actual = BitConverter.ToString(sha.ComputeHash(stream)).Replace("-", "");
+                return string.Equals(actual, expectedHex, StringComparison.OrdinalIgnoreCase);
+            }
         }
     }
 }

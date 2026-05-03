@@ -1,10 +1,25 @@
-# AutoCAD 2024 Reference Assemblies
+# AutoCAD 2024 Managed Assembly References
 
-These DLLs are from the AutoCAD 2024 installation and are included here solely for compilation (CI builds).
-They are NOT redistributed — AutoCAD provides them at runtime.
+Do not commit Autodesk binaries to this repository.
 
-- `acmgd.dll` — Managed wrapper for AutoCAD application services
-- `accoremgd.dll` — Core managed services
-- `acdbmgd.dll` — Database/entity managed services
+The plugin project references these managed assemblies from a local AutoCAD
+2024 installation:
 
-These files are referenced with `<Private>false</Private>` (CopyLocal=No).
+- `acmgd.dll`
+- `accoremgd.dll`
+- `acdbmgd.dll`
+
+Default local path:
+
+```text
+C:\Program Files\Autodesk\AutoCAD 2024
+```
+
+Override the path when building:
+
+```powershell
+dotnet build src/plugin-acad24/Bimwright.Dwg.Plugin.Acad24.csproj -p:AutoCad2024Dir="D:\Path\To\AutoCAD 2024"
+```
+
+GitHub-hosted runners do not include AutoCAD. CI skips the plugin build unless
+the required local assemblies are present.

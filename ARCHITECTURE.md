@@ -15,9 +15,9 @@ Bimwright.Dwg.Plugin  (AutoCAD 2024 add-in, .NET 4.8)
 AutoCAD .NET API  (ObjectARX 2024)
 ```
 
-**Server** is an MCP server. It talks stdio to the client, translates each tool call into a JSON envelope, and forwards it over TCP to the plugin. Server is a plain .NET 8 global tool — no GUI, no AutoCAD reference.
+**Server** is an MCP server. It talks stdio to the client, translates each tool call into a JSON envelope, and forwards it over TCP to the plugin. Server is a plain .NET 8 global tool — no GUI, no AutoCAD reference. The default server registers only safe drawing tools. `send_code` lives in a separate `CodeTools` surface and is registered only when the process starts with `--enable-send-code` or `BIMWRIGHT_DWG_ENABLE_SEND_CODE=1`.
 
-**Plugin** is an `IExtensionApplication` loaded by AutoCAD. It runs a TCP listener on a background thread, dispatches requests, locks the document, and executes commands within transactions. Unlike Revit, AutoCAD allows `Document.LockDocument()` from background threads, so there is no `ExternalEvent` marshalling.
+**Plugin** is an `IExtensionApplication` loaded by AutoCAD. It runs a TCP listener on a background thread, dispatches requests, locks the document, and executes commands within transactions. Unlike Revit, AutoCAD allows `Document.LockDocument()` from background threads, so there is no `ExternalEvent` marshalling. Plugin-side code execution is disabled until the user runs `MCPENABLECODE` in AutoCAD; `MCPDISABLECODE` revokes it for the current plugin session.
 
 ## Discovery
 
@@ -50,11 +50,12 @@ Server reads this on connect, verifies the PID is alive, and auto-deletes orphan
 ## Request lifecycle
 
 1. MCP client sends `tools/call` over stdio.
-2. Server's `Tools` class receives the call via `[McpServerTool]` attribute.
+2. Server's default `Tools` class receives the call via `[McpServerTool]`. If explicitly enabled, `CodeTools` also exposes `send_code`.
 3. `LoggedCall` wrapper logs start, creates request envelope with auth token.
 4. `PluginClient.SendAsync` opens a new TCP connection to plugin.
 5. Plugin's listener thread reads the NDJSON line, `CommandDispatcher.Dispatch` is called:
    - Auth token verified.
+   - `send_code` rejected unless AutoCAD-side consent is enabled.
    - Handler looked up by command name.
    - `DocumentInvoker.Invoke` locks the active document.
    - Handler executes within a Transaction.
@@ -62,7 +63,7 @@ Server reads this on connect, verifies the PID is alive, and auto-deletes orphan
 6. Response travels back over TCP.
 7. `LoggedCall` logs finish (duration, success/error).
 
-Timeout: 30s per request on the server side. Connection-per-call (no persistent connection).
+Timeout: 30s per request on the server side. `send_code` also runs its Roslyn script on a dedicated plugin thread with cancellation and abort fallback before the handler returns. Connection-per-call (no persistent connection).
 
 ## Threading model
 
@@ -83,7 +84,7 @@ AutoCAD allows multiple threads to lock the same document sequentially. Each req
 
 ## Handler dispatch
 
-`CommandDispatcher` uses an explicit dictionary (not reflection):
+`CommandDispatcher` uses an explicit dictionary (not reflection). `send_code` remains in the dispatch table so opt-in calls can be handled, but dispatch rejects it unless `MCPENABLECODE` has enabled the current plugin session:
 
 ```csharp
 _commands = new Dictionary<string, IAcadCommand>

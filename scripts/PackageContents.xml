@@ -7,7 +7,7 @@
   Description="MCP gateway plugin for AI-assisted text translation in AutoCAD"
   ProductCode="{8A3F7B2D-1C4E-4D5F-9A6B-7E8C9D0F1A2B}">
   <CompanyDetails Name="Bimwright" />
-  <RuntimeRequirements OS="Win64" Platform="AutoCAD" SeriesMin="R24.0" SeriesMax="R24.0" />
+  <RuntimeRequirements OS="Win64" Platform="AutoCAD" SeriesMin="R24.3" SeriesMax="R24.3" />
   <Components>
     <ComponentEntry AppName="Bimwright.Dwg.Plugin.Acad24" ModuleName="./Contents/Bimwright.Dwg.Plugin.Acad24.dll" />
   </Components>

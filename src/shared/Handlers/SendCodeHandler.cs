@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using Bimwright.Dwg.Plugin;
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
@@ -13,6 +14,9 @@ namespace Bimwright.Dwg.Plugin.Handlers
 {
     public class SendCodeHandler : IAcadCommand
     {
+        private const int ExecutionTimeoutMilliseconds = 30000;
+        private const int AbortGraceMilliseconds = 5000;
+
         public string Name => "send_code";
 
         public class Globals
@@ -50,9 +54,57 @@ namespace Bimwright.Dwg.Plugin.Handlers
 
                 var globals = new Globals { doc = doc, db = doc.Database, ed = doc.Editor };
 
-                var task = CSharpScript.EvaluateAsync(code, options, globals);
-                if (!task.Wait(TimeSpan.FromSeconds(30)))
-                    return CommandResult.Fail("execution timeout (30s)");
+                Exception executionError = null;
+                using (var cts = new CancellationTokenSource())
+                using (var completed = new ManualResetEventSlim(false))
+                {
+                    var worker = new Thread(() =>
+                    {
+                        try
+                        {
+                            CSharpScript.EvaluateAsync(code, options, globals, cancellationToken: cts.Token)
+                                .GetAwaiter()
+                                .GetResult();
+                        }
+                        catch (Exception ex)
+                        {
+                            executionError = ex;
+                        }
+                        finally
+                        {
+                            completed.Set();
+                        }
+                    })
+                    {
+                        IsBackground = true,
+                        Name = "Bimwright.Dwg.SendCode"
+                    };
+
+                    worker.Start();
+
+                    if (!completed.Wait(ExecutionTimeoutMilliseconds))
+                    {
+                        cts.Cancel();
+                        try
+                        {
+                            worker.Abort();
+                        }
+                        catch (ThreadStateException)
+                        {
+                        }
+                        catch (PlatformNotSupportedException)
+                        {
+                        }
+
+                        if (!completed.Wait(AbortGraceMilliseconds))
+                            return CommandResult.Fail("execution timeout after 30s; script did not stop");
+
+                        return CommandResult.Fail("execution cancelled after 30s");
+                    }
+
+                    if (executionError != null)
+                        throw executionError;
+                }
 
                 return CommandResult.Success(new
                 {
@@ -69,6 +121,10 @@ namespace Bimwright.Dwg.Plugin.Handlers
                     stdout = captured.ToString(),
                     error = "compile error: " + string.Join("\n", ex.Diagnostics)
                 });
+            }
+            catch (OperationCanceledException)
+            {
+                return CommandResult.Fail("execution cancelled after 30s");
             }
             catch (AggregateException ex) when (ex.InnerException != null)
             {

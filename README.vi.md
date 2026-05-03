@@ -10,7 +10,7 @@
   <a href="https://github.com/bimwright/dwg-mcp/actions/workflows/build.yml"><img src="https://github.com/bimwright/dwg-mcp/actions/workflows/build.yml/badge.svg" alt="build" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="license" /></a>
   <a href="#phien-ban-autocad-ho-tro"><img src="https://img.shields.io/badge/AutoCAD-2024-186BFF" alt="AutoCAD 2024" /></a>
-  <a href="#cong-cu"><img src="https://img.shields.io/badge/MCP-6%20tools-6C47FF" alt="MCP tools" /></a>
+  <a href="#cong-cu"><img src="https://img.shields.io/badge/MCP-5%20default%20%2B%201%20opt--in-6C47FF" alt="MCP tools" /></a>
 </p>
 
 <p align="center">
@@ -140,6 +140,21 @@ pwsh scripts/install.ps1 -Uninstall  # go bo
 }
 ```
 
+`send_code` bị ẩn khỏi danh sách tool mặc định. Muốn bật, phải opt-in ở cả server và AutoCAD:
+
+```json
+{
+  "mcpServers": {
+    "bimwright-dwg": {
+      "command": "bimwright-dwg",
+      "args": ["--enable-send-code"]
+    }
+  }
+}
+```
+
+Sau đó chạy `MCPENABLECODE` trong AutoCAD cho session plugin hiện tại. `MCPDISABLECODE` tắt lại quyền này.
+
 ---
 
 ## Cong cu
@@ -151,7 +166,7 @@ pwsh scripts/install.ps1 -Uninstall  # go bo
 | `collapse_and_rewrite` | Rewrite low-level voi kiem soat hinh hoc chi tiet |
 | `update_texts` | Ghi text theo handle (legacy) |
 | `apply_unicode_style` | Dam bao style `Bimwright_Unicode` ton tai va ap dung |
-| `send_code` | Chay C# tren AutoCAD .NET API (30s timeout) |
+| `send_code` | **Chi opt-in.** Chay C# tren AutoCAD .NET API sau khi bat flag/env server va dong y phia AutoCAD bang `MCPENABLECODE` |
 
 ---
 
@@ -179,10 +194,14 @@ pwsh scripts/install.ps1 -Uninstall  # go bo
 
 ## Bao mat
 
-`send_code` chay C# tuy y voi toan quyen truy cap process AutoCAD va filesystem. Bao mat dua tren:
+`send_code` chay C# tuy y voi toan quyen truy cap process AutoCAD va filesystem. Tool nay khong nam trong danh sach MCP mac dinh. Muon dung, khoi dong server voi `--enable-send-code` hoac `BIMWRIGHT_DWG_ENABLE_SEND_CODE=1`, roi chay `MCPENABLECODE` trong AutoCAD cho session plugin hien tai.
+
+Bao mat dua tren:
 
 - **Chi local** — TCP tren 127.0.0.1.
 - **Auth token moi session** — xoay khi plugin khoi dong lai.
+- **Opt-in hai phia** — server dang ky tool va AutoCAD xac nhan cho phep.
+- **Gioi han timeout** — script chay tren thread rieng, co cancellation va abort khi qua timeout.
 - **Gia dinh agent tin cay** — chi dung voi MCP client ban kiem soat.
 
 ---
@@ -190,6 +209,8 @@ pwsh scripts/install.ps1 -Uninstall  # go bo
 ## Giay phep
 
 [Apache License 2.0](LICENSE)
+
+Thong bao ben thu ba: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
 
 ---
 

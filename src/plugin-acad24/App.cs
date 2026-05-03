@@ -60,6 +60,20 @@ namespace Bimwright.Dwg.Plugin
             WriteLine("Bimwright DWG stopped.");
         }
 
+        [CommandMethod("MCPENABLECODE", CommandFlags.Session)]
+        public static void McpEnableCode()
+        {
+            CommandDispatcher.SetSendCodeEnabled(true);
+            WriteLine("send_code enabled for this AutoCAD session. Start the MCP server with --enable-send-code to expose it.");
+        }
+
+        [CommandMethod("MCPDISABLECODE", CommandFlags.Session)]
+        public static void McpDisableCode()
+        {
+            CommandDispatcher.SetSendCodeEnabled(false);
+            WriteLine("send_code disabled for this AutoCAD session.");
+        }
+
         private static void StartServerInternal()
         {
             _server = new SocketServer();

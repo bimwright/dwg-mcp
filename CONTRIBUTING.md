@@ -12,7 +12,7 @@ Contributions are welcome. This document covers the basics.
 
 The plugin requires AutoCAD 2024 for integration testing. Unit tests cover pure logic (clustering, rewriting, metrics) and run without AutoCAD.
 
-Reference assemblies for CI are in `lib/acad24/`. If you have AutoCAD 2024 installed locally, the build uses those same DLLs.
+Do not commit Autodesk DLLs. The plugin project references the local AutoCAD 2024 install by default at `C:\Program Files\Autodesk\AutoCAD 2024`; pass `/p:AutoCad2024Dir=<path>` when your install is elsewhere. GitHub-hosted CI skips the plugin build when those proprietary assemblies are not available.
 
 ## Pull Requests
 

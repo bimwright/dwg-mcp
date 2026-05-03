@@ -16,14 +16,19 @@
     <PackageId>Bimwright.Dwg.Server</PackageId>
     <Version>0.1.0</Version>
     <Authors>Khoa Le</Authors>
-    <Description>MCP gateway for AutoCAD 2024 — expose text reading, translation, rewriting, and code execution as AI-callable tools over the standard MCP protocol.</Description>
+    <Description>MCP gateway for AutoCAD 2024 — expose text reading, translation, rewriting, and opt-in code execution as AI-callable tools over the standard MCP protocol.</Description>
     <PackageProjectUrl>https://github.com/bimwright/dwg-mcp</PackageProjectUrl>
     <RepositoryUrl>https://github.com/bimwright/dwg-mcp</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <PackageTags>mcp;autocad;dwg;ai;translation</PackageTags>
     <Copyright>Copyright 2026 Khoa Le</Copyright>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="ModelContextProtocol" Version="1.1.0" />

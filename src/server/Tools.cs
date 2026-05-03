@@ -13,7 +13,7 @@ namespace Bimwright.Dwg.Server
     {
         private static readonly PluginClient Client = PluginClient.FromDiscoveryFile();
 
-        private static async Task<string> LoggedCall(string toolName, object inputParams, object pluginParams)
+        internal static async Task<string> LoggedCall(string toolName, object inputParams, object pluginParams)
         {
             var requestId = Guid.NewGuid().ToString("N");
             var sw = Stopwatch.StartNew();
@@ -97,21 +97,8 @@ namespace Bimwright.Dwg.Server
         }
 
         [McpServerTool, Description(
-            "Execute a C# snippet against the AutoCAD .NET API as an escape hatch. " +
-            "WARNING: send_code runs arbitrary code with full access to the AutoCAD process " +
-            "and local filesystem. Only use with trusted agents. " +
-            "Globals available: Document doc, Database db, Editor ed. " +
-            "Use System.Console.WriteLine for output. 30s timeout. " +
-            "Prefer the specialized tools (get_selected_texts / update_texts / " +
-            "collapse_and_rewrite / apply_unicode_style) for text operations.")]
-        public static Task<string> SendCode(
-            [Description("C# code to execute")] string code)
-            => LoggedCall("send_code", new { code }, new { code });
-
-        [McpServerTool, Description(
             "Ensure the 'Bimwright_Unicode' text style exists (using Open Sans Condensed Light font, " +
-            "auto-downloading OpenSans-CondensedLight.ttf from GitHub to " +
-            "%LOCALAPPDATA%\\Bimwright\\Fonts\\ if not already installed) and reassign " +
+            "using the bundled font or a checksum-validated fallback download) and reassign " +
             "target entities to it. Height normalization is smart and idempotent: SHX " +
             "sources are reduced more than TrueType sources, while entities already on " +
             "the Unicode style keep their current height instead of shrinking again. " +

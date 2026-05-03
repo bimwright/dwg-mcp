@@ -2,7 +2,7 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.bimwright/dwg-mcp",
   "title": "Bimwright DWG",
-  "description": "MCP gateway for AutoCAD 2024 — text reading, spatial clustering, translation rewriting, and code execution.",
+  "description": "MCP gateway for AutoCAD 2024 — text reading, spatial clustering, translation rewriting, and opt-in code execution.",
   "version": "0.1.0",
   "repository": {
     "url": "https://github.com/bimwright/dwg-mcp",

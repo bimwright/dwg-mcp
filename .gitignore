@@ -6,6 +6,9 @@ obj/
 *.cache
 *.pdb
 *.log
+*.nupkg
+artifacts/
+artifacts-*/
 
 # .NET user-local launch profiles
 **/Properties/launchSettings.json
@@ -25,6 +28,9 @@ Desktop.ini
 
 # User-local MCP client config
 .mcp.json
+
+# Autodesk binaries are not redistributable.
+lib/acad24/*.dll
 
 # Claude Code
 .claude/
