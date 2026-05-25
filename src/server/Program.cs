@@ -48,18 +48,19 @@ namespace Bimwright.Dwg.Server
         }
 
         private const string ServerInstructionsText =
-@"dwg-mcp - MCP gateway for Autodesk AutoCAD DWG drawings. Use for selected AutoCAD text, DBText, MText, SHX/Unicode style repair, Vietnamese translation writeback, clustered note cleanup, and DWG text rewriting.
+@"dwg-mcp - MCP gateway for Autodesk AutoCAD DWG drawings. Use for current drawing metadata, layers, entity properties, simple line/circle creation, selected AutoCAD text, DBText, MText, SHX/Unicode style repair, Vietnamese translation writeback, clustered note cleanup, and DWG text rewriting.
 
 AutoCAD routing: versions are 4-digit years 2022..2027. If multiple AutoCAD instances run, use dwg_list_available_targets then dwg_switch_target, or start the server with --target 2022|2023|2024|2025|2026|2027.
 
 Tools use prefix dwg_:
-- query: dwg_get_selected_texts reads current AutoCAD pickfirst text selection and returns clustered text groups.
-- modify: dwg_update_texts, dwg_translate_and_rewrite, dwg_apply_unicode_style, dwg_collapse_and_rewrite write text/style changes.
+- query: dwg_get_drawing_info, dwg_list_layers, and dwg_get_entity_properties read the current active document; dwg_get_selected_texts reads current AutoCAD pickfirst text selection and returns clustered text groups.
+- modify: dwg_create_layer, dwg_create_line, dwg_create_circle, dwg_change_layer, dwg_update_texts, dwg_translate_and_rewrite, dwg_apply_unicode_style, dwg_collapse_and_rewrite write drawing/text/style changes.
 - meta: dwg_batch_execute, dwg_list_available_targets, dwg_get_current_target, dwg_switch_target.
 - toolbaker: dwg_list_baked_tools, dwg_run_baked_tool, dwg_list_bake_suggestions, dwg_accept_bake_suggestion, dwg_dismiss_bake_suggestion, dwg_create_bake_issue_draft.
 - code: dwg_send_code is disabled unless --enable-send-code or BIMWRIGHT_DWG_ENABLE_SEND_CODE=1.
 
-Call dwg_get_selected_texts before writeback. In read-only mode only query/routing/list tools are exposed.";
+General CAD tools operate on the current AutoCAD active document. Entity arguments use AutoCAD hex handles returned by selection, creation, or property tools.
+Call dwg_get_selected_texts before text writeback. In read-only mode only query/routing/list tools are exposed.";
 
         private static IMcpServerBuilder RegisterToolsets(IMcpServerBuilder mcp, HashSet<string> enabled)
         {

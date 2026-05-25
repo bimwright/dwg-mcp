@@ -15,7 +15,7 @@ Bimwright.Dwg.Plugin  (AutoCAD 2022-2027 shells)
 AutoCAD .NET API  (ObjectARX 2022-2027)
 ```
 
-**Server** is an MCP server. It talks stdio to the client, translates each tool call into a JSON envelope, and forwards it over localhost transport to the plugin. Server is a plain .NET 8 global tool with no AutoCAD reference. The default server registers query, modify, and routing tools. `dwg_send_code` lives in a separate `CodeTools` surface and is registered only when the process starts with `--enable-send-code` or `BIMWRIGHT_DWG_ENABLE_SEND_CODE=1`.
+**Server** is an MCP server. It talks stdio to the client, translates each tool call into a JSON envelope, and forwards it over localhost transport to the plugin. Server is a plain .NET 8 global tool with no AutoCAD reference. The default server registers query, modify, routing/meta, and batch tools. `dwg_send_code` lives in a separate `CodeTools` surface and is registered only when the process starts with `--enable-send-code` or `BIMWRIGHT_DWG_ENABLE_SEND_CODE=1`.
 
 **Plugin** is an `IExtensionApplication` loaded by AutoCAD. It runs a local listener on a background thread, dispatches requests through `DwgApiExecutor`, locks the document, and executes commands within transactions. Unlike Revit, AutoCAD allows `Document.LockDocument()` from background threads; `DwgApiExecutor` still serializes AutoCAD API work so concurrent requests do not interleave drawing mutations. Plugin-side code execution is disabled until the user runs `MCPENABLECODE` in AutoCAD; `MCPDISABLECODE` revokes it for the current plugin session.
 
@@ -66,6 +66,7 @@ Server reads v2 files from `%LOCALAPPDATA%\Bimwright\Dwg\`, verifies the PID is 
    - `send_code` rejected unless AutoCAD-side consent is enabled.
    - Handler looked up by command name.
    - `DocumentInvoker.Invoke` locks the active document.
+   - General CAD handlers operate on that active document and resolve entity references from AutoCAD hex handles.
    - Handler executes within a Transaction.
    - Response serialized as JSON.
 6. Response travels back over TCP.
@@ -99,8 +100,15 @@ AutoCAD allows multiple threads to lock the same document sequentially. Each req
 ```csharp
 _commands = new Dictionary<string, IAcadCommand>
 {
+    { "get_drawing_info",       new GetDrawingInfoHandler() },
+    { "get_entity_properties",  new GetEntityPropertiesHandler() },
+    { "list_layers",            new ListLayersHandler() },
     { "get_selected_texts",      new GetSelectedTextsHandler() },
     { "update_texts",            new UpdateTextsHandler() },
+    { "create_layer",           new CreateLayerHandler() },
+    { "create_line",            new CreateLineHandler() },
+    { "create_circle",          new CreateCircleHandler() },
+    { "change_layer",           new ChangeLayerHandler() },
     { "send_code",               new SendCodeHandler() },
     { "apply_unicode_style",     new ApplyUnicodeStyleHandler() },
     { "collapse_and_rewrite",    new CollapseAndRewriteHandler() },
@@ -120,13 +128,27 @@ Toolsets are resolved by `DwgMcpConfig` and `ToolsetFilter`:
 
 | Toolset | MCP tools |
 |---------|-----------|
-| `query` | `dwg_get_selected_texts` |
-| `modify` | `dwg_update_texts`, `dwg_translate_and_rewrite`, `dwg_apply_unicode_style`, `dwg_collapse_and_rewrite` |
+| `query` | `dwg_get_drawing_info`, `dwg_get_entity_properties`, `dwg_list_layers`, `dwg_get_selected_texts` |
+| `modify` | `dwg_create_layer`, `dwg_create_line`, `dwg_create_circle`, `dwg_change_layer`, `dwg_update_texts`, `dwg_translate_and_rewrite`, `dwg_apply_unicode_style`, `dwg_collapse_and_rewrite` |
 | `meta` | `dwg_batch_execute`, `dwg_list_available_targets`, `dwg_get_current_target`, `dwg_switch_target` |
 | `toolbaker` | `dwg_list_baked_tools`, `dwg_run_baked_tool`, `dwg_list_bake_suggestions`, `dwg_accept_bake_suggestion`, `dwg_dismiss_bake_suggestion`, `dwg_create_bake_issue_draft` |
 | `code` | `dwg_send_code` |
 
 `--read-only` or `BIMWRIGHT_DWG_READ_ONLY=1` removes write-capable methods: `modify`, `code`, `dwg_batch_execute`, and ToolBaker write tools (`run`, `accept`, `dismiss`). ToolBaker read tools (`list_*`, issue draft generation) remain available when the toolset is enabled. `--enable-send-code` only registers `code`; AutoCAD-side `MCPENABLECODE` is still required.
+
+The default startup surface is 16 tools. Enabling the optional `code` and `toolbaker` toolsets exposes the full 23 backed MCP tools.
+
+## Manual smoke checklist
+
+In a scratch DWG:
+
+1. Run `dwg_get_drawing_info`.
+2. Run `dwg_list_layers`.
+3. Create `BIMWRIGHT_TEST` with `dwg_create_layer`.
+4. Create one line and one circle.
+5. Read both handles with `dwg_get_entity_properties`.
+6. Move both entities to another layer with `dwg_change_layer`.
+7. Confirm one AutoCAD undo reverses each write command's transaction.
 
 ## ToolBaker
 

@@ -10,7 +10,7 @@
   <a href="https://github.com/bimwright/dwg-mcp/actions/workflows/build.yml"><img src="https://github.com/bimwright/dwg-mcp/actions/workflows/build.yml/badge.svg" alt="build" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="license" /></a>
   <a href="#phien-ban-autocad-ho-tro"><img src="https://img.shields.io/badge/AutoCAD-2022--2027-186BFF" alt="AutoCAD 2022-2027" /></a>
-  <a href="#cong-cu"><img src="https://img.shields.io/badge/MCP-8%20default%20%2B%20optional-6C47FF" alt="MCP tools" /></a>
+  <a href="#cong-cu"><img src="https://img.shields.io/badge/MCP-16%20default%20%2B%20optional-6C47FF" alt="MCP tools" /></a>
 </p>
 
 <p align="center">
@@ -174,10 +174,21 @@ Dung `--read-only` de chi mo tool doc/routing, cong them ToolBaker read tools ne
 
 ## Cong cu
 
+Mac dinh server expose 16 tool: query, modify, routing/meta, va batch. ToolBaker va `dwg_send_code` la opt-in; tong backed MCP surface la 23 tool.
+
+CAD tool chay tren active document hien tai cua AutoCAD target dang chon. Entity input dung AutoCAD hex handle, vi du `7F5AD`, do tool selection, creation, hoac properties tra ve.
+
 | Tool | Muc dich |
 |------|----------|
+| `dwg_get_drawing_info` | Doc ten drawing, current layer, current space/layout, va unit scalar |
+| `dwg_get_entity_properties` | Doc property cua entity theo AutoCAD hex handle |
+| `dwg_list_layers` | Liet ke layer trong drawing hien tai kem color va state flag |
 | `dwg_get_selected_texts` | Doc text dang chon, cluster khong gian, tra ve nhom text |
 | `dwg_update_texts` | Ghi text theo handle trong mot transaction |
+| `dwg_create_layer` | Dam bao layer ton tai, khong ghi de property cua layer da co |
+| `dwg_create_line` | Tao mot line trong drawing space hien tai |
+| `dwg_create_circle` | Tao mot circle trong drawing space hien tai |
+| `dwg_change_layer` | Chuyen entity theo hex handle sang layer khac |
 | `dwg_translate_and_rewrite` | **Uu tien.** Ghi text da dich, tu dong xu ly anchor, xoa, MText, font, chieu cao |
 | `dwg_apply_unicode_style` | Dam bao style `Bimwright_Unicode` ton tai va ap dung |
 | `dwg_collapse_and_rewrite` | Rewrite low-level voi kiem soat hinh hoc chi tiet |
@@ -197,6 +208,18 @@ ToolBaker la toolset tuy chon:
 | `dwg_accept_bake_suggestion` | Validate, smoke-test, va accept goi y |
 | `dwg_dismiss_bake_suggestion` | Dismiss hoac suppress goi y |
 | `dwg_create_bake_issue_draft` | Tao GitHub issue draft cho goi y ma khong submit |
+
+### Checklist smoke thu cong
+
+Trong scratch DWG:
+
+1. Chay `dwg_get_drawing_info`.
+2. Chay `dwg_list_layers`.
+3. Tao `BIMWRIGHT_TEST` bang `dwg_create_layer`.
+4. Tao mot line va mot circle.
+5. Doc ca hai handle bang `dwg_get_entity_properties`.
+6. Chuyen ca hai entity sang layer khac bang `dwg_change_layer`.
+7. Xac nhan mot lan AutoCAD undo revert transaction cua tung write command.
 
 ### Migration tu ten tool 0.1.x
 

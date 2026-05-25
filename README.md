@@ -10,7 +10,7 @@
   <a href="https://github.com/bimwright/dwg-mcp/actions/workflows/build.yml"><img src="https://github.com/bimwright/dwg-mcp/actions/workflows/build.yml/badge.svg" alt="build" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="license" /></a>
   <a href="#supported-autocad-versions"><img src="https://img.shields.io/badge/AutoCAD-2022--2027-186BFF" alt="AutoCAD 2022-2027" /></a>
-  <a href="#tools"><img src="https://img.shields.io/badge/MCP-8%20default%20%2B%20optional-6C47FF" alt="MCP tools" /></a>
+  <a href="#tools"><img src="https://img.shields.io/badge/MCP-16%20default%20%2B%20optional-6C47FF" alt="MCP tools" /></a>
 </p>
 
 <p align="center">
@@ -186,10 +186,21 @@ Then run `MCPENABLECODE` inside AutoCAD for the current plugin session. `MCPDISA
 
 ## Tools
 
+Default startup exposes 16 tools: query, modify, routing/meta, and batch. Optional ToolBaker and `dwg_send_code` bring the backed MCP surface to 23 tools.
+
+General CAD tools operate on the current active document in the selected AutoCAD target. Entity inputs use AutoCAD hex handles, such as `7F5AD`, returned by selection, creation, or property tools.
+
 | Tool | Purpose |
 |------|---------|
+| `dwg_get_drawing_info` | Read current drawing name, current layer, current space/layout, and unit scalars |
+| `dwg_get_entity_properties` | Read properties for entities identified by AutoCAD hex handles |
+| `dwg_list_layers` | List layers in the current drawing with color and state flags |
 | `dwg_get_selected_texts` | Read pickfirst selection, spatially cluster text entities, return grouped text with rewrite mode hints |
 | `dwg_update_texts` | Write new text by handle in one transaction |
+| `dwg_create_layer` | Ensure a layer exists without overwriting an existing layer's properties |
+| `dwg_create_line` | Create one line in the current drawing space |
+| `dwg_create_circle` | Create one circle in the current drawing space |
+| `dwg_change_layer` | Move entities identified by hex handles to another layer |
 | `dwg_translate_and_rewrite` | **Preferred.** Write translated text back: anchor, delete, MText, font, height |
 | `dwg_apply_unicode_style` | Ensure `Bimwright_Unicode` style exists and apply to targets |
 | `dwg_collapse_and_rewrite` | Low-level rewrite primitive with explicit geometric control |
@@ -209,6 +220,18 @@ Optional ToolBaker tools are exposed when the `toolbaker` toolset is enabled:
 | `dwg_accept_bake_suggestion` | Validate, smoke-test, and accept a suggestion |
 | `dwg_dismiss_bake_suggestion` | Dismiss or suppress a suggestion |
 | `dwg_create_bake_issue_draft` | Generate a GitHub issue draft for a suggestion without submitting it |
+
+### Manual smoke checklist
+
+In a scratch DWG:
+
+1. Run `dwg_get_drawing_info`.
+2. Run `dwg_list_layers`.
+3. Create `BIMWRIGHT_TEST` with `dwg_create_layer`.
+4. Create one line and one circle.
+5. Read both handles with `dwg_get_entity_properties`.
+6. Move both entities to another layer with `dwg_change_layer`.
+7. Confirm one AutoCAD undo reverses each write command's transaction.
 
 ### Migration from 0.1.x tool names
 
