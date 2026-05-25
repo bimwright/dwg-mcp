@@ -69,5 +69,29 @@ namespace Bimwright.Dwg.Tests
 
             Assert.Equal(new[] { "query" }, set.ToArray());
         }
+
+        [Fact]
+        public void KnownToolsets_IncludePlan3ToolsetsButDefaultsKeepThemOff()
+        {
+            Assert.Contains("annotation", ToolsetFilter.KnownToolsets);
+            Assert.Contains("block", ToolsetFilter.KnownToolsets);
+            Assert.Contains("dimension", ToolsetFilter.KnownToolsets);
+
+            Assert.DoesNotContain("annotation", ToolsetFilter.DefaultOn);
+            Assert.DoesNotContain("block", ToolsetFilter.DefaultOn);
+            Assert.DoesNotContain("dimension", ToolsetFilter.DefaultOn);
+        }
+
+        [Fact]
+        public void Resolve_ReadOnlyStripsAnnotationAndDimensionButKeepsBlock()
+        {
+            var set = ToolsetFilter.Resolve(new DwgMcpConfig
+            {
+                Toolsets = new List<string> { "query", "annotation", "block", "dimension" },
+                ReadOnly = true
+            });
+
+            Assert.Equal(new[] { "block", "query" }, set.OrderBy(s => s).ToArray());
+        }
     }
 }

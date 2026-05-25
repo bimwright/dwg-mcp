@@ -11,19 +11,11 @@ namespace Bimwright.Dwg.Tests
         [Fact]
         public void CurrentBackedMcpToolsUseDwgPrefix()
         {
-            var names = new[]
-            {
-                typeof(QueryTools),
-                typeof(ModifyTools),
-                typeof(MetaTools),
-                typeof(BatchTools),
-                typeof(ToolBakerTools),
-                typeof(ToolBakerWriteTools),
-                typeof(CodeTools)
-            }
-            .SelectMany(GetMcpToolNames)
-            .OrderBy(n => n, StringComparer.Ordinal)
-            .ToArray();
+            var names = typeof(QueryTools).Assembly.GetTypes()
+                .Where(IsMcpToolType)
+                .SelectMany(GetMcpToolNames)
+                .OrderBy(n => n, StringComparer.Ordinal)
+                .ToArray();
 
             Assert.Equal(new[]
             {
@@ -35,24 +27,36 @@ namespace Bimwright.Dwg.Tests
                 "dwg_collapse_and_rewrite",
                 "dwg_copy_entities",
                 "dwg_count_entities",
+                "dwg_create_aligned_dimension",
                 "dwg_create_arc",
                 "dwg_create_bake_issue_draft",
                 "dwg_create_circle",
+                "dwg_create_diameter_dimension",
                 "dwg_create_ellipse",
                 "dwg_create_layer",
+                "dwg_create_leader",
                 "dwg_create_line",
+                "dwg_create_linear_dimension",
+                "dwg_create_mtext",
                 "dwg_create_point",
                 "dwg_create_polyline",
+                "dwg_create_radial_dimension",
                 "dwg_create_rectangle",
+                "dwg_create_table",
+                "dwg_create_text",
                 "dwg_dismiss_bake_suggestion",
                 "dwg_erase_entities",
+                "dwg_explode_block",
+                "dwg_get_block_attributes",
                 "dwg_get_current_target",
                 "dwg_get_drawing_info",
                 "dwg_get_entity_properties",
                 "dwg_get_selected_texts",
+                "dwg_insert_block",
                 "dwg_list_available_targets",
                 "dwg_list_bake_suggestions",
                 "dwg_list_baked_tools",
+                "dwg_list_blocks",
                 "dwg_list_layers",
                 "dwg_move_entities",
                 "dwg_offset_entities",
@@ -63,6 +67,7 @@ namespace Bimwright.Dwg.Tests
                 "dwg_select_by_layer",
                 "dwg_select_by_type",
                 "dwg_send_code",
+                "dwg_set_block_attributes",
                 "dwg_switch_target",
                 "dwg_translate_and_rewrite",
                 "dwg_update_texts"
@@ -88,5 +93,8 @@ namespace Bimwright.Dwg.Tests
                 .Select(name => string.IsNullOrWhiteSpace(name) ? throw new InvalidOperationException("MCP tool must set an explicit Name.") : name)
                 .ToArray();
         }
+
+        private static bool IsMcpToolType(Type type)
+            => type.GetCustomAttributes().Any(a => a.GetType().Name == "McpServerToolTypeAttribute");
     }
 }
