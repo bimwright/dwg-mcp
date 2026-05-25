@@ -84,6 +84,28 @@ namespace Bimwright.Dwg.Tests
             Assert.Equal(new[] { "handles", "color_index" }, method.GetParameters().Select(p => p.Name).ToArray());
         }
 
+        [Fact]
+        public void BlockToolClassesSplitReadOnlyAndWriteSurfaces()
+        {
+            var assembly = typeof(QueryTools).Assembly;
+            var blockTools = GetToolType(assembly, "Bimwright.Dwg.Server.Tools.BlockTools");
+            var blockWriteTools = GetToolType(assembly, "Bimwright.Dwg.Server.Tools.BlockWriteTools");
+
+            Assert.True(IsMcpToolType(blockTools), $"{blockTools.FullName} must be an MCP tool type.");
+            Assert.True(IsMcpToolType(blockWriteTools), $"{blockWriteTools.FullName} must be an MCP tool type.");
+            Assert.Equal(new[]
+            {
+                "dwg_get_block_attributes",
+                "dwg_list_blocks"
+            }, GetSortedMcpToolNames(blockTools));
+            Assert.Equal(new[]
+            {
+                "dwg_explode_block",
+                "dwg_insert_block",
+                "dwg_set_block_attributes"
+            }, GetSortedMcpToolNames(blockWriteTools));
+        }
+
         private static string[] GetMcpToolNames(Type type)
         {
             return type.GetMethods(BindingFlags.Public | BindingFlags.Static)
@@ -92,6 +114,19 @@ namespace Bimwright.Dwg.Tests
                 .Select(attr => (string)attr.GetType().GetProperty("Name")?.GetValue(attr))
                 .Select(name => string.IsNullOrWhiteSpace(name) ? throw new InvalidOperationException("MCP tool must set an explicit Name.") : name)
                 .ToArray();
+        }
+
+        private static string[] GetSortedMcpToolNames(Type type)
+            => GetMcpToolNames(type)
+                .OrderBy(n => n, StringComparer.Ordinal)
+                .ToArray();
+
+        private static Type GetToolType(Assembly assembly, string fullName)
+        {
+            var type = assembly.GetType(fullName);
+
+            Assert.True(type != null, $"{fullName} is missing.");
+            return type;
         }
 
         private static bool IsMcpToolType(Type type)
