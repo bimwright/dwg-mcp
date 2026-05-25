@@ -108,6 +108,31 @@ namespace Bimwright.Dwg.Tests
         }
 
         [Fact]
+        public void AnnotationAndDimensionToolClassesExposeExactWriteSurfaces()
+        {
+            var assembly = typeof(QueryTools).Assembly;
+            var annotationTools = GetToolType(assembly, "Bimwright.Dwg.Server.Tools.AnnotationTools");
+            var dimensionTools = GetToolType(assembly, "Bimwright.Dwg.Server.Tools.DimensionTools");
+
+            Assert.True(IsMcpToolType(annotationTools), $"{annotationTools.FullName} must be an MCP tool type.");
+            Assert.True(IsMcpToolType(dimensionTools), $"{dimensionTools.FullName} must be an MCP tool type.");
+            Assert.Equal(new[]
+            {
+                "dwg_create_leader",
+                "dwg_create_mtext",
+                "dwg_create_table",
+                "dwg_create_text"
+            }, GetSortedMcpToolNames(annotationTools));
+            Assert.Equal(new[]
+            {
+                "dwg_create_aligned_dimension",
+                "dwg_create_diameter_dimension",
+                "dwg_create_linear_dimension",
+                "dwg_create_radial_dimension"
+            }, GetSortedMcpToolNames(dimensionTools));
+        }
+
+        [Fact]
         public void ResolveToolTypesForRegistration_EnforcesPlan3ExplicitAndReadOnlyToolsets()
         {
             var method = typeof(Bimwright.Dwg.Server.Program).GetMethod(
@@ -142,6 +167,20 @@ namespace Bimwright.Dwg.Tests
                 "MetaTools",
                 "QueryTools"
             }, defaultReadOnlyTypeNames);
+
+            var codeWriteTypeNames = InvokeToolTypeResolver(method, new[] { "code" }, readOnly: false);
+            var codeReadOnlyTypeNames = InvokeToolTypeResolver(method, new[] { "code" }, readOnly: true);
+            Assert.Equal(new[] { "CodeTools" }, codeWriteTypeNames);
+            Assert.Equal(Array.Empty<string>(), codeReadOnlyTypeNames);
+
+            var toolBakerWriteTypeNames = InvokeToolTypeResolver(method, new[] { "toolbaker" }, readOnly: false);
+            var toolBakerReadOnlyTypeNames = InvokeToolTypeResolver(method, new[] { "toolbaker" }, readOnly: true);
+            Assert.Equal(new[]
+            {
+                "ToolBakerTools",
+                "ToolBakerWriteTools"
+            }, toolBakerWriteTypeNames);
+            Assert.Equal(new[] { "ToolBakerTools" }, toolBakerReadOnlyTypeNames);
 
             var annotationWriteTypeNames = InvokeToolTypeResolver(method, new[] { "annotation" }, readOnly: false);
             var annotationReadOnlyTypeNames = InvokeToolTypeResolver(method, new[] { "annotation" }, readOnly: true);
