@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Reflection;
 using Bimwright.Dwg.Server;
+using Bimwright.Dwg.Server.Tools;
 using Xunit;
 
 namespace Bimwright.Dwg.Tests
@@ -56,7 +57,7 @@ namespace Bimwright.Dwg.Tests
         [Fact]
         public void SendCodeIsNotOnDefaultToolSurface()
         {
-            Assert.False(HasMcpToolAttribute(typeof(Tools).GetMethod("SendCode")));
+            Assert.DoesNotContain("code", ToolsetFilter.Resolve(new DwgMcpConfig()));
             Assert.True(HasMcpToolAttribute(typeof(CodeTools).GetMethod("SendCode")));
         }
 

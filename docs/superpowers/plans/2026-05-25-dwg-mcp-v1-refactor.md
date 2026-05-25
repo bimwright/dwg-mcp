@@ -90,19 +90,19 @@ Later create/modify:
 - Test: `tests/Bimwright.Dwg.Tests/ToolsetFilterTests.cs`
 - Test: `tests/Bimwright.Dwg.Tests/ToolsListSnapshotTests.cs`
 
-- [ ] **Step 1: Write config tests**
+- [x] **Step 1: Write config tests**
 
 Create `tests\Bimwright.Dwg.Tests\DwgMcpConfigTests.cs` with tests for JSON < env < CLI, boolean env parsing, CSV toolsets, `--config`, and nullable fields. Use temporary files under `Path.GetTempPath()`.
 
-- [ ] **Step 2: Write toolset tests**
+- [x] **Step 2: Write toolset tests**
 
-Create `tests\Bimwright.Dwg.Tests\ToolsetFilterTests.cs` proving defaults include `query`, `modify`, `meta`, `toolbaker`; `code` is off unless enabled; `--read-only` strips `modify`, `code`, `batch_execute`, `run_baked_tool`, `accept_bake_suggestion`, `dismiss_bake_suggestion`, and keeps routing/list tools.
+Create `tests\Bimwright.Dwg.Tests\ToolsetFilterTests.cs` proving the first safe wave defaults include only currently backed `query` and `modify`; `code` is off unless enabled; `meta` and `toolbaker` stay out of the default surface until their backing commands land; `--read-only` strips write-capable toolsets and keeps read/list tools.
 
-- [ ] **Step 3: Write wrapper snapshot test**
+- [x] **Step 3: Write wrapper snapshot test**
 
 Create `tests\Bimwright.Dwg.Tests\ToolsListSnapshotTests.cs` that reflects `[McpServerTool]` methods and asserts MCP-facing names include `dwg_` prefixes and no legacy unprefixed public names.
 
-- [ ] **Step 4: Verify RED**
+- [x] **Step 4: Verify RED**
 
 Run:
 
@@ -112,15 +112,15 @@ dotnet test tests\Bimwright.Dwg.Tests\Bimwright.Dwg.Tests.csproj -c Debug --filt
 
 Expected: fail because `DwgMcpConfig`, `ToolsetFilter`, and prefixed wrapper classes do not exist yet.
 
-- [ ] **Step 5: Implement config and toolset resolver**
+- [x] **Step 5: Implement config and toolset resolver**
 
 Implement `DwgMcpConfig`, `ServerState`, and `ToolsetFilter` in `src/server`. Keep parser hand-rolled and dependency-free. Env vars are `BIMWRIGHT_DWG_TARGET`, `BIMWRIGHT_DWG_TOOLSETS`, `BIMWRIGHT_DWG_READ_ONLY`, `BIMWRIGHT_DWG_ENABLE_SEND_CODE`, `BIMWRIGHT_DWG_ENABLE_TOOLBAKER`, `BIMWRIGHT_DWG_LOG_LEVEL`.
 
-- [ ] **Step 6: Split wrapper classes and configure ServerInstructions**
+- [x] **Step 6: Split wrapper classes and configure ServerInstructions**
 
 Move current wrapper methods from `Tools.cs` into `src/server/Tools/*.cs` with MCP names `dwg_*` and wire names unchanged. Keep `Tools.LoggedCall` or equivalent gateway shared. Add `ConfigureMcpServerOptions` with keyword-dense `ServerInstructions` under 2 KB.
 
-- [ ] **Step 7: Verify GREEN**
+- [x] **Step 7: Verify GREEN**
 
 Run:
 
@@ -131,7 +131,7 @@ dotnet build src\Bimwright.Dwg.sln -c Debug /m:1 /nr:false
 
 Expected: 93 existing tests plus new tests pass; solution builds with 0 errors.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```powershell
 git add src/server tests/Bimwright.Dwg.Tests
