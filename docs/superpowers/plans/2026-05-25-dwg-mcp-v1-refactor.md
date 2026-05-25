@@ -147,15 +147,15 @@ git commit -m "feat(server): add v1 config and prefixed toolsets"
 - Test: `tests/Bimwright.Dwg.Tests/DiscoveryFileTests.cs`
 - Test: `tests/Bimwright.Dwg.Tests/PluginClientTests.cs`
 
-- [ ] **Step 1: Write discovery tests**
+- [x] **Step 1: Write discovery tests**
 
 Cover parsing `%LOCALAPPDATA%\Bimwright\Dwg\acad-YYYY.json`, stale PID cleanup, invalid target rejection, priority `2027 > 2026 > 2025 > 2024 > 2023 > 2022`, and target pinning.
 
-- [ ] **Step 2: Write PluginClient tests**
+- [x] **Step 2: Write PluginClient tests**
 
 Extend fake TCP plugin tests to use JSON discovery with `auth_token`. Add pipe path parsing tests without requiring a real AutoCAD process.
 
-- [ ] **Step 3: Verify RED**
+- [x] **Step 3: Verify RED**
 
 Run:
 
@@ -165,15 +165,15 @@ dotnet test tests\Bimwright.Dwg.Tests\Bimwright.Dwg.Tests.csproj -c Debug --filt
 
 Expected: fail on missing JSON discovery support.
 
-- [ ] **Step 4: Implement discovery scanner and target routing**
+- [x] **Step 4: Implement discovery scanner and target routing**
 
 Add server-side discovery types, `ListAvailable`, `TryReadTcp`, `TryReadPipe`, `CleanupLegacyDiscoveryFiles`, `Target`, and clear educational errors for non-4-digit targets.
 
-- [ ] **Step 5: Implement PluginClient TCP/pipe envelope**
+- [x] **Step 5: Implement PluginClient TCP/pipe envelope**
 
 Keep per-request connection semantics for `dwg-mcp`; read discovery on every call; send `{ id, command, params, auth }`. Support TCP first in tests; add pipe implementation behind code path that can be unit-tested with a named pipe fake later.
 
-- [ ] **Step 6: Verify GREEN**
+- [x] **Step 6: Verify GREEN**
 
 Run:
 
@@ -182,7 +182,7 @@ dotnet test tests\Bimwright.Dwg.Tests\Bimwright.Dwg.Tests.csproj -c Debug
 dotnet build src\Bimwright.Dwg.sln -c Debug /m:1 /nr:false
 ```
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```powershell
 git add src/server tests/Bimwright.Dwg.Tests

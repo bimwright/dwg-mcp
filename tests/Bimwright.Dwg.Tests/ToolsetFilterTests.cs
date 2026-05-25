@@ -8,14 +8,14 @@ namespace Bimwright.Dwg.Tests
     public class ToolsetFilterTests
     {
         [Fact]
-        public void Resolve_DefaultsExposeOnlyBackedExistingToolsets()
+        public void Resolve_DefaultsExposeBackedExistingToolsets()
         {
             var set = ToolsetFilter.Resolve(new DwgMcpConfig());
 
             Assert.Contains("query", set);
             Assert.Contains("modify", set);
+            Assert.Contains("meta", set);
             Assert.DoesNotContain("code", set);
-            Assert.DoesNotContain("meta", set);
             Assert.DoesNotContain("toolbaker", set);
         }
 
@@ -24,12 +24,12 @@ namespace Bimwright.Dwg.Tests
         {
             var set = ToolsetFilter.Resolve(new DwgMcpConfig
             {
-                Toolsets = new List<string> { "query", "modify", "code" },
+                Toolsets = new List<string> { "query", "modify", "code", "meta" },
                 ReadOnly = true,
                 EnableSendCode = true
             });
 
-            Assert.Equal(new[] { "query" }, set.OrderBy(s => s).ToArray());
+            Assert.Equal(new[] { "meta", "query" }, set.OrderBy(s => s).ToArray());
         }
 
         [Fact]
@@ -55,6 +55,7 @@ namespace Bimwright.Dwg.Tests
 
             Assert.Contains("query", set);
             Assert.Contains("modify", set);
+            Assert.Contains("meta", set);
             Assert.Contains("code", set);
         }
 

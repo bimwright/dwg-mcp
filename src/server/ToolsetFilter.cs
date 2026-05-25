@@ -6,10 +6,10 @@ namespace Bimwright.Dwg.Server
     public static class ToolsetFilter
     {
         public static readonly string[] KnownToolsets = { "query", "modify", "code", "meta", "toolbaker" };
-        public static readonly string[] DefaultOn = { "query", "modify" };
+        public static readonly string[] DefaultOn = { "query", "modify", "meta" };
 
         private static readonly HashSet<string> WriteCapable = new HashSet<string>(
-            new[] { "modify", "code", "meta", "toolbaker" },
+            new[] { "modify", "code", "toolbaker" },
             StringComparer.OrdinalIgnoreCase);
 
         public static HashSet<string> Resolve(DwgMcpConfig config)

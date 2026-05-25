@@ -14,6 +14,7 @@ namespace Bimwright.Dwg.Server
         public static async Task Main(string[] args)
         {
             var config = DwgMcpConfig.Load(args);
+            ValidateTarget(config.Target);
             ServerState.Config = config;
             var enabled = ToolsetFilter.Resolve(config);
 
@@ -48,7 +49,7 @@ namespace Bimwright.Dwg.Server
         private const string ServerInstructionsText =
 @"dwg-mcp - MCP gateway for Autodesk AutoCAD DWG drawings. Use for selected AutoCAD text, DBText, MText, SHX/Unicode style repair, Vietnamese translation writeback, clustered note cleanup, and DWG text rewriting.
 
-Current routing uses the loaded AutoCAD plugin discovery file. Multi-version --target routing is prepared in config and lands with discovery v2.
+AutoCAD routing: versions are 4-digit years 2022..2027. If multiple AutoCAD instances run, use dwg_list_available_targets then dwg_switch_target, or start the server with --target 2022|2023|2024|2025|2026|2027.
 
 Tools use prefix dwg_:
 - query: dwg_get_selected_texts reads current AutoCAD pickfirst text selection and returns clustered text groups.
@@ -61,8 +62,19 @@ Call dwg_get_selected_texts before writeback. In read-only mode only query/routi
         {
             if (enabled.Contains("query")) mcp = mcp.WithTools<QueryTools>();
             if (enabled.Contains("modify")) mcp = mcp.WithTools<ModifyTools>();
+            if (enabled.Contains("meta")) mcp = mcp.WithTools<MetaTools>();
             if (enabled.Contains("code")) mcp = mcp.WithTools<CodeTools>();
             return mcp;
+        }
+
+        private static void ValidateTarget(string target)
+        {
+            if (string.IsNullOrWhiteSpace(target))
+            {
+                return;
+            }
+
+            AuthToken.NormalizeTarget(target);
         }
     }
 }

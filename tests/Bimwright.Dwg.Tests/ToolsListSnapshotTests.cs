@@ -15,6 +15,7 @@ namespace Bimwright.Dwg.Tests
             {
                 typeof(QueryTools),
                 typeof(ModifyTools),
+                typeof(MetaTools),
                 typeof(CodeTools)
             }
             .SelectMany(GetMcpToolNames)
@@ -25,8 +26,11 @@ namespace Bimwright.Dwg.Tests
             {
                 "dwg_apply_unicode_style",
                 "dwg_collapse_and_rewrite",
+                "dwg_get_current_target",
                 "dwg_get_selected_texts",
+                "dwg_list_available_targets",
                 "dwg_send_code",
+                "dwg_switch_target",
                 "dwg_translate_and_rewrite",
                 "dwg_update_texts"
             }, names);
