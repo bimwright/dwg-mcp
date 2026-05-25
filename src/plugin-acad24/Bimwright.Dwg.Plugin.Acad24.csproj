@@ -4,6 +4,8 @@
     <RootNamespace>Bimwright.Dwg.Plugin</RootNamespace>
     <AssemblyName>Bimwright.Dwg.Plugin.Acad24</AssemblyName>
     <LangVersion>latest</LangVersion>
+    <AutoCadVersionYear>2024</AutoCadVersionYear>
+    <DefineConstants>$(DefineConstants);ACAD2024</DefineConstants>
     <AutoCad2024Dir Condition="'$(AutoCad2024Dir)' == ''">C:\Program Files\Autodesk\AutoCAD 2024</AutoCad2024Dir>
   </PropertyGroup>
 

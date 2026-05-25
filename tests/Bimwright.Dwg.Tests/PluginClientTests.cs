@@ -2,6 +2,9 @@ using System.Threading.Tasks;
 using Bimwright.Dwg.Server;
 using Newtonsoft.Json;
 using Xunit;
+using System;
+using System.Diagnostics;
+using System.IO;
 
 namespace Bimwright.Dwg.Tests
 {
@@ -22,6 +25,25 @@ namespace Bimwright.Dwg.Tests
 
             Assert.True(response.Ok);
             Assert.Equal("建筑平面图", (string)response.Result);
+        }
+
+        [Fact]
+        public async Task Sends_request_using_json_discovery_auth_token()
+        {
+            using var temp = new TempDiscoveryRoot();
+            using var fake = new FakePluginServer(line =>
+            {
+                var req = JsonConvert.DeserializeObject<McpRequest>(line);
+                Assert.Equal("json-token", req.Auth);
+                return JsonConvert.SerializeObject(new McpResponse { Id = req.Id, Ok = true, Result = "ok" });
+            });
+            temp.WriteJson("2024", fake.Port, "json-token");
+
+            var client = new PluginClient(() => AuthToken.Resolve("2024", temp.Root));
+            var response = await client.SendAsync("ping", new { });
+
+            Assert.True(response.Ok);
+            Assert.Equal("ok", (string)response.Result);
         }
 
         [Fact]
@@ -49,6 +71,39 @@ namespace Bimwright.Dwg.Tests
 
             Assert.False(response.Ok);
             Assert.Contains("plugin", response.Error, System.StringComparison.OrdinalIgnoreCase);
+        }
+
+        private sealed class TempDiscoveryRoot : IDisposable
+        {
+            public string Root { get; } = Path.Combine(Path.GetTempPath(), "dwg-plugin-client-" + Guid.NewGuid().ToString("N"));
+
+            public TempDiscoveryRoot()
+            {
+                Directory.CreateDirectory(Path.Combine(Root, "Dwg"));
+            }
+
+            public void WriteJson(string target, int port, string token)
+            {
+                var info = new DiscoveryInfo
+                {
+                    SchemaVersion = 2,
+                    Target = target,
+                    Version = target,
+                    Transport = "tcp",
+                    Host = "127.0.0.1",
+                    Port = port,
+                    Token = token,
+                    Pid = Process.GetCurrentProcess().Id
+                };
+                File.WriteAllText(
+                    Path.Combine(Root, "Dwg", "acad-" + target + ".json"),
+                    JsonConvert.SerializeObject(info));
+            }
+
+            public void Dispose()
+            {
+                try { Directory.Delete(Root, recursive: true); } catch { }
+            }
         }
     }
 }

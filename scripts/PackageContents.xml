@@ -1,14 +1,34 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ApplicationPackage
   SchemaVersion="1.0"
-  AppVersion="0.1.0"
+  AppVersion="1.0.0-dev"
   AutodeskProduct="AutoCAD"
   Name="Bimwright.Dwg"
   Description="MCP gateway plugin for AI-assisted text translation in AutoCAD"
   ProductCode="{8A3F7B2D-1C4E-4D5F-9A6B-7E8C9D0F1A2B}">
   <CompanyDetails Name="Bimwright" />
-  <RuntimeRequirements OS="Win64" Platform="AutoCAD" SeriesMin="R24.3" SeriesMax="R24.3" />
   <Components>
-    <ComponentEntry AppName="Bimwright.Dwg.Plugin.Acad24" ModuleName="./Contents/Bimwright.Dwg.Plugin.Acad24.dll" />
+    <RuntimeRequirements OS="Win64" Platform="AutoCAD" SeriesMin="R24.1" SeriesMax="R24.1" />
+    <ComponentEntry AppName="Bimwright.Dwg.Plugin.Acad22" ModuleName="./Contents/2022/Bimwright.Dwg.Plugin.Acad22.dll" />
+  </Components>
+  <Components>
+    <RuntimeRequirements OS="Win64" Platform="AutoCAD" SeriesMin="R24.2" SeriesMax="R24.2" />
+    <ComponentEntry AppName="Bimwright.Dwg.Plugin.Acad23" ModuleName="./Contents/2023/Bimwright.Dwg.Plugin.Acad23.dll" />
+  </Components>
+  <Components>
+    <RuntimeRequirements OS="Win64" Platform="AutoCAD" SeriesMin="R24.3" SeriesMax="R24.3" />
+    <ComponentEntry AppName="Bimwright.Dwg.Plugin.Acad24" ModuleName="./Contents/2024/Bimwright.Dwg.Plugin.Acad24.dll" />
+  </Components>
+  <Components>
+    <RuntimeRequirements OS="Win64" Platform="AutoCAD" SeriesMin="R25.0" SeriesMax="R25.0" />
+    <ComponentEntry AppName="Bimwright.Dwg.Plugin.Acad25" ModuleName="./Contents/2025/Bimwright.Dwg.Plugin.Acad25.dll" />
+  </Components>
+  <Components>
+    <RuntimeRequirements OS="Win64" Platform="AutoCAD" SeriesMin="R25.1" SeriesMax="R25.1" />
+    <ComponentEntry AppName="Bimwright.Dwg.Plugin.Acad26" ModuleName="./Contents/2026/Bimwright.Dwg.Plugin.Acad26.dll" />
+  </Components>
+  <Components>
+    <RuntimeRequirements OS="Win64" Platform="AutoCAD" SeriesMin="R26.0" SeriesMax="R26.0" />
+    <ComponentEntry AppName="Bimwright.Dwg.Plugin.Acad27" ModuleName="./Contents/2027/Bimwright.Dwg.Plugin.Acad27.dll" />
   </Components>
 </ApplicationPackage>

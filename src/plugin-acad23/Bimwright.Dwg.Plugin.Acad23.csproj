@@ -1,0 +1,48 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <RootNamespace>Bimwright.Dwg.Plugin</RootNamespace>
+    <AssemblyName>Bimwright.Dwg.Plugin.Acad23</AssemblyName>
+    <LangVersion>latest</LangVersion>
+    <AutoCadVersionYear>2023</AutoCadVersionYear>
+    <DefineConstants>$(DefineConstants);ACAD2023</DefineConstants>
+    <AutoCad2023Dir Condition="'$(AutoCad2023Dir)' == ''">C:\Program Files\Autodesk\AutoCAD 2023</AutoCad2023Dir>
+  </PropertyGroup>
+
+  <Target Name="ValidateAutoCadReferences" BeforeTargets="ResolveReferences">
+    <Error Condition="!Exists('$(AutoCad2023Dir)\accoremgd.dll') or !Exists('$(AutoCad2023Dir)\acdbmgd.dll') or !Exists('$(AutoCad2023Dir)\acmgd.dll')"
+           Text="AutoCAD 2023 managed assemblies were not found under '$(AutoCad2023Dir)'. Install AutoCAD 2023 or build with /p:AutoCad2023Dir=&quot;C:\Path\To\AutoCAD 2023&quot;." />
+  </Target>
+
+  <ItemGroup>
+    <Compile Include="..\plugin-acad24\App.cs" Link="App.cs" />
+    <Compile Include="..\shared\**\*.cs" LinkBase="Shared" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="accoremgd">
+      <HintPath>$(AutoCad2023Dir)\accoremgd.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="acdbmgd">
+      <HintPath>$(AutoCad2023Dir)\acdbmgd.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="acmgd">
+      <HintPath>$(AutoCad2023Dir)\acmgd.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="4.8.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="..\shared\assets\fonts\OpenSans-CondensedLight.ttf">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <TargetPath>Fonts\OpenSans-CondensedLight.ttf</TargetPath>
+    </Content>
+  </ItemGroup>
+</Project>

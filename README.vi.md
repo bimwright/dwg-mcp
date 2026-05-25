@@ -9,8 +9,8 @@
 <p align="center">
   <a href="https://github.com/bimwright/dwg-mcp/actions/workflows/build.yml"><img src="https://github.com/bimwright/dwg-mcp/actions/workflows/build.yml/badge.svg" alt="build" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="license" /></a>
-  <a href="#phien-ban-autocad-ho-tro"><img src="https://img.shields.io/badge/AutoCAD-2024-186BFF" alt="AutoCAD 2024" /></a>
-  <a href="#cong-cu"><img src="https://img.shields.io/badge/MCP-5%20default%20%2B%201%20opt--in-6C47FF" alt="MCP tools" /></a>
+  <a href="#phien-ban-autocad-ho-tro"><img src="https://img.shields.io/badge/AutoCAD-2022--2027-186BFF" alt="AutoCAD 2022-2027" /></a>
+  <a href="#cong-cu"><img src="https://img.shields.io/badge/MCP-8%20default%20%2B%20optional-6C47FF" alt="MCP tools" /></a>
 </p>
 
 <p align="center">
@@ -31,12 +31,12 @@ Quy trình thông thường rất đau đầu: chọn text từng entity, copy s
 
 ## dwg-mcp là gì
 
-`dwg-mcp` là cổng MCP cục bộ cho Autodesk AutoCAD 2024.
+`dwg-mcp` la cong MCP cuc bo cho Autodesk AutoCAD 2022-2027.
 
 Gồm hai phần:
 
 - **Bimwright.Dwg.Server**: MCP server .NET 8, được Claude Code, Cursor, OpenCode hoặc MCP client khác khởi chạy.
-- **Bimwright.Dwg.Plugin**: Add-in AutoCAD chạy bên trong AutoCAD, thực thi lệnh trực tiếp lên database bản vẽ.
+- **Bimwright.Dwg.Plugin**: cac shell add-in theo tung phien ban AutoCAD, thuc thi lenh truc tiep len database ban ve.
 
 Agent nói MCP. Server nói TCP với plugin. Plugin nói AutoCAD .NET API.
 
@@ -93,14 +93,14 @@ AI agent cho phép mô tả "dịch tất cả text đã chọn sang tiếng Vi�
               v
 +---------------------------+
 | Bimwright.Dwg.Plugin      |
-| .NET 4.8 / AutoCAD 2024  |
+| AutoCAD 2022-2027 shells |
 +---------------------------+
               |
               | LockDocument()
               v
 +---------------------------+
 | AutoCAD .NET API          |
-| ObjectARX 2024            |
+| ObjectARX 2022-2027       |
 +---------------------------+
 ```
 
@@ -120,9 +120,9 @@ bimwright-dwg --help
 **Auto-deploy:**
 
 ```powershell
-pwsh scripts/install.ps1 -WhatIf    # xem truoc
-pwsh scripts/install.ps1             # cai dat
-pwsh scripts/install.ps1 -Uninstall  # go bo
+pwsh scripts/install.ps1 -Version 2024 -WhatIf    # xem truoc
+pwsh scripts/install.ps1 -Version 2024            # cai dat
+pwsh scripts/install.ps1 -Uninstall               # go bo
 ```
 
 **Thu cong:** Trong AutoCAD: `NETLOAD` -> chon DLL.
@@ -140,7 +140,7 @@ pwsh scripts/install.ps1 -Uninstall  # go bo
 }
 ```
 
-`send_code` bị ẩn khỏi danh sách tool mặc định. Muốn bật, phải opt-in ở cả server và AutoCAD:
+`dwg_send_code` bi an khoi danh sach tool mac dinh. Muon bat, phai opt-in o ca server va AutoCAD:
 
 ```json
 {
@@ -155,18 +155,61 @@ pwsh scripts/install.ps1 -Uninstall  # go bo
 
 Sau đó chạy `MCPENABLECODE` trong AutoCAD cho session plugin hiện tại. `MCPDISABLECODE` tắt lại quyền này.
 
+De pin mot AutoCAD cu the, dung nam 4 chu so:
+
+```json
+{
+  "mcpServers": {
+    "bimwright-dwg": {
+      "command": "bimwright-dwg",
+      "args": ["--target", "2024"]
+    }
+  }
+}
+```
+
+Dung `--read-only` de chi mo tool doc/routing, cong them ToolBaker read tools neu toolset nay duoc bat. Dung `--toolsets query,modify,meta,toolbaker` hoac `--toolsets all` de bat ToolBaker.
+
 ---
 
 ## Cong cu
 
 | Tool | Muc dich |
 |------|----------|
-| `get_selected_texts` | Doc text dang chon, cluster khong gian, tra ve nhom text |
-| `translate_and_rewrite` | **Uu tien.** Ghi text da dich — tu dong xu ly anchor, xoa, MText, font, chieu cao |
-| `collapse_and_rewrite` | Rewrite low-level voi kiem soat hinh hoc chi tiet |
-| `update_texts` | Ghi text theo handle (legacy) |
-| `apply_unicode_style` | Dam bao style `Bimwright_Unicode` ton tai va ap dung |
-| `send_code` | **Chi opt-in.** Chay C# tren AutoCAD .NET API sau khi bat flag/env server va dong y phia AutoCAD bang `MCPENABLECODE` |
+| `dwg_get_selected_texts` | Doc text dang chon, cluster khong gian, tra ve nhom text |
+| `dwg_update_texts` | Ghi text theo handle trong mot transaction |
+| `dwg_translate_and_rewrite` | **Uu tien.** Ghi text da dich, tu dong xu ly anchor, xoa, MText, font, chieu cao |
+| `dwg_apply_unicode_style` | Dam bao style `Bimwright_Unicode` ton tai va ap dung |
+| `dwg_collapse_and_rewrite` | Rewrite low-level voi kiem soat hinh hoc chi tiet |
+| `dwg_list_available_targets` | Liet ke AutoCAD dang chay tu discovery v2 va legacy 2024 |
+| `dwg_get_current_target` | Xem target dang pin |
+| `dwg_switch_target` | Pin server sang AutoCAD `2022` den `2027` |
+| `dwg_batch_execute` | Chay nhieu wire command noi bo nhu mot logical batch |
+| `dwg_send_code` | **Chi opt-in.** Chay C# sau khi bat flag/env server va dong y phia AutoCAD bang `MCPENABLECODE` |
+
+ToolBaker la toolset tuy chon:
+
+| Tool | Muc dich |
+|------|----------|
+| `dwg_list_baked_tools` | Liet ke baked tool da accept trong SQLite registry cua server |
+| `dwg_run_baked_tool` | Chay baked tool da accept |
+| `dwg_list_bake_suggestions` | Liet ke goi y workflow lap lai |
+| `dwg_accept_bake_suggestion` | Validate, smoke-test, va accept goi y |
+| `dwg_dismiss_bake_suggestion` | Dismiss hoac suppress goi y |
+| `dwg_create_bake_issue_draft` | Tao GitHub issue draft cho goi y ma khong submit |
+
+### Migration tu ten tool 0.1.x
+
+Ten MCP tool nay co prefix `dwg_`. Ten command raw trong plugin chi con la wire command noi bo.
+
+| Ten MCP 0.1.x | Ten MCP 1.0 |
+|---------------|-------------|
+| `get_selected_texts` | `dwg_get_selected_texts` |
+| `update_texts` | `dwg_update_texts` |
+| `translate_and_rewrite` | `dwg_translate_and_rewrite` |
+| `apply_unicode_style` | `dwg_apply_unicode_style` |
+| `collapse_and_rewrite` | `dwg_collapse_and_rewrite` |
+| `send_code` | `dwg_send_code` |
 
 ---
 
@@ -174,9 +217,9 @@ Sau đó chạy `MCPENABLECODE` trong AutoCAD cho session plugin hiện tại. `
 
 ```
 1. Nguoi dung chon text trong AutoCAD
-2. Agent goi get_selected_texts -> nhan nhom text da cluster
+2. Agent goi dwg_get_selected_texts -> nhan nhom text da cluster
 3. Agent dich tung cluster
-4. Agent goi translate_and_rewrite([{id, new_text}, ...])
+4. Agent goi dwg_translate_and_rewrite([{id, new_text}, ...])
    Tool tu xu ly: anchor, xoa, MText, font, chieu cao. Xong.
 ```
 
@@ -184,17 +227,22 @@ Sau đó chạy `MCPENABLECODE` trong AutoCAD cho session plugin hiện tại. `
 
 ## Phien ban AutoCAD ho tro
 
-| Phien ban | Trang thai | .NET |
-|-----------|-----------|------|
-| AutoCAD 2024 | Ho tro | .NET 4.8 |
-| AutoCAD 2025 | Du kien | .NET 8 |
-| AutoCAD 2026 | Du kien | .NET 8 |
+| Phien ban | ObjectARX release | Plugin TFM | Trang thai |
+|-----------|-------------------|------------|-----------|
+| AutoCAD 2022 | 24.1 | `net48` | Da scaffold shell; release build can Autodesk refs tuong ung |
+| AutoCAD 2023 | 24.2 | `net48` | Da scaffold shell; release build can Autodesk refs tuong ung |
+| AutoCAD 2024 | 24.3 | `net48` | Shell mac dinh va normal solution build |
+| AutoCAD 2025 | 25.0 | `net8.0-windows` | Da scaffold shell; release build can Autodesk refs tuong ung |
+| AutoCAD 2026 | 25.1 | `net8.0-windows` | Da scaffold shell; binary-compatible voi 2025 nhung build thanh shell rieng |
+| AutoCAD 2027 | 26.0 | `net10.0-windows` | Da scaffold shell; khong binary-compatible voi 2025/2026 |
+
+Server va tests co the pass khi chua build release tat ca shell. Muon ship mot nam AutoCAD thi phai build shell do tren may da co managed assemblies Autodesk tuong ung.
 
 ---
 
 ## Bao mat
 
-`send_code` chay C# tuy y voi toan quyen truy cap process AutoCAD va filesystem. Tool nay khong nam trong danh sach MCP mac dinh. Muon dung, khoi dong server voi `--enable-send-code` hoac `BIMWRIGHT_DWG_ENABLE_SEND_CODE=1`, roi chay `MCPENABLECODE` trong AutoCAD cho session plugin hien tai.
+`dwg_send_code` chay C# tuy y voi toan quyen truy cap process AutoCAD va filesystem. Tool nay khong nam trong danh sach MCP mac dinh. Muon dung, khoi dong server voi `--enable-send-code` hoac `BIMWRIGHT_DWG_ENABLE_SEND_CODE=1`, roi chay `MCPENABLECODE` trong AutoCAD cho session plugin hien tai.
 
 Bao mat dua tren:
 

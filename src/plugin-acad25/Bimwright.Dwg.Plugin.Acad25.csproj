@@ -1,0 +1,49 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <RootNamespace>Bimwright.Dwg.Plugin</RootNamespace>
+    <AssemblyName>Bimwright.Dwg.Plugin.Acad25</AssemblyName>
+    <LangVersion>latest</LangVersion>
+    <AutoCadVersionYear>2025</AutoCadVersionYear>
+    <DefineConstants>$(DefineConstants);ACAD2025;ACAD2025_OR_GREATER</DefineConstants>
+    <AutoCad2025Dir Condition="'$(AutoCad2025Dir)' == ''">C:\Program Files\Autodesk\AutoCAD 2025</AutoCad2025Dir>
+  </PropertyGroup>
+
+  <Target Name="ValidateAutoCadReferences" BeforeTargets="ResolveReferences">
+    <Error Condition="!Exists('$(AutoCad2025Dir)\accoremgd.dll') or !Exists('$(AutoCad2025Dir)\acdbmgd.dll') or !Exists('$(AutoCad2025Dir)\acmgd.dll')"
+           Text="AutoCAD 2025 managed assemblies were not found under '$(AutoCad2025Dir)'. Install AutoCAD 2025 or build with /p:AutoCad2025Dir=&quot;C:\Path\To\AutoCAD 2025&quot;." />
+  </Target>
+
+  <ItemGroup>
+    <Compile Include="..\plugin-acad24\App.cs" Link="App.cs" />
+    <Compile Include="..\shared\**\*.cs" LinkBase="Shared" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="accoremgd">
+      <HintPath>$(AutoCad2025Dir)\accoremgd.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="acdbmgd">
+      <HintPath>$(AutoCad2025Dir)\acdbmgd.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="acmgd">
+      <HintPath>$(AutoCad2025Dir)\acmgd.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="4.8.0" />
+    <FrameworkReference Include="Microsoft.WindowsDesktop.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="..\shared\assets\fonts\OpenSans-CondensedLight.ttf">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <TargetPath>Fonts\OpenSans-CondensedLight.ttf</TargetPath>
+    </Content>
+  </ItemGroup>
+</Project>

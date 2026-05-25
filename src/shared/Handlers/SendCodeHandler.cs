@@ -18,6 +18,8 @@ namespace Bimwright.Dwg.Plugin.Handlers
         private const int AbortGraceMilliseconds = 5000;
 
         public string Name => "send_code";
+        public string Description => "Execute opt-in C# code against the AutoCAD API.";
+        public CommandSchema Schema => CommandSchemas.SendCode;
 
         public class Globals
         {

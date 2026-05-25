@@ -9,8 +9,8 @@
 <p align="center">
   <a href="https://github.com/bimwright/dwg-mcp/actions/workflows/build.yml"><img src="https://github.com/bimwright/dwg-mcp/actions/workflows/build.yml/badge.svg" alt="build" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="license" /></a>
-  <a href="#supported-autocad-versions"><img src="https://img.shields.io/badge/AutoCAD-2024-186BFF" alt="AutoCAD 2024" /></a>
-  <a href="#tools"><img src="https://img.shields.io/badge/MCP-5%20default%20%2B%201%20opt--in-6C47FF" alt="MCP tools" /></a>
+  <a href="#supported-autocad-versions"><img src="https://img.shields.io/badge/AutoCAD-2022--2027-186BFF" alt="AutoCAD 2022-2027" /></a>
+  <a href="#tools"><img src="https://img.shields.io/badge/MCP-8%20default%20%2B%20optional-6C47FF" alt="MCP tools" /></a>
 </p>
 
 <p align="center">
@@ -31,12 +31,12 @@ The usual workflow is painful: select text one entity at a time, copy to a trans
 
 ## What dwg-mcp Is
 
-`dwg-mcp` is a local MCP gateway for Autodesk AutoCAD 2024.
+`dwg-mcp` is a local MCP gateway for Autodesk AutoCAD 2022-2027 DWG workflows.
 
 It has two parts:
 
 - **Bimwright.Dwg.Server**: a .NET 8 MCP server launched by Claude Code, Cursor, OpenCode, or another stdio MCP client.
-- **Bimwright.Dwg.Plugin**: an AutoCAD add-in loaded inside AutoCAD, executing commands against the drawing database.
+- **Bimwright.Dwg.Plugin**: version-specific AutoCAD add-in shells loaded inside AutoCAD, executing commands against the drawing database.
 
 The agent talks MCP. The server talks to the plugin over localhost TCP. The plugin talks to the AutoCAD .NET API.
 
@@ -93,14 +93,14 @@ AI agents make it possible to describe "translate all selected text to Vietnames
               v
 +---------------------------+
 | Bimwright.Dwg.Plugin      |
-| .NET 4.8 / AutoCAD 2024  |
+| AutoCAD 2022-2027 shells |
 +---------------------------+
               |
               | LockDocument()
               v
 +---------------------------+
 | AutoCAD .NET API          |
-| ObjectARX 2024            |
+| ObjectARX 2022-2027       |
 +---------------------------+
 ```
 
@@ -126,9 +126,9 @@ Requires .NET 8 SDK.
 Download the plugin from [GitHub Releases](https://github.com/bimwright/dwg-mcp/releases/latest):
 
 ```powershell
-pwsh scripts/install.ps1 -WhatIf    # preview
-pwsh scripts/install.ps1             # install
-pwsh scripts/install.ps1 -Uninstall  # remove
+pwsh scripts/install.ps1 -Version 2024 -WhatIf    # preview
+pwsh scripts/install.ps1 -Version 2024            # install
+pwsh scripts/install.ps1 -Uninstall               # remove
 ```
 
 The script deploys to `%APPDATA%\Autodesk\ApplicationPlugins\Bimwright.Dwg.bundle\`. Restart AutoCAD to load.
@@ -152,7 +152,22 @@ Add to your MCP client config (e.g., `.mcp.json`):
 }
 ```
 
-`send_code` is hidden from the default tool list. To expose it, opt in on both sides:
+Pin a specific AutoCAD instance with a 4-digit target year:
+
+```json
+{
+  "mcpServers": {
+    "bimwright-dwg": {
+      "command": "bimwright-dwg",
+      "args": ["--target", "2024"]
+    }
+  }
+}
+```
+
+Use `--read-only` to expose only query/routing tools plus ToolBaker read tools if that toolset is enabled. Use `--toolsets query,modify,meta,toolbaker` or `--toolsets all` to opt into optional ToolBaker tools.
+
+`dwg_send_code` is hidden from the default tool list. To expose it, opt in on both sides:
 
 ```json
 {
@@ -173,12 +188,40 @@ Then run `MCPENABLECODE` inside AutoCAD for the current plugin session. `MCPDISA
 
 | Tool | Purpose |
 |------|---------|
-| `get_selected_texts` | Read pickfirst selection, spatially cluster text entities, return grouped text with rewrite mode hints |
-| `translate_and_rewrite` | **Preferred.** Write translated text back — auto-handles anchor, deletion, MText, font, height |
-| `collapse_and_rewrite` | Low-level rewrite primitive with explicit geometric control |
-| `update_texts` | Write new text by handle (legacy, single transaction) |
-| `apply_unicode_style` | Ensure `Bimwright_Unicode` style exists and apply to targets |
-| `send_code` | **Opt-in only.** Execute C# against AutoCAD .NET API after server flag/env enablement and AutoCAD-side `MCPENABLECODE` consent |
+| `dwg_get_selected_texts` | Read pickfirst selection, spatially cluster text entities, return grouped text with rewrite mode hints |
+| `dwg_update_texts` | Write new text by handle in one transaction |
+| `dwg_translate_and_rewrite` | **Preferred.** Write translated text back: anchor, delete, MText, font, height |
+| `dwg_apply_unicode_style` | Ensure `Bimwright_Unicode` style exists and apply to targets |
+| `dwg_collapse_and_rewrite` | Low-level rewrite primitive with explicit geometric control |
+| `dwg_list_available_targets` | List running AutoCAD targets discovered from v2 JSON and legacy 2024 discovery files |
+| `dwg_get_current_target` | Show the pinned target year, if any |
+| `dwg_switch_target` | Pin this server process to AutoCAD `2022` through `2027` |
+| `dwg_batch_execute` | Run multiple internal wire commands as a logical batch |
+| `dwg_send_code` | **Opt-in only.** Execute C# after server flag/env enablement and AutoCAD-side `MCPENABLECODE` consent |
+
+Optional ToolBaker tools are exposed when the `toolbaker` toolset is enabled:
+
+| Tool | Purpose |
+|------|---------|
+| `dwg_list_baked_tools` | List accepted baked tools from the server-owned SQLite registry |
+| `dwg_run_baked_tool` | Run an accepted baked tool by name |
+| `dwg_list_bake_suggestions` | List detected repeated-workflow suggestions |
+| `dwg_accept_bake_suggestion` | Validate, smoke-test, and accept a suggestion |
+| `dwg_dismiss_bake_suggestion` | Dismiss or suppress a suggestion |
+| `dwg_create_bake_issue_draft` | Generate a GitHub issue draft for a suggestion without submitting it |
+
+### Migration from 0.1.x tool names
+
+MCP tool names now use the `dwg_` prefix. Raw plugin command names remain internal wire commands.
+
+| 0.1.x MCP name | 1.0 MCP name |
+|----------------|--------------|
+| `get_selected_texts` | `dwg_get_selected_texts` |
+| `update_texts` | `dwg_update_texts` |
+| `translate_and_rewrite` | `dwg_translate_and_rewrite` |
+| `apply_unicode_style` | `dwg_apply_unicode_style` |
+| `collapse_and_rewrite` | `dwg_collapse_and_rewrite` |
+| `send_code` | `dwg_send_code` |
 
 ---
 
@@ -186,9 +229,9 @@ Then run `MCPENABLECODE` inside AutoCAD for the current plugin session. `MCPDISA
 
 ```
 1. User selects text entities in AutoCAD
-2. Agent calls get_selected_texts → receives clustered text groups
+2. Agent calls dwg_get_selected_texts -> receives clustered text groups
 3. Agent translates each cluster
-4. Agent calls translate_and_rewrite([{id, new_text}, ...])
+4. Agent calls dwg_translate_and_rewrite([{id, new_text}, ...])
    Tool handles: anchor, delete, MText, font style, height. Done.
 5. User runs REGEN if needed
 ```
@@ -199,17 +242,22 @@ Two steps from the agent's perspective: read, then write.
 
 ## Supported AutoCAD Versions
 
-| Version | Status | .NET |
-|---------|--------|------|
-| AutoCAD 2024 | Supported | .NET 4.8 |
-| AutoCAD 2025 | Planned | .NET 8 |
-| AutoCAD 2026 | Planned | .NET 8 |
+| Version | ObjectARX release | Plugin TFM | Status |
+|---------|-------------------|------------|--------|
+| AutoCAD 2022 | 24.1 | `net48` | Shell scaffolded; release build requires local Autodesk refs |
+| AutoCAD 2023 | 24.2 | `net48` | Shell scaffolded; release build requires local Autodesk refs |
+| AutoCAD 2024 | 24.3 | `net48` | Default supported shell and normal solution build |
+| AutoCAD 2025 | 25.0 | `net8.0-windows` | Shell scaffolded; release build requires local Autodesk refs |
+| AutoCAD 2026 | 25.1 | `net8.0-windows` | Shell scaffolded; binary-compatible with 2025 but built as its own shell |
+| AutoCAD 2027 | 26.0 | `net10.0-windows` | Shell scaffolded; not binary-compatible with 2025/2026 |
+
+The server and tests can pass without every AutoCAD shell being release-built. Shipping an AutoCAD year requires building that shell on a prepared machine with the matching Autodesk managed assemblies.
 
 ---
 
 ## Security
 
-`send_code` executes arbitrary C# with full access to the AutoCAD process and local filesystem. It is not registered in the default MCP tool surface. To use it, start the server with `--enable-send-code` or `BIMWRIGHT_DWG_ENABLE_SEND_CODE=1`, then run `MCPENABLECODE` inside AutoCAD for that plugin session.
+`dwg_send_code` executes arbitrary C# with full access to the AutoCAD process and local filesystem. It is not registered in the default MCP tool surface. To use it, start the server with `--enable-send-code` or `BIMWRIGHT_DWG_ENABLE_SEND_CODE=1`, then run `MCPENABLECODE` inside AutoCAD for that plugin session.
 
 The security model relies on:
 
@@ -231,8 +279,13 @@ dwg-mcp/
 │   ├── Bimwright.Dwg.sln
 │   ├── server/            # .NET 8 MCP server (global tool)
 │   ├── shared/            # Handlers, clustering, rewriting, unicode
-│   └── plugin-acad24/     # AutoCAD 2024 shell (.NET 4.8)
-├── tests/                 # xUnit (86 tests)
+│   ├── plugin-acad22/     # AutoCAD 2022 shell (.NET 4.8)
+│   ├── plugin-acad23/     # AutoCAD 2023 shell (.NET 4.8)
+│   ├── plugin-acad24/     # AutoCAD 2024 shell (.NET 4.8)
+│   ├── plugin-acad25/     # AutoCAD 2025 shell (.NET 8)
+│   ├── plugin-acad26/     # AutoCAD 2026 shell (.NET 8)
+│   └── plugin-acad27/     # AutoCAD 2027 shell (.NET 10)
+├── tests/                 # xUnit
 ├── scripts/               # install/uninstall PowerShell
 ├── lib/acad24/            # Notes only; Autodesk DLLs are never committed
 └── .github/workflows/     # CI

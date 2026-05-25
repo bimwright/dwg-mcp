@@ -1,0 +1,48 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <RootNamespace>Bimwright.Dwg.Plugin</RootNamespace>
+    <AssemblyName>Bimwright.Dwg.Plugin.Acad22</AssemblyName>
+    <LangVersion>latest</LangVersion>
+    <AutoCadVersionYear>2022</AutoCadVersionYear>
+    <DefineConstants>$(DefineConstants);ACAD2022</DefineConstants>
+    <AutoCad2022Dir Condition="'$(AutoCad2022Dir)' == ''">C:\Program Files\Autodesk\AutoCAD 2022</AutoCad2022Dir>
+  </PropertyGroup>
+
+  <Target Name="ValidateAutoCadReferences" BeforeTargets="ResolveReferences">
+    <Error Condition="!Exists('$(AutoCad2022Dir)\accoremgd.dll') or !Exists('$(AutoCad2022Dir)\acdbmgd.dll') or !Exists('$(AutoCad2022Dir)\acmgd.dll')"
+           Text="AutoCAD 2022 managed assemblies were not found under '$(AutoCad2022Dir)'. Install AutoCAD 2022 or build with /p:AutoCad2022Dir=&quot;C:\Path\To\AutoCAD 2022&quot;." />
+  </Target>
+
+  <ItemGroup>
+    <Compile Include="..\plugin-acad24\App.cs" Link="App.cs" />
+    <Compile Include="..\shared\**\*.cs" LinkBase="Shared" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="accoremgd">
+      <HintPath>$(AutoCad2022Dir)\accoremgd.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="acdbmgd">
+      <HintPath>$(AutoCad2022Dir)\acdbmgd.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="acmgd">
+      <HintPath>$(AutoCad2022Dir)\acmgd.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="4.8.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="..\shared\assets\fonts\OpenSans-CondensedLight.ttf">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <TargetPath>Fonts\OpenSans-CondensedLight.ttf</TargetPath>
+    </Content>
+  </ItemGroup>
+</Project>

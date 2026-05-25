@@ -14,6 +14,8 @@ namespace Bimwright.Dwg.Plugin.Handlers
     public class TranslateAndRewriteHandler : IAcadCommand
     {
         public string Name => "translate_and_rewrite";
+        public string Description => "Rewrite clustered text using translations from get_selected_texts.";
+        public CommandSchema Schema => CommandSchemas.TranslateAndRewrite;
 
         private sealed class TranslationInstruction
         {

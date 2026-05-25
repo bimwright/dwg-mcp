@@ -19,6 +19,8 @@ namespace Bimwright.Dwg.Plugin.Handlers
     public class GetSelectedTextsHandler : IAcadCommand
     {
         public string Name => "get_selected_texts";
+        public string Description => "Read and cluster currently selected AutoCAD text entities.";
+        public CommandSchema Schema => CommandSchemas.GetSelectedTexts;
 
         public CommandResult Execute(Document doc, JToken parameters)
         {

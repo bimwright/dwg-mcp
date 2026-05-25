@@ -6,17 +6,19 @@ namespace Bimwright.Dwg.Plugin
     public static class DocumentInvoker
     {
         /// <summary>
-        /// Locks the active document and runs the action.
-        /// Can be called from any thread (AutoCAD .NET API allows cross-thread LockDocument).
+        /// Serializes AutoCAD API access, locks the active document, and runs the action.
         /// </summary>
         public static T Invoke<T>(Func<Document, T> action)
         {
-            var doc = Application.DocumentManager.MdiActiveDocument
-                ?? throw new InvalidOperationException("no active document");
-            using (doc.LockDocument())
+            return DwgApiExecutor.Invoke(() =>
             {
-                return action(doc);
-            }
+                var doc = Application.DocumentManager.MdiActiveDocument
+                    ?? throw new InvalidOperationException("no active document");
+                using (doc.LockDocument())
+                {
+                    return action(doc);
+                }
+            });
         }
     }
 }

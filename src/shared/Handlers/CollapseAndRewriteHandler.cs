@@ -16,6 +16,8 @@ namespace Bimwright.Dwg.Plugin.Handlers
     public class CollapseAndRewriteHandler : IAcadCommand
     {
         public string Name => "collapse_and_rewrite";
+        public string Description => "Low-level explicit text collapse/rewrite primitive.";
+        public CommandSchema Schema => CommandSchemas.CollapseAndRewrite;
 
         public CommandResult Execute(Document doc, JToken parameters)
         {

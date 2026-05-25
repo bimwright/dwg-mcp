@@ -25,35 +25,65 @@ jobs:
       - name: Run tests
         run: dotnet test tests/Bimwright.Dwg.Tests/Bimwright.Dwg.Tests.csproj -c Release
 
-  plugin-acad24:
-    name: plugin-acad24
+  plugins:
+    name: plugin-acad${{ matrix.acad }}
     runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - acad: "22"
+            year: "2022"
+            refsDir: 'C:\Program Files\Autodesk\AutoCAD 2022'
+            targetFramework: net48
+          - acad: "23"
+            year: "2023"
+            refsDir: 'C:\Program Files\Autodesk\AutoCAD 2023'
+            targetFramework: net48
+          - acad: "24"
+            year: "2024"
+            refsDir: 'C:\Program Files\Autodesk\AutoCAD 2024'
+            targetFramework: net48
+          - acad: "25"
+            year: "2025"
+            refsDir: 'C:\Program Files\Autodesk\AutoCAD 2025'
+            targetFramework: net8.0-windows
+          - acad: "26"
+            year: "2026"
+            refsDir: 'C:\Program Files\Autodesk\AutoCAD 2026'
+            targetFramework: net8.0-windows
+          - acad: "27"
+            year: "2027"
+            refsDir: 'C:\Program Files\Autodesk\AutoCAD 2027'
+            targetFramework: net10.0-windows
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup .NET 8
+      - name: Setup .NET SDKs
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 8.0.x
+          dotnet-version: |
+            8.0.x
+            10.0.x
 
-      - name: Check AutoCAD 2024 references
+      - name: Check AutoCAD references
         id: acadrefs
         shell: pwsh
         run: |
-          $dir = "C:\Program Files\Autodesk\AutoCAD 2024"
+          $dir = "${{ matrix.refsDir }}"
           $ok = (Test-Path "$dir\accoremgd.dll") -and (Test-Path "$dir\acdbmgd.dll") -and (Test-Path "$dir\acmgd.dll")
           "found=$($ok.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
           if (-not $ok) {
-            Write-Host "AutoCAD 2024 managed assemblies are not present on this runner; skipping plugin build."
+            Write-Host "AutoCAD ${{ matrix.year }} managed assemblies are not present on this runner; skipping plugin build."
           }
 
       - name: Build plugin
         if: steps.acadrefs.outputs.found == 'true'
-        run: dotnet build src/plugin-acad24/Bimwright.Dwg.Plugin.Acad24.csproj -c Release
+        run: dotnet build src/plugin-acad${{ matrix.acad }}/Bimwright.Dwg.Plugin.Acad${{ matrix.acad }}.csproj -c Release
 
       - name: Upload plugin artifact
         if: steps.acadrefs.outputs.found == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: plugin-acad24
-          path: src/plugin-acad24/bin/Release/net48/
+          name: plugin-acad${{ matrix.acad }}
+          path: src/plugin-acad${{ matrix.acad }}/bin/Release/${{ matrix.targetFramework }}/

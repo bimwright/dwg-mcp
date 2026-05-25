@@ -25,6 +25,8 @@ namespace Bimwright.Dwg.Plugin.Handlers
     public class ApplyUnicodeStyleHandler : IAcadCommand
     {
         public string Name => "apply_unicode_style";
+        public string Description => "Apply the Bimwright Unicode text style to selected or explicit text entities.";
+        public CommandSchema Schema => CommandSchemas.ApplyUnicodeStyle;
 
         public CommandResult Execute(Document doc, JToken parameters)
         {

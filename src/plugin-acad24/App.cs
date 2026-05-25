@@ -8,14 +8,14 @@ namespace Bimwright.Dwg.Plugin
 {
     public class App : IExtensionApplication
     {
-        private static SocketServer _server;
+        private static ITransportServer _server;
 
         public void Initialize()
         {
             try
             {
                 StartServerInternal();
-                WriteLine($"Bimwright DWG loaded and listening on port {_server.Port}.");
+                WriteLine($"Bimwright DWG loaded and listening on {DescribeTransport(_server)}.");
             }
             catch (System.Exception ex)
             {
@@ -33,13 +33,13 @@ namespace Bimwright.Dwg.Plugin
         {
             if (_server != null && _server.IsRunning)
             {
-                WriteLine($"Bimwright DWG already running on port {_server.Port}.");
+                WriteLine($"Bimwright DWG already running on {DescribeTransport(_server)}.");
                 return;
             }
             try
             {
                 StartServerInternal();
-                WriteLine($"Bimwright DWG listening on port {_server.Port}.");
+                WriteLine($"Bimwright DWG listening on {DescribeTransport(_server)}.");
             }
             catch (System.Exception ex)
             {
@@ -76,8 +76,25 @@ namespace Bimwright.Dwg.Plugin
 
         private static void StartServerInternal()
         {
-            _server = new SocketServer();
+            CommandDispatcher.SetSendCodeEnabled(false);
+#if ACAD2025_OR_GREATER
+            _server = new PipeTransportServer(PluginTarget.AutoCadYear);
+#else
+            _server = new TcpTransportServer(PluginTarget.AutoCadYear);
+#endif
             _server.Start();
+        }
+
+        private static string DescribeTransport(ITransportServer server)
+        {
+            if (server == null)
+            {
+                return "no active transport";
+            }
+
+            return server.Kind == TransportKind.Pipe
+                ? "pipe " + server.PipeName
+                : "port " + server.Port;
         }
 
         private static void WriteLine(string message)
