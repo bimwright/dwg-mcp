@@ -92,9 +92,20 @@ namespace Bimwright.Dwg.Plugin.Cad
                 return Array.Empty<string>();
             }
 
-            return array
-                .Where(item => item != null && item.Type == JTokenType.String)
-                .Select(item => item.Value<string>())
+            return array.Select(item =>
+                {
+                    if (item == null || item.Type == JTokenType.Null)
+                    {
+                        return null;
+                    }
+
+                    if (item.Type != JTokenType.String)
+                    {
+                        throw new ArgumentException($"{fieldName} entries must be strings", fieldName);
+                    }
+
+                    return item.Value<string>();
+                })
                 .Where(value => !string.IsNullOrWhiteSpace(value))
                 .ToArray();
         }
@@ -173,6 +184,12 @@ namespace Bimwright.Dwg.Plugin.Cad
             }
 
             value = token.Value<double>();
+            if (double.IsNaN(value) || double.IsInfinity(value))
+            {
+                error = $"point field '{fieldName}' must be finite";
+                return false;
+            }
+
             return true;
         }
     }
