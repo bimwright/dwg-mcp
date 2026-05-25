@@ -95,7 +95,7 @@ AutoCAD allows multiple threads to lock the same document sequentially. Each req
 
 ## Handler dispatch
 
-`CommandDispatcher` uses an explicit dictionary (not reflection). `send_code` remains in the dispatch table so opt-in calls can be handled, but dispatch rejects it unless `MCPENABLECODE` has enabled the current plugin session:
+`CommandDispatcher` uses an explicit dictionary (not reflection). `send_code` remains in the dispatch table so opt-in calls can be handled, but dispatch rejects it unless `MCPENABLECODE` has enabled the current plugin session. The snippet below is abbreviated around the full runtime class, but it includes representative Plan 2 query/create/modify wire commands so it stays aligned with the toolset table.
 
 ```csharp
 _commands = new Dictionary<string, IAcadCommand>
@@ -103,12 +103,28 @@ _commands = new Dictionary<string, IAcadCommand>
     { "get_drawing_info",       new GetDrawingInfoHandler() },
     { "get_entity_properties",  new GetEntityPropertiesHandler() },
     { "list_layers",            new ListLayersHandler() },
+    { "query_entities",         new QueryEntitiesHandler() },
+    { "count_entities",         new CountEntitiesHandler() },
+    { "select_by_layer",        new SelectByLayerHandler() },
+    { "select_by_type",         new SelectByTypeHandler() },
     { "get_selected_texts",      new GetSelectedTextsHandler() },
     { "update_texts",            new UpdateTextsHandler() },
     { "create_layer",           new CreateLayerHandler() },
     { "create_line",            new CreateLineHandler() },
     { "create_circle",          new CreateCircleHandler() },
+    { "create_point",           new CreatePointHandler() },
+    { "create_polyline",        new CreatePolylineHandler() },
+    { "create_rectangle",       new CreateRectangleHandler() },
+    { "create_arc",             new CreateArcHandler() },
+    { "create_ellipse",         new CreateEllipseHandler() },
     { "change_layer",           new ChangeLayerHandler() },
+    { "change_color",           new ChangeColorHandler() },
+    { "move_entities",          new MoveEntitiesHandler() },
+    { "rotate_entities",        new RotateEntitiesHandler() },
+    { "scale_entities",         new ScaleEntitiesHandler() },
+    { "copy_entities",          new CopyEntitiesHandler() },
+    { "erase_entities",         new EraseEntitiesHandler() },
+    { "offset_entities",        new OffsetEntitiesHandler() },
     { "send_code",               new SendCodeHandler() },
     { "apply_unicode_style",     new ApplyUnicodeStyleHandler() },
     { "collapse_and_rewrite",    new CollapseAndRewriteHandler() },
@@ -147,11 +163,12 @@ In a scratch DWG:
 1. Run `dwg_get_drawing_info`.
 2. Run `dwg_list_layers`.
 3. Create `BIMWRIGHT_TEST` with `dwg_create_layer`.
-4. Create a polyline, rectangle, arc, and ellipse on `BIMWRIGHT_TEST` with `dwg_create_polyline`, `dwg_create_rectangle`, `dwg_create_arc`, and `dwg_create_ellipse`; record the returned hex handles.
+4. Create a point, polyline, rectangle, arc, and ellipse on `BIMWRIGHT_TEST` with `dwg_create_point`, `dwg_create_polyline`, `dwg_create_rectangle`, `dwg_create_arc`, and `dwg_create_ellipse`; record the returned hex handles and reserve one curve, such as the arc or ellipse, for color and offset checks.
 5. Query, count, and select those entities by layer and type with `dwg_query_entities`, `dwg_count_entities`, `dwg_select_by_layer`, and `dwg_select_by_type`; confirm select tools return handle lists and do not change pickfirst selection.
-6. Move, rotate, scale, copy, and erase scratch entities with `dwg_move_entities`, `dwg_rotate_entities`, `dwg_scale_entities`, `dwg_copy_entities`, and `dwg_erase_entities`.
-7. Change color on one curve with `dwg_change_color`, then offset one curve with `dwg_offset_entities` and confirm the returned generated handles are hex handles.
-8. Confirm the existing text translation workflow still works: select scratch text, run `dwg_get_selected_texts`, then rewrite it with `dwg_translate_and_rewrite`.
+6. Move, rotate, and scale non-reserved scratch entities with `dwg_move_entities`, `dwg_rotate_entities`, and `dwg_scale_entities`.
+7. Copy one non-reserved scratch entity with `dwg_copy_entities`, then erase only that disposable copied temp entity with `dwg_erase_entities`.
+8. Change color on the reserved curve with `dwg_change_color`, then offset that curve with `dwg_offset_entities` and confirm the returned generated handles are hex handles.
+9. Confirm the existing text translation workflow still works: select scratch text, run `dwg_get_selected_texts`, then rewrite it with `dwg_translate_and_rewrite`.
 
 ## ToolBaker
 

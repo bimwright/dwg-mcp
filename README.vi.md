@@ -234,11 +234,12 @@ Trong scratch DWG:
 1. Chay `dwg_get_drawing_info`.
 2. Chay `dwg_list_layers`.
 3. Tao `BIMWRIGHT_TEST` bang `dwg_create_layer`.
-4. Tao polyline, rectangle, arc, va ellipse tren `BIMWRIGHT_TEST` bang `dwg_create_polyline`, `dwg_create_rectangle`, `dwg_create_arc`, va `dwg_create_ellipse`; ghi lai hex handle tra ve.
+4. Tao point, polyline, rectangle, arc, va ellipse tren `BIMWRIGHT_TEST` bang `dwg_create_point`, `dwg_create_polyline`, `dwg_create_rectangle`, `dwg_create_arc`, va `dwg_create_ellipse`; ghi lai hex handle tra ve va giu rieng mot curve, vi du arc hoac ellipse, de check color va offset.
 5. Query, count, va select cac entity do theo layer va type bang `dwg_query_entities`, `dwg_count_entities`, `dwg_select_by_layer`, va `dwg_select_by_type`; xac nhan select tool tra ve handle list va khong doi pickfirst selection.
-6. Move, rotate, scale, copy, va erase scratch entity bang `dwg_move_entities`, `dwg_rotate_entities`, `dwg_scale_entities`, `dwg_copy_entities`, va `dwg_erase_entities`.
-7. Doi color mot curve bang `dwg_change_color`, sau do offset mot curve bang `dwg_offset_entities` va xac nhan generated handle tra ve la hex handle.
-8. Xac nhan workflow dich text cu van chay: chon scratch text, chay `dwg_get_selected_texts`, roi rewrite bang `dwg_translate_and_rewrite`.
+6. Move, rotate, va scale scratch entity khong reserve bang `dwg_move_entities`, `dwg_rotate_entities`, va `dwg_scale_entities`.
+7. Copy mot scratch entity khong reserve bang `dwg_copy_entities`, roi chi erase disposable copied temp entity do bang `dwg_erase_entities`.
+8. Doi color reserved curve bang `dwg_change_color`, sau do offset curve do bang `dwg_offset_entities` va xac nhan generated handle tra ve la hex handle.
+9. Xac nhan workflow dich text cu van chay: chon scratch text, chay `dwg_get_selected_texts`, roi rewrite bang `dwg_translate_and_rewrite`.
 
 ### Migration tu ten tool 0.1.x
 
