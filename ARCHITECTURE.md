@@ -145,9 +145,9 @@ In a scratch DWG:
 1. Run `dwg_get_drawing_info`.
 2. Run `dwg_list_layers`.
 3. Create `BIMWRIGHT_TEST` with `dwg_create_layer`.
-4. Create one line and one circle.
-5. Read both handles with `dwg_get_entity_properties`.
-6. Move both entities to another layer with `dwg_change_layer`.
+4. Create one line and one circle on a different layer, for example current layer `0`, with `dwg_create_line` and `dwg_create_circle`; record the returned handles.
+5. Read both returned handles with `dwg_get_entity_properties`.
+6. Move both entities to `BIMWRIGHT_TEST` with `dwg_change_layer`.
 7. Confirm one AutoCAD undo reverses each write command's transaction.
 
 ## ToolBaker

@@ -30,7 +30,7 @@ Notes:
 
 Documented deviations from the design spec:
 
-- ToolBaker stays opt-in (`--enable-toolbaker` or `BIMWRIGHT_DWG_ENABLE_TOOLBAKER=1`). The spec listed it as default-on; v1.0 keeps it off to prevent accepted baked tools from running drawing mutations without an explicit opt-in.
+- ToolBaker stays opt-in by toolset selection (`--toolsets query,modify,meta,toolbaker` or `--toolsets all`). The spec listed it as default-on; v1.0 keeps it off to prevent accepted baked tools from running drawing mutations without an explicit opt-in. `--disable-toolbaker` or `BIMWRIGHT_DWG_ENABLE_TOOLBAKER=0` can still suppress it when requested.
 - Schema validation uses a Newtonsoft-based `CommandSchema` validator instead of NJsonSchema. Net48 packaging risk drove the substitution; migration to NJsonSchema is planned for v1.1.
 - `dwg_batch_execute` runs sub-commands as a logical batch without an AutoCAD undo group. Failed batches commit partial changes; a `TransactionGroup`-equivalent wrapper is a v1.1 candidate after a compile spike.
 - ToolBaker baked tools are declarative preset/macro records dispatching existing `IAcadCommand` handlers. Full Roslyn-compiled user code is deferred to a separate release gate.

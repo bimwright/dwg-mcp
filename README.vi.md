@@ -174,7 +174,7 @@ Dung `--read-only` de chi mo tool doc/routing, cong them ToolBaker read tools ne
 
 ## Cong cu
 
-Mac dinh server expose 16 tool: query, modify, routing/meta, va batch. ToolBaker va `dwg_send_code` la opt-in; tong backed MCP surface la 23 tool.
+Mac dinh server expose 16 tool: query, modify, routing/meta, va batch. ToolBaker bat qua `--toolsets`, va `dwg_send_code` la opt-in; tong backed MCP surface la 23 tool.
 
 CAD tool chay tren active document hien tai cua AutoCAD target dang chon. Entity input dung AutoCAD hex handle, vi du `7F5AD`, do tool selection, creation, hoac properties tra ve.
 
@@ -216,9 +216,9 @@ Trong scratch DWG:
 1. Chay `dwg_get_drawing_info`.
 2. Chay `dwg_list_layers`.
 3. Tao `BIMWRIGHT_TEST` bang `dwg_create_layer`.
-4. Tao mot line va mot circle.
-5. Doc ca hai handle bang `dwg_get_entity_properties`.
-6. Chuyen ca hai entity sang layer khac bang `dwg_change_layer`.
+4. Tao mot line va mot circle tren layer khac, vi du current layer `0`, bang `dwg_create_line` va `dwg_create_circle`; ghi lai handle tra ve.
+5. Doc ca hai handle tra ve bang `dwg_get_entity_properties`.
+6. Chuyen ca hai entity sang `BIMWRIGHT_TEST` bang `dwg_change_layer`.
 7. Xac nhan mot lan AutoCAD undo revert transaction cua tung write command.
 
 ### Migration tu ten tool 0.1.x
