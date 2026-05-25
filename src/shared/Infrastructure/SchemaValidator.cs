@@ -137,6 +137,36 @@ namespace Bimwright.Dwg.Plugin
 
     public static class CommandSchemas
     {
+        public static readonly CommandSchema GetDrawingInfo = CommandSchema.Empty;
+
+        public static readonly CommandSchema GetEntityProperties = CommandSchema.Object(
+            SchemaProperty.Required("handles", JTokenType.Array),
+            SchemaProperty.Optional("include_geometry", JTokenType.Boolean));
+
+        public static readonly CommandSchema ListLayers = CommandSchema.Empty;
+
+        public static readonly CommandSchema CreateLayer = CommandSchema.Object(
+            SchemaProperty.Required("name", JTokenType.String),
+            SchemaProperty.Optional("color_index", JTokenType.Integer));
+
+        public static readonly CommandSchema CreateLine = CommandSchema.Object(
+            SchemaProperty.Required("start", JTokenType.Object),
+            SchemaProperty.Required("end", JTokenType.Object),
+            SchemaProperty.Optional("layer", JTokenType.String),
+            SchemaProperty.Optional("color_index", JTokenType.Integer));
+
+        public static readonly CommandSchema CreateCircle = CommandSchema.Object(
+            SchemaProperty.Required("center", JTokenType.Object),
+            SchemaProperty.Required("radius", JTokenType.Float, JTokenType.Integer),
+            SchemaProperty.Optional("layer", JTokenType.String),
+            SchemaProperty.Optional("color_index", JTokenType.Integer));
+
+        public static readonly CommandSchema ChangeLayer = CommandSchema.Object(
+            SchemaProperty.Required("handles", JTokenType.Array),
+            SchemaProperty.Required("layer", JTokenType.String),
+            SchemaProperty.Optional("create_layer", JTokenType.Boolean),
+            SchemaProperty.Optional("color_index", JTokenType.Integer));
+
         public static readonly CommandSchema GetSelectedTexts = CommandSchema.Object(
             SchemaProperty.Optional("grouping_strength", JTokenType.String),
             SchemaProperty.Optional("include_entities", JTokenType.Boolean));
