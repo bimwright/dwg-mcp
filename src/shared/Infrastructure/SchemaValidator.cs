@@ -237,6 +237,27 @@ namespace Bimwright.Dwg.Plugin
             SchemaProperty.Optional("create_layer", JTokenType.Boolean),
             SchemaProperty.Optional("color_index", JTokenType.Integer));
 
+        public static readonly CommandSchema MoveEntities = CommandSchema.Object(
+            SchemaProperty.Required("handles", JTokenType.Array),
+            SchemaProperty.Required("vector", JTokenType.Object));
+
+        public static readonly CommandSchema RotateEntities = CommandSchema.Object(
+            SchemaProperty.Required("handles", JTokenType.Array),
+            SchemaProperty.Required("basePoint", JTokenType.Object),
+            SchemaProperty.Required("angleDegrees", JTokenType.Float, JTokenType.Integer));
+
+        public static readonly CommandSchema ScaleEntities = CommandSchema.Object(
+            SchemaProperty.Required("handles", JTokenType.Array),
+            SchemaProperty.Required("basePoint", JTokenType.Object),
+            SchemaProperty.Required("scale", JTokenType.Float, JTokenType.Integer));
+
+        public static readonly CommandSchema CopyEntities = CommandSchema.Object(
+            SchemaProperty.Required("handles", JTokenType.Array),
+            SchemaProperty.Required("vector", JTokenType.Object));
+
+        public static readonly CommandSchema EraseEntities = CommandSchema.Object(
+            SchemaProperty.Required("handles", JTokenType.Array));
+
         public static readonly CommandSchema GetSelectedTexts = CommandSchema.Object(
             SchemaProperty.Optional("grouping_strength", JTokenType.String),
             SchemaProperty.Optional("include_entities", JTokenType.Boolean));

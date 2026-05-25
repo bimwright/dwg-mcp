@@ -321,6 +321,137 @@ namespace Bimwright.Dwg.Server.Tools
             return ToolGateway.LoggedCall("change_layer", request, request);
         }
 
+        [McpServerTool(Name = "dwg_move_entities"), Description(
+            "Move entities identified by handle by a displacement vector. handles is a JSON array " +
+            "of AutoCAD handle strings. vector is a JSON point object with numeric x, y, and optional z fields. " +
+            "Returns per-item {handle, ok, error}; bad handles do not abort siblings.")]
+        public static Task<string> MoveEntities(
+            [Description("JSON array of AutoCAD handles, e.g. [\"7F5AD\",\"2A4F\"].")] string handles,
+            [Description("JSON vector object, e.g. {\"x\":100,\"y\":0,\"z\":0}.")] string vector)
+        {
+            if (!TryParseJsonArray(handles, "handles", out var handlesArray, out var handlesError))
+            {
+                return ToolInputError(handlesError);
+            }
+
+            if (!TryParseJsonObject(vector, "vector", out var vectorObject, out var vectorError))
+            {
+                return ToolInputError(vectorError);
+            }
+
+            var request = new JObject
+            {
+                ["handles"] = handlesArray,
+                ["vector"] = vectorObject
+            };
+
+            return ToolGateway.LoggedCall("move_entities", request, request);
+        }
+
+        [McpServerTool(Name = "dwg_rotate_entities"), Description(
+            "Rotate entities identified by handle around basePoint on the Z axis. handles is a JSON array " +
+            "of AutoCAD handle strings. basePoint is a JSON point object, and angleDegrees is in degrees. " +
+            "Returns per-item {handle, ok, error}; bad handles do not abort siblings.")]
+        public static Task<string> RotateEntities(
+            [Description("JSON array of AutoCAD handles, e.g. [\"7F5AD\",\"2A4F\"].")] string handles,
+            [Description("JSON base point object, e.g. {\"x\":0,\"y\":0,\"z\":0}.")] string basePoint,
+            [Description("Rotation angle in degrees.")] double angleDegrees)
+        {
+            if (!TryParseJsonArray(handles, "handles", out var handlesArray, out var handlesError))
+            {
+                return ToolInputError(handlesError);
+            }
+
+            if (!TryParseJsonObject(basePoint, "basePoint", out var basePointObject, out var basePointError))
+            {
+                return ToolInputError(basePointError);
+            }
+
+            var request = new JObject
+            {
+                ["handles"] = handlesArray,
+                ["basePoint"] = basePointObject,
+                ["angleDegrees"] = angleDegrees
+            };
+
+            return ToolGateway.LoggedCall("rotate_entities", request, request);
+        }
+
+        [McpServerTool(Name = "dwg_scale_entities"), Description(
+            "Scale entities identified by handle around basePoint. handles is a JSON array " +
+            "of AutoCAD handle strings. basePoint is a JSON point object. scale must be finite, positive, " +
+            "and less than or equal to 1000. Returns per-item {handle, ok, error}; bad handles do not abort siblings.")]
+        public static Task<string> ScaleEntities(
+            [Description("JSON array of AutoCAD handles, e.g. [\"7F5AD\",\"2A4F\"].")] string handles,
+            [Description("JSON base point object, e.g. {\"x\":0,\"y\":0,\"z\":0}.")] string basePoint,
+            [Description("Scale factor. Must be finite, positive, and <= 1000.")] double scale)
+        {
+            if (!TryParseJsonArray(handles, "handles", out var handlesArray, out var handlesError))
+            {
+                return ToolInputError(handlesError);
+            }
+
+            if (!TryParseJsonObject(basePoint, "basePoint", out var basePointObject, out var basePointError))
+            {
+                return ToolInputError(basePointError);
+            }
+
+            var request = new JObject
+            {
+                ["handles"] = handlesArray,
+                ["basePoint"] = basePointObject,
+                ["scale"] = scale
+            };
+
+            return ToolGateway.LoggedCall("scale_entities", request, request);
+        }
+
+        [McpServerTool(Name = "dwg_copy_entities"), Description(
+            "Copy entities identified by handle by a displacement vector. handles is a JSON array " +
+            "of AutoCAD handle strings. vector is a JSON point object with numeric x, y, and optional z fields. " +
+            "Returns per-item {handle, ok, new_handle, error}; bad handles do not abort siblings.")]
+        public static Task<string> CopyEntities(
+            [Description("JSON array of AutoCAD handles, e.g. [\"7F5AD\",\"2A4F\"].")] string handles,
+            [Description("JSON vector object, e.g. {\"x\":100,\"y\":0,\"z\":0}.")] string vector)
+        {
+            if (!TryParseJsonArray(handles, "handles", out var handlesArray, out var handlesError))
+            {
+                return ToolInputError(handlesError);
+            }
+
+            if (!TryParseJsonObject(vector, "vector", out var vectorObject, out var vectorError))
+            {
+                return ToolInputError(vectorError);
+            }
+
+            var request = new JObject
+            {
+                ["handles"] = handlesArray,
+                ["vector"] = vectorObject
+            };
+
+            return ToolGateway.LoggedCall("copy_entities", request, request);
+        }
+
+        [McpServerTool(Name = "dwg_erase_entities"), Description(
+            "Erase entities identified by handle. handles is a JSON array of AutoCAD handle strings. " +
+            "Returns per-item {handle, ok, error}; bad handles do not abort siblings.")]
+        public static Task<string> EraseEntities(
+            [Description("JSON array of AutoCAD handles, e.g. [\"7F5AD\",\"2A4F\"].")] string handles)
+        {
+            if (!TryParseJsonArray(handles, "handles", out var handlesArray, out var handlesError))
+            {
+                return ToolInputError(handlesError);
+            }
+
+            var request = new JObject
+            {
+                ["handles"] = handlesArray
+            };
+
+            return ToolGateway.LoggedCall("erase_entities", request, request);
+        }
+
         [McpServerTool(Name = "dwg_translate_and_rewrite"), Description(
             "PREFERRED translation tool. Writes translated text back to AutoCAD. " +
             "Input is a JSON array of {id, new_text, render_mode?, width_policy?} where id matches a cluster " +

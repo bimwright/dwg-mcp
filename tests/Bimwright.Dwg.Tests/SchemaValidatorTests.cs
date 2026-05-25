@@ -121,6 +121,67 @@ namespace Bimwright.Dwg.Tests
                 "handles");
         }
 
+        [Theory]
+        [InlineData("move_entities", "handles")]
+        [InlineData("move_entities", "vector")]
+        [InlineData("rotate_entities", "handles")]
+        [InlineData("rotate_entities", "basePoint")]
+        [InlineData("rotate_entities", "angleDegrees")]
+        [InlineData("scale_entities", "handles")]
+        [InlineData("scale_entities", "basePoint")]
+        [InlineData("scale_entities", "scale")]
+        [InlineData("copy_entities", "handles")]
+        [InlineData("copy_entities", "vector")]
+        [InlineData("erase_entities", "handles")]
+        public void Validate_TransformSchemasRequireExpectedFields(string commandName, string fieldName)
+        {
+            var parameters = ValidTransformParameters(commandName);
+            parameters.Remove(fieldName);
+
+            AssertMissingRequiredField(
+                commandName,
+                parameters,
+                TransformSchema(commandName),
+                fieldName);
+        }
+
+        private static CommandSchema TransformSchema(string commandName)
+        {
+            switch (commandName)
+            {
+                case "move_entities":
+                    return CommandSchemas.MoveEntities;
+                case "rotate_entities":
+                    return CommandSchemas.RotateEntities;
+                case "scale_entities":
+                    return CommandSchemas.ScaleEntities;
+                case "copy_entities":
+                    return CommandSchemas.CopyEntities;
+                case "erase_entities":
+                    return CommandSchemas.EraseEntities;
+                default:
+                    throw new System.ArgumentOutOfRangeException(nameof(commandName), commandName, "Unknown transform command.");
+            }
+        }
+
+        private static JObject ValidTransformParameters(string commandName)
+        {
+            switch (commandName)
+            {
+                case "move_entities":
+                case "copy_entities":
+                    return JObject.Parse("{\"handles\":[\"7F5AD\"],\"vector\":{\"x\":1,\"y\":2}}");
+                case "rotate_entities":
+                    return JObject.Parse("{\"handles\":[\"7F5AD\"],\"basePoint\":{\"x\":0,\"y\":0},\"angleDegrees\":90}");
+                case "scale_entities":
+                    return JObject.Parse("{\"handles\":[\"7F5AD\"],\"basePoint\":{\"x\":0,\"y\":0},\"scale\":2}");
+                case "erase_entities":
+                    return JObject.Parse("{\"handles\":[\"7F5AD\"]}");
+                default:
+                    throw new System.ArgumentOutOfRangeException(nameof(commandName), commandName, "Unknown transform command.");
+            }
+        }
+
         private static void AssertMissingRequiredField(
             string commandName,
             JObject parameters,
