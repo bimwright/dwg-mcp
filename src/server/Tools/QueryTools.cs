@@ -55,6 +55,58 @@ namespace Bimwright.Dwg.Server.Tools
             return ToolGateway.LoggedCall("list_layers", request, request);
         }
 
+        [McpServerTool(Name = "dwg_query_entities", ReadOnly = true, Idempotent = true), Description(
+            "Query model-space AutoCAD entities with optional filters for entity type, layer, and ACI color index. " +
+            "Returns count and entity property records; limit is clamped by the plugin.")]
+        public static Task<string> QueryEntities(
+            [Description("Optional entity type filter such as Line, Circle, Polyline, DBText, MText, BlockReference, Hatch, Arc, or Ellipse. Case-insensitive.")] string entity_type = null,
+            [Description("Optional layer name filter. Case-insensitive.")] string layer = null,
+            [Description("Optional ACI color index filter. Valid range: 1-256.")] int? color_index = null,
+            [Description("Optional maximum number of returned entities. The plugin clamps this to 1-5000.")] int? limit = null,
+            [Description("When true, include lightweight geometry such as extents, points, lengths, and text positions where available.")] bool include_geometry = false)
+        {
+            var request = BuildEntityQueryRequest(entity_type, layer, color_index, limit);
+            request["include_geometry"] = include_geometry;
+            return ToolGateway.LoggedCall("query_entities", request, request);
+        }
+
+        [McpServerTool(Name = "dwg_count_entities", ReadOnly = true, Idempotent = true), Description(
+            "Count model-space AutoCAD entities matching optional entity type, layer, and ACI color index filters.")]
+        public static Task<string> CountEntities(
+            [Description("Optional entity type filter such as Line, Circle, Polyline, DBText, MText, BlockReference, Hatch, Arc, or Ellipse. Case-insensitive.")] string entity_type = null,
+            [Description("Optional layer name filter. Case-insensitive.")] string layer = null,
+            [Description("Optional ACI color index filter. Valid range: 1-256.")] int? color_index = null)
+        {
+            var request = BuildEntityQueryRequest(entity_type, layer, color_index, limit: null);
+            return ToolGateway.LoggedCall("count_entities", request, request);
+        }
+
+        [McpServerTool(Name = "dwg_select_by_layer", ReadOnly = true, Idempotent = true), Description(
+            "Return handles for model-space entities on a required layer, with optional type/color filters. " +
+            "This does not change AutoCAD pickfirst selection.")]
+        public static Task<string> SelectByLayer(
+            [Description("Required layer name filter. Case-insensitive.")] string layer,
+            [Description("Optional entity type filter. Case-insensitive.")] string entity_type = null,
+            [Description("Optional ACI color index filter. Valid range: 1-256.")] int? color_index = null,
+            [Description("Optional maximum number of returned handles. The plugin clamps this to 1-5000.")] int? limit = null)
+        {
+            var request = BuildEntityQueryRequest(entity_type, layer, color_index, limit);
+            return ToolGateway.LoggedCall("select_by_layer", request, request);
+        }
+
+        [McpServerTool(Name = "dwg_select_by_type", ReadOnly = true, Idempotent = true), Description(
+            "Return handles for model-space entities of a required type, with optional layer/color filters. " +
+            "This does not change AutoCAD pickfirst selection.")]
+        public static Task<string> SelectByType(
+            [Description("Required entity type filter such as Line, Circle, Polyline, DBText, MText, BlockReference, Hatch, Arc, or Ellipse. Case-insensitive.")] string entity_type,
+            [Description("Optional layer name filter. Case-insensitive.")] string layer = null,
+            [Description("Optional ACI color index filter. Valid range: 1-256.")] int? color_index = null,
+            [Description("Optional maximum number of returned handles. The plugin clamps this to 1-5000.")] int? limit = null)
+        {
+            var request = BuildEntityQueryRequest(entity_type, layer, color_index, limit);
+            return ToolGateway.LoggedCall("select_by_type", request, request);
+        }
+
         [McpServerTool(Name = "dwg_get_selected_texts", ReadOnly = true, Idempotent = true), Description(
             "Read and cluster text entities currently selected in AutoCAD. " +
             "Returns pre-clustered groups with combined text in reading order. " +
@@ -69,6 +121,36 @@ namespace Bimwright.Dwg.Server.Tools
         {
             var request = new { grouping_strength = groupingStrength, include_entities = includeEntities };
             return ToolGateway.LoggedCall("get_selected_texts", request, request);
+        }
+
+        private static JObject BuildEntityQueryRequest(
+            string entityType,
+            string layer,
+            int? colorIndex,
+            int? limit)
+        {
+            var request = new JObject();
+            if (!string.IsNullOrWhiteSpace(entityType))
+            {
+                request["entity_type"] = entityType;
+            }
+
+            if (!string.IsNullOrWhiteSpace(layer))
+            {
+                request["layer"] = layer;
+            }
+
+            if (colorIndex.HasValue)
+            {
+                request["color_index"] = colorIndex.Value;
+            }
+
+            if (limit.HasValue)
+            {
+                request["limit"] = limit.Value;
+            }
+
+            return request;
         }
 
         private static Task<string> ToolInputError(string error)

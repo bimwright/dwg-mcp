@@ -29,22 +29,27 @@ namespace Bimwright.Dwg.Plugin
 
     public sealed class SchemaProperty
     {
-        private SchemaProperty(string name, bool required, JTokenType[] acceptedTypes)
+        private SchemaProperty(string name, bool required, bool requireNonWhiteSpace, JTokenType[] acceptedTypes)
         {
             Name = name;
             IsRequired = required;
+            RequireNonWhiteSpace = requireNonWhiteSpace;
             AcceptedTypes = acceptedTypes ?? Array.Empty<JTokenType>();
         }
 
         public string Name { get; }
         public bool IsRequired { get; }
+        public bool RequireNonWhiteSpace { get; }
         public IReadOnlyList<JTokenType> AcceptedTypes { get; }
 
         public static SchemaProperty Required(string name, params JTokenType[] acceptedTypes)
-            => new SchemaProperty(name, true, acceptedTypes);
+            => new SchemaProperty(name, true, false, acceptedTypes);
+
+        public static SchemaProperty RequiredNonEmptyString(string name)
+            => new SchemaProperty(name, true, true, new[] { JTokenType.String });
 
         public static SchemaProperty Optional(string name, params JTokenType[] acceptedTypes)
-            => new SchemaProperty(name, false, acceptedTypes);
+            => new SchemaProperty(name, false, false, acceptedTypes);
     }
 
     public sealed class SchemaValidationResult
@@ -112,6 +117,14 @@ namespace Bimwright.Dwg.Plugin
                     return SchemaValidationResult.Fail(
                         $"{commandName} field '{property.Name}' must be {DescribeTypes(property.AcceptedTypes)}");
                 }
+
+                if (property.RequireNonWhiteSpace &&
+                    token.Type == JTokenType.String &&
+                    string.IsNullOrWhiteSpace(token.Value<string>()))
+                {
+                    return SchemaValidationResult.Fail(
+                        $"{commandName} field '{property.Name}' must be a non-empty string");
+                }
             }
 
             return SchemaValidationResult.Success();
@@ -144,6 +157,30 @@ namespace Bimwright.Dwg.Plugin
             SchemaProperty.Optional("include_geometry", JTokenType.Boolean));
 
         public static readonly CommandSchema ListLayers = CommandSchema.Empty;
+
+        public static readonly CommandSchema QueryEntities = CommandSchema.Object(
+            SchemaProperty.Optional("entity_type", JTokenType.String),
+            SchemaProperty.Optional("layer", JTokenType.String),
+            SchemaProperty.Optional("color_index", JTokenType.Integer),
+            SchemaProperty.Optional("limit", JTokenType.Integer),
+            SchemaProperty.Optional("include_geometry", JTokenType.Boolean));
+
+        public static readonly CommandSchema CountEntities = CommandSchema.Object(
+            SchemaProperty.Optional("entity_type", JTokenType.String),
+            SchemaProperty.Optional("layer", JTokenType.String),
+            SchemaProperty.Optional("color_index", JTokenType.Integer));
+
+        public static readonly CommandSchema SelectByLayer = CommandSchema.Object(
+            SchemaProperty.RequiredNonEmptyString("layer"),
+            SchemaProperty.Optional("entity_type", JTokenType.String),
+            SchemaProperty.Optional("color_index", JTokenType.Integer),
+            SchemaProperty.Optional("limit", JTokenType.Integer));
+
+        public static readonly CommandSchema SelectByType = CommandSchema.Object(
+            SchemaProperty.RequiredNonEmptyString("entity_type"),
+            SchemaProperty.Optional("layer", JTokenType.String),
+            SchemaProperty.Optional("color_index", JTokenType.Integer),
+            SchemaProperty.Optional("limit", JTokenType.Integer));
 
         public static readonly CommandSchema CreateLayer = CommandSchema.Object(
             SchemaProperty.Required("name", JTokenType.String),
