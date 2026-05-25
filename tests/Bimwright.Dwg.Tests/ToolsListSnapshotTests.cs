@@ -108,7 +108,7 @@ namespace Bimwright.Dwg.Tests
         }
 
         [Fact]
-        public void ResolveToolTypesForRegistration_ExcludesBlockWriteToolsInReadOnlyMode()
+        public void ResolveToolTypesForRegistration_EnforcesPlan3ExplicitAndReadOnlyToolsets()
         {
             var method = typeof(Bimwright.Dwg.Server.Program).GetMethod(
                 "ResolveToolTypesForRegistration",
@@ -121,17 +121,41 @@ namespace Bimwright.Dwg.Tests
                 new[] { typeof(HashSet<string>), typeof(bool) },
                 method.GetParameters().Select(p => p.ParameterType).ToArray());
 
-            var readOnlyTypeNames = InvokeToolTypeResolver(method, readOnly: true)
-                .Select(type => type.Name)
-                .ToArray();
-            var writeTypeNames = InvokeToolTypeResolver(method, readOnly: false)
-                .Select(type => type.Name)
-                .ToArray();
+            var defaultTypeNames = InvokeToolTypeResolver(
+                method,
+                Bimwright.Dwg.Server.ToolsetFilter.DefaultOn,
+                readOnly: false);
+            Assert.DoesNotContain("AnnotationTools", defaultTypeNames);
+            Assert.DoesNotContain("BlockTools", defaultTypeNames);
+            Assert.DoesNotContain("BlockWriteTools", defaultTypeNames);
+            Assert.DoesNotContain("DimensionTools", defaultTypeNames);
 
-            Assert.Contains("BlockTools", readOnlyTypeNames);
-            Assert.DoesNotContain("BlockWriteTools", readOnlyTypeNames);
-            Assert.Contains("BlockTools", writeTypeNames);
-            Assert.Contains("BlockWriteTools", writeTypeNames);
+            var defaultReadOnlyTypeNames = InvokeToolTypeResolver(
+                method,
+                Bimwright.Dwg.Server.ToolsetFilter.DefaultOn,
+                readOnly: true);
+            Assert.DoesNotContain("AnnotationTools", defaultReadOnlyTypeNames);
+            Assert.DoesNotContain("BlockTools", defaultReadOnlyTypeNames);
+            Assert.DoesNotContain("BlockWriteTools", defaultReadOnlyTypeNames);
+            Assert.DoesNotContain("DimensionTools", defaultReadOnlyTypeNames);
+
+            var annotationWriteTypeNames = InvokeToolTypeResolver(method, new[] { "annotation" }, readOnly: false);
+            var annotationReadOnlyTypeNames = InvokeToolTypeResolver(method, new[] { "annotation" }, readOnly: true);
+            Assert.Contains("AnnotationTools", annotationWriteTypeNames);
+            Assert.DoesNotContain("AnnotationTools", annotationReadOnlyTypeNames);
+
+            var dimensionWriteTypeNames = InvokeToolTypeResolver(method, new[] { "dimension" }, readOnly: false);
+            var dimensionReadOnlyTypeNames = InvokeToolTypeResolver(method, new[] { "dimension" }, readOnly: true);
+            Assert.Contains("DimensionTools", dimensionWriteTypeNames);
+            Assert.DoesNotContain("DimensionTools", dimensionReadOnlyTypeNames);
+
+            var blockReadOnlyTypeNames = InvokeToolTypeResolver(method, new[] { "block" }, readOnly: true);
+            var blockWriteTypeNames = InvokeToolTypeResolver(method, new[] { "block" }, readOnly: false);
+
+            Assert.Contains("BlockTools", blockReadOnlyTypeNames);
+            Assert.DoesNotContain("BlockWriteTools", blockReadOnlyTypeNames);
+            Assert.Contains("BlockTools", blockWriteTypeNames);
+            Assert.Contains("BlockWriteTools", blockWriteTypeNames);
         }
 
         private static string[] GetMcpToolNames(Type type)
@@ -157,15 +181,21 @@ namespace Bimwright.Dwg.Tests
             return type;
         }
 
-        private static Type[] InvokeToolTypeResolver(MethodInfo method, bool readOnly)
+        private static string[] InvokeToolTypeResolver(
+            MethodInfo method,
+            IEnumerable<string> enabledToolsets,
+            bool readOnly)
         {
-            var enabled = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "block" };
+            var enabled = new HashSet<string>(enabledToolsets, StringComparer.OrdinalIgnoreCase);
             var result = method.Invoke(null, new object[] { enabled, readOnly });
 
             Assert.True(
                 result is IEnumerable<Type>,
                 "Program.ResolveToolTypesForRegistration must return IEnumerable<Type>.");
-            return ((IEnumerable<Type>)result).ToArray();
+            return ((IEnumerable<Type>)result)
+                .Select(type => type.Name)
+                .OrderBy(name => name, StringComparer.Ordinal)
+                .ToArray();
         }
 
         private static bool IsMcpToolType(Type type)
