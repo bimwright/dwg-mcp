@@ -11,6 +11,8 @@ namespace Bimwright.Dwg.Plugin.Handlers
     public class UpdateTextsHandler : IAcadCommand
     {
         public string Name => "update_texts";
+        public string Description => "Update text entities by handle.";
+        public CommandSchema Schema => CommandSchemas.UpdateTexts;
 
         public CommandResult Execute(Document doc, JToken parameters)
         {

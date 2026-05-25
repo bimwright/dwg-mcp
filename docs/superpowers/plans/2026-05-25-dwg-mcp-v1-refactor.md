@@ -257,19 +257,21 @@ git commit -m "feat(plugin): serialize AutoCAD API execution"
 - Test: `tests/Bimwright.Dwg.Tests/ErrorSanitizerTests.cs`
 - Test: `tests/Bimwright.Dwg.Tests/SecretMaskerTests.cs`
 
-- [ ] **Step 1: Write tests first**
+- [x] **Step 1: Write tests first**
 
 Tests must cover missing required schema fields, invalid types, oversized response truncation, secret/path masking, nested batch rejection, `run_baked_tool` rejection inside batch, and partial failure detection.
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run the new test filters and confirm missing types/functions fail.
 
-- [ ] **Step 3: Implement helpers and dispatcher integration**
+- [x] **Step 3: Implement helpers and dispatcher integration**
 
 Use NJsonSchema only if it restores cleanly for both server and plugin TFMs. If NJsonSchema causes net48/package trouble, use Newtonsoft-based minimal validation for v1 fields and document the deviation in this plan before committing.
 
-- [ ] **Step 4: Implement logical batch without hard-coded undo API**
+Implementation note: this task uses a dependency-free Newtonsoft-based `CommandSchema` validator instead of adding NJsonSchema. It covers v1 required fields and primitive JSON token types while avoiding new net48 package risk.
+
+- [x] **Step 4: Implement logical batch without hard-coded undo API**
 
 Implement `BatchExecutor.Run` and `BatchExecuteHandler`. Keep AutoCAD undo grouping behind `AutoCadUndoGroup.TryBegin(doc)` only after a compile spike. If the spike is not proven in this task, ship logical batch and explicit non-rollback message.
 

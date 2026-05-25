@@ -30,6 +30,7 @@ namespace Bimwright.Dwg.Plugin
                 { "collapse_and_rewrite",    new CollapseAndRewriteHandler() },
                 { "translate_and_rewrite",   new TranslateAndRewriteHandler() },
             };
+            _commands.Add("batch_execute", new BatchExecuteHandler(ExecuteCommand));
         }
 
         public string Dispatch(string requestLine)
@@ -47,21 +48,13 @@ namespace Bimwright.Dwg.Plugin
                 var cmd = (string)request["cmd"];
                 var parameters = request["params"];
 
-                if (string.Equals(cmd, "send_code", StringComparison.Ordinal) && !SendCodeEnabled)
-                    return ErrorJson(id, "send_code is disabled. Run MCPENABLECODE in AutoCAD and start the MCP server with --enable-send-code to opt in.");
+                var preflight = ValidateCommand(cmd, parameters, out _);
+                if (!preflight.Ok)
+                    return SerializeResponse(id, cmd, preflight);
 
-                if (!_commands.TryGetValue(cmd, out var handler))
-                    return ErrorJson(id, $"unknown command: {cmd}");
+                var result = DocumentInvoker.Invoke(doc => ExecuteCommand(doc, cmd, parameters));
 
-                var result = DocumentInvoker.Invoke(doc => handler.Execute(doc, parameters));
-
-                return JsonConvert.SerializeObject(new
-                {
-                    id,
-                    ok = result.Ok,
-                    result = result.Ok ? result.Result : null,
-                    error = result.Ok ? null : result.Error
-                });
+                return SerializeResponse(id, cmd, result);
             }
             catch (Exception ex)
             {
@@ -69,7 +62,42 @@ namespace Bimwright.Dwg.Plugin
             }
         }
 
+        private CommandResult ExecuteCommand(Autodesk.AutoCAD.ApplicationServices.Document doc, string cmd, JToken parameters)
+        {
+            var preflight = ValidateCommand(cmd, parameters, out var handler);
+            if (!preflight.Ok)
+                return preflight;
+            return handler.Execute(doc, parameters);
+        }
+
+        private CommandResult ValidateCommand(string cmd, JToken parameters, out IAcadCommand handler)
+        {
+            handler = null;
+            if (string.Equals(cmd, "send_code", StringComparison.Ordinal) && !SendCodeEnabled)
+                return CommandResult.Fail("send_code is disabled. Run MCPENABLECODE in AutoCAD and start the MCP server with --enable-send-code to opt in.");
+
+            if (!_commands.TryGetValue(cmd, out handler))
+                return CommandResult.Fail($"unknown command: {cmd}");
+
+            var validation = SchemaValidator.Validate(cmd, parameters, handler.Schema);
+            if (!validation.Ok)
+                return CommandResult.Fail(validation.Error);
+
+            return CommandResult.Success(null);
+        }
+
+        private static string SerializeResponse(string id, string cmd, CommandResult result)
+        {
+            return JsonConvert.SerializeObject(new
+            {
+                id,
+                ok = result.Ok,
+                result = result.Ok ? McpResponsePrivacy.FilterResult(cmd, result.Result) : null,
+                error = result.Ok ? null : McpResponsePrivacy.SanitizeError(result.Error)
+            });
+        }
+
         public static string ErrorJson(string id, string error) =>
-            JsonConvert.SerializeObject(new { id, ok = false, error });
+            JsonConvert.SerializeObject(new { id, ok = false, error = McpResponsePrivacy.SanitizeError(error) });
     }
 }
