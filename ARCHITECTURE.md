@@ -128,15 +128,17 @@ Toolsets are resolved by `DwgMcpConfig` and `ToolsetFilter`:
 
 | Toolset | MCP tools |
 |---------|-----------|
-| `query` | `dwg_get_drawing_info`, `dwg_get_entity_properties`, `dwg_list_layers`, `dwg_get_selected_texts` |
-| `modify` | `dwg_create_layer`, `dwg_create_line`, `dwg_create_circle`, `dwg_change_layer`, `dwg_update_texts`, `dwg_translate_and_rewrite`, `dwg_apply_unicode_style`, `dwg_collapse_and_rewrite` |
+| `query` | `dwg_get_drawing_info`, `dwg_get_entity_properties`, `dwg_list_layers`, `dwg_query_entities`, `dwg_count_entities`, `dwg_select_by_layer`, `dwg_select_by_type`, `dwg_get_selected_texts` |
+| `modify` | `dwg_create_layer`, `dwg_create_line`, `dwg_create_circle`, `dwg_create_point`, `dwg_create_polyline`, `dwg_create_rectangle`, `dwg_create_arc`, `dwg_create_ellipse`, `dwg_change_layer`, `dwg_change_color`, `dwg_move_entities`, `dwg_rotate_entities`, `dwg_scale_entities`, `dwg_copy_entities`, `dwg_erase_entities`, `dwg_offset_entities`, `dwg_update_texts`, `dwg_translate_and_rewrite`, `dwg_apply_unicode_style`, `dwg_collapse_and_rewrite` |
 | `meta` | `dwg_batch_execute`, `dwg_list_available_targets`, `dwg_get_current_target`, `dwg_switch_target` |
 | `toolbaker` | `dwg_list_baked_tools`, `dwg_run_baked_tool`, `dwg_list_bake_suggestions`, `dwg_accept_bake_suggestion`, `dwg_dismiss_bake_suggestion`, `dwg_create_bake_issue_draft` |
 | `code` | `dwg_send_code` |
 
 `--read-only` or `BIMWRIGHT_DWG_READ_ONLY=1` removes write-capable methods: `modify`, `code`, `dwg_batch_execute`, and ToolBaker write tools (`run`, `accept`, `dismiss`). ToolBaker read tools (`list_*`, issue draft generation) remain available when the toolset is enabled. `--enable-send-code` only registers `code`; AutoCAD-side `MCPENABLECODE` is still required.
 
-The default startup surface is 16 tools. Enabling the optional `code` and `toolbaker` toolsets exposes the full 23 backed MCP tools.
+The default startup surface is 32 tools. Enabling the optional `code` and `toolbaker` toolsets exposes the full 39 backed MCP tools.
+
+Plan 2 entity query/select tools are model-space only. `dwg_select_by_layer` and `dwg_select_by_type` return handle lists and do not mutate AutoCAD pickfirst selection. Create, copy, offset, and modify handlers identify generated or modified entities with AutoCAD hex handles.
 
 ## Manual smoke checklist
 
@@ -145,10 +147,11 @@ In a scratch DWG:
 1. Run `dwg_get_drawing_info`.
 2. Run `dwg_list_layers`.
 3. Create `BIMWRIGHT_TEST` with `dwg_create_layer`.
-4. Create one line and one circle on a different layer, for example current layer `0`, with `dwg_create_line` and `dwg_create_circle`; record the returned handles.
-5. Read both returned handles with `dwg_get_entity_properties`.
-6. Move both entities to `BIMWRIGHT_TEST` with `dwg_change_layer`.
-7. Confirm one AutoCAD undo reverses each write command's transaction.
+4. Create a polyline, rectangle, arc, and ellipse on `BIMWRIGHT_TEST` with `dwg_create_polyline`, `dwg_create_rectangle`, `dwg_create_arc`, and `dwg_create_ellipse`; record the returned hex handles.
+5. Query, count, and select those entities by layer and type with `dwg_query_entities`, `dwg_count_entities`, `dwg_select_by_layer`, and `dwg_select_by_type`; confirm select tools return handle lists and do not change pickfirst selection.
+6. Move, rotate, scale, copy, and erase scratch entities with `dwg_move_entities`, `dwg_rotate_entities`, `dwg_scale_entities`, `dwg_copy_entities`, and `dwg_erase_entities`.
+7. Change color on one curve with `dwg_change_color`, then offset one curve with `dwg_offset_entities` and confirm the returned generated handles are hex handles.
+8. Confirm the existing text translation workflow still works: select scratch text, run `dwg_get_selected_texts`, then rewrite it with `dwg_translate_and_rewrite`.
 
 ## ToolBaker
 

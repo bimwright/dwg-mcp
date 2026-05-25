@@ -10,7 +10,7 @@
   <a href="https://github.com/bimwright/dwg-mcp/actions/workflows/build.yml"><img src="https://github.com/bimwright/dwg-mcp/actions/workflows/build.yml/badge.svg" alt="build" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="license" /></a>
   <a href="#supported-autocad-versions"><img src="https://img.shields.io/badge/AutoCAD-2022--2027-186BFF" alt="AutoCAD 2022-2027" /></a>
-  <a href="#tools"><img src="https://img.shields.io/badge/MCP-16%20default%20%2B%20optional-6C47FF" alt="MCP tools" /></a>
+  <a href="#tools"><img src="https://img.shields.io/badge/MCP-32%20default%20%2B%20optional-6C47FF" alt="MCP tools" /></a>
 </p>
 
 <p align="center">
@@ -186,21 +186,39 @@ Then run `MCPENABLECODE` inside AutoCAD for the current plugin session. `MCPDISA
 
 ## Tools
 
-Default startup exposes 16 tools: query, modify, routing/meta, and batch. Optional ToolBaker, enabled through `--toolsets`, and `dwg_send_code` bring the backed MCP surface to 23 tools.
+Default startup exposes 32 tools: query, modify, routing/meta, and batch. Optional ToolBaker, enabled through `--toolsets`, and `dwg_send_code` bring the backed MCP surface to 39 tools.
 
-General CAD tools operate on the current active document in the selected AutoCAD target. Entity inputs use AutoCAD hex handles, such as `7F5AD`, returned by selection, creation, or property tools.
+General CAD tools operate on the current active document in the selected AutoCAD target. Entity inputs and returned entity IDs use AutoCAD hex handles, such as `7F5AD`, returned by selection, creation, or property tools. Creation, copy, offset, and modify responses identify generated or modified entities by hex handle.
+
+Plan 2 query expansion is model-space only: `dwg_query_entities`, `dwg_count_entities`, `dwg_select_by_layer`, and `dwg_select_by_type` scan model space, not paper-space/layout entities. `dwg_select_by_layer` and `dwg_select_by_type` return handle lists for the caller; they do not change AutoCAD's pickfirst selection.
 
 | Tool | Purpose |
 |------|---------|
 | `dwg_get_drawing_info` | Read current drawing name, current layer, current space/layout, and unit scalars |
 | `dwg_get_entity_properties` | Read properties for entities identified by AutoCAD hex handles |
 | `dwg_list_layers` | List layers in the current drawing with color and state flags |
+| `dwg_query_entities` | Query model-space entities by optional type, layer, color, limit, and geometry flags |
+| `dwg_count_entities` | Count model-space entities by optional type, layer, or color filters |
+| `dwg_select_by_layer` | Return model-space entity handle lists for one layer without changing pickfirst selection |
+| `dwg_select_by_type` | Return model-space entity handle lists for one entity type without changing pickfirst selection |
 | `dwg_get_selected_texts` | Read pickfirst selection, spatially cluster text entities, return grouped text with rewrite mode hints |
 | `dwg_update_texts` | Write new text by handle in one transaction |
 | `dwg_create_layer` | Ensure a layer exists without overwriting an existing layer's properties |
 | `dwg_create_line` | Create one line in the current drawing space |
 | `dwg_create_circle` | Create one circle in the current drawing space |
+| `dwg_create_point` | Create one point and return its hex handle |
+| `dwg_create_polyline` | Create a lightweight polyline from vertices and return its hex handle |
+| `dwg_create_rectangle` | Create a rectangle polyline and return its hex handle |
+| `dwg_create_arc` | Create one arc and return its hex handle |
+| `dwg_create_ellipse` | Create one ellipse and return its hex handle |
 | `dwg_change_layer` | Move entities identified by hex handles to another layer |
+| `dwg_change_color` | Change entity color by AutoCAD color index |
+| `dwg_move_entities` | Move entities identified by hex handles by a displacement vector |
+| `dwg_rotate_entities` | Rotate entities identified by hex handles around a base point |
+| `dwg_scale_entities` | Scale entities identified by hex handles around a base point |
+| `dwg_copy_entities` | Copy entities identified by hex handles and return copied handles |
+| `dwg_erase_entities` | Erase entities identified by hex handles |
+| `dwg_offset_entities` | Offset curve entities and return generated handles |
 | `dwg_translate_and_rewrite` | **Preferred.** Write translated text back: anchor, delete, MText, font, height |
 | `dwg_apply_unicode_style` | Ensure `Bimwright_Unicode` style exists and apply to targets |
 | `dwg_collapse_and_rewrite` | Low-level rewrite primitive with explicit geometric control |
@@ -228,10 +246,11 @@ In a scratch DWG:
 1. Run `dwg_get_drawing_info`.
 2. Run `dwg_list_layers`.
 3. Create `BIMWRIGHT_TEST` with `dwg_create_layer`.
-4. Create one line and one circle on a different layer, for example current layer `0`, with `dwg_create_line` and `dwg_create_circle`; record the returned handles.
-5. Read both returned handles with `dwg_get_entity_properties`.
-6. Move both entities to `BIMWRIGHT_TEST` with `dwg_change_layer`.
-7. Confirm one AutoCAD undo reverses each write command's transaction.
+4. Create a polyline, rectangle, arc, and ellipse on `BIMWRIGHT_TEST` with `dwg_create_polyline`, `dwg_create_rectangle`, `dwg_create_arc`, and `dwg_create_ellipse`; record the returned hex handles.
+5. Query, count, and select those entities by layer and type with `dwg_query_entities`, `dwg_count_entities`, `dwg_select_by_layer`, and `dwg_select_by_type`; confirm select tools return handle lists and do not change pickfirst selection.
+6. Move, rotate, scale, copy, and erase scratch entities with `dwg_move_entities`, `dwg_rotate_entities`, `dwg_scale_entities`, `dwg_copy_entities`, and `dwg_erase_entities`.
+7. Change color on one curve with `dwg_change_color`, then offset one curve with `dwg_offset_entities` and confirm the returned generated handles are hex handles.
+8. Confirm the existing text translation workflow still works: select scratch text, run `dwg_get_selected_texts`, then rewrite it with `dwg_translate_and_rewrite`.
 
 ### Migration from 0.1.x tool names
 

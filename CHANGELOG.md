@@ -20,10 +20,13 @@ Added:
 - Discovery v2 now writes `acad_year` and stable `pipe_name` fields; server still reads transitional `target`/`version` fields.
 - Baked source redaction, `usage_events` storage, and minimal Memory/Logging support for ToolBaker pattern detection.
 - Manual scratch-DWG smoke checklist for the CAD foundation tools, including active-document and hex-handle expectations.
+- Plan 2 core CAD expansion tools: model-space query/count/select by layer/type, create point/polyline/rectangle/arc/ellipse, move/rotate/scale/copy/erase, change color, and offset curve entities.
+- Manual smoke checklist now covers Plan 2 core CAD operations and the existing text translation workflow.
 
 Notes:
 
-- Default startup exposes 16 tools. Optional `code` and `toolbaker` toolsets bring the backed MCP surface to 23 tools.
+- Default startup exposes 32 tools. Optional `code` and `toolbaker` toolsets bring the backed MCP surface to 39 tools.
+- Plan 2 query expansion is model-space only. `dwg_select_by_layer` and `dwg_select_by_type` return handle lists and do not change AutoCAD pickfirst selection.
 - `dwg_send_code` still requires both server opt-in (`--enable-send-code` or `BIMWRIGHT_DWG_ENABLE_SEND_CODE=1`) and AutoCAD-side `MCPENABLECODE`.
 - Server/tests can pass without release-building every AutoCAD shell. Shipping a year requires matching Autodesk managed assemblies on the release machine.
 - `BIMWRIGHT_DWG_ALLOW_LAN_BIND` / `--allow-lan-bind` is parsed and reserved for a future plugin-side LAN bind transport path. The server emits a stderr warning when the flag is set so the operator is not misled.

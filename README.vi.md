@@ -10,7 +10,7 @@
   <a href="https://github.com/bimwright/dwg-mcp/actions/workflows/build.yml"><img src="https://github.com/bimwright/dwg-mcp/actions/workflows/build.yml/badge.svg" alt="build" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="license" /></a>
   <a href="#phien-ban-autocad-ho-tro"><img src="https://img.shields.io/badge/AutoCAD-2022--2027-186BFF" alt="AutoCAD 2022-2027" /></a>
-  <a href="#cong-cu"><img src="https://img.shields.io/badge/MCP-16%20default%20%2B%20optional-6C47FF" alt="MCP tools" /></a>
+  <a href="#cong-cu"><img src="https://img.shields.io/badge/MCP-32%20default%20%2B%20optional-6C47FF" alt="MCP tools" /></a>
 </p>
 
 <p align="center">
@@ -174,21 +174,39 @@ Dung `--read-only` de chi mo tool doc/routing, cong them ToolBaker read tools ne
 
 ## Cong cu
 
-Mac dinh server expose 16 tool: query, modify, routing/meta, va batch. ToolBaker bat qua `--toolsets`, va `dwg_send_code` la opt-in; tong backed MCP surface la 23 tool.
+Mac dinh server expose 32 tool: query, modify, routing/meta, va batch. ToolBaker bat qua `--toolsets`, va `dwg_send_code` la opt-in; tong backed MCP surface la 39 tool.
 
-CAD tool chay tren active document hien tai cua AutoCAD target dang chon. Entity input dung AutoCAD hex handle, vi du `7F5AD`, do tool selection, creation, hoac properties tra ve.
+CAD tool chay tren active document hien tai cua AutoCAD target dang chon. Entity input va entity id tra ve dung AutoCAD hex handle, vi du `7F5AD`, do tool selection, creation, hoac properties tra ve. Creation, copy, offset, va modify response identify entity tao/sua bang hex handle.
+
+Plan 2 query expansion chi quet model space: `dwg_query_entities`, `dwg_count_entities`, `dwg_select_by_layer`, va `dwg_select_by_type` khong quet paper-space/layout entity. `dwg_select_by_layer` va `dwg_select_by_type` tra ve handle list cho caller; chung khong doi AutoCAD pickfirst selection.
 
 | Tool | Muc dich |
 |------|----------|
 | `dwg_get_drawing_info` | Doc ten drawing, current layer, current space/layout, va unit scalar |
 | `dwg_get_entity_properties` | Doc property cua entity theo AutoCAD hex handle |
 | `dwg_list_layers` | Liet ke layer trong drawing hien tai kem color va state flag |
+| `dwg_query_entities` | Query model-space entity theo type, layer, color, limit, va geometry flag tuy chon |
+| `dwg_count_entities` | Dem model-space entity theo type, layer, hoac color filter tuy chon |
+| `dwg_select_by_layer` | Tra ve handle list cua model-space entity tren mot layer, khong doi pickfirst selection |
+| `dwg_select_by_type` | Tra ve handle list cua model-space entity theo mot entity type, khong doi pickfirst selection |
 | `dwg_get_selected_texts` | Doc text dang chon, cluster khong gian, tra ve nhom text |
 | `dwg_update_texts` | Ghi text theo handle trong mot transaction |
 | `dwg_create_layer` | Dam bao layer ton tai, khong ghi de property cua layer da co |
 | `dwg_create_line` | Tao mot line trong drawing space hien tai |
 | `dwg_create_circle` | Tao mot circle trong drawing space hien tai |
+| `dwg_create_point` | Tao mot point va tra ve hex handle |
+| `dwg_create_polyline` | Tao lightweight polyline tu vertices va tra ve hex handle |
+| `dwg_create_rectangle` | Tao rectangle polyline va tra ve hex handle |
+| `dwg_create_arc` | Tao mot arc va tra ve hex handle |
+| `dwg_create_ellipse` | Tao mot ellipse va tra ve hex handle |
 | `dwg_change_layer` | Chuyen entity theo hex handle sang layer khac |
+| `dwg_change_color` | Doi color entity bang AutoCAD color index |
+| `dwg_move_entities` | Move entity theo hex handle bang displacement vector |
+| `dwg_rotate_entities` | Rotate entity theo hex handle quanh base point |
+| `dwg_scale_entities` | Scale entity theo hex handle quanh base point |
+| `dwg_copy_entities` | Copy entity theo hex handle va tra ve copied handle |
+| `dwg_erase_entities` | Erase entity theo hex handle |
+| `dwg_offset_entities` | Offset curve entity va tra ve generated handle |
 | `dwg_translate_and_rewrite` | **Uu tien.** Ghi text da dich, tu dong xu ly anchor, xoa, MText, font, chieu cao |
 | `dwg_apply_unicode_style` | Dam bao style `Bimwright_Unicode` ton tai va ap dung |
 | `dwg_collapse_and_rewrite` | Rewrite low-level voi kiem soat hinh hoc chi tiet |
@@ -216,10 +234,11 @@ Trong scratch DWG:
 1. Chay `dwg_get_drawing_info`.
 2. Chay `dwg_list_layers`.
 3. Tao `BIMWRIGHT_TEST` bang `dwg_create_layer`.
-4. Tao mot line va mot circle tren layer khac, vi du current layer `0`, bang `dwg_create_line` va `dwg_create_circle`; ghi lai handle tra ve.
-5. Doc ca hai handle tra ve bang `dwg_get_entity_properties`.
-6. Chuyen ca hai entity sang `BIMWRIGHT_TEST` bang `dwg_change_layer`.
-7. Xac nhan mot lan AutoCAD undo revert transaction cua tung write command.
+4. Tao polyline, rectangle, arc, va ellipse tren `BIMWRIGHT_TEST` bang `dwg_create_polyline`, `dwg_create_rectangle`, `dwg_create_arc`, va `dwg_create_ellipse`; ghi lai hex handle tra ve.
+5. Query, count, va select cac entity do theo layer va type bang `dwg_query_entities`, `dwg_count_entities`, `dwg_select_by_layer`, va `dwg_select_by_type`; xac nhan select tool tra ve handle list va khong doi pickfirst selection.
+6. Move, rotate, scale, copy, va erase scratch entity bang `dwg_move_entities`, `dwg_rotate_entities`, `dwg_scale_entities`, `dwg_copy_entities`, va `dwg_erase_entities`.
+7. Doi color mot curve bang `dwg_change_color`, sau do offset mot curve bang `dwg_offset_entities` va xac nhan generated handle tra ve la hex handle.
+8. Xac nhan workflow dich text cu van chay: chon scratch text, chay `dwg_get_selected_texts`, roi rewrite bang `dwg_translate_and_rewrite`.
 
 ### Migration tu ten tool 0.1.x
 
