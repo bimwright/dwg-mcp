@@ -23,7 +23,10 @@ namespace Bimwright.Dwg.Plugin
             _authToken = authToken;
             _commands = new Dictionary<string, IAcadCommand>
             {
+                { "get_drawing_info",        new GetDrawingInfoHandler() },
+                { "get_entity_properties",   new GetEntityPropertiesHandler() },
                 { "get_selected_texts",      new GetSelectedTextsHandler() },
+                { "list_layers",             new ListLayersHandler() },
                 { "update_texts",            new UpdateTextsHandler() },
                 { "send_code",               new SendCodeHandler() },
                 { "apply_unicode_style",     new ApplyUnicodeStyleHandler() },

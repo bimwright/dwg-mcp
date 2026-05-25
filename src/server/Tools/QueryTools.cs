@@ -1,12 +1,46 @@
+using System;
 using System.ComponentModel;
 using System.Threading.Tasks;
 using ModelContextProtocol.Server;
+using Newtonsoft.Json;
 
 namespace Bimwright.Dwg.Server.Tools
 {
     [McpServerToolType]
     public class QueryTools
     {
+        [McpServerTool(Name = "dwg_get_drawing_info", ReadOnly = true, Idempotent = true), Description(
+            "Return small JSON-safe metadata for the current AutoCAD drawing: " +
+            "drawing name/path when available, current layer, current space/layout, " +
+            "and database unit scalars.")]
+        public static Task<string> GetDrawingInfo()
+        {
+            var request = new { };
+            return ToolGateway.LoggedCall("get_drawing_info", request, request);
+        }
+
+        [McpServerTool(Name = "dwg_get_entity_properties", ReadOnly = true, Idempotent = true), Description(
+            "Return properties for AutoCAD entities identified by handle. " +
+            "Input handles is a JSON array of hex handles, e.g. [\"7F5AD\"]. " +
+            "Returns one result record per handle; bad handles do not abort siblings.")]
+        public static Task<string> GetEntityProperties(
+            [Description("JSON array of AutoCAD handles, e.g. [\"7F5AD\",\"2A4F\"].")] string handles,
+            [Description("When true, include lightweight geometry such as extents, points, lengths, and text positions where available.")] bool includeGeometry = true)
+        {
+            var parsed = JsonConvert.DeserializeObject<string[]>(handles) ?? Array.Empty<string>();
+            var request = new { handles = parsed, include_geometry = includeGeometry };
+            return ToolGateway.LoggedCall("get_entity_properties", request, request);
+        }
+
+        [McpServerTool(Name = "dwg_list_layers", ReadOnly = true, Idempotent = true), Description(
+            "List layers in the current AutoCAD drawing with small scalar properties " +
+            "such as color index, locked/frozen/off state.")]
+        public static Task<string> ListLayers()
+        {
+            var request = new { };
+            return ToolGateway.LoggedCall("list_layers", request, request);
+        }
+
         [McpServerTool(Name = "dwg_get_selected_texts", ReadOnly = true, Idempotent = true), Description(
             "Read and cluster text entities currently selected in AutoCAD. " +
             "Returns pre-clustered groups with combined text in reading order. " +
