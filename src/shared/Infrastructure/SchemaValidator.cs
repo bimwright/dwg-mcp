@@ -198,6 +198,39 @@ namespace Bimwright.Dwg.Plugin
             SchemaProperty.Optional("layer", JTokenType.String),
             SchemaProperty.Optional("color_index", JTokenType.Integer));
 
+        public static readonly CommandSchema CreatePoint = CommandSchema.Object(
+            SchemaProperty.Required("point", JTokenType.Object),
+            SchemaProperty.Optional("layer", JTokenType.String),
+            SchemaProperty.Optional("color_index", JTokenType.Integer));
+
+        public static readonly CommandSchema CreatePolyline = CommandSchema.Object(
+            SchemaProperty.Required("points", JTokenType.Array),
+            SchemaProperty.Optional("closed", JTokenType.Boolean),
+            SchemaProperty.Optional("layer", JTokenType.String),
+            SchemaProperty.Optional("color_index", JTokenType.Integer));
+
+        public static readonly CommandSchema CreateRectangle = CommandSchema.Object(
+            SchemaProperty.Required("corner1", JTokenType.Object),
+            SchemaProperty.Required("corner2", JTokenType.Object),
+            SchemaProperty.Optional("layer", JTokenType.String),
+            SchemaProperty.Optional("color_index", JTokenType.Integer));
+
+        public static readonly CommandSchema CreateArc = CommandSchema.Object(
+            SchemaProperty.Required("center", JTokenType.Object),
+            SchemaProperty.Required("radius", JTokenType.Float, JTokenType.Integer),
+            SchemaProperty.Required("start_angle", JTokenType.Float, JTokenType.Integer),
+            SchemaProperty.Required("end_angle", JTokenType.Float, JTokenType.Integer),
+            SchemaProperty.Optional("layer", JTokenType.String),
+            SchemaProperty.Optional("color_index", JTokenType.Integer));
+
+        public static readonly CommandSchema CreateEllipse = CommandSchema.Object(
+            SchemaProperty.Required("center", JTokenType.Object),
+            SchemaProperty.Required("major_radius", JTokenType.Float, JTokenType.Integer),
+            SchemaProperty.Required("minor_radius", JTokenType.Float, JTokenType.Integer),
+            SchemaProperty.Required("rotation", JTokenType.Float, JTokenType.Integer),
+            SchemaProperty.Optional("layer", JTokenType.String),
+            SchemaProperty.Optional("color_index", JTokenType.Integer));
+
         public static readonly CommandSchema ChangeLayer = CommandSchema.Object(
             SchemaProperty.Required("handles", JTokenType.Array),
             SchemaProperty.Required("layer", JTokenType.String),

@@ -114,6 +114,174 @@ namespace Bimwright.Dwg.Server.Tools
             return ToolGateway.LoggedCall("create_circle", request, request);
         }
 
+        [McpServerTool(Name = "dwg_create_point"), Description(
+            "Create a Point in the current AutoCAD space. point is a JSON point object " +
+            "with numeric x, y, and optional z fields. Optional layer is ensured before " +
+            "assignment; optional color_index sets the entity ACI color.")]
+        public static Task<string> CreatePoint(
+            [Description("JSON point object, e.g. {\"x\":0,\"y\":0,\"z\":0}.")] string point,
+            [Description("Optional target layer name. If supplied, the layer is ensured using color_index or default 7.")] string layer = null,
+            [Description("Optional ACI color index for the new entity, and for creating a supplied missing layer. Valid range: 1-256.")] int? color_index = null)
+        {
+            if (!TryParseJsonObject(point, "point", out var pointObject, out var pointError))
+            {
+                return ToolInputError(pointError);
+            }
+
+            var request = new JObject
+            {
+                ["point"] = pointObject
+            };
+            if (layer != null)
+            {
+                request["layer"] = layer;
+            }
+            if (color_index.HasValue)
+            {
+                request["color_index"] = color_index.Value;
+            }
+
+            return ToolGateway.LoggedCall("create_point", request, request);
+        }
+
+        [McpServerTool(Name = "dwg_create_polyline"), Description(
+            "Create a 2D Polyline in the current AutoCAD space. points is a JSON array " +
+            "of point objects with numeric x, y, and optional z fields. At least two " +
+            "points are required.")]
+        public static Task<string> CreatePolyline(
+            [Description("JSON point array, e.g. [{\"x\":0,\"y\":0},{\"x\":1000,\"y\":0}].")] string points,
+            [Description("When true, close the polyline.")] bool closed = false,
+            [Description("Optional target layer name. If supplied, the layer is ensured using color_index or default 7.")] string layer = null,
+            [Description("Optional ACI color index for the new entity, and for creating a supplied missing layer. Valid range: 1-256.")] int? color_index = null)
+        {
+            if (!TryParseJsonArray(points, "points", out var pointsArray, out var pointsError))
+            {
+                return ToolInputError(pointsError);
+            }
+
+            var request = new JObject
+            {
+                ["points"] = pointsArray,
+                ["closed"] = closed
+            };
+            if (layer != null)
+            {
+                request["layer"] = layer;
+            }
+            if (color_index.HasValue)
+            {
+                request["color_index"] = color_index.Value;
+            }
+
+            return ToolGateway.LoggedCall("create_polyline", request, request);
+        }
+
+        [McpServerTool(Name = "dwg_create_rectangle"), Description(
+            "Create a Rectangle as a closed Polyline in the current AutoCAD space. " +
+            "corner1 and corner2 are JSON point objects with numeric x, y, and optional z fields.")]
+        public static Task<string> CreateRectangle(
+            [Description("JSON point object, e.g. {\"x\":0,\"y\":0,\"z\":0}.")] string corner1,
+            [Description("JSON point object, e.g. {\"x\":1000,\"y\":500,\"z\":0}.")] string corner2,
+            [Description("Optional target layer name. If supplied, the layer is ensured using color_index or default 7.")] string layer = null,
+            [Description("Optional ACI color index for the new entity, and for creating a supplied missing layer. Valid range: 1-256.")] int? color_index = null)
+        {
+            if (!TryParseJsonObject(corner1, "corner1", out var corner1Object, out var corner1Error))
+            {
+                return ToolInputError(corner1Error);
+            }
+
+            if (!TryParseJsonObject(corner2, "corner2", out var corner2Object, out var corner2Error))
+            {
+                return ToolInputError(corner2Error);
+            }
+
+            var request = new JObject
+            {
+                ["corner1"] = corner1Object,
+                ["corner2"] = corner2Object
+            };
+            if (layer != null)
+            {
+                request["layer"] = layer;
+            }
+            if (color_index.HasValue)
+            {
+                request["color_index"] = color_index.Value;
+            }
+
+            return ToolGateway.LoggedCall("create_rectangle", request, request);
+        }
+
+        [McpServerTool(Name = "dwg_create_arc"), Description(
+            "Create an Arc in the current AutoCAD space. center is a JSON point object. " +
+            "radius must be positive and finite. start_angle and end_angle are degrees.")]
+        public static Task<string> CreateArc(
+            [Description("JSON point object, e.g. {\"x\":0,\"y\":0,\"z\":0}.")] string center,
+            [Description("Arc radius. Must be positive and finite.")] double radius,
+            [Description("Start angle in degrees.")] double start_angle,
+            [Description("End angle in degrees.")] double end_angle,
+            [Description("Optional target layer name. If supplied, the layer is ensured using color_index or default 7.")] string layer = null,
+            [Description("Optional ACI color index for the new entity, and for creating a supplied missing layer. Valid range: 1-256.")] int? color_index = null)
+        {
+            if (!TryParseJsonObject(center, "center", out var centerObject, out var centerError))
+            {
+                return ToolInputError(centerError);
+            }
+
+            var request = new JObject
+            {
+                ["center"] = centerObject,
+                ["radius"] = radius,
+                ["start_angle"] = start_angle,
+                ["end_angle"] = end_angle
+            };
+            if (layer != null)
+            {
+                request["layer"] = layer;
+            }
+            if (color_index.HasValue)
+            {
+                request["color_index"] = color_index.Value;
+            }
+
+            return ToolGateway.LoggedCall("create_arc", request, request);
+        }
+
+        [McpServerTool(Name = "dwg_create_ellipse"), Description(
+            "Create an Ellipse in the current AutoCAD space. center is a JSON point object. " +
+            "major_radius and minor_radius must be positive and finite. rotation is degrees.")]
+        public static Task<string> CreateEllipse(
+            [Description("JSON point object, e.g. {\"x\":0,\"y\":0,\"z\":0}.")] string center,
+            [Description("Major radius. Must be positive and finite.")] double major_radius,
+            [Description("Minor radius. Must be positive, finite, and less than or equal to major_radius.")] double minor_radius,
+            [Description("Major-axis rotation in degrees.")] double rotation,
+            [Description("Optional target layer name. If supplied, the layer is ensured using color_index or default 7.")] string layer = null,
+            [Description("Optional ACI color index for the new entity, and for creating a supplied missing layer. Valid range: 1-256.")] int? color_index = null)
+        {
+            if (!TryParseJsonObject(center, "center", out var centerObject, out var centerError))
+            {
+                return ToolInputError(centerError);
+            }
+
+            var request = new JObject
+            {
+                ["center"] = centerObject,
+                ["major_radius"] = major_radius,
+                ["minor_radius"] = minor_radius,
+                ["rotation"] = rotation
+            };
+            if (layer != null)
+            {
+                request["layer"] = layer;
+            }
+            if (color_index.HasValue)
+            {
+                request["color_index"] = color_index.Value;
+            }
+
+            return ToolGateway.LoggedCall("create_ellipse", request, request);
+        }
+
         [McpServerTool(Name = "dwg_change_layer"), Description(
             "Move entities identified by handle to an existing layer. If create_layer=true, " +
             "the layer is ensured first using color_index or default 7. Returns one result " +
@@ -254,6 +422,29 @@ namespace Bimwright.Dwg.Server.Tools
             catch (JsonException ex)
             {
                 error = fieldName + " must be a JSON object: " + ex.Message;
+                return false;
+            }
+        }
+
+        private static bool TryParseJsonArray(string json, string fieldName, out JArray array, out string error)
+        {
+            array = null;
+            error = null;
+
+            if (string.IsNullOrWhiteSpace(json))
+            {
+                error = fieldName + " must be a JSON array";
+                return false;
+            }
+
+            try
+            {
+                array = JArray.Parse(json);
+                return true;
+            }
+            catch (JsonException ex)
+            {
+                error = fieldName + " must be a JSON array: " + ex.Message;
                 return false;
             }
         }
