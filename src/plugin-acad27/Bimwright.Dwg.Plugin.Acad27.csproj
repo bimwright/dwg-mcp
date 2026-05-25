@@ -1,37 +1,35 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net48</TargetFramework>
+    <TargetFramework>net10.0-windows</TargetFramework>
     <RootNamespace>Bimwright.Dwg.Plugin</RootNamespace>
-    <AssemblyName>Bimwright.Dwg.Plugin.Acad24</AssemblyName>
+    <AssemblyName>Bimwright.Dwg.Plugin.Acad27</AssemblyName>
     <LangVersion>latest</LangVersion>
-    <AutoCadVersionYear>2024</AutoCadVersionYear>
-    <DefineConstants>$(DefineConstants);ACAD2024</DefineConstants>
-    <AutoCad2024Dir Condition="'$(AutoCad2024Dir)' == ''">C:\Program Files\Autodesk\AutoCAD 2024</AutoCad2024Dir>
+    <AutoCadVersionYear>2027</AutoCadVersionYear>
+    <DefineConstants>$(DefineConstants);ACAD2027</DefineConstants>
+    <AutoCad2027Dir Condition="'$(AutoCad2027Dir)' == ''">C:\Program Files\Autodesk\AutoCAD 2027</AutoCad2027Dir>
   </PropertyGroup>
 
   <Target Name="ValidateAutoCadReferences" BeforeTargets="ResolveReferences">
-    <Error Condition="!Exists('$(AutoCad2024Dir)\accoremgd.dll') or !Exists('$(AutoCad2024Dir)\acdbmgd.dll') or !Exists('$(AutoCad2024Dir)\acmgd.dll')"
-           Text="AutoCAD 2024 managed assemblies were not found under '$(AutoCad2024Dir)'. Install AutoCAD 2024 or build with /p:AutoCad2024Dir=&quot;C:\Path\To\AutoCAD 2024&quot;." />
+    <Error Condition="!Exists('$(AutoCad2027Dir)\accoremgd.dll') or !Exists('$(AutoCad2027Dir)\acdbmgd.dll') or !Exists('$(AutoCad2027Dir)\acmgd.dll')"
+           Text="AutoCAD 2027 managed assemblies were not found under '$(AutoCad2027Dir)'. Install AutoCAD 2027 or build with /p:AutoCad2027Dir=&quot;C:\Path\To\AutoCAD 2027&quot;." />
   </Target>
 
-  <!-- Glob-include shared source -->
   <ItemGroup>
+    <Compile Include="..\plugin-acad24\App.cs" Link="App.cs" />
     <Compile Include="..\shared\**\*.cs" LinkBase="Shared" />
   </ItemGroup>
 
-  <!-- AutoCAD 2024 managed assemblies are referenced from the local AutoCAD install.
-       They are not committed or redistributed with this repo. -->
   <ItemGroup>
     <Reference Include="accoremgd">
-      <HintPath>$(AutoCad2024Dir)\accoremgd.dll</HintPath>
+      <HintPath>$(AutoCad2027Dir)\accoremgd.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="acdbmgd">
-      <HintPath>$(AutoCad2024Dir)\acdbmgd.dll</HintPath>
+      <HintPath>$(AutoCad2027Dir)\acdbmgd.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="acmgd">
-      <HintPath>$(AutoCad2024Dir)\acmgd.dll</HintPath>
+      <HintPath>$(AutoCad2027Dir)\acmgd.dll</HintPath>
       <Private>false</Private>
     </Reference>
   </ItemGroup>
@@ -39,6 +37,7 @@
   <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="4.8.0" />
+    <FrameworkReference Include="Microsoft.WindowsDesktop.App" />
   </ItemGroup>
 
   <ItemGroup>

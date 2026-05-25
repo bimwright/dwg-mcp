@@ -275,7 +275,7 @@ Implementation note: this task uses a dependency-free Newtonsoft-based `CommandS
 
 Implement `BatchExecutor.Run` and `BatchExecuteHandler`. Keep AutoCAD undo grouping behind `AutoCadUndoGroup.TryBegin(doc)` only after a compile spike. If the spike is not proven in this task, ship logical batch and explicit non-rollback message.
 
-- [ ] **Step 5: Verify GREEN and commit**
+- [x] **Step 5: Verify GREEN and commit**
 
 ```powershell
 dotnet test tests\Bimwright.Dwg.Tests\Bimwright.Dwg.Tests.csproj -c Debug
@@ -297,15 +297,15 @@ git commit -m "feat(plugin): add validation security and batch skeleton"
 - Modify: `scripts/install.ps1`
 - Modify: `.github/workflows/build.yml`
 
-- [ ] **Step 1: Add shell csprojs with explicit ref properties**
+- [x] **Step 1: Add shell csprojs with explicit ref properties**
 
 Use `AutoCad2022Dir`, `AutoCad2023Dir`, `AutoCad2024Dir`, `AutoCad2025Dir`, `AutoCad2026Dir`, `AutoCad2027Dir`. Do not commit Autodesk DLLs. Use `net48` for 2022-2024, `net8.0-windows` for 2025-2026, `net10.0-windows` for 2027.
 
-- [ ] **Step 2: Add solution entries and CI skip logic**
+- [x] **Step 2: Add solution entries and CI skip logic**
 
 Hosted CI may skip plugin jobs if refs are missing, but release packaging must require prepared-machine artifacts.
 
-- [ ] **Step 3: Verify available local shell**
+- [x] **Step 3: Verify available local shell**
 
 Run:
 
@@ -314,7 +314,7 @@ dotnet build src\plugin-acad24\Bimwright.Dwg.Plugin.Acad24.csproj -c Debug /nr:f
 dotnet test tests\Bimwright.Dwg.Tests\Bimwright.Dwg.Tests.csproj -c Debug
 ```
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```powershell
 git add src scripts .github

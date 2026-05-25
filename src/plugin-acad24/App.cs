@@ -76,7 +76,7 @@ namespace Bimwright.Dwg.Plugin
 
         private static void StartServerInternal()
         {
-            _server = new TcpTransportServer("2024");
+            _server = new TcpTransportServer(PluginTarget.AutoCadYear);
             _server.Start();
         }
 
