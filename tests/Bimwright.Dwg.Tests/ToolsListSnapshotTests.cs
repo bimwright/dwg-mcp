@@ -125,37 +125,46 @@ namespace Bimwright.Dwg.Tests
                 method,
                 Bimwright.Dwg.Server.ToolsetFilter.DefaultOn,
                 readOnly: false);
-            Assert.DoesNotContain("AnnotationTools", defaultTypeNames);
-            Assert.DoesNotContain("BlockTools", defaultTypeNames);
-            Assert.DoesNotContain("BlockWriteTools", defaultTypeNames);
-            Assert.DoesNotContain("DimensionTools", defaultTypeNames);
+            Assert.Equal(new[]
+            {
+                "BatchTools",
+                "MetaTools",
+                "ModifyTools",
+                "QueryTools"
+            }, defaultTypeNames);
 
             var defaultReadOnlyTypeNames = InvokeToolTypeResolver(
                 method,
                 Bimwright.Dwg.Server.ToolsetFilter.DefaultOn,
                 readOnly: true);
-            Assert.DoesNotContain("AnnotationTools", defaultReadOnlyTypeNames);
-            Assert.DoesNotContain("BlockTools", defaultReadOnlyTypeNames);
-            Assert.DoesNotContain("BlockWriteTools", defaultReadOnlyTypeNames);
-            Assert.DoesNotContain("DimensionTools", defaultReadOnlyTypeNames);
+            Assert.Equal(new[]
+            {
+                "MetaTools",
+                "QueryTools"
+            }, defaultReadOnlyTypeNames);
 
             var annotationWriteTypeNames = InvokeToolTypeResolver(method, new[] { "annotation" }, readOnly: false);
             var annotationReadOnlyTypeNames = InvokeToolTypeResolver(method, new[] { "annotation" }, readOnly: true);
-            Assert.Contains("AnnotationTools", annotationWriteTypeNames);
-            Assert.DoesNotContain("AnnotationTools", annotationReadOnlyTypeNames);
+            Assert.Equal(new[] { "AnnotationTools" }, annotationWriteTypeNames);
+            Assert.Equal(Array.Empty<string>(), annotationReadOnlyTypeNames);
 
             var dimensionWriteTypeNames = InvokeToolTypeResolver(method, new[] { "dimension" }, readOnly: false);
             var dimensionReadOnlyTypeNames = InvokeToolTypeResolver(method, new[] { "dimension" }, readOnly: true);
-            Assert.Contains("DimensionTools", dimensionWriteTypeNames);
-            Assert.DoesNotContain("DimensionTools", dimensionReadOnlyTypeNames);
+            Assert.Equal(new[] { "DimensionTools" }, dimensionWriteTypeNames);
+            Assert.Equal(Array.Empty<string>(), dimensionReadOnlyTypeNames);
 
             var blockReadOnlyTypeNames = InvokeToolTypeResolver(method, new[] { "block" }, readOnly: true);
             var blockWriteTypeNames = InvokeToolTypeResolver(method, new[] { "block" }, readOnly: false);
 
-            Assert.Contains("BlockTools", blockReadOnlyTypeNames);
-            Assert.DoesNotContain("BlockWriteTools", blockReadOnlyTypeNames);
-            Assert.Contains("BlockTools", blockWriteTypeNames);
-            Assert.Contains("BlockWriteTools", blockWriteTypeNames);
+            Assert.Equal(new[]
+            {
+                "BlockTools"
+            }, blockReadOnlyTypeNames);
+            Assert.Equal(new[]
+            {
+                "BlockTools",
+                "BlockWriteTools"
+            }, blockWriteTypeNames);
         }
 
         private static string[] GetMcpToolNames(Type type)
