@@ -55,5 +55,82 @@ namespace Bimwright.Dwg.Tests
 
             Assert.True(result.Ok);
         }
+
+        [Fact]
+        public void Validate_CreateLineRequiresStartAndEnd()
+        {
+            var result = SchemaValidator.Validate("create_line", JObject.Parse("{}"), CommandSchemas.CreateLine);
+
+            Assert.False(result.Ok);
+            Assert.Contains("start", result.Error);
+
+            AssertMissingRequiredField(
+                "create_line",
+                JObject.Parse("{\"start\":{\"x\":1,\"y\":2}}"),
+                CommandSchemas.CreateLine,
+                "end");
+        }
+
+        [Fact]
+        public void Validate_CreateCircleRequiresCenterAndRadius()
+        {
+            var result = SchemaValidator.Validate("create_circle", JObject.Parse("{}"), CommandSchemas.CreateCircle);
+
+            Assert.False(result.Ok);
+            Assert.Contains("center", result.Error);
+
+            AssertMissingRequiredField(
+                "create_circle",
+                JObject.Parse("{\"center\":{\"x\":1,\"y\":2}}"),
+                CommandSchemas.CreateCircle,
+                "radius");
+        }
+
+        [Fact]
+        public void Validate_CreateLayerRequiresName()
+        {
+            AssertMissingRequiredField(
+                "create_layer",
+                JObject.Parse("{}"),
+                CommandSchemas.CreateLayer,
+                "name");
+        }
+
+        [Fact]
+        public void Validate_ChangeLayerRequiresHandlesAndLayer()
+        {
+            var result = SchemaValidator.Validate("change_layer", JObject.Parse("{}"), CommandSchemas.ChangeLayer);
+
+            Assert.False(result.Ok);
+            Assert.Contains("handles", result.Error);
+
+            AssertMissingRequiredField(
+                "change_layer",
+                JObject.Parse("{\"handles\":[]}"),
+                CommandSchemas.ChangeLayer,
+                "layer");
+        }
+
+        [Fact]
+        public void Validate_GetEntityPropertiesRequiresHandles()
+        {
+            AssertMissingRequiredField(
+                "get_entity_properties",
+                JObject.Parse("{}"),
+                CommandSchemas.GetEntityProperties,
+                "handles");
+        }
+
+        private static void AssertMissingRequiredField(
+            string commandName,
+            JObject parameters,
+            CommandSchema schema,
+            string fieldName)
+        {
+            var result = SchemaValidator.Validate(commandName, parameters, schema);
+
+            Assert.False(result.Ok);
+            Assert.Contains(fieldName, result.Error);
+        }
     }
 }
