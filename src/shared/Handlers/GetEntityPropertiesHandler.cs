@@ -15,14 +15,10 @@ namespace Bimwright.Dwg.Plugin.Handlers
 
         public CommandResult Execute(Document doc, JToken parameters)
         {
-            string[] handles;
-            try
+            var handleTokens = (parameters as JObject)?["handles"] as JArray;
+            if (handleTokens == null)
             {
-                handles = CadWire.ReadStringArray(parameters, "handles");
-            }
-            catch (ArgumentException ex)
-            {
-                return CommandResult.Fail(ex.Message);
+                return CommandResult.Fail("handles must be an array");
             }
 
             var includeGeometry = parameters?["include_geometry"]?.Value<bool>() ?? false;
@@ -31,8 +27,14 @@ namespace Bimwright.Dwg.Plugin.Handlers
 
             using (var tx = db.TransactionManager.StartTransaction())
             {
-                foreach (var handle in handles)
+                foreach (var handleToken in handleTokens)
                 {
+                    if (!TryReadHandle(handleToken, out var handle, out var handleError))
+                    {
+                        results.Add(new { handle, ok = false, entity = (object)null, error = handleError });
+                        continue;
+                    }
+
                     if (!CadHandleResolver.TryResolve(db, handle, out var objectId, out var error))
                     {
                         results.Add(new { handle, ok = false, entity = (object)null, error });
@@ -73,6 +75,34 @@ namespace Bimwright.Dwg.Plugin.Handlers
             }
 
             return CommandResult.Success(new { entities = results });
+        }
+
+        private static bool TryReadHandle(JToken token, out string handle, out string error)
+        {
+            handle = null;
+            error = null;
+
+            if (token == null || token.Type == JTokenType.Null)
+            {
+                error = "handle must be a string";
+                return false;
+            }
+
+            if (token.Type != JTokenType.String)
+            {
+                handle = token.ToString(Newtonsoft.Json.Formatting.None);
+                error = "handle must be a string";
+                return false;
+            }
+
+            handle = token.Value<string>();
+            if (string.IsNullOrWhiteSpace(handle))
+            {
+                error = "handle must be a non-empty hexadecimal string";
+                return false;
+            }
+
+            return true;
         }
     }
 }

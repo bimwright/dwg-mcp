@@ -1,8 +1,8 @@
-using System;
 using System.ComponentModel;
 using System.Threading.Tasks;
 using ModelContextProtocol.Server;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace Bimwright.Dwg.Server.Tools
 {
@@ -11,7 +11,7 @@ namespace Bimwright.Dwg.Server.Tools
     {
         [McpServerTool(Name = "dwg_get_drawing_info", ReadOnly = true, Idempotent = true), Description(
             "Return small JSON-safe metadata for the current AutoCAD drawing: " +
-            "drawing name/path when available, current layer, current space/layout, " +
+            "drawing name when available, current layer, current space/layout, " +
             "and database unit scalars.")]
         public static Task<string> GetDrawingInfo()
         {
@@ -25,9 +25,23 @@ namespace Bimwright.Dwg.Server.Tools
             "Returns one result record per handle; bad handles do not abort siblings.")]
         public static Task<string> GetEntityProperties(
             [Description("JSON array of AutoCAD handles, e.g. [\"7F5AD\",\"2A4F\"].")] string handles,
-            [Description("When true, include lightweight geometry such as extents, points, lengths, and text positions where available.")] bool includeGeometry = true)
+            [Description("When true, include lightweight geometry such as extents, points, lengths, and text positions where available.")] bool includeGeometry = false)
         {
-            var parsed = JsonConvert.DeserializeObject<string[]>(handles) ?? Array.Empty<string>();
+            if (string.IsNullOrWhiteSpace(handles))
+            {
+                return ToolInputError("handles must be a JSON array");
+            }
+
+            JArray parsed;
+            try
+            {
+                parsed = JArray.Parse(handles);
+            }
+            catch (JsonException ex)
+            {
+                return ToolInputError($"handles must be a JSON array: {ex.Message}");
+            }
+
             var request = new { handles = parsed, include_geometry = includeGeometry };
             return ToolGateway.LoggedCall("get_entity_properties", request, request);
         }
@@ -55,6 +69,11 @@ namespace Bimwright.Dwg.Server.Tools
         {
             var request = new { grouping_strength = groupingStrength, include_entities = includeEntities };
             return ToolGateway.LoggedCall("get_selected_texts", request, request);
+        }
+
+        private static Task<string> ToolInputError(string error)
+        {
+            return Task.FromResult(JsonConvert.SerializeObject(new { ok = false, error }));
         }
     }
 }

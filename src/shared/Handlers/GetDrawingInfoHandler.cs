@@ -18,13 +18,17 @@ namespace Bimwright.Dwg.Plugin.Handlers
             var documentName = ReadScalar(() => doc.Name);
             var databaseFilename = ReadScalar(() => db.Filename);
             var originalFilename = ReadScalar(() => db.OriginalFileName);
-            var drawingPath = FirstNonBlank(databaseFilename, originalFilename, RootedPathOrNull(documentName));
+            var safeDocumentName = SafeFileName(documentName);
+            var drawingName = FirstNonBlank(
+                SafeFileName(databaseFilename),
+                SafeFileName(originalFilename),
+                safeDocumentName);
 
             return CommandResult.Success(new
             {
-                drawing_name = GetFileName(FirstNonBlank(drawingPath, documentName)),
-                drawing_path = drawingPath,
-                document_name = documentName,
+                drawing_name = drawingName,
+                document_name = safeDocumentName,
+                has_saved_path = HasSavedPath(databaseFilename, originalFilename, documentName),
                 current_layer = GetCurrentLayerName(db),
                 current_space = db.TileMode ? "model" : "paper",
                 current_space_record = GetCurrentSpaceRecordName(db),
@@ -99,14 +103,26 @@ namespace Bimwright.Dwg.Plugin.Handlers
             }
         }
 
-        private static string RootedPathOrNull(string value)
+        private static bool HasSavedPath(string databaseFilename, string originalFilename, string documentName)
         {
-            return !string.IsNullOrWhiteSpace(value) && Path.IsPathRooted(value)
-                ? value
-                : null;
+            return !string.IsNullOrWhiteSpace(databaseFilename) ||
+                !string.IsNullOrWhiteSpace(originalFilename) ||
+                IsRootedPath(documentName);
         }
 
-        private static string GetFileName(string value)
+        private static bool IsRootedPath(string value)
+        {
+            try
+            {
+                return !string.IsNullOrWhiteSpace(value) && Path.IsPathRooted(value);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static string SafeFileName(string value)
         {
             if (string.IsNullOrWhiteSpace(value))
             {
@@ -115,11 +131,12 @@ namespace Bimwright.Dwg.Plugin.Handlers
 
             try
             {
-                return Path.GetFileName(value);
+                var fileName = Path.GetFileName(value.Trim());
+                return string.IsNullOrWhiteSpace(fileName) ? null : fileName;
             }
             catch
             {
-                return value;
+                return null;
             }
         }
 
