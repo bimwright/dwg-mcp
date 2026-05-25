@@ -2,7 +2,7 @@
   "mcpServers": {
     "bimwright-dwg": {
       "command": "bimwright-dwg",
-      "args": []
+      "args": ["--target", "2024"]
     }
   }
 }

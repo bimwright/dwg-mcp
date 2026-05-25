@@ -386,15 +386,15 @@ git commit -m "feat(toolbaker): add accepted tool flow"
 - Modify: `.mcp.json.example`
 - Create: `docs/testing/fresh-install-checklist.md`
 
-- [ ] **Step 1: Update docs for breaking tool names**
+- [x] **Step 1: Update docs for breaking tool names**
 
 Document old-to-new `dwg_*` mapping, migration steps, discovery v2, multi-target routing, send_code dual gate, read-only mode, and ToolBaker.
 
-- [ ] **Step 2: Update install and verification docs**
+- [x] **Step 2: Update install and verification docs**
 
 Make it explicit that server/tests can pass without all plugin shells being release-built; release requires prepared machine artifacts for the shipped AutoCAD years.
 
-- [ ] **Step 3: Final verification**
+- [x] **Step 3: Final verification**
 
 Run:
 
@@ -407,7 +407,7 @@ rg -n "get_selected_texts|translate_and_rewrite|send_code" README.md ARCHITECTUR
 
 Expected: tests pass, build succeeds, pack succeeds, docs mention prefixed tool names and migration table.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```powershell
 git add README.md README.vi.md ARCHITECTURE.md CHANGELOG.md server.json .mcp.json.example docs
@@ -416,9 +416,9 @@ git commit -m "docs: document dwg-mcp v1 migration"
 
 ## Final Gate
 
-- [ ] `git status --short` is clean.
-- [ ] `dotnet test tests\Bimwright.Dwg.Tests\Bimwright.Dwg.Tests.csproj -c Debug` passes.
-- [ ] `dotnet build src\Bimwright.Dwg.sln -c Debug /m:1 /nr:false` passes or documents missing prepared refs for unavailable shells.
-- [ ] `dotnet pack src\server\Bimwright.Dwg.Server.csproj -c Release --output artifacts-review` passes.
-- [ ] Current branch contains ordered commits for Tasks 1-7.
-- [ ] Manual AutoCAD smoke remains explicitly listed if no live AutoCAD 2025-2027 instances are available.
+- [x] `git status --short` is clean.
+- [x] `dotnet test tests\Bimwright.Dwg.Tests\Bimwright.Dwg.Tests.csproj -c Debug` passes.
+- [x] `dotnet build src\Bimwright.Dwg.sln -c Debug /m:1 /nr:false` passes or documents missing prepared refs for unavailable shells.
+- [x] `dotnet pack src\server\Bimwright.Dwg.Server.csproj -c Release --output artifacts-review` passes.
+- [x] Current branch contains ordered commits for Tasks 1-7.
+- [x] Manual AutoCAD smoke remains explicitly listed if no live AutoCAD 2025-2027 instances are available.
