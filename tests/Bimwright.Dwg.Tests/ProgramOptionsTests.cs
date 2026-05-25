@@ -61,6 +61,28 @@ namespace Bimwright.Dwg.Tests
             Assert.True(HasMcpToolAttribute(typeof(CodeTools).GetMethod("SendCode")));
         }
 
+        [Fact]
+        public void UnwiredOptionWarning_ReturnsNull_WhenNoUnwiredOptionsSet()
+        {
+            Assert.Null(Program.UnwiredOptionWarning(new DwgMcpConfig()));
+        }
+
+        [Fact]
+        public void UnwiredOptionWarning_ReturnsNull_WhenConfigIsNull()
+        {
+            Assert.Null(Program.UnwiredOptionWarning(null));
+        }
+
+        [Fact]
+        public void UnwiredOptionWarning_DescribesAllowLanBind_WhenSet()
+        {
+            var warning = Program.UnwiredOptionWarning(new DwgMcpConfig { AllowLanBind = true });
+
+            Assert.NotNull(warning);
+            Assert.Contains("--allow-lan-bind", warning);
+            Assert.Contains("loopback", warning);
+        }
+
         private static bool HasMcpToolAttribute(MethodInfo method)
             => method != null
             && method.GetCustomAttributes()

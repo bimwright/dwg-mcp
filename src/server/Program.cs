@@ -16,6 +16,7 @@ namespace Bimwright.Dwg.Server
             var config = DwgMcpConfig.Load(args);
             ValidateTarget(config.Target);
             ServerState.Config = config;
+            WarnIfUnwiredOptions(config);
             var enabled = ToolsetFilter.Resolve(config);
 
             var builder = Host.CreateApplicationBuilder(args);
@@ -86,6 +87,25 @@ Call dwg_get_selected_texts before writeback. In read-only mode only query/routi
             }
 
             AuthToken.NormalizeTarget(target);
+        }
+
+        public static string UnwiredOptionWarning(DwgMcpConfig config)
+        {
+            if (config != null && config.AllowLanBindOrDefault)
+            {
+                return "warning: --allow-lan-bind / BIMWRIGHT_DWG_ALLOW_LAN_BIND is parsed but plugin-side LAN binding is not yet implemented in v1.0; the AutoCAD plugin still listens on loopback only.";
+            }
+
+            return null;
+        }
+
+        private static void WarnIfUnwiredOptions(DwgMcpConfig config)
+        {
+            var warning = UnwiredOptionWarning(config);
+            if (!string.IsNullOrEmpty(warning))
+            {
+                Console.Error.WriteLine(warning);
+            }
         }
     }
 }

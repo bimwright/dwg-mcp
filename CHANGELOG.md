@@ -23,7 +23,17 @@ Notes:
 
 - `dwg_send_code` still requires both server opt-in (`--enable-send-code` or `BIMWRIGHT_DWG_ENABLE_SEND_CODE=1`) and AutoCAD-side `MCPENABLECODE`.
 - Server/tests can pass without release-building every AutoCAD shell. Shipping a year requires matching Autodesk managed assemblies on the release machine.
-- `BIMWRIGHT_DWG_ALLOW_LAN_BIND` / `--allow-lan-bind` is parsed and reserved for a future plugin-side LAN bind transport path.
+- `BIMWRIGHT_DWG_ALLOW_LAN_BIND` / `--allow-lan-bind` is parsed and reserved for a future plugin-side LAN bind transport path. The server emits a stderr warning when the flag is set so the operator is not misled.
+
+Documented deviations from the design spec:
+
+- ToolBaker stays opt-in (`--enable-toolbaker` or `BIMWRIGHT_DWG_ENABLE_TOOLBAKER=1`). The spec listed it as default-on; v1.0 keeps it off to prevent accepted baked tools from running drawing mutations without an explicit opt-in.
+- Schema validation uses a Newtonsoft-based `CommandSchema` validator instead of NJsonSchema. Net48 packaging risk drove the substitution; migration to NJsonSchema is planned for v1.1.
+- `dwg_batch_execute` runs sub-commands as a logical batch without an AutoCAD undo group. Failed batches commit partial changes; a `TransactionGroup`-equivalent wrapper is a v1.1 candidate after a compile spike.
+- ToolBaker baked tools are declarative preset/macro records dispatching existing `IAcadCommand` handlers. Full Roslyn-compiled user code is deferred to a separate release gate.
+- `--allow-lan-bind` is parsed but not yet wired to the plugin transport binding. The plugin still listens on loopback only; the option is reserved.
+- The `BakeInboxWindow` WPF UI is deferred to v1.1. v1.0 exposes the same workflow through MCP tools (`dwg_list_bake_suggestions`, `dwg_accept_bake_suggestion`, `dwg_dismiss_bake_suggestion`, `dwg_create_bake_issue_draft`).
+- `Memory/` and `Logging/` modules ship as minimal scaffolding (session context, journal entries, pattern detector, session log, summary generator). Full audit-grade JSONL + rolling debug log roll-up is planned for v1.1.
 
 ## 0.1.0 — 2026-05-03
 
