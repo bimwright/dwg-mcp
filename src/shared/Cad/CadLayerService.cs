@@ -147,22 +147,36 @@ namespace Bimwright.Dwg.Plugin.Cad
 
         private static MethodInfo FindValidateSymbolNameMethod()
         {
-            const string typeName = "Autodesk.AutoCAD.Internal.SymbolUtilityServices";
-            var type = Type.GetType(typeName + ", acdbmgd", false);
-            if (type == null)
+            var typeNames = new[]
             {
-                type = AppDomain.CurrentDomain
-                    .GetAssemblies()
-                    .Select(assembly => assembly.GetType(typeName, false))
-                    .FirstOrDefault(candidate => candidate != null);
+                "Autodesk.AutoCAD.DatabaseServices.SymbolUtilityServices",
+                "Autodesk.AutoCAD.Internal.SymbolUtilityServices"
+            };
+
+            foreach (var typeName in typeNames)
+            {
+                var type = Type.GetType(typeName + ", acdbmgd", false);
+                if (type == null)
+                {
+                    type = AppDomain.CurrentDomain
+                        .GetAssemblies()
+                        .Select(assembly => assembly.GetType(typeName, false))
+                        .FirstOrDefault(candidate => candidate != null);
+                }
+
+                var method = type?.GetMethod(
+                    "ValidateSymbolName",
+                    BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static,
+                    null,
+                    new[] { typeof(string), typeof(bool) },
+                    null);
+                if (method != null)
+                {
+                    return method;
+                }
             }
 
-            return type?.GetMethod(
-                "ValidateSymbolName",
-                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static,
-                null,
-                new[] { typeof(string), typeof(bool) },
-                null);
+            return null;
         }
 
         private static string GetExceptionMessage(Exception ex)
