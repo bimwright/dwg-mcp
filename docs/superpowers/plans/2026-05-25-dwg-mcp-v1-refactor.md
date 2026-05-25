@@ -201,11 +201,11 @@ git commit -m "feat(server): add discovery v2 and target routing"
 - Modify: `src/plugin-acad24/App.cs`
 - Test: `tests/Bimwright.Dwg.Tests/DwgApiExecutorTests.cs`
 
-- [ ] **Step 1: Write executor tests**
+- [x] **Step 1: Write executor tests**
 
 Use async delegates with counters to prove max concurrency is 1, exceptions release the gate, and FIFO order is preserved for queued work.
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run:
 
@@ -215,15 +215,15 @@ dotnet test tests\Bimwright.Dwg.Tests\Bimwright.Dwg.Tests.csproj -c Debug --filt
 
 Expected: fail because `DwgApiExecutor` does not exist.
 
-- [ ] **Step 3: Implement DwgApiExecutor and wire DocumentInvoker**
+- [x] **Step 3: Implement DwgApiExecutor and wire DocumentInvoker**
 
 Keep the executor AutoCAD-free. `DocumentInvoker.Invoke` calls `DwgApiExecutor.Invoke` before reading `Application.DocumentManager.MdiActiveDocument`.
 
-- [ ] **Step 4: Replace SocketServer with transport interface**
+- [x] **Step 4: Replace SocketServer with transport interface**
 
 Port the existing TCP behavior into `TcpTransportServer`, write JSON discovery v2 to `%LOCALAPPDATA%\Bimwright\Dwg\acad-2024.json`, preserve `MCPSTART`, `MCPSTOP`, `MCPENABLECODE`, and `MCPDISABLECODE`.
 
-- [ ] **Step 5: Verify GREEN**
+- [x] **Step 5: Verify GREEN**
 
 Run:
 
@@ -232,7 +232,7 @@ dotnet test tests\Bimwright.Dwg.Tests\Bimwright.Dwg.Tests.csproj -c Debug
 dotnet build src\Bimwright.Dwg.sln -c Debug /m:1 /nr:false
 ```
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```powershell
 git add src/shared src/plugin-acad24 tests/Bimwright.Dwg.Tests

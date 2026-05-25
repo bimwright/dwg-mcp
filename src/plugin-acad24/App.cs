@@ -8,7 +8,7 @@ namespace Bimwright.Dwg.Plugin
 {
     public class App : IExtensionApplication
     {
-        private static SocketServer _server;
+        private static ITransportServer _server;
 
         public void Initialize()
         {
@@ -76,7 +76,7 @@ namespace Bimwright.Dwg.Plugin
 
         private static void StartServerInternal()
         {
-            _server = new SocketServer();
+            _server = new TcpTransportServer("2024");
             _server.Start();
         }
 
