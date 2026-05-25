@@ -1,4 +1,5 @@
 using System;
+using System.Reflection;
 using System.Threading.Tasks;
 using Bimwright.Dwg.Plugin.Cad;
 using Bimwright.Dwg.Server.Tools;
@@ -125,6 +126,34 @@ namespace Bimwright.Dwg.Tests
 
             Assert.False(response.Value<bool>("ok"));
             Assert.Contains("vector", response.Value<string>("error"));
+        }
+
+        [Theory]
+        [InlineData("ChangeColor", null, 7)]
+        [InlineData("ChangeColor", "", 7)]
+        [InlineData("ChangeColor", "not-json", 7)]
+        [InlineData("OffsetEntities", null, 125d)]
+        [InlineData("OffsetEntities", "", 125d)]
+        [InlineData("OffsetEntities", "not-json", 125d)]
+        public async Task ColorAndOffsetWrappers_ReturnStructuredErrorForMalformedHandlesJson(
+            string methodName,
+            string handles,
+            object scalar)
+        {
+            var response = JObject.Parse(await InvokeModifyTool(methodName, handles, scalar));
+
+            Assert.False(response.Value<bool>("ok"));
+            Assert.Contains("handles", response.Value<string>("error"));
+        }
+
+        private static async Task<string> InvokeModifyTool(string methodName, string handles, object scalar)
+        {
+            var method = typeof(ModifyTools).GetMethod(methodName, BindingFlags.Public | BindingFlags.Static);
+            Assert.True(method != null, $"ModifyTools.{methodName} is missing.");
+
+            var task = method.Invoke(null, new[] { handles, scalar }) as Task<string>;
+            Assert.True(task != null, $"ModifyTools.{methodName} must return Task<string>.");
+            return await task;
         }
     }
 }

@@ -237,6 +237,10 @@ namespace Bimwright.Dwg.Plugin
             SchemaProperty.Optional("create_layer", JTokenType.Boolean),
             SchemaProperty.Optional("color_index", JTokenType.Integer));
 
+        public static readonly CommandSchema ChangeColor = CommandSchema.Object(
+            SchemaProperty.Required("handles", JTokenType.Array),
+            SchemaProperty.Required("color_index", JTokenType.Integer));
+
         public static readonly CommandSchema MoveEntities = CommandSchema.Object(
             SchemaProperty.Required("handles", JTokenType.Array),
             SchemaProperty.Required("vector", JTokenType.Object));
@@ -257,6 +261,10 @@ namespace Bimwright.Dwg.Plugin
 
         public static readonly CommandSchema EraseEntities = CommandSchema.Object(
             SchemaProperty.Required("handles", JTokenType.Array));
+
+        public static readonly CommandSchema OffsetEntities = CommandSchema.Object(
+            SchemaProperty.Required("handles", JTokenType.Array),
+            SchemaProperty.Required("distance", JTokenType.Float, JTokenType.Integer));
 
         public static readonly CommandSchema GetSelectedTexts = CommandSchema.Object(
             SchemaProperty.Optional("grouping_strength", JTokenType.String),

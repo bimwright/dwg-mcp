@@ -321,6 +321,28 @@ namespace Bimwright.Dwg.Server.Tools
             return ToolGateway.LoggedCall("change_layer", request, request);
         }
 
+        [McpServerTool(Name = "dwg_change_color"), Description(
+            "Apply an AutoCAD ACI color index to entities identified by handle. handles is a JSON array " +
+            "of AutoCAD handle strings. colorIndex is validated by AutoCAD-side handling as ACI range 1-256. " +
+            "Returns per-item {handle, ok, error}; bad handles do not abort siblings.")]
+        public static Task<string> ChangeColor(
+            [Description("JSON array of AutoCAD handles, e.g. [\"7F5AD\",\"2A4F\"].")] string handles,
+            [Description("ACI color index to apply. Valid range: 1-256.")] int colorIndex)
+        {
+            if (!TryParseJsonArray(handles, "handles", out var handlesArray, out var handlesError))
+            {
+                return ToolInputError(handlesError);
+            }
+
+            var request = new JObject
+            {
+                ["handles"] = handlesArray,
+                ["color_index"] = colorIndex
+            };
+
+            return ToolGateway.LoggedCall("change_color", request, request);
+        }
+
         [McpServerTool(Name = "dwg_move_entities"), Description(
             "Move entities identified by handle by a displacement vector. handles is a JSON array " +
             "of AutoCAD handle strings. vector is a JSON point object with numeric x, y, and optional z fields. " +
@@ -450,6 +472,28 @@ namespace Bimwright.Dwg.Server.Tools
             };
 
             return ToolGateway.LoggedCall("erase_entities", request, request);
+        }
+
+        [McpServerTool(Name = "dwg_offset_entities"), Description(
+            "Offset curve entities identified by handle by distance. handles is a JSON array of AutoCAD handle strings. " +
+            "Only Curve entities are supported. Returns per-item {handle, ok, created_handles, error}; bad handles " +
+            "and unsupported entities do not abort siblings.")]
+        public static Task<string> OffsetEntities(
+            [Description("JSON array of AutoCAD handles, e.g. [\"7F5AD\",\"2A4F\"].")] string handles,
+            [Description("Offset distance. Must be finite and non-zero.")] double distance)
+        {
+            if (!TryParseJsonArray(handles, "handles", out var handlesArray, out var handlesError))
+            {
+                return ToolInputError(handlesError);
+            }
+
+            var request = new JObject
+            {
+                ["handles"] = handlesArray,
+                ["distance"] = distance
+            };
+
+            return ToolGateway.LoggedCall("offset_entities", request, request);
         }
 
         [McpServerTool(Name = "dwg_translate_and_rewrite"), Description(

@@ -145,6 +145,63 @@ namespace Bimwright.Dwg.Tests
                 fieldName);
         }
 
+        [Theory]
+        [InlineData("change_color", "handles")]
+        [InlineData("change_color", "color_index")]
+        [InlineData("offset_entities", "handles")]
+        [InlineData("offset_entities", "distance")]
+        public void Validate_ColorAndOffsetSchemasRequireExpectedFields(string commandName, string fieldName)
+        {
+            var parameters = ValidColorOrOffsetParameters(commandName);
+            parameters.Remove(fieldName);
+
+            AssertMissingRequiredField(
+                commandName,
+                parameters,
+                ColorOrOffsetSchema(commandName),
+                fieldName);
+        }
+
+        [Theory]
+        [InlineData("change_color", "{\"handles\":[\"7F5AD\"],\"color_index\":7}")]
+        [InlineData("change_color", "{\"handles\":[\"7F5AD\"],\"color_index\":0}")]
+        [InlineData("change_color", "{\"handles\":[\"7F5AD\"],\"color_index\":257}")]
+        [InlineData("offset_entities", "{\"handles\":[\"7F5AD\"],\"distance\":125.5}")]
+        [InlineData("offset_entities", "{\"handles\":[\"7F5AD\"],\"distance\":125}")]
+        public void Validate_ColorAndOffsetSchemasAcceptValidShapes(string commandName, string json)
+        {
+            var result = SchemaValidator.Validate(
+                commandName,
+                JObject.Parse(json),
+                ColorOrOffsetSchema(commandName));
+
+            Assert.True(result.Ok, result.Error);
+        }
+
+        [Fact]
+        public void Validate_ChangeColorRequiresIntegerColorIndex()
+        {
+            var result = SchemaValidator.Validate(
+                "change_color",
+                JObject.Parse("{\"handles\":[\"7F5AD\"],\"color_index\":7.5}"),
+                ColorOrOffsetSchema("change_color"));
+
+            Assert.False(result.Ok);
+            Assert.Contains("color_index", result.Error);
+        }
+
+        [Fact]
+        public void Validate_OffsetEntitiesRequiresNumericDistance()
+        {
+            var result = SchemaValidator.Validate(
+                "offset_entities",
+                JObject.Parse("{\"handles\":[\"7F5AD\"],\"distance\":\"125\"}"),
+                ColorOrOffsetSchema("offset_entities"));
+
+            Assert.False(result.Ok);
+            Assert.Contains("distance", result.Error);
+        }
+
         private static CommandSchema TransformSchema(string commandName)
         {
             switch (commandName)
@@ -164,6 +221,24 @@ namespace Bimwright.Dwg.Tests
             }
         }
 
+        private static CommandSchema ColorOrOffsetSchema(string commandName)
+        {
+            var fieldName = commandName == "change_color"
+                ? "ChangeColor"
+                : commandName == "offset_entities"
+                    ? "OffsetEntities"
+                    : null;
+
+            Assert.False(fieldName == null, $"Unknown color/offset command: {commandName}");
+
+            var field = typeof(CommandSchemas).GetField(fieldName);
+            Assert.True(field != null, $"CommandSchemas.{fieldName} is missing.");
+
+            var schema = field.GetValue(null) as CommandSchema;
+            Assert.True(schema != null, $"CommandSchemas.{fieldName} must be a CommandSchema.");
+            return schema;
+        }
+
         private static JObject ValidTransformParameters(string commandName)
         {
             switch (commandName)
@@ -179,6 +254,19 @@ namespace Bimwright.Dwg.Tests
                     return JObject.Parse("{\"handles\":[\"7F5AD\"]}");
                 default:
                     throw new System.ArgumentOutOfRangeException(nameof(commandName), commandName, "Unknown transform command.");
+            }
+        }
+
+        private static JObject ValidColorOrOffsetParameters(string commandName)
+        {
+            switch (commandName)
+            {
+                case "change_color":
+                    return JObject.Parse("{\"handles\":[\"7F5AD\"],\"color_index\":7}");
+                case "offset_entities":
+                    return JObject.Parse("{\"handles\":[\"7F5AD\"],\"distance\":125}");
+                default:
+                    throw new System.ArgumentOutOfRangeException(nameof(commandName), commandName, "Unknown color/offset command.");
             }
         }
 
