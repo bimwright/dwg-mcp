@@ -64,20 +64,58 @@ Call dwg_get_selected_texts before text writeback. In read-only mode only query/
 
         private static IMcpServerBuilder RegisterToolsets(IMcpServerBuilder mcp, HashSet<string> enabled)
         {
-            if (enabled.Contains("query")) mcp = mcp.WithTools<QueryTools>();
-            if (enabled.Contains("modify")) mcp = mcp.WithTools<ModifyTools>();
+            foreach (var toolType in ResolveToolTypesForRegistration(enabled, ServerState.IsReadOnly))
+            {
+                mcp = RegisterToolType(mcp, toolType);
+            }
+
+            return mcp;
+        }
+
+        private static IEnumerable<Type> ResolveToolTypesForRegistration(HashSet<string> enabled, bool readOnly)
+        {
+            enabled = enabled ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            var toolTypes = new List<Type>();
+            if (enabled.Contains("query")) toolTypes.Add(typeof(QueryTools));
+            if (enabled.Contains("modify") && !readOnly) toolTypes.Add(typeof(ModifyTools));
             if (enabled.Contains("meta"))
             {
-                mcp = mcp.WithTools<MetaTools>();
-                if (!ServerState.IsReadOnly) mcp = mcp.WithTools<BatchTools>();
+                toolTypes.Add(typeof(MetaTools));
+                if (!readOnly) toolTypes.Add(typeof(BatchTools));
             }
             if (enabled.Contains("toolbaker"))
             {
-                mcp = mcp.WithTools<ToolBakerTools>();
-                if (!ServerState.IsReadOnly) mcp = mcp.WithTools<ToolBakerWriteTools>();
+                toolTypes.Add(typeof(ToolBakerTools));
+                if (!readOnly) toolTypes.Add(typeof(ToolBakerWriteTools));
             }
-            if (enabled.Contains("code")) mcp = mcp.WithTools<CodeTools>();
-            return mcp;
+            if (enabled.Contains("code") && !readOnly) toolTypes.Add(typeof(CodeTools));
+            if (enabled.Contains("annotation") && !readOnly) toolTypes.Add(typeof(AnnotationTools));
+            if (enabled.Contains("block"))
+            {
+                toolTypes.Add(typeof(BlockTools));
+                if (!readOnly) toolTypes.Add(typeof(BlockWriteTools));
+            }
+            if (enabled.Contains("dimension") && !readOnly) toolTypes.Add(typeof(DimensionTools));
+
+            return toolTypes;
+        }
+
+        private static IMcpServerBuilder RegisterToolType(IMcpServerBuilder mcp, Type toolType)
+        {
+            if (toolType == typeof(QueryTools)) return mcp.WithTools<QueryTools>();
+            if (toolType == typeof(ModifyTools)) return mcp.WithTools<ModifyTools>();
+            if (toolType == typeof(MetaTools)) return mcp.WithTools<MetaTools>();
+            if (toolType == typeof(BatchTools)) return mcp.WithTools<BatchTools>();
+            if (toolType == typeof(ToolBakerTools)) return mcp.WithTools<ToolBakerTools>();
+            if (toolType == typeof(ToolBakerWriteTools)) return mcp.WithTools<ToolBakerWriteTools>();
+            if (toolType == typeof(CodeTools)) return mcp.WithTools<CodeTools>();
+            if (toolType == typeof(AnnotationTools)) return mcp.WithTools<AnnotationTools>();
+            if (toolType == typeof(BlockTools)) return mcp.WithTools<BlockTools>();
+            if (toolType == typeof(BlockWriteTools)) return mcp.WithTools<BlockWriteTools>();
+            if (toolType == typeof(DimensionTools)) return mcp.WithTools<DimensionTools>();
+
+            throw new InvalidOperationException("Unsupported MCP tool type: " + toolType.FullName);
         }
 
         private static void ValidateTarget(string target)

@@ -231,6 +231,35 @@ namespace Bimwright.Dwg.Plugin
             SchemaProperty.Optional("layer", JTokenType.String),
             SchemaProperty.Optional("color_index", JTokenType.Integer));
 
+        public static readonly CommandSchema CreateText = CommandSchema.Object(
+            SchemaProperty.Required("text", JTokenType.String),
+            SchemaProperty.Required("position", JTokenType.Object),
+            SchemaProperty.Optional("height", JTokenType.Float, JTokenType.Integer),
+            SchemaProperty.Optional("rotation", JTokenType.Float, JTokenType.Integer),
+            SchemaProperty.Optional("layer", JTokenType.String),
+            SchemaProperty.Optional("color_index", JTokenType.Integer));
+
+        public static readonly CommandSchema CreateMText = CommandSchema.Object(
+            SchemaProperty.Required("text", JTokenType.String),
+            SchemaProperty.Required("location", JTokenType.Object),
+            SchemaProperty.Optional("width", JTokenType.Float, JTokenType.Integer),
+            SchemaProperty.Optional("height", JTokenType.Float, JTokenType.Integer),
+            SchemaProperty.Optional("layer", JTokenType.String),
+            SchemaProperty.Optional("color_index", JTokenType.Integer));
+
+        public static readonly CommandSchema CreateLeader = CommandSchema.Object(
+            SchemaProperty.Required("points", JTokenType.Array),
+            SchemaProperty.Optional("text", JTokenType.String),
+            SchemaProperty.Optional("layer", JTokenType.String),
+            SchemaProperty.Optional("color_index", JTokenType.Integer));
+
+        public static readonly CommandSchema CreateTable = CommandSchema.Object(
+            SchemaProperty.Required("insertion_point", JTokenType.Object),
+            SchemaProperty.Required("rows", JTokenType.Integer),
+            SchemaProperty.Required("columns", JTokenType.Integer),
+            SchemaProperty.Required("cells", JTokenType.Array),
+            SchemaProperty.Optional("layer", JTokenType.String));
+
         public static readonly CommandSchema ChangeLayer = CommandSchema.Object(
             SchemaProperty.Required("handles", JTokenType.Array),
             SchemaProperty.Required("layer", JTokenType.String),
@@ -269,6 +298,52 @@ namespace Bimwright.Dwg.Plugin
         public static readonly CommandSchema GetSelectedTexts = CommandSchema.Object(
             SchemaProperty.Optional("grouping_strength", JTokenType.String),
             SchemaProperty.Optional("include_entities", JTokenType.Boolean));
+
+        public static readonly CommandSchema ListBlocks = CommandSchema.Empty;
+
+        public static readonly CommandSchema GetBlockAttributes = CommandSchema.Object(
+            SchemaProperty.Required("handle", JTokenType.String));
+
+        public static readonly CommandSchema InsertBlock = CommandSchema.Object(
+            SchemaProperty.Required("block_name", JTokenType.String),
+            SchemaProperty.Required("insertion_point", JTokenType.Object),
+            SchemaProperty.Optional("block_path", JTokenType.String),
+            SchemaProperty.Optional("scale", JTokenType.Float, JTokenType.Integer),
+            SchemaProperty.Optional("rotation", JTokenType.Float, JTokenType.Integer),
+            SchemaProperty.Optional("attributes", JTokenType.Object));
+
+        public static readonly CommandSchema SetBlockAttributes = CommandSchema.Object(
+            SchemaProperty.Required("handle", JTokenType.String),
+            SchemaProperty.Required("attributes", JTokenType.Object));
+
+        public static readonly CommandSchema ExplodeBlock = CommandSchema.Object(
+            SchemaProperty.Required("handle", JTokenType.String));
+
+        public static readonly CommandSchema CreateLinearDimension = CommandSchema.Object(
+            SchemaProperty.Required("start", JTokenType.Object),
+            SchemaProperty.Required("end", JTokenType.Object),
+            SchemaProperty.Required("dimension_line_point", JTokenType.Object),
+            SchemaProperty.Optional("layer", JTokenType.String),
+            SchemaProperty.Optional("style_name", JTokenType.String));
+
+        public static readonly CommandSchema CreateAlignedDimension = CommandSchema.Object(
+            SchemaProperty.Required("start", JTokenType.Object),
+            SchemaProperty.Required("end", JTokenType.Object),
+            SchemaProperty.Required("dimension_line_point", JTokenType.Object),
+            SchemaProperty.Optional("layer", JTokenType.String),
+            SchemaProperty.Optional("style_name", JTokenType.String));
+
+        public static readonly CommandSchema CreateRadialDimension = CommandSchema.Object(
+            SchemaProperty.Required("entity_handle", JTokenType.String),
+            SchemaProperty.Required("dimension_line_point", JTokenType.Object),
+            SchemaProperty.Optional("layer", JTokenType.String),
+            SchemaProperty.Optional("style_name", JTokenType.String));
+
+        public static readonly CommandSchema CreateDiameterDimension = CommandSchema.Object(
+            SchemaProperty.Required("entity_handle", JTokenType.String),
+            SchemaProperty.Required("dimension_line_point", JTokenType.Object),
+            SchemaProperty.Optional("layer", JTokenType.String),
+            SchemaProperty.Optional("style_name", JTokenType.String));
 
         public static readonly CommandSchema UpdateTexts = CommandSchema.Object(
             SchemaProperty.Required("items", JTokenType.Array),
