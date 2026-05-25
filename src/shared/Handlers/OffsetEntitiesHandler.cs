@@ -104,8 +104,6 @@ namespace Bimwright.Dwg.Plugin.Handlers
             Curve source,
             DBObjectCollection offsets)
         {
-            var target = TryOpenOwnerForWrite(tx, source) ??
-                (BlockTableRecord)tx.GetObject(db.CurrentSpaceId, OpenMode.ForWrite);
             var entities = new List<Entity>();
             var unappended = new List<DBObject>();
             var createdHandles = new List<string>();
@@ -124,6 +122,9 @@ namespace Bimwright.Dwg.Plugin.Handlers
                     entities.Add(entity);
                     unappended.Add(entity);
                 }
+
+                var target = TryOpenOwnerForWrite(tx, source) ??
+                    (BlockTableRecord)tx.GetObject(db.CurrentSpaceId, OpenMode.ForWrite);
 
                 foreach (var entity in entities)
                 {

@@ -70,6 +70,15 @@ namespace Bimwright.Dwg.Tests
             Assert.All(names, name => Assert.StartsWith("dwg_", name, StringComparison.Ordinal));
         }
 
+        [Fact]
+        public void ChangeColorWrapperUsesSnakeCaseColorIndexParameter()
+        {
+            var method = typeof(ModifyTools).GetMethod(nameof(ModifyTools.ChangeColor));
+
+            Assert.NotNull(method);
+            Assert.Equal(new[] { "handles", "color_index" }, method.GetParameters().Select(p => p.Name).ToArray());
+        }
+
         private static string[] GetMcpToolNames(Type type)
         {
             return type.GetMethods(BindingFlags.Public | BindingFlags.Static)

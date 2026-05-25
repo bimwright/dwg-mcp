@@ -323,11 +323,11 @@ namespace Bimwright.Dwg.Server.Tools
 
         [McpServerTool(Name = "dwg_change_color"), Description(
             "Apply an AutoCAD ACI color index to entities identified by handle. handles is a JSON array " +
-            "of AutoCAD handle strings. colorIndex is validated by AutoCAD-side handling as ACI range 1-256. " +
+            "of AutoCAD handle strings. color_index is validated by AutoCAD-side handling as ACI range 1-256. " +
             "Returns per-item {handle, ok, error}; bad handles do not abort siblings.")]
         public static Task<string> ChangeColor(
             [Description("JSON array of AutoCAD handles, e.g. [\"7F5AD\",\"2A4F\"].")] string handles,
-            [Description("ACI color index to apply. Valid range: 1-256.")] int colorIndex)
+            [Description("ACI color index to apply. Valid range: 1-256.")] int color_index)
         {
             if (!TryParseJsonArray(handles, "handles", out var handlesArray, out var handlesError))
             {
@@ -337,7 +337,7 @@ namespace Bimwright.Dwg.Server.Tools
             var request = new JObject
             {
                 ["handles"] = handlesArray,
-                ["color_index"] = colorIndex
+                ["color_index"] = color_index
             };
 
             return ToolGateway.LoggedCall("change_color", request, request);
