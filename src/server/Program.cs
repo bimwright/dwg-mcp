@@ -54,6 +54,7 @@ AutoCAD routing: versions are 4-digit years 2022..2027. If multiple AutoCAD inst
 Tools use prefix dwg_:
 - query: dwg_get_selected_texts reads current AutoCAD pickfirst text selection and returns clustered text groups.
 - modify: dwg_update_texts, dwg_translate_and_rewrite, dwg_apply_unicode_style, dwg_collapse_and_rewrite write text/style changes.
+- toolbaker: dwg_list_baked_tools, dwg_run_baked_tool, dwg_list_bake_suggestions, dwg_accept_bake_suggestion, dwg_dismiss_bake_suggestion.
 - code: dwg_send_code is disabled unless --enable-send-code or BIMWRIGHT_DWG_ENABLE_SEND_CODE=1.
 
 Call dwg_get_selected_texts before writeback. In read-only mode only query/routing/list tools are exposed.";
@@ -63,6 +64,7 @@ Call dwg_get_selected_texts before writeback. In read-only mode only query/routi
             if (enabled.Contains("query")) mcp = mcp.WithTools<QueryTools>();
             if (enabled.Contains("modify")) mcp = mcp.WithTools<ModifyTools>();
             if (enabled.Contains("meta")) mcp = mcp.WithTools<MetaTools>();
+            if (enabled.Contains("toolbaker")) mcp = mcp.WithTools<ToolBakerTools>();
             if (enabled.Contains("code")) mcp = mcp.WithTools<CodeTools>();
             return mcp;
         }

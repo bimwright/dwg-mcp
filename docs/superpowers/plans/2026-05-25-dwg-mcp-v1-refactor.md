@@ -331,7 +331,6 @@ git commit -m "feat(plugin): scaffold AutoCAD 2022-2027 shells"
 - Create: `src/server/Bake/ToolBakerAuditLog.cs`
 - Create: `src/server/Bake/UsageEvent.cs`
 - Create: `src/server/Bake/UsageEventLogger.cs`
-- Create: `src/shared/ToolBaker/BakedToolRegistry.cs`
 - Create: `src/shared/ToolBaker/BakedToolRecord.cs`
 - Create: `src/shared/ToolBaker/BakedToolRuntimeCache.cs`
 - Create: `src/shared/ToolBaker/BakedToolRuntimeSource.cs`
@@ -347,27 +346,27 @@ git commit -m "feat(plugin): scaffold AutoCAD 2022-2027 shells"
 - Modify: `src/shared/Infrastructure/CommandDispatcher.cs`
 - Test: ToolBaker unit tests matching rvt-mcp coverage with AutoCAD names.
 
-- [ ] **Step 1: Port tests first**
+- [x] **Step 1: Port tests first**
 
-Create tests for `BakeDb`, `ClusterEngine`, `SuggestionProposer`, `BakeCompilerPolicy`, `BakedToolRegistry`, `BakedToolRuntimeCache`, `BakedToolDispatchAuthorizer`, and `AcceptBakeSuggestionApplyFlow`. Replace `IRevitCommand` expectations with `IAcadCommand`.
+Create tests for `BakeDb`, `ClusterEngine`, `SuggestionProposer`, `BakeCompilerPolicy`, `BakedToolRuntimeCache`, `BakedToolDispatchAuthorizer`, server-supplied baked tool runtime, and `AcceptBakeSuggestionApplyFlow`. Replace `IRevitCommand` expectations with `IAcadCommand`.
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run ToolBaker test filters and confirm missing types fail.
 
-- [ ] **Step 3: Port server-side bake storage and suggestions**
+- [x] **Step 3: Port server-side bake storage and suggestions**
 
 Use server-owned SQLite under `%LOCALAPPDATA%\Bimwright\Dwg\baked\bake.db`. Do not include `LegacyBakedToolImporter`.
 
-- [ ] **Step 4: Port plugin runtime cache/compiler/policy**
+- [x] **Step 4: Port plugin runtime cache/compiler/policy**
 
-Generated tools implement `IAcadCommand` and execute under `DwgApiExecutor`. Policy must block `System.IO`, `System.Net`, `System.Diagnostics.Process`, reflection escapes, and `Bimwright.Dwg.Plugin.ToolBaker` access.
+V1 baked tools are declarative preset/macro records that dispatch existing `IAcadCommand` handlers through `DwgApiExecutor`. Policy must block `System.IO`, `System.Net`, `System.Diagnostics.Process`, reflection escapes, and `Bimwright.Dwg.Plugin.ToolBaker` access before any future generated-source path is enabled.
 
-- [ ] **Step 5: Implement internal apply_bake flow**
+- [x] **Step 5: Implement internal apply_bake flow**
 
-`dwg_accept_bake_suggestion` prepares a request and sends wire command `apply_bake`; plugin compiles, smoke-tests, registers, and persists only after success.
+`dwg_accept_bake_suggestion` prepares a request and sends wire command `apply_bake`; plugin validates policy and smoke-tests command schema, then server persists to the server-owned SQLite registry only after success. `dwg_run_baked_tool` reads the same SQLite registry and sends the accepted record to the plugin at runtime.
 
-- [ ] **Step 6: Verify GREEN and commit**
+- [x] **Step 6: Verify GREEN and commit**
 
 ```powershell
 dotnet test tests\Bimwright.Dwg.Tests\Bimwright.Dwg.Tests.csproj -c Debug

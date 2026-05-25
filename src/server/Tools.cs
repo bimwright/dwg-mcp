@@ -30,6 +30,11 @@ namespace Bimwright.Dwg.Server
             }
         }
 
+        internal static Task<McpResponse> SendRaw(string toolName, object pluginParams, string requestId = null)
+        {
+            return Client.SendAsync(toolName, pluginParams, requestId);
+        }
+
         private static string SafeSerialize(object o)
         {
             try { return JsonConvert.SerializeObject(o); }

@@ -16,6 +16,7 @@ namespace Bimwright.Dwg.Tests
                 typeof(QueryTools),
                 typeof(ModifyTools),
                 typeof(MetaTools),
+                typeof(ToolBakerTools),
                 typeof(CodeTools)
             }
             .SelectMany(GetMcpToolNames)
@@ -24,11 +25,16 @@ namespace Bimwright.Dwg.Tests
 
             Assert.Equal(new[]
             {
+                "dwg_accept_bake_suggestion",
                 "dwg_apply_unicode_style",
                 "dwg_collapse_and_rewrite",
+                "dwg_dismiss_bake_suggestion",
                 "dwg_get_current_target",
                 "dwg_get_selected_texts",
                 "dwg_list_available_targets",
+                "dwg_list_bake_suggestions",
+                "dwg_list_baked_tools",
+                "dwg_run_baked_tool",
                 "dwg_send_code",
                 "dwg_switch_target",
                 "dwg_translate_and_rewrite",

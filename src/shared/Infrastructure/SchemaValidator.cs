@@ -162,5 +162,19 @@ namespace Bimwright.Dwg.Plugin
 
         public static readonly CommandSchema BatchExecute = CommandSchema.Object(
             SchemaProperty.Required("commands", JTokenType.Array));
+
+        public static readonly CommandSchema RunBakedTool = CommandSchema.Object(
+            SchemaProperty.Required("name", JTokenType.String),
+            SchemaProperty.Optional("params", JTokenType.Object),
+            SchemaProperty.Optional("tool_record", JTokenType.Object));
+
+        public static readonly CommandSchema ApplyBake = CommandSchema.Object(
+            SchemaProperty.Required("tool_name", JTokenType.String),
+            SchemaProperty.Required("source", JTokenType.String),
+            SchemaProperty.Optional("handler_tool", JTokenType.String),
+            SchemaProperty.Optional("fixed_args", JTokenType.Object),
+            SchemaProperty.Optional("sequence", JTokenType.Array),
+            SchemaProperty.Optional("params_schema", JTokenType.Object, JTokenType.String),
+            SchemaProperty.Optional("source_code", JTokenType.String));
     }
 }

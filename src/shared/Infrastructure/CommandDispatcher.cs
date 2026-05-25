@@ -29,8 +29,11 @@ namespace Bimwright.Dwg.Plugin
                 { "apply_unicode_style",     new ApplyUnicodeStyleHandler() },
                 { "collapse_and_rewrite",    new CollapseAndRewriteHandler() },
                 { "translate_and_rewrite",   new TranslateAndRewriteHandler() },
+                { "list_baked_tools",        new ListBakedToolsHandler() },
             };
+            _commands.Add("apply_bake", new ApplyBakeSuggestionHandler((cmd, parameters) => ValidateCommand(cmd, parameters, out _)));
             _commands.Add("batch_execute", new BatchExecuteHandler(ExecuteCommand));
+            _commands.Add("run_baked_tool", new RunBakedToolHandler(ExecuteCommand));
         }
 
         public string Dispatch(string requestLine)
