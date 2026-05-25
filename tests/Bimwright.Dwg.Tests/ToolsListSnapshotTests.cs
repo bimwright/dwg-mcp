@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using Bimwright.Dwg.Server.Tools;
@@ -106,6 +107,33 @@ namespace Bimwright.Dwg.Tests
             }, GetSortedMcpToolNames(blockWriteTools));
         }
 
+        [Fact]
+        public void ResolveToolTypesForRegistration_ExcludesBlockWriteToolsInReadOnlyMode()
+        {
+            var method = typeof(Bimwright.Dwg.Server.Program).GetMethod(
+                "ResolveToolTypesForRegistration",
+                BindingFlags.NonPublic | BindingFlags.Static);
+
+            Assert.True(
+                method != null,
+                "Program must expose non-public static ResolveToolTypesForRegistration(HashSet<string> enabled, bool readOnly) returning tool Types so read-only registration can be unit-tested.");
+            Assert.Equal(
+                new[] { typeof(HashSet<string>), typeof(bool) },
+                method.GetParameters().Select(p => p.ParameterType).ToArray());
+
+            var readOnlyTypeNames = InvokeToolTypeResolver(method, readOnly: true)
+                .Select(type => type.Name)
+                .ToArray();
+            var writeTypeNames = InvokeToolTypeResolver(method, readOnly: false)
+                .Select(type => type.Name)
+                .ToArray();
+
+            Assert.Contains("BlockTools", readOnlyTypeNames);
+            Assert.DoesNotContain("BlockWriteTools", readOnlyTypeNames);
+            Assert.Contains("BlockTools", writeTypeNames);
+            Assert.Contains("BlockWriteTools", writeTypeNames);
+        }
+
         private static string[] GetMcpToolNames(Type type)
         {
             return type.GetMethods(BindingFlags.Public | BindingFlags.Static)
@@ -127,6 +155,17 @@ namespace Bimwright.Dwg.Tests
 
             Assert.True(type != null, $"{fullName} is missing.");
             return type;
+        }
+
+        private static Type[] InvokeToolTypeResolver(MethodInfo method, bool readOnly)
+        {
+            var enabled = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "block" };
+            var result = method.Invoke(null, new object[] { enabled, readOnly });
+
+            Assert.True(
+                result is IEnumerable<Type>,
+                "Program.ResolveToolTypesForRegistration must return IEnumerable<Type>.");
+            return ((IEnumerable<Type>)result).ToArray();
         }
 
         private static bool IsMcpToolType(Type type)
