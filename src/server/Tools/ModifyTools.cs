@@ -27,6 +27,127 @@ namespace Bimwright.Dwg.Server.Tools
             return ToolGateway.LoggedCall("update_texts", request, request);
         }
 
+        [McpServerTool(Name = "dwg_create_layer"), Description(
+            "Ensure an AutoCAD layer exists. If the layer already exists, its existing " +
+            "color and state are left unchanged and the response reports created=false.")]
+        public static Task<string> CreateLayer(
+            [Description("Layer name to ensure.")] string name,
+            [Description("Optional ACI color index used only when creating a missing layer. Valid range: 1-256. Default: 7.")] int? color_index = null)
+        {
+            var request = new JObject
+            {
+                ["name"] = name
+            };
+            if (color_index.HasValue)
+            {
+                request["color_index"] = color_index.Value;
+            }
+
+            return ToolGateway.LoggedCall("create_layer", request, request);
+        }
+
+        [McpServerTool(Name = "dwg_create_line"), Description(
+            "Create a Line in the current AutoCAD space. start and end are JSON point " +
+            "objects with numeric x, y, and optional z fields. Optional layer is ensured " +
+            "before assignment; optional color_index sets the entity ACI color.")]
+        public static Task<string> CreateLine(
+            [Description("JSON point object, e.g. {\"x\":0,\"y\":0,\"z\":0}.")] string start,
+            [Description("JSON point object, e.g. {\"x\":1000,\"y\":0,\"z\":0}.")] string end,
+            [Description("Optional target layer name. If supplied, the layer is ensured using color_index or default 7.")] string layer = null,
+            [Description("Optional ACI color index for the new entity, and for creating a supplied missing layer. Valid range: 1-256.")] int? color_index = null)
+        {
+            if (!TryParseJsonObject(start, "start", out var startObject, out var startError))
+            {
+                return ToolInputError(startError);
+            }
+
+            if (!TryParseJsonObject(end, "end", out var endObject, out var endError))
+            {
+                return ToolInputError(endError);
+            }
+
+            var request = new JObject
+            {
+                ["start"] = startObject,
+                ["end"] = endObject
+            };
+            if (layer != null)
+            {
+                request["layer"] = layer;
+            }
+            if (color_index.HasValue)
+            {
+                request["color_index"] = color_index.Value;
+            }
+
+            return ToolGateway.LoggedCall("create_line", request, request);
+        }
+
+        [McpServerTool(Name = "dwg_create_circle"), Description(
+            "Create a Circle in the current AutoCAD space. center is a JSON point object " +
+            "with numeric x, y, and optional z fields. radius must be positive and finite.")]
+        public static Task<string> CreateCircle(
+            [Description("JSON point object, e.g. {\"x\":0,\"y\":0,\"z\":0}.")] string center,
+            [Description("Circle radius. Must be positive and finite.")] double radius,
+            [Description("Optional target layer name. If supplied, the layer is ensured using color_index or default 7.")] string layer = null,
+            [Description("Optional ACI color index for the new entity, and for creating a supplied missing layer. Valid range: 1-256.")] int? color_index = null)
+        {
+            if (!TryParseJsonObject(center, "center", out var centerObject, out var centerError))
+            {
+                return ToolInputError(centerError);
+            }
+
+            var request = new JObject
+            {
+                ["center"] = centerObject,
+                ["radius"] = radius
+            };
+            if (layer != null)
+            {
+                request["layer"] = layer;
+            }
+            if (color_index.HasValue)
+            {
+                request["color_index"] = color_index.Value;
+            }
+
+            return ToolGateway.LoggedCall("create_circle", request, request);
+        }
+
+        [McpServerTool(Name = "dwg_change_layer"), Description(
+            "Move entities identified by handle to an existing layer. If create_layer=true, " +
+            "the layer is ensured first using color_index or default 7. Returns one result " +
+            "record per handle; bad handles do not abort siblings.")]
+        public static Task<string> ChangeLayer(
+            [Description("JSON array of AutoCAD handles, e.g. [\"7F5AD\",\"2A4F\"].")] string handles,
+            [Description("Target layer name. Must exist unless create_layer=true.")] string layer,
+            [Description("When true, ensure the target layer before moving entities.")] bool create_layer = false,
+            [Description("Optional ACI color index used only when create_layer=true creates a missing layer. Valid range: 1-256. Default: 7.")] int? color_index = null)
+        {
+            JArray parsedHandles;
+            try
+            {
+                parsedHandles = JArray.Parse(handles);
+            }
+            catch (JsonException ex)
+            {
+                return ToolInputError("handles must be a JSON array: " + ex.Message);
+            }
+
+            var request = new JObject
+            {
+                ["handles"] = parsedHandles,
+                ["layer"] = layer,
+                ["create_layer"] = create_layer
+            };
+            if (color_index.HasValue)
+            {
+                request["color_index"] = color_index.Value;
+            }
+
+            return ToolGateway.LoggedCall("change_layer", request, request);
+        }
+
         [McpServerTool(Name = "dwg_translate_and_rewrite"), Description(
             "PREFERRED translation tool. Writes translated text back to AutoCAD. " +
             "Input is a JSON array of {id, new_text, render_mode?, width_policy?} where id matches a cluster " +
@@ -107,6 +228,34 @@ namespace Bimwright.Dwg.Server.Tools
             parsed["apply_unicode_style"] = applyUnicodeStyle;
             parsed["final_scale"] = finalScale;
             return ToolGateway.LoggedCall("collapse_and_rewrite", parsed, parsed);
+        }
+
+        private static bool TryParseJsonObject(string json, string fieldName, out JObject obj, out string error)
+        {
+            obj = null;
+            error = null;
+
+            if (string.IsNullOrWhiteSpace(json))
+            {
+                error = fieldName + " must be a JSON object";
+                return false;
+            }
+
+            try
+            {
+                obj = JObject.Parse(json);
+                return true;
+            }
+            catch (JsonException ex)
+            {
+                error = fieldName + " must be a JSON object: " + ex.Message;
+                return false;
+            }
+        }
+
+        private static Task<string> ToolInputError(string error)
+        {
+            return Task.FromResult(JsonConvert.SerializeObject(new { ok = false, error }));
         }
     }
 }
