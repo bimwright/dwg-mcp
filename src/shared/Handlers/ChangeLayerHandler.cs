@@ -96,7 +96,7 @@ namespace Bimwright.Dwg.Plugin.Handlers
                     }
                     catch (Exception ex)
                     {
-                        results.Add(new { handle, ok = false, entity = (object)null, error = ex.Message });
+                        results.Add(new { handle, ok = false, entity = (object)null, error = ErrorSanitizer.Sanitize(ex.Message) });
                     }
                 }
 

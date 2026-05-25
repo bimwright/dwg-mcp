@@ -124,6 +124,11 @@ namespace Bimwright.Dwg.Server.Tools
             [Description("When true, ensure the target layer before moving entities.")] bool create_layer = false,
             [Description("Optional ACI color index used only when create_layer=true creates a missing layer. Valid range: 1-256. Default: 7.")] int? color_index = null)
         {
+            if (string.IsNullOrWhiteSpace(handles))
+            {
+                return ToolInputError("handles must be a JSON array");
+            }
+
             JArray parsedHandles;
             try
             {
