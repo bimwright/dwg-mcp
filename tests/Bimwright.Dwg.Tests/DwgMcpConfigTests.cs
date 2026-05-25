@@ -20,6 +20,7 @@ namespace Bimwright.Dwg.Tests
                 ReadOnly = false,
                 EnableSendCode = false,
                 EnableToolbaker = true,
+                AllowLanBind = false,
                 LogLevel = "info"
             }));
 
@@ -32,11 +33,12 @@ namespace Bimwright.Dwg.Tests
                     [DwgMcpConfig.EnvReadOnly] = "true",
                     [DwgMcpConfig.EnvEnableSendCode] = "yes",
                     [DwgMcpConfig.EnvEnableToolbaker] = "false",
+                    [DwgMcpConfig.EnvAllowLanBind] = "false",
                     [DwgMcpConfig.EnvLogLevel] = "debug"
                 };
 
                 var config = DwgMcpConfig.Load(
-                    new[] { "--config", path, "--target", "2026", "--toolsets", "query", "--log-level", "warn" },
+                    new[] { "--config", path, "--target", "2026", "--toolsets", "query", "--allow-lan-bind", "--log-level", "warn" },
                     envLookup: name => env.TryGetValue(name, out var value) ? value : null);
 
                 Assert.Equal("2026", config.Target);
@@ -44,6 +46,7 @@ namespace Bimwright.Dwg.Tests
                 Assert.True(config.ReadOnly);
                 Assert.True(config.EnableSendCode);
                 Assert.False(config.EnableToolbaker);
+                Assert.True(config.AllowLanBind);
                 Assert.Equal("warn", config.LogLevel);
             }
             finally
@@ -62,9 +65,11 @@ namespace Bimwright.Dwg.Tests
             Assert.Null(config.ReadOnly);
             Assert.Null(config.EnableSendCode);
             Assert.Null(config.EnableToolbaker);
+            Assert.Null(config.AllowLanBind);
             Assert.False(config.ReadOnlyOrDefault);
             Assert.False(config.EnableSendCodeOrDefault);
             Assert.True(config.EnableToolbakerOrDefault);
+            Assert.False(config.AllowLanBindOrDefault);
         }
 
         [Theory]

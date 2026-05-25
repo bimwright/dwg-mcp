@@ -165,7 +165,7 @@ Pin a specific AutoCAD instance with a 4-digit target year:
 }
 ```
 
-Use `--read-only` to expose only query/routing tools. Use `--toolsets query,modify,meta,toolbaker` or `--toolsets all` to opt into optional ToolBaker tools.
+Use `--read-only` to expose only query/routing tools plus ToolBaker read tools if that toolset is enabled. Use `--toolsets query,modify,meta,toolbaker` or `--toolsets all` to opt into optional ToolBaker tools.
 
 `dwg_send_code` is hidden from the default tool list. To expose it, opt in on both sides:
 
@@ -196,6 +196,7 @@ Then run `MCPENABLECODE` inside AutoCAD for the current plugin session. `MCPDISA
 | `dwg_list_available_targets` | List running AutoCAD targets discovered from v2 JSON and legacy 2024 discovery files |
 | `dwg_get_current_target` | Show the pinned target year, if any |
 | `dwg_switch_target` | Pin this server process to AutoCAD `2022` through `2027` |
+| `dwg_batch_execute` | Run multiple internal wire commands as a logical batch |
 | `dwg_send_code` | **Opt-in only.** Execute C# after server flag/env enablement and AutoCAD-side `MCPENABLECODE` consent |
 
 Optional ToolBaker tools are exposed when the `toolbaker` toolset is enabled:
@@ -207,6 +208,7 @@ Optional ToolBaker tools are exposed when the `toolbaker` toolset is enabled:
 | `dwg_list_bake_suggestions` | List detected repeated-workflow suggestions |
 | `dwg_accept_bake_suggestion` | Validate, smoke-test, and accept a suggestion |
 | `dwg_dismiss_bake_suggestion` | Dismiss or suppress a suggestion |
+| `dwg_create_bake_issue_draft` | Generate a GitHub issue draft for a suggestion without submitting it |
 
 ### Migration from 0.1.x tool names
 

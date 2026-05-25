@@ -15,6 +15,7 @@ namespace Bimwright.Dwg.Plugin
         private TcpListener _listener;
         private Thread _acceptThread;
         private volatile bool _running;
+        private int _activeClients;
         private CommandDispatcher _dispatcher;
 
         public TcpTransportServer(string target = "2024")
@@ -22,9 +23,13 @@ namespace Bimwright.Dwg.Plugin
             _target = string.IsNullOrWhiteSpace(target) ? "2024" : target;
         }
 
-        public int Port { get; private set; }
+        public int? Port { get; private set; }
+        public string PipeName => null;
         public string AuthToken { get; private set; }
         public bool IsRunning => _running;
+        public bool IsClientConnected => _activeClients > 0;
+        public DateTime? LastCommandTime { get; private set; }
+        public TransportKind Kind => TransportKind.Tcp;
 
         public void Start()
         {
@@ -61,6 +66,7 @@ namespace Bimwright.Dwg.Plugin
 
         private void HandleClient(TcpClient client)
         {
+            Interlocked.Increment(ref _activeClients);
             try
             {
                 using (client)
@@ -71,6 +77,7 @@ namespace Bimwright.Dwg.Plugin
                     string line;
                     while ((line = reader.ReadLine()) != null)
                     {
+                        LastCommandTime = DateTime.UtcNow;
                         string responseJson;
                         try
                         {
@@ -88,6 +95,10 @@ namespace Bimwright.Dwg.Plugin
             {
                 // Client disconnect or IO error; accept loop continues.
             }
+            finally
+            {
+                Interlocked.Decrement(ref _activeClients);
+            }
         }
 
         private void WriteDiscoveryFiles()
@@ -104,11 +115,11 @@ namespace Bimwright.Dwg.Plugin
             var info = new
             {
                 schema_version = 2,
-                target = _target,
-                version = _target,
+                acad_year = int.Parse(_target),
                 transport = "tcp",
                 host = "127.0.0.1",
                 port = Port,
+                pipe_name = (string)null,
                 auth_token = AuthToken,
                 pid = Process.GetCurrentProcess().Id,
                 process_name = Process.GetCurrentProcess().ProcessName,

@@ -9,7 +9,7 @@ namespace Bimwright.Dwg.Server
         public static readonly string[] DefaultOn = { "query", "modify", "meta" };
 
         private static readonly HashSet<string> WriteCapable = new HashSet<string>(
-            new[] { "modify", "code", "toolbaker" },
+            new[] { "modify", "code" },
             StringComparer.OrdinalIgnoreCase);
 
         public static HashSet<string> Resolve(DwgMcpConfig config)

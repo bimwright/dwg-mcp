@@ -21,13 +21,24 @@ namespace Bimwright.Dwg.Plugin
         {
             _target = string.IsNullOrWhiteSpace(target) ? "2025" : target;
             _pipeName = string.IsNullOrWhiteSpace(pipeName)
-                ? "bimwright-dwg-" + _target + "-" + Process.GetCurrentProcess().Id
+                ? "BimwrightDwg-" + _target + "-" + Process.GetCurrentProcess().Id
                 : pipeName;
         }
 
-        public int Port => 0;
+        public int? Port => null;
+        public string PipeName => _pipeName;
         public string AuthToken { get; private set; }
         public bool IsRunning => _running;
+        public bool IsClientConnected
+        {
+            get
+            {
+                try { return _activeServer?.IsConnected ?? false; }
+                catch { return false; }
+            }
+        }
+        public DateTime? LastCommandTime { get; private set; }
+        public TransportKind Kind => TransportKind.Pipe;
 
         public void Start()
         {
@@ -84,6 +95,7 @@ namespace Bimwright.Dwg.Plugin
                 string line;
                 while (_running && (line = reader.ReadLine()) != null)
                 {
+                    LastCommandTime = DateTime.UtcNow;
                     string responseJson;
                     try
                     {
@@ -104,9 +116,9 @@ namespace Bimwright.Dwg.Plugin
             var info = new
             {
                 schema_version = 2,
-                target = _target,
-                version = _target,
+                acad_year = int.Parse(_target),
                 transport = "pipe",
+                port = (int?)null,
                 pipe_name = _pipeName,
                 auth_token = AuthToken,
                 pid = Process.GetCurrentProcess().Id,

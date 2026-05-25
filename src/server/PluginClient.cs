@@ -98,6 +98,7 @@ namespace Bimwright.Dwg.Server
     public class DiscoveryInfo
     {
         [JsonProperty("schema_version")] public int SchemaVersion { get; set; }
+        [JsonProperty("acad_year")] public int AcadYear { get; set; }
         [JsonProperty("target")] public string Target { get; set; }
         [JsonProperty("version")] public string Version { get; set; }
         [JsonProperty("transport")] public string Transport { get; set; } = "tcp";

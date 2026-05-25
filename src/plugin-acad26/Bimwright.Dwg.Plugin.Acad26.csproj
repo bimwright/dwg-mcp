@@ -5,7 +5,7 @@
     <AssemblyName>Bimwright.Dwg.Plugin.Acad26</AssemblyName>
     <LangVersion>latest</LangVersion>
     <AutoCadVersionYear>2026</AutoCadVersionYear>
-    <DefineConstants>$(DefineConstants);ACAD2026</DefineConstants>
+    <DefineConstants>$(DefineConstants);ACAD2026;ACAD2025_OR_GREATER;ACAD2026_OR_GREATER</DefineConstants>
     <AutoCad2026Dir Condition="'$(AutoCad2026Dir)' == ''">C:\Program Files\Autodesk\AutoCAD 2026</AutoCad2026Dir>
   </PropertyGroup>
 

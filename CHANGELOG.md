@@ -13,13 +13,17 @@ Added:
 - Discovery v2 through `%LOCALAPPDATA%\Bimwright\Dwg\acad-YYYY.json`, plus legacy `portAcad24.txt` fallback for AutoCAD 2024.
 - Target routing tools: `dwg_list_available_targets`, `dwg_get_current_target`, and `dwg_switch_target`.
 - Optional ToolBaker toolset backed by server-owned SQLite storage.
+- `dwg_batch_execute` and `dwg_create_bake_issue_draft`, completing the v1 16-tool surface.
 - AutoCAD API execution serialization through `DwgApiExecutor`.
 - Command schema validation, response-size guardrails, batch execution preflight, and error/secret sanitization.
+- Discovery v2 now writes `acad_year` and stable `pipe_name` fields; server still reads transitional `target`/`version` fields.
+- Baked source redaction, `usage_events` storage, and minimal Memory/Logging support for ToolBaker pattern detection.
 
 Notes:
 
 - `dwg_send_code` still requires both server opt-in (`--enable-send-code` or `BIMWRIGHT_DWG_ENABLE_SEND_CODE=1`) and AutoCAD-side `MCPENABLECODE`.
 - Server/tests can pass without release-building every AutoCAD shell. Shipping a year requires matching Autodesk managed assemblies on the release machine.
+- `BIMWRIGHT_DWG_ALLOW_LAN_BIND` / `--allow-lan-bind` is parsed and reserved for a future plugin-side LAN bind transport path.
 
 ## 0.1.0 — 2026-05-03
 

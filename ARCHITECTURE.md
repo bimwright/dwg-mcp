@@ -33,11 +33,11 @@ The v2 JSON file contains:
 ```json
 {
   "schema_version": 2,
-  "target": "2024",
-  "version": "2024",
+  "acad_year": 2024,
   "transport": "tcp",
   "host": "127.0.0.1",
   "port": 49152,
+  "pipe_name": null,
   "auth_token": "32-char hex token",
   "pid": 1234,
   "process_name": "acad",
@@ -45,7 +45,7 @@ The v2 JSON file contains:
 }
 ```
 
-Server reads v2 files from `%LOCALAPPDATA%\Bimwright\Dwg\`, verifies the PID is alive, removes invalid stale files, and auto-selects the newest discovered target unless `--target`, `BIMWRIGHT_DWG_TARGET`, or `dwg_switch_target` pins a year. Target values are always 4-digit years: `2022` through `2027`.
+Server reads v2 files from `%LOCALAPPDATA%\Bimwright\Dwg\`, verifies the PID is alive, removes invalid stale files, and auto-selects the newest discovered target unless `--target`, `BIMWRIGHT_DWG_TARGET`, or `dwg_switch_target` pins a year. Target values are always 4-digit years: `2022` through `2027`. The reader still accepts the transitional `target`/`version` string fields for compatibility with earlier refactor builds.
 
 ## Auth protocol
 
@@ -122,15 +122,15 @@ Toolsets are resolved by `DwgMcpConfig` and `ToolsetFilter`:
 |---------|-----------|
 | `query` | `dwg_get_selected_texts` |
 | `modify` | `dwg_update_texts`, `dwg_translate_and_rewrite`, `dwg_apply_unicode_style`, `dwg_collapse_and_rewrite` |
-| `meta` | `dwg_list_available_targets`, `dwg_get_current_target`, `dwg_switch_target` |
-| `toolbaker` | `dwg_list_baked_tools`, `dwg_run_baked_tool`, `dwg_list_bake_suggestions`, `dwg_accept_bake_suggestion`, `dwg_dismiss_bake_suggestion` |
+| `meta` | `dwg_batch_execute`, `dwg_list_available_targets`, `dwg_get_current_target`, `dwg_switch_target` |
+| `toolbaker` | `dwg_list_baked_tools`, `dwg_run_baked_tool`, `dwg_list_bake_suggestions`, `dwg_accept_bake_suggestion`, `dwg_dismiss_bake_suggestion`, `dwg_create_bake_issue_draft` |
 | `code` | `dwg_send_code` |
 
-`--read-only` or `BIMWRIGHT_DWG_READ_ONLY=1` removes write-capable toolsets: `modify`, `toolbaker`, and `code`. `--enable-send-code` only registers `code`; AutoCAD-side `MCPENABLECODE` is still required.
+`--read-only` or `BIMWRIGHT_DWG_READ_ONLY=1` removes write-capable methods: `modify`, `code`, `dwg_batch_execute`, and ToolBaker write tools (`run`, `accept`, `dismiss`). ToolBaker read tools (`list_*`, issue draft generation) remain available when the toolset is enabled. `--enable-send-code` only registers `code`; AutoCAD-side `MCPENABLECODE` is still required.
 
 ## ToolBaker
 
-ToolBaker storage is server-owned SQLite at `%LOCALAPPDATA%\Bimwright\Dwg\baked\bake.db`. Accepting a suggestion sends the internal `apply_bake` command to the plugin for policy validation and schema smoke-test. The server persists the accepted record only after plugin validation succeeds.
+ToolBaker storage is server-owned SQLite at `%LOCALAPPDATA%\Bimwright\Dwg\baked\bake.db`. Accepting a suggestion sends the internal `apply_bake` command to the plugin for policy validation and schema smoke-test. The server redacts baked source before persistence and records usage events in the `usage_events` table for pattern detection.
 
 At runtime, `dwg_run_baked_tool` reads the accepted record from SQLite and sends that record to the plugin. The plugin does not own a separate registry file. V1 baked tools are declarative preset or macro records that dispatch existing `IAcadCommand` handlers; future generated-source paths must pass `BakeCompilerPolicy` before they can be enabled.
 

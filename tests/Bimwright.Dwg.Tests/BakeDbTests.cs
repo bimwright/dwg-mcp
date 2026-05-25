@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using Bimwright.Dwg.Plugin.ToolBaker;
 using Bimwright.Dwg.Server.Bake;
+using Microsoft.Data.Sqlite;
 using Newtonsoft.Json.Linq;
 using Xunit;
 
@@ -59,6 +60,38 @@ namespace Bimwright.Dwg.Tests
             Assert.Equal("s1", suggestion.Id);
             Assert.True(db.TryUpdateSuggestionState("s1", BakeSuggestionStates.Accepted));
             Assert.Equal(BakeSuggestionStates.Accepted, db.GetSuggestion("s1").State);
+        }
+
+        [Fact]
+        public void UsageEventLogger_WritesUsageEventsIntoBakeDb()
+        {
+            using var temp = new TempDir();
+            var paths = new BakePaths(temp.Path);
+            using var db = new BakeDb(paths);
+            db.Migrate();
+
+            new UsageEventLogger(paths).Append(new UsageEvent
+            {
+                SessionId = "session-1",
+                Tool = "dwg_get_selected_texts",
+                ParamsHash = "hash",
+                Success = true,
+                DurationMs = 12
+            });
+
+            using var connection = new SqliteConnection("Data Source=" + paths.BakeDb);
+            connection.Open();
+            using var command = connection.CreateCommand();
+            command.CommandText = "SELECT session_id, tool, params_hash, ok, duration_ms FROM usage_events";
+            using var reader = command.ExecuteReader();
+
+            Assert.True(reader.Read());
+            Assert.Equal("session-1", reader.GetString(0));
+            Assert.Equal("dwg_get_selected_texts", reader.GetString(1));
+            Assert.Equal("hash", reader.GetString(2));
+            Assert.Equal(1, reader.GetInt32(3));
+            Assert.Equal(12, reader.GetInt64(4));
+            Assert.False(reader.Read());
         }
 
         private sealed class TempDir : IDisposable

@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using Bimwright.Dwg.Plugin;
 using Bimwright.Dwg.Plugin.ToolBaker;
 using Bimwright.Dwg.Server.Bake;
 using Newtonsoft.Json;
@@ -60,7 +61,7 @@ namespace Bimwright.Dwg.Server.Handlers
             var record = BakedToolRuntimeCommandFactory.FromApplyRequest(request);
             record.Description = (string)applyResult["description"] ?? record.Description;
             record.ParamsSchema = (string)applyResult["params_schema"] ?? record.ParamsSchema;
-            record.SourceCode = (string)applyResult["source_code"] ?? record.SourceCode;
+            record.SourceCode = BakeRedactor.RedactSource((string)applyResult["source_code"] ?? record.SourceCode);
             record.CreatedFromSuggestionId = suggestion.Id;
             if (!db.TryInsertRegistryRecord(record))
             {

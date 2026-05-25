@@ -1,31 +1,52 @@
 using Newtonsoft.Json;
+using System.Text;
 
 namespace Bimwright.Dwg.Plugin
 {
     public static class ResponseSizeGuard
     {
-        public const int DefaultMaxSerializedChars = 1000000;
+        public const int DefaultMaxSerializedBytes = 10 * 1024 * 1024;
 
-        public static object ApplyResult(object result, int maxSerializedChars = DefaultMaxSerializedChars)
+        public static object ApplyResult(object result, int maxSerializedBytes = DefaultMaxSerializedBytes)
         {
             var json = JsonConvert.SerializeObject(result);
-            if (json == null || json.Length <= maxSerializedChars)
+            var sizeBytes = json == null ? 0 : Encoding.UTF8.GetByteCount(json);
+            if (json == null || sizeBytes <= maxSerializedBytes)
             {
                 return result;
-            }
-
-            var previewLength = maxSerializedChars < 0 ? 0 : maxSerializedChars;
-            if (previewLength > json.Length)
-            {
-                previewLength = json.Length;
             }
 
             return new
             {
                 truncated = true,
                 original_length = json.Length,
-                preview = json.Substring(0, previewLength)
+                original_size_bytes = sizeBytes,
+                hint = "Response exceeded the 10MB serialized payload limit; narrow the selection or request smaller batches.",
+                preview = Utf8Preview(json, maxSerializedBytes)
             };
+        }
+
+        private static string Utf8Preview(string json, int maxBytes)
+        {
+            if (maxBytes <= 0)
+            {
+                return string.Empty;
+            }
+
+            var used = 0;
+            var builder = new StringBuilder();
+            foreach (var ch in json)
+            {
+                var size = Encoding.UTF8.GetByteCount(new[] { ch });
+                if (used + size > maxBytes)
+                {
+                    break;
+                }
+                builder.Append(ch);
+                used += size;
+            }
+
+            return builder.ToString();
         }
     }
 }

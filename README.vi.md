@@ -168,7 +168,7 @@ De pin mot AutoCAD cu the, dung nam 4 chu so:
 }
 ```
 
-Dung `--read-only` de chi mo tool doc/routing. Dung `--toolsets query,modify,meta,toolbaker` hoac `--toolsets all` de bat ToolBaker.
+Dung `--read-only` de chi mo tool doc/routing, cong them ToolBaker read tools neu toolset nay duoc bat. Dung `--toolsets query,modify,meta,toolbaker` hoac `--toolsets all` de bat ToolBaker.
 
 ---
 
@@ -184,6 +184,7 @@ Dung `--read-only` de chi mo tool doc/routing. Dung `--toolsets query,modify,met
 | `dwg_list_available_targets` | Liet ke AutoCAD dang chay tu discovery v2 va legacy 2024 |
 | `dwg_get_current_target` | Xem target dang pin |
 | `dwg_switch_target` | Pin server sang AutoCAD `2022` den `2027` |
+| `dwg_batch_execute` | Chay nhieu wire command noi bo nhu mot logical batch |
 | `dwg_send_code` | **Chi opt-in.** Chay C# sau khi bat flag/env server va dong y phia AutoCAD bang `MCPENABLECODE` |
 
 ToolBaker la toolset tuy chon:
@@ -195,6 +196,7 @@ ToolBaker la toolset tuy chon:
 | `dwg_list_bake_suggestions` | Liet ke goi y workflow lap lai |
 | `dwg_accept_bake_suggestion` | Validate, smoke-test, va accept goi y |
 | `dwg_dismiss_bake_suggestion` | Dismiss hoac suppress goi y |
+| `dwg_create_bake_issue_draft` | Tao GitHub issue draft cho goi y ma khong submit |
 
 ### Migration tu ten tool 0.1.x
 

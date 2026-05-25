@@ -66,6 +66,15 @@ CREATE TABLE IF NOT EXISTS suggestions(
     payload_json TEXT NOT NULL,
     version_history_blob TEXT NOT NULL DEFAULT '[]'
 )");
+            Execute(connection, @"
+CREATE TABLE IF NOT EXISTS usage_events(
+    timestamp TEXT NOT NULL,
+    session_id TEXT NOT NULL,
+    tool TEXT NOT NULL,
+    params_hash TEXT NOT NULL,
+    ok INTEGER NOT NULL,
+    duration_ms INTEGER NOT NULL
+)");
         }
 
         public bool TryInsertRegistryRecord(BakedToolRecord record)
@@ -174,6 +183,23 @@ ON CONFLICT(id) DO UPDATE SET
             command.Parameters.AddWithValue("$state", state ?? BakeSuggestionStates.Open);
             command.Parameters.AddWithValue("$updated_at", DateTimeOffset.UtcNow.ToString("o"));
             return command.ExecuteNonQuery() == 1;
+        }
+
+        public void InsertUsageEvent(UsageEvent usageEvent)
+        {
+            if (usageEvent == null) throw new ArgumentNullException(nameof(usageEvent));
+            using var connection = OpenConnection();
+            using var command = connection.CreateCommand();
+            command.CommandText = @"
+INSERT INTO usage_events(timestamp, session_id, tool, params_hash, ok, duration_ms)
+VALUES($timestamp, $session_id, $tool, $params_hash, $ok, $duration_ms)";
+            Add(command, "$timestamp", string.IsNullOrWhiteSpace(usageEvent.Timestamp) ? DateTimeOffset.UtcNow.ToString("o") : usageEvent.Timestamp);
+            Add(command, "$session_id", usageEvent.SessionId ?? "server");
+            Add(command, "$tool", usageEvent.Tool);
+            Add(command, "$params_hash", usageEvent.ParamsHash ?? usageEvent.NormalizedKey ?? string.Empty);
+            command.Parameters.AddWithValue("$ok", usageEvent.Success ? 1 : 0);
+            command.Parameters.AddWithValue("$duration_ms", usageEvent.DurationMs);
+            command.ExecuteNonQuery();
         }
 
         private SqliteConnection OpenConnection()

@@ -17,7 +17,7 @@ dotnet tool install -g Bimwright.Dwg.Server --add-source artifacts-review --vers
 bimwright-dwg --target 2024
 ```
 
-- Confirm read-only mode exposes only query and routing tools:
+- Confirm read-only mode exposes only query/routing tools and ToolBaker read tools if the toolset is enabled:
 
 ```powershell
 bimwright-dwg --read-only --target 2024
@@ -47,6 +47,7 @@ pwsh scripts\install.ps1 -Version 2024 -SourceDir src\plugin-acad24\bin\Release\
 - Call `dwg_list_available_targets` and confirm the expected year, PID, and transport.
 - Call `dwg_get_current_target`; if no target is pinned, it may return `null`.
 - Call `dwg_switch_target` with a 4-digit year such as `2024`; do not use R-codes.
+- Call `dwg_batch_execute` with a read-only command and confirm nested batch or baked-tool calls are rejected.
 - Select text entities in AutoCAD and call `dwg_get_selected_texts`.
 - Run a small `dwg_translate_and_rewrite` or `dwg_apply_unicode_style` operation and verify a single AutoCAD undo reverses it.
 
@@ -65,7 +66,9 @@ bimwright-dwg --target 2024 --toolsets query,modify,meta,toolbaker
 ```
 
 - Confirm `dwg_list_baked_tools` returns the server-owned SQLite registry contents.
+- Confirm `dwg_create_bake_issue_draft` returns a draft body and does not submit anything.
 - Accepting a suggestion must call plugin `apply_bake` first; the server should persist to `%LOCALAPPDATA%\Bimwright\Dwg\baked\bake.db` only after plugin validation succeeds.
+- Confirm accepted baked source is redacted before persistence and usage events are written to the `usage_events` table.
 - `dwg_run_baked_tool` should fail for unknown names and should run only tools present in the server registry.
 
 ## Multi-Version Release Gate
@@ -80,4 +83,3 @@ Server tests and the normal solution build can pass without every AutoCAD shell 
 | 2025 | `src\plugin-acad25\Bimwright.Dwg.Plugin.Acad25.csproj` | `net8.0-windows` |
 | 2026 | `src\plugin-acad26\Bimwright.Dwg.Plugin.Acad26.csproj` | `net8.0-windows` |
 | 2027 | `src\plugin-acad27\Bimwright.Dwg.Plugin.Acad27.csproj` | `net10.0-windows` |
-

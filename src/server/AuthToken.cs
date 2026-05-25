@@ -131,8 +131,9 @@ namespace Bimwright.Dwg.Server
                     return false;
                 }
 
-                parsed.Target = NormalizeTarget(parsed.Target ?? parsed.Version);
+                parsed.Target = NormalizeTarget(parsed.Target ?? parsed.Version ?? (parsed.AcadYear > 0 ? parsed.AcadYear.ToString() : null));
                 parsed.Version = parsed.Version ?? parsed.Target;
+                parsed.AcadYear = parsed.AcadYear > 0 ? parsed.AcadYear : int.Parse(parsed.Target);
                 parsed.Transport = string.IsNullOrWhiteSpace(parsed.Transport) ? "tcp" : parsed.Transport.Trim().ToLowerInvariant();
                 if (!string.Equals(parsed.Transport, "tcp", StringComparison.Ordinal)
                     && !string.Equals(parsed.Transport, "pipe", StringComparison.Ordinal))

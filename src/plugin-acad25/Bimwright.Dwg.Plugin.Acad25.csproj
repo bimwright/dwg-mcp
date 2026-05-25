@@ -5,7 +5,7 @@
     <AssemblyName>Bimwright.Dwg.Plugin.Acad25</AssemblyName>
     <LangVersion>latest</LangVersion>
     <AutoCadVersionYear>2025</AutoCadVersionYear>
-    <DefineConstants>$(DefineConstants);ACAD2025</DefineConstants>
+    <DefineConstants>$(DefineConstants);ACAD2025;ACAD2025_OR_GREATER</DefineConstants>
     <AutoCad2025Dir Condition="'$(AutoCad2025Dir)' == ''">C:\Program Files\Autodesk\AutoCAD 2025</AutoCad2025Dir>
   </PropertyGroup>
 

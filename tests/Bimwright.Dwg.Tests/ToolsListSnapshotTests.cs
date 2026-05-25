@@ -16,7 +16,9 @@ namespace Bimwright.Dwg.Tests
                 typeof(QueryTools),
                 typeof(ModifyTools),
                 typeof(MetaTools),
+                typeof(BatchTools),
                 typeof(ToolBakerTools),
+                typeof(ToolBakerWriteTools),
                 typeof(CodeTools)
             }
             .SelectMany(GetMcpToolNames)
@@ -27,7 +29,9 @@ namespace Bimwright.Dwg.Tests
             {
                 "dwg_accept_bake_suggestion",
                 "dwg_apply_unicode_style",
+                "dwg_batch_execute",
                 "dwg_collapse_and_rewrite",
+                "dwg_create_bake_issue_draft",
                 "dwg_dismiss_bake_suggestion",
                 "dwg_get_current_target",
                 "dwg_get_selected_texts",

@@ -39,6 +39,8 @@
 
   <ItemGroup>
     <Compile Include="..\shared\ToolBaker\*.cs" LinkBase="Shared\ToolBaker" />
+    <Compile Include="..\shared\Security\SecretMasker.cs" LinkBase="Shared\Security" />
+    <Compile Include="..\shared\Security\BakeRedactor.cs" LinkBase="Shared\Security" />
   </ItemGroup>
 
 </Project>

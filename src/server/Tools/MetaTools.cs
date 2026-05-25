@@ -38,7 +38,7 @@ namespace Bimwright.Dwg.Server.Tools
             return Ok(new { target = ServerState.Config?.Target });
         }
 
-        [McpServerTool(Name = "dwg_switch_target", ReadOnly = true), Description(
+        [McpServerTool(Name = "dwg_switch_target"), Description(
             "Pin subsequent dwg-mcp calls to an AutoCAD target year. Use 2022, 2023, 2024, 2025, 2026, or 2027; legacy R-codes are rejected.")]
         public static Task<string> SwitchTarget(
             [Description("4-digit AutoCAD target year: 2022, 2023, 2024, 2025, 2026, or 2027.")] string target)

@@ -12,6 +12,7 @@ namespace Bimwright.Dwg.Server
         public const string EnvReadOnly = "BIMWRIGHT_DWG_READ_ONLY";
         public const string EnvEnableSendCode = "BIMWRIGHT_DWG_ENABLE_SEND_CODE";
         public const string EnvEnableToolbaker = "BIMWRIGHT_DWG_ENABLE_TOOLBAKER";
+        public const string EnvAllowLanBind = "BIMWRIGHT_DWG_ALLOW_LAN_BIND";
         public const string EnvLogLevel = "BIMWRIGHT_DWG_LOG_LEVEL";
 
         public string Target { get; set; }
@@ -19,11 +20,13 @@ namespace Bimwright.Dwg.Server
         public bool? ReadOnly { get; set; }
         public bool? EnableSendCode { get; set; }
         public bool? EnableToolbaker { get; set; }
+        public bool? AllowLanBind { get; set; }
         public string LogLevel { get; set; }
 
         [JsonIgnore] public bool ReadOnlyOrDefault => ReadOnly ?? false;
         [JsonIgnore] public bool EnableSendCodeOrDefault => EnableSendCode ?? false;
         [JsonIgnore] public bool EnableToolbakerOrDefault => EnableToolbaker ?? true;
+        [JsonIgnore] public bool AllowLanBindOrDefault => AllowLanBind ?? false;
 
         public static DwgMcpConfig Load(
             string[] args = null,
@@ -60,6 +63,7 @@ namespace Bimwright.Dwg.Server
             ApplyBool(envLookup(EnvReadOnly), value => config.ReadOnly = value);
             ApplyBool(envLookup(EnvEnableSendCode), value => config.EnableSendCode = value);
             ApplyBool(envLookup(EnvEnableToolbaker), value => config.EnableToolbaker = value);
+            ApplyBool(envLookup(EnvAllowLanBind), value => config.AllowLanBind = value);
             ApplyString(envLookup(EnvLogLevel), value => config.LogLevel = value);
         }
 
@@ -87,6 +91,11 @@ namespace Bimwright.Dwg.Server
             if (HasFlag(args, "--disable-toolbaker"))
             {
                 config.EnableToolbaker = false;
+            }
+
+            if (HasFlag(args, "--allow-lan-bind"))
+            {
+                config.AllowLanBind = true;
             }
         }
 
