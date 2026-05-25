@@ -37,6 +37,8 @@ namespace Bimwright.Dwg.Plugin.Handlers
             {
                 foreach (var handleToken in handles)
                 {
+                    var appendedObjectIds = new List<ObjectId>();
+
                     if (!TransformEntityHandlerSupport.TryReadHandle(handleToken, out var handle, out var handleError))
                     {
                         results.Add(new { handle, ok = false, created_handles = Array.Empty<string>(), error = handleError });
@@ -77,17 +79,24 @@ namespace Bimwright.Dwg.Plugin.Handlers
                             continue;
                         }
 
-                        var createdHandles = AppendOffsetEntities(db, tx, curve, offsets);
+                        var createdHandles = AppendOffsetEntities(tx, curve, offsets, appendedObjectIds);
                         results.Add(new { handle, ok = true, created_handles = createdHandles, error = (string)null });
                     }
                     catch (Exception ex)
                     {
+                        var cleanupError = EraseAppendedEntities(tx, appendedObjectIds);
+                        var error = ErrorSanitizer.Sanitize(ex.Message);
+                        if (!string.IsNullOrEmpty(cleanupError))
+                        {
+                            error = error + "; cleanup failed: " + cleanupError;
+                        }
+
                         results.Add(new
                         {
                             handle,
                             ok = false,
                             created_handles = Array.Empty<string>(),
-                            error = ErrorSanitizer.Sanitize(ex.Message)
+                            error
                         });
                     }
                 }
@@ -99,10 +108,10 @@ namespace Bimwright.Dwg.Plugin.Handlers
         }
 
         private static string[] AppendOffsetEntities(
-            Database db,
             Transaction tx,
             Curve source,
-            DBObjectCollection offsets)
+            DBObjectCollection offsets,
+            IList<ObjectId> appendedObjectIds)
         {
             var entities = new List<Entity>();
             var unappended = new List<DBObject>();
@@ -123,14 +132,17 @@ namespace Bimwright.Dwg.Plugin.Handlers
                     unappended.Add(entity);
                 }
 
-                var target = TryOpenOwnerForWrite(tx, source) ??
-                    (BlockTableRecord)tx.GetObject(db.CurrentSpaceId, OpenMode.ForWrite);
+                if (!TryOpenOwnerForWrite(tx, source, out var target, out var ownerError))
+                {
+                    throw new InvalidOperationException(ownerError);
+                }
 
                 foreach (var entity in entities)
                 {
-                    target.AppendEntity(entity);
-                    tx.AddNewlyCreatedDBObject(entity, true);
+                    var objectId = target.AppendEntity(entity);
                     unappended.Remove(entity);
+                    appendedObjectIds.Add(objectId);
+                    tx.AddNewlyCreatedDBObject(entity, true);
                     createdHandles.Add(entity.Handle.ToString());
                 }
 
@@ -147,21 +159,63 @@ namespace Bimwright.Dwg.Plugin.Handlers
             }
         }
 
-        private static BlockTableRecord TryOpenOwnerForWrite(Transaction tx, Entity source)
+        private static bool TryOpenOwnerForWrite(
+            Transaction tx,
+            Entity source,
+            out BlockTableRecord owner,
+            out string error)
         {
+            owner = null;
+            error = null;
+
             if (source.OwnerId.IsNull)
             {
-                return null;
+                error = "source entity owner is not available";
+                return false;
             }
 
             try
             {
-                return tx.GetObject(source.OwnerId, OpenMode.ForWrite) as BlockTableRecord;
+                var dbObject = tx.GetObject(source.OwnerId, OpenMode.ForWrite);
+                owner = dbObject as BlockTableRecord;
+                if (owner == null)
+                {
+                    error = "source entity owner is not a block table record: " + dbObject.GetType().Name;
+                    return false;
+                }
+
+                return true;
             }
-            catch
+            catch (Exception ex)
             {
-                return null;
+                error = "failed to open source entity owner for write: " + ErrorSanitizer.Sanitize(ex.Message);
+                return false;
             }
+        }
+
+        private static string EraseAppendedEntities(Transaction tx, IEnumerable<ObjectId> appendedObjectIds)
+        {
+            string cleanupError = null;
+
+            foreach (var objectId in appendedObjectIds)
+            {
+                if (objectId.IsNull)
+                {
+                    continue;
+                }
+
+                try
+                {
+                    var dbObject = tx.GetObject(objectId, OpenMode.ForWrite);
+                    dbObject.Erase();
+                }
+                catch (Exception ex)
+                {
+                    cleanupError = ErrorSanitizer.Sanitize(ex.Message);
+                }
+            }
+
+            return cleanupError;
         }
     }
 }

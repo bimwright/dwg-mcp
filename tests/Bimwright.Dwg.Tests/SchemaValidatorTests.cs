@@ -168,7 +168,7 @@ namespace Bimwright.Dwg.Tests
         [InlineData("change_color", "{\"handles\":[\"7F5AD\"],\"color_index\":257}")]
         [InlineData("offset_entities", "{\"handles\":[\"7F5AD\"],\"distance\":125.5}")]
         [InlineData("offset_entities", "{\"handles\":[\"7F5AD\"],\"distance\":125}")]
-        public void Validate_ColorAndOffsetSchemasAcceptValidShapes(string commandName, string json)
+        public void Validate_ColorAndOffsetSchemasAcceptTypeOnlyShapes(string commandName, string json)
         {
             var result = SchemaValidator.Validate(
                 commandName,
