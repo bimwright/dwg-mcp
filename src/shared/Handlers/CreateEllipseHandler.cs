@@ -35,9 +35,13 @@ namespace Bimwright.Dwg.Plugin.Handlers
                 return CommandResult.Fail(minorError);
             }
 
-            if (minorRadius > majorRadius)
+            if (!CadPrimitiveValidation.TryValidateEllipseRadiusRatio(
+                majorRadius,
+                minorRadius,
+                out var radiusRatio,
+                out var ellipseError))
             {
-                return CommandResult.Fail("minor_radius must be less than or equal to major_radius");
+                return CommandResult.Fail(ellipseError);
             }
 
             if (!CreatePrimitiveInput.TryReadFiniteDouble(obj, "rotation", out var rotation, out var rotationError))
@@ -76,7 +80,7 @@ namespace Bimwright.Dwg.Plugin.Handlers
                         CreatePrimitiveInput.ToPoint3d(center),
                         Vector3d.ZAxis,
                         majorAxis,
-                        minorRadius / majorRadius,
+                        radiusRatio,
                         0d,
                         Math.PI * 2d);
                     CreatePrimitiveInput.ApplyEntityOptions(ellipse, layer, hasLayer, colorIndex, hasColorIndex);

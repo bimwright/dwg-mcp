@@ -30,6 +30,7 @@
     <Compile Include="..\..\src\shared\Infrastructure\ResponseSizeGuard.cs" LinkBase="Shared\Infrastructure" />
     <Compile Include="..\..\src\shared\Infrastructure\BatchExecutor.cs" LinkBase="Shared\Infrastructure" />
     <Compile Include="..\..\src\shared\Cad\CadWire.cs" LinkBase="Shared\Cad" />
+    <Compile Include="..\..\src\shared\Cad\CadPrimitiveValidation.cs" LinkBase="Shared\Cad" />
     <Compile Include="..\..\src\shared\Security\ErrorSanitizer.cs" LinkBase="Shared\Security" />
     <Compile Include="..\..\src\shared\Security\McpResponsePrivacy.cs" LinkBase="Shared\Security" />
   </ItemGroup>

@@ -39,9 +39,9 @@ namespace Bimwright.Dwg.Plugin.Handlers
                 return CommandResult.Fail(endAngleError);
             }
 
-            if (startAngle == endAngle)
+            if (!CadPrimitiveValidation.TryValidateArcSweepDegrees(startAngle, endAngle, out var arcError))
             {
-                return CommandResult.Fail("start_angle and end_angle must be different");
+                return CommandResult.Fail(arcError);
             }
 
             if (!CreatePrimitiveInput.TryReadEntityOptions(

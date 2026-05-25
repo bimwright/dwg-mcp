@@ -30,11 +30,9 @@ namespace Bimwright.Dwg.Plugin.Handlers
                 return CommandResult.Fail("corner2 " + corner2Error);
             }
 
-            var first = CreatePrimitiveInput.ToPoint3d(corner1);
-            var second = CreatePrimitiveInput.ToPoint3d(corner2);
-            if (first.DistanceTo(second) == 0d)
+            if (!CadPrimitiveValidation.TryValidateRectangleCorners(corner1, corner2, out var rectangleError))
             {
-                return CommandResult.Fail("corner1 and corner2 must be different");
+                return CommandResult.Fail(rectangleError);
             }
 
             if (!CreatePrimitiveInput.TryReadEntityOptions(
