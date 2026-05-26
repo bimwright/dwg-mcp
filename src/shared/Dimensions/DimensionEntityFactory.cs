@@ -28,12 +28,17 @@ namespace Bimwright.Dwg.Plugin.Dimensions
                 return false;
             }
 
+            if (!TryReadOptionalFiniteDouble(obj, "rotation", 0d, out var rotation, out error))
+            {
+                return false;
+            }
+
             RotatedDimension created = null;
             var ownsEntity = false;
             try
             {
                 created = new RotatedDimension(
-                    DimensionRequestValidator.AngleRadians(start, end),
+                    DimensionRequestValidator.DegreesToRadians(rotation),
                     ToPoint3d(start),
                     ToPoint3d(end),
                     ToPoint3d(dimensionLinePoint),
@@ -254,6 +259,38 @@ namespace Bimwright.Dwg.Plugin.Dimensions
             }
 
             chordPoint = DimensionRequestValidator.PointOnRadius(target.Center, dimensionLinePoint, target.Radius);
+            return true;
+        }
+
+        private static bool TryReadOptionalFiniteDouble(
+            JObject obj,
+            string fieldName,
+            double fallback,
+            out double value,
+            out string error)
+        {
+            value = fallback;
+            error = null;
+
+            var token = obj[fieldName];
+            if (token == null || token.Type == JTokenType.Null)
+            {
+                return true;
+            }
+
+            if (token.Type != JTokenType.Float && token.Type != JTokenType.Integer)
+            {
+                error = fieldName + " must be numeric";
+                return false;
+            }
+
+            value = token.Value<double>();
+            if (double.IsNaN(value) || double.IsInfinity(value))
+            {
+                error = fieldName + " must be finite";
+                return false;
+            }
+
             return true;
         }
 

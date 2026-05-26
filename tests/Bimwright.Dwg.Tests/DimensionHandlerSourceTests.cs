@@ -56,6 +56,16 @@ namespace Bimwright.Dwg.Tests
             Assert.Contains("dimension style not found", source, StringComparison.Ordinal);
         }
 
+        [Fact]
+        public void LinearDimensionFactoryUsesExplicitRotationInsteadOfStartEndAngle()
+        {
+            var source = ReadSharedSource("Dimensions", "DimensionEntityFactory.cs");
+
+            Assert.Contains("TryReadOptionalFiniteDouble(obj, \"rotation\", 0d, out var rotation", source, StringComparison.Ordinal);
+            Assert.Contains("DimensionRequestValidator.DegreesToRadians(rotation)", source, StringComparison.Ordinal);
+            Assert.DoesNotContain("DimensionRequestValidator.AngleRadians(start, end)", source, StringComparison.Ordinal);
+        }
+
         private static int CountOccurrences(string value, string pattern)
         {
             var count = 0;

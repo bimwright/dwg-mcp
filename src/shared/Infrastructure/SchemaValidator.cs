@@ -325,6 +325,7 @@ namespace Bimwright.Dwg.Plugin
             SchemaProperty.Required("start", JTokenType.Object),
             SchemaProperty.Required("end", JTokenType.Object),
             SchemaProperty.Required("dimension_line_point", JTokenType.Object),
+            SchemaProperty.Optional("rotation", JTokenType.Float, JTokenType.Integer),
             SchemaProperty.Optional("layer", JTokenType.String),
             SchemaProperty.Optional("style_name", JTokenType.String));
 

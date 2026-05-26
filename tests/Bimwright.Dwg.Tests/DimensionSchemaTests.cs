@@ -9,7 +9,7 @@ namespace Bimwright.Dwg.Tests
     public class DimensionSchemaTests
     {
         [Theory]
-        [InlineData("CreateLinearDimension", "create_linear_dimension", "{\"start\":{\"x\":0,\"y\":0},\"end\":{\"x\":10,\"y\":0},\"dimension_line_point\":{\"x\":5,\"y\":2},\"layer\":\"A-DIMS\"}")]
+        [InlineData("CreateLinearDimension", "create_linear_dimension", "{\"start\":{\"x\":0,\"y\":0},\"end\":{\"x\":10,\"y\":0},\"dimension_line_point\":{\"x\":5,\"y\":2},\"rotation\":45,\"layer\":\"A-DIMS\"}")]
         [InlineData("CreateAlignedDimension", "create_aligned_dimension", "{\"start\":{\"x\":0,\"y\":0},\"end\":{\"x\":10,\"y\":5},\"dimension_line_point\":{\"x\":5,\"y\":7},\"layer\":\"A-DIMS\"}")]
         [InlineData("CreateRadialDimension", "create_radial_dimension", "{\"entity_handle\":\"1A2B\",\"dimension_line_point\":{\"x\":8,\"y\":4},\"layer\":\"A-DIMS\"}")]
         [InlineData("CreateDiameterDimension", "create_diameter_dimension", "{\"entity_handle\":\"1A2B\",\"dimension_line_point\":{\"x\":8,\"y\":4},\"layer\":\"A-DIMS\"}")]
@@ -44,6 +44,17 @@ namespace Bimwright.Dwg.Tests
             parameters.Remove(fieldName);
 
             AssertMissingRequiredField(commandName, parameters, schema, fieldName);
+        }
+
+        [Fact]
+        public void Validate_CreateLinearDimensionSchemaIncludesOptionalRotation()
+        {
+            var schema = GetCommandSchema("CreateLinearDimension");
+
+            var rotation = Assert.Single(schema.Properties, property => property.Name == "rotation");
+            Assert.False(rotation.IsRequired);
+            Assert.Contains(JTokenType.Float, rotation.AcceptedTypes);
+            Assert.Contains(JTokenType.Integer, rotation.AcceptedTypes);
         }
 
         private static CommandSchema GetCommandSchema(string name)

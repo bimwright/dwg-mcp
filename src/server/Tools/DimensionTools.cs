@@ -15,6 +15,7 @@ namespace Bimwright.Dwg.Server.Tools
             [Description("JSON point object, e.g. {\"x\":0,\"y\":0,\"z\":0}.")] string start,
             [Description("JSON point object, e.g. {\"x\":1000,\"y\":0,\"z\":0}.")] string end,
             [Description("JSON point object for the dimension line location.")] string dimension_line_point,
+            [Description("Optional linear dimension rotation in degrees. Defaults to 0.")] double rotation = 0d,
             [Description("Optional target layer name.")] string layer = null,
             [Description("Optional dimension style name.")] string style_name = null)
         {
@@ -37,6 +38,7 @@ namespace Bimwright.Dwg.Server.Tools
                 dimensionLinePointObject,
                 layer,
                 style_name);
+            request["rotation"] = rotation;
 
             return ToolGateway.LoggedCall("create_linear_dimension", request, request);
         }

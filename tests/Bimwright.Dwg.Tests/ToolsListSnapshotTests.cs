@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using Bimwright.Dwg.Server.Tools;
@@ -110,6 +111,31 @@ namespace Bimwright.Dwg.Tests
 
             Assert.NotNull(method);
             Assert.Equal(new[] { "handle", "attributes", "strict_tags" }, method.GetParameters().Select(p => p.Name).ToArray());
+        }
+
+        [Fact]
+        public void CreateLinearDimensionWrapperForwardsRotationParameter()
+        {
+            var method = typeof(DimensionTools).GetMethod(nameof(DimensionTools.CreateLinearDimension));
+
+            Assert.NotNull(method);
+            Assert.Equal(new[]
+            {
+                "start",
+                "end",
+                "dimension_line_point",
+                "rotation",
+                "layer",
+                "style_name"
+            }, method.GetParameters().Select(p => p.Name).ToArray());
+            var rotation = Assert.Single(method.GetParameters(), p => p.Name == "rotation");
+            Assert.Equal(typeof(double), rotation.ParameterType);
+            Assert.True(rotation.HasDefaultValue);
+            Assert.Equal(0d, rotation.DefaultValue);
+
+            var source = ReadServerSource("Tools", "DimensionTools.cs");
+            Assert.Contains("double rotation = 0d", source, StringComparison.Ordinal);
+            Assert.Contains("request[\"rotation\"] = rotation;", source, StringComparison.Ordinal);
         }
 
         [Fact]
@@ -275,5 +301,20 @@ namespace Bimwright.Dwg.Tests
 
         private static bool IsMcpToolType(Type type)
             => type.GetCustomAttributes().Any(a => a.GetType().Name == "McpServerToolTypeAttribute");
+
+        private static string ReadServerSource(params string[] parts)
+        {
+            var pathParts = new string[parts.Length + 7];
+            pathParts[0] = AppContext.BaseDirectory;
+            pathParts[1] = "..";
+            pathParts[2] = "..";
+            pathParts[3] = "..";
+            pathParts[4] = "..";
+            pathParts[5] = "..";
+            pathParts[6] = Path.Combine("src", "server");
+            Array.Copy(parts, 0, pathParts, 7, parts.Length);
+
+            return File.ReadAllText(Path.GetFullPath(Path.Combine(pathParts)));
+        }
     }
 }
