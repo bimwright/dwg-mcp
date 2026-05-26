@@ -149,10 +149,15 @@ Toolsets are resolved by `DwgMcpConfig` and `ToolsetFilter`:
 | `meta` | `dwg_batch_execute`, `dwg_list_available_targets`, `dwg_get_current_target`, `dwg_switch_target` |
 | `toolbaker` | `dwg_list_baked_tools`, `dwg_run_baked_tool`, `dwg_list_bake_suggestions`, `dwg_accept_bake_suggestion`, `dwg_dismiss_bake_suggestion`, `dwg_create_bake_issue_draft` |
 | `code` | `dwg_send_code` |
+| `annotation` | `dwg_create_text`, `dwg_create_mtext`, `dwg_create_leader`, `dwg_create_table` |
+| `block` | `dwg_list_blocks`, `dwg_get_block_attributes`, `dwg_insert_block`, `dwg_set_block_attributes`, `dwg_explode_block` |
+| `dimension` | `dwg_create_linear_dimension`, `dwg_create_aligned_dimension`, `dwg_create_radial_dimension`, `dwg_create_diameter_dimension` |
 
-`--read-only` or `BIMWRIGHT_DWG_READ_ONLY=1` removes write-capable methods: `modify`, `code`, `dwg_batch_execute`, and ToolBaker write tools (`run`, `accept`, `dismiss`). ToolBaker read tools (`list_*`, issue draft generation) remain available when the toolset is enabled. `--enable-send-code` only registers `code`; AutoCAD-side `MCPENABLECODE` is still required.
+`--read-only` or `BIMWRIGHT_DWG_READ_ONLY=1` removes write-capable toolsets/methods completely (`modify`, `code`, `annotation`, `dimension`, `dwg_batch_execute`, and ToolBaker write tools).
+- **Block Toolset Split**: The `block` toolset splits registration between read-only `BlockTools` (`dwg_list_blocks`, `dwg_get_block_attributes`) and write-capable `BlockWriteTools` (`dwg_insert_block`, `dwg_set_block_attributes`, `dwg_explode_block`). In read-only mode, only the read-only wrappers are registered, preserving safe drawing inspection.
+- **Deferred Angular Dimensions**: The `dimension` toolset only registers linear, aligned, radial, and diametric dimension creators. Angular dimensions are deferred and not included in this release.
 
-The default startup surface is 32 tools. Enabling the optional `code` and `toolbaker` toolsets exposes the full 39 backed MCP tools.
+The default startup surface is 32 tools. Enabling the optional `code`, `toolbaker`, `annotation`, `block`, and `dimension` toolsets exposes the full 52 backed MCP tools.
 
 Plan 2 entity query/select tools are model-space only. `dwg_select_by_layer` and `dwg_select_by_type` return handle lists and do not mutate AutoCAD pickfirst selection. Create, copy, offset, and modify handlers identify generated or modified entities with AutoCAD hex handles.
 

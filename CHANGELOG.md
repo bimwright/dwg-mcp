@@ -21,11 +21,15 @@ Added:
 - Baked source redaction, `usage_events` storage, and minimal Memory/Logging support for ToolBaker pattern detection.
 - Manual scratch-DWG smoke checklist for the CAD foundation tools, including active-document and hex-handle expectations.
 - Plan 2 core CAD expansion tools: model-space query/count/select by layer/type, create point/polyline/rectangle/arc/ellipse, move/rotate/scale/copy/erase, change color, and offset curve entities.
-- Manual smoke checklist now covers Plan 2 core CAD operations and the existing text translation workflow.
+- Plan 3 annotation, block, and dimension expansion tools: create text/mtext/leader/table; list blocks, insert block, get/set block attributes, and explode block; create linear/aligned/radial/diameter dimensions.
+- Explicit rotation angle (degrees) and projected measurement distance validation along the rotation axis for linear dimensions.
+- Split block toolset registration into read-only BlockTools and write-capable BlockWriteTools, allowing safe block inspection in read-only mode.
+- Expanded manual smoke checklist for Plan 3 CAD tools (status: manual smoke pending).
+- Manual smoke checklist covers Plan 2 core CAD operations, Plan 3 CAD operations (pending), and the existing text translation workflow.
 
 Notes:
 
-- Default startup exposes 32 tools. Optional `code` and `toolbaker` toolsets bring the backed MCP surface to 39 tools.
+- Default startup exposes 32 tools. Optional `code`, `toolbaker`, `annotation`, `block`, and `dimension` toolsets bring the backed MCP surface to 52 tools.
 - Plan 2 query expansion is model-space only. `dwg_select_by_layer` and `dwg_select_by_type` return handle lists and do not change AutoCAD pickfirst selection.
 - `dwg_send_code` still requires both server opt-in (`--enable-send-code` or `BIMWRIGHT_DWG_ENABLE_SEND_CODE=1`) and AutoCAD-side `MCPENABLECODE`.
 - Server/tests can pass without release-building every AutoCAD shell. Shipping a year requires matching Autodesk managed assemblies on the release machine.

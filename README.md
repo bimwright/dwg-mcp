@@ -186,7 +186,7 @@ Then run `MCPENABLECODE` inside AutoCAD for the current plugin session. `MCPDISA
 
 ## Tools
 
-Default startup exposes 32 tools: query, modify, routing/meta, and batch. Optional ToolBaker, enabled through `--toolsets`, and `dwg_send_code` bring the backed MCP surface to 39 tools.
+Default startup exposes 32 tools: query, modify, routing/meta, and batch. Optional ToolBaker, annotation, block, and dimension toolsets, enabled through `--toolsets`, and `dwg_send_code` bring the backed MCP surface to 52 tools.
 
 General CAD tools operate on the current active document in the selected AutoCAD target. Entity inputs and returned entity IDs use AutoCAD hex handles, such as `7F5AD`, returned by selection, creation, or property tools. Creation, copy, offset, and modify responses identify generated or modified entities by hex handle.
 
@@ -239,6 +239,42 @@ Optional ToolBaker tools are exposed when the `toolbaker` toolset is enabled:
 | `dwg_dismiss_bake_suggestion` | Dismiss or suppress a suggestion |
 | `dwg_create_bake_issue_draft` | Generate a GitHub issue draft for a suggestion without submitting it |
 
+Optional Annotation tools are exposed when the `annotation` toolset is enabled:
+
+| Tool | Purpose |
+|------|---------|
+| `dwg_create_text` | Create single-line text (DBText) with target alignment and height |
+| `dwg_create_mtext` | Create multi-line text (MText) with formatting and width |
+| `dwg_create_leader` | Create a multileader (MLeader) with block or text content |
+| `dwg_create_table` | Create an AutoCAD table with specified row/column text contents |
+
+Optional Block tools are exposed when the `block` toolset is enabled:
+
+| Tool | Purpose |
+|------|---------|
+| `dwg_list_blocks` | List block definitions in the current drawing (read-only safe) |
+| `dwg_get_block_attributes` | Read attributes of a block reference by handle (read-only safe) |
+| `dwg_insert_block` | Insert a block reference, optionally importing from an external DWG |
+| `dwg_set_block_attributes` | Set attributes of a block reference by handle |
+| `dwg_explode_block` | Explode a block reference and return the handles of generated parts |
+
+Optional Dimension tools are exposed when the `dimension` toolset is enabled:
+
+| Tool | Purpose |
+|------|---------|
+| `dwg_create_linear_dimension` | Create a rotated linear dimension with rotation degrees |
+| `dwg_create_aligned_dimension` | Create an aligned dimension between two points |
+| `dwg_create_radial_dimension` | Create a radial dimension for a circle or arc |
+| `dwg_create_diameter_dimension` | Create a diametric dimension for a circle or arc |
+
+### Optional Toolsets and Read-Only Behavior
+
+By default, only `query`, `modify`, and `meta` toolsets are enabled. You can opt-in to others using the `--toolsets` flag (e.g., `--toolsets all` or `--toolsets query,modify,meta,annotation,block,dimension`).
+
+- **Read-Only Mode (`--read-only`)**: When read-only mode is active, all write-capable toolsets (`modify`, `code`, `annotation`, `dimension`) are completely disabled.
+- **Block Toolset Split**: The `block` toolset is split into read-only and write-capable tools. If `--read-only` is active, `dwg_list_blocks` and `dwg_get_block_attributes` are still available (safe read inspection), but the mutation/creation tools (`dwg_insert_block`, `dwg_set_block_attributes`, `dwg_explode_block`) are stripped.
+- **Deferred Angular Dimensions**: Note that only linear, aligned, radial, and diametric dimension types are currently supported. Angular dimensions are deferred and not yet implemented.
+
 ### Manual smoke checklist
 
 In a scratch DWG:
@@ -252,6 +288,17 @@ In a scratch DWG:
 7. Copy one non-reserved scratch entity with `dwg_copy_entities`, then erase only that disposable copied temp entity with `dwg_erase_entities`.
 8. Change color on the reserved curve with `dwg_change_color`, then offset that curve with `dwg_offset_entities` and confirm the returned generated handles are hex handles.
 9. Confirm the existing text translation workflow still works: select scratch text, run `dwg_get_selected_texts`, then rewrite it with `dwg_translate_and_rewrite`.
+
+### Plan 3 Manual Smoke Checklist (Manual Smoke Pending)
+
+The manual smoke testing for Plan 3 annotation, block, and dimension tools is currently **pending** AutoCAD execution, but the following scenarios are designed:
+
+1. Create text, mtext, leader, and table in a scratch DWG with `dwg_create_text`, `dwg_create_mtext`, `dwg_create_leader`, and `dwg_create_table`.
+2. List block definitions with `dwg_list_blocks`.
+3. Insert a known block from the drawing or from an absolute external DWG path with `dwg_insert_block`.
+4. Get and set block attributes with `dwg_get_block_attributes` and `dwg_set_block_attributes`.
+5. Explode a block reference with `dwg_explode_block`.
+6. Create linear, aligned, radial, and diameter dimensions with `dwg_create_linear_dimension`, `dwg_create_aligned_dimension`, `dwg_create_radial_dimension`, and `dwg_create_diameter_dimension`, confirming linear projected-distance validation succeeds/rejects as expected.
 
 ### Migration from 0.1.x tool names
 

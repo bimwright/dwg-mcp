@@ -174,7 +174,7 @@ Dung `--read-only` de chi mo tool doc/routing, cong them ToolBaker read tools ne
 
 ## Cong cu
 
-Mac dinh server expose 32 tool: query, modify, routing/meta, va batch. ToolBaker bat qua `--toolsets`, va `dwg_send_code` la opt-in; tong backed MCP surface la 39 tool.
+Mặc định server expose 32 tool: query, modify, routing/meta, và batch. Các toolset tùy chọn ToolBaker, annotation, block, và dimension được kích hoạt qua `--toolsets`, cùng với `dwg_send_code` nâng tổng diện tích bề mặt MCP lên 52 tool.
 
 CAD tool chay tren active document hien tai cua AutoCAD target dang chon. Entity input va entity id tra ve dung AutoCAD hex handle, vi du `7F5AD`, do tool selection, creation, hoac properties tra ve. Creation, copy, offset, va modify response identify entity tao/sua bang hex handle.
 
@@ -227,6 +227,42 @@ ToolBaker la toolset tuy chon:
 | `dwg_dismiss_bake_suggestion` | Dismiss hoac suppress goi y |
 | `dwg_create_bake_issue_draft` | Tao GitHub issue draft cho goi y ma khong submit |
 
+Các tool Annotation tùy chọn hiển thị khi toolset `annotation` được bật:
+
+| Tool | Mục đích |
+|------|----------|
+| `dwg_create_text` | Tạo chữ dòng đơn (DBText) với căn lề và chiều cao mục tiêu |
+| `dwg_create_mtext` | Tạo chữ đa dòng (MText) với định dạng và chiều rộng |
+| `dwg_create_leader` | Tạo multileader (MLeader) với nội dung block hoặc text |
+| `dwg_create_table` | Tạo bảng AutoCAD với nội dung văn bản hàng/cột được chỉ định |
+
+Các tool Block tùy chọn hiển thị khi toolset `block` được bật:
+
+| Tool | Mục đích |
+|------|----------|
+| `dwg_list_blocks` | Liệt kê các định nghĩa block trong bản vẽ hiện tại (an toàn read-only) |
+| `dwg_get_block_attributes` | Đọc thuộc tính của một block reference bằng handle (an toàn read-only) |
+| `dwg_insert_block` | Chèn một block reference, hỗ trợ import từ file DWG bên ngoài |
+| `dwg_set_block_attributes` | Thiết lập thuộc tính của một block reference bằng handle |
+| `dwg_explode_block` | Phá vỡ (explode) block reference và trả về handle của các phần tử được tạo ra |
+
+Các tool Dimension (Kích thước) tùy chọn hiển thị khi toolset `dimension` được bật:
+
+| Tool | Mục đích |
+|------|----------|
+| `dwg_create_linear_dimension` | Tạo kích thước tuyến tính xoay (Rotated Dimension) với góc xoay cụ thể |
+| `dwg_create_aligned_dimension` | Tạo kích thước song song (Aligned Dimension) giữa hai điểm |
+| `dwg_create_radial_dimension` | Tạo kích thước bán kính (Radial Dimension) cho đường tròn hoặc cung tròn |
+| `dwg_create_diameter_dimension` | Tạo kích thước đường kính (Diametric Dimension) cho đường tròn hoặc cung tròn |
+
+### Các Toolset tùy chọn và Hành vi Read-Only
+
+Theo mặc định, chỉ có các toolset `query`, `modify`, và `meta` được bật. Bạn có thể bật các toolset khác bằng tham số `--toolsets` (ví dụ: `--toolsets all` hoặc `--toolsets query,modify,meta,annotation,block,dimension`).
+
+- **Hành vi Read-Only (`--read-only`)**: Khi chế độ read-only được kích hoạt, tất cả các toolset có khả năng chỉnh sửa (`modify`, `code`, `annotation`, `dimension`) sẽ bị vô hiệu hóa hoàn toàn.
+- **Phân tách Toolset Block**: Toolset `block` được phân tách thành các công cụ read-only và write-capable. Nếu `--read-only` được bật, các công cụ `dwg_list_blocks` và `dwg_get_block_attributes` vẫn hoạt động bình thường để kiểm tra thông tin, nhưng các công cụ chỉnh sửa (`dwg_insert_block`, `dwg_set_block_attributes`, `dwg_explode_block`) sẽ bị loại bỏ.
+- **Hoãn hỗ trợ Angular Dimension**: Lưu ý rằng phiên bản hiện tại chỉ hỗ trợ các loại kích thước tuyến tính (linear), song song (aligned), bán kính (radial), và đường kính (diameter). Kích thước góc (angular dimensions) tạm thời bị hoãn và chưa được thực hiện.
+
 ### Checklist smoke thu cong
 
 Trong scratch DWG:
@@ -240,6 +276,17 @@ Trong scratch DWG:
 7. Copy mot scratch entity khong reserve bang `dwg_copy_entities`, roi chi erase disposable copied temp entity do bang `dwg_erase_entities`.
 8. Doi color reserved curve bang `dwg_change_color`, sau do offset curve do bang `dwg_offset_entities` va xac nhan generated handle tra ve la hex handle.
 9. Xac nhan workflow dich text cu van chay: chon scratch text, chay `dwg_get_selected_texts`, roi rewrite bang `dwg_translate_and_rewrite`.
+
+### Checklist smoke thủ công cho Plan 3 (Đang chờ kiểm tra thực tế)
+
+Kiểm tra smoke thủ công cho các công cụ annotation, block, và dimension của Plan 3 hiện tại **đang chờ** chạy thực tế trên AutoCAD (manual smoke pending), nhưng các kịch bản sau đã được thiết kế sẵn:
+
+1. Tạo text, mtext, leader, và table trong scratch DWG với `dwg_create_text`, `dwg_create_mtext`, `dwg_create_leader`, và `dwg_create_table`.
+2. Liệt kê định nghĩa block với `dwg_list_blocks`.
+3. Chèn một block đã biết từ bản vẽ hoặc đường dẫn DWG bên ngoài với `dwg_insert_block`.
+4. Đọc và ghi các thuộc tính block reference với `dwg_get_block_attributes` và `dwg_set_block_attributes`.
+5. Phá vỡ (explode) một block reference với `dwg_explode_block`.
+6. Tạo kích thước linear, aligned, radial, và diameter với `dwg_create_linear_dimension`, `dwg_create_aligned_dimension`, `dwg_create_radial_dimension`, và `dwg_create_diameter_dimension`; xác nhận validator cho projected-distance hoạt động đúng như mong đợi.
 
 ### Migration tu ten tool 0.1.x
 
