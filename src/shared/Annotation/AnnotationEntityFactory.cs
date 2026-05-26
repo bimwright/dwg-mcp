@@ -36,13 +36,28 @@ namespace Bimwright.Dwg.Plugin.Annotation
                 return false;
             }
 
-            entity = new DBText();
-            entity.SetDatabaseDefaults();
-            entity.TextString = text;
-            entity.Position = ToPoint3d(position);
-            entity.Height = height;
-            entity.Rotation = DegreesToRadians(rotation);
-            return true;
+            DBText created = null;
+            var ownsEntity = false;
+            try
+            {
+                created = new DBText();
+                ownsEntity = true;
+                created.SetDatabaseDefaults();
+                created.TextString = text;
+                created.Position = ToPoint3d(position);
+                created.Height = height;
+                created.Rotation = DegreesToRadians(rotation);
+                return TransferToCaller(created, out entity, ref ownsEntity);
+            }
+            catch (System.Exception ex)
+            {
+                error = "failed to create text entity: " + ex.Message;
+                return false;
+            }
+            finally
+            {
+                DisposeIfOwned(created, ownsEntity);
+            }
         }
 
         internal static bool TryCreateMText(JObject obj, out MText entity, out string error)
@@ -69,18 +84,33 @@ namespace Bimwright.Dwg.Plugin.Annotation
                 return false;
             }
 
-            entity = new MText();
-            entity.SetDatabaseDefaults();
-            entity.Contents = text;
-            entity.Location = ToPoint3d(location);
-            entity.TextHeight = height;
-            entity.Rotation = DegreesToRadians(rotation);
-            if (obj["width"] != null && obj["width"].Type != JTokenType.Null)
+            MText created = null;
+            var ownsEntity = false;
+            try
             {
-                entity.Width = width;
-            }
+                created = new MText();
+                ownsEntity = true;
+                created.SetDatabaseDefaults();
+                created.Contents = text;
+                created.Location = ToPoint3d(location);
+                created.TextHeight = height;
+                created.Rotation = DegreesToRadians(rotation);
+                if (obj["width"] != null && obj["width"].Type != JTokenType.Null)
+                {
+                    created.Width = width;
+                }
 
-            return true;
+                return TransferToCaller(created, out entity, ref ownsEntity);
+            }
+            catch (System.Exception ex)
+            {
+                error = "failed to create mtext entity: " + ex.Message;
+                return false;
+            }
+            finally
+            {
+                DisposeIfOwned(created, ownsEntity);
+            }
         }
 
         internal static bool TryCreateLeader(JObject obj, out MLeader entity, out string error)
@@ -93,32 +123,47 @@ namespace Bimwright.Dwg.Plugin.Annotation
                 return false;
             }
 
-            entity = new MLeader();
-            entity.SetDatabaseDefaults();
-            var leaderLineIndex = entity.AddLeaderLine(ToPoint3d(points[0]));
-            for (var i = 1; i < points.Count; i++)
+            MLeader created = null;
+            var ownsEntity = false;
+            try
             {
-                entity.AddLastVertex(leaderLineIndex, ToPoint3d(points[i]));
-            }
-
-            var text = obj["text"]?.Value<string>();
-            if (!string.IsNullOrWhiteSpace(text))
-            {
-                entity.ContentType = ContentType.MTextContent;
-                entity.TextHeight = DefaultTextHeight;
-                var textLocation = ToPoint3d(points[points.Count - 1]);
-                entity.TextLocation = textLocation;
-                using (var leaderText = new MText())
+                created = new MLeader();
+                ownsEntity = true;
+                created.SetDatabaseDefaults();
+                var leaderLineIndex = created.AddLeaderLine(ToPoint3d(points[0]));
+                for (var i = 1; i < points.Count; i++)
                 {
-                    leaderText.SetDatabaseDefaults();
-                    leaderText.Contents = text;
-                    leaderText.Location = textLocation;
-                    leaderText.TextHeight = DefaultTextHeight;
-                    entity.MText = leaderText;
+                    created.AddLastVertex(leaderLineIndex, ToPoint3d(points[i]));
                 }
-            }
 
-            return true;
+                var text = obj["text"]?.Value<string>();
+                if (!string.IsNullOrWhiteSpace(text))
+                {
+                    created.ContentType = ContentType.MTextContent;
+                    created.TextHeight = DefaultTextHeight;
+                    var textLocation = ToPoint3d(points[points.Count - 1]);
+                    created.TextLocation = textLocation;
+                    using (var leaderText = new MText())
+                    {
+                        leaderText.SetDatabaseDefaults();
+                        leaderText.Contents = text;
+                        leaderText.Location = textLocation;
+                        leaderText.TextHeight = DefaultTextHeight;
+                        created.MText = leaderText;
+                    }
+                }
+
+                return TransferToCaller(created, out entity, ref ownsEntity);
+            }
+            catch (System.Exception ex)
+            {
+                error = "failed to create leader entity: " + ex.Message;
+                return false;
+            }
+            finally
+            {
+                DisposeIfOwned(created, ownsEntity);
+            }
         }
 
         internal static bool TryCreateTable(JObject obj, out Table entity, out string error)
@@ -144,15 +189,30 @@ namespace Bimwright.Dwg.Plugin.Annotation
                 return false;
             }
 
-            entity = new Table();
-            entity.SetDatabaseDefaults();
-            entity.Position = ToPoint3d(insertionPoint);
-            entity.SetSize(rows, columns);
-            entity.SetRowHeight(DefaultTableRowHeight);
-            entity.SetColumnWidth(DefaultTableColumnWidth);
-            FillCells(entity, cells);
-            entity.GenerateLayout();
-            return true;
+            Table created = null;
+            var ownsEntity = false;
+            try
+            {
+                created = new Table();
+                ownsEntity = true;
+                created.SetDatabaseDefaults();
+                created.Position = ToPoint3d(insertionPoint);
+                created.SetSize(rows, columns);
+                created.SetRowHeight(DefaultTableRowHeight);
+                created.SetColumnWidth(DefaultTableColumnWidth);
+                FillCells(created, cells);
+                created.GenerateLayout();
+                return TransferToCaller(created, out entity, ref ownsEntity);
+            }
+            catch (System.Exception ex)
+            {
+                error = "failed to create table entity: " + ex.Message;
+                return false;
+            }
+            finally
+            {
+                DisposeIfOwned(created, ownsEntity);
+            }
         }
 
         internal static Point3d ToPoint3d(CadPointInput point)
@@ -219,6 +279,23 @@ namespace Bimwright.Dwg.Plugin.Annotation
             }
 
             return token.ToString(Formatting.None);
+        }
+
+        private static bool TransferToCaller<T>(T created, out T entity, ref bool ownsEntity)
+            where T : DBObject
+        {
+            entity = created;
+            // Caller owns the entity after a successful factory return.
+            ownsEntity = false;
+            return true;
+        }
+
+        private static void DisposeIfOwned(DBObject entity, bool ownsEntity)
+        {
+            if (ownsEntity)
+            {
+                entity?.Dispose();
+            }
         }
 
         private static bool TryReadPositiveInt(
