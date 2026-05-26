@@ -30,6 +30,28 @@ namespace Bimwright.Dwg.Plugin.Dimensions
             return true;
         }
 
+        internal static bool TryValidateLinearProjectedDistance(
+            CadPointInput start,
+            CadPointInput end,
+            double rotationDegrees,
+            out string error)
+        {
+            error = null;
+
+            var rotationRadians = DegreesToRadians(rotationDegrees);
+            var dx = end.X - start.X;
+            var dy = end.Y - start.Y;
+
+            var projectedDistance = Math.Abs(dx * Math.Cos(rotationRadians) + dy * Math.Sin(rotationRadians));
+            if (projectedDistance <= Tolerance)
+            {
+                error = "create_linear_dimension projected measurement distance along rotation axis must be greater than zero";
+                return false;
+            }
+
+            return true;
+        }
+
         internal static bool TryValidateRadialTargetType(string entityTypeName, out string error)
         {
             error = null;

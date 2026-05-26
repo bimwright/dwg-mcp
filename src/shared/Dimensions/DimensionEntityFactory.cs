@@ -33,6 +33,11 @@ namespace Bimwright.Dwg.Plugin.Dimensions
                 return false;
             }
 
+            if (!DimensionRequestValidator.TryValidateLinearProjectedDistance(start, end, rotation, out error))
+            {
+                return false;
+            }
+
             RotatedDimension created = null;
             var ownsEntity = false;
             try

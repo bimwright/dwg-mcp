@@ -121,6 +121,39 @@ namespace Bimwright.Dwg.Tests
         }
 
         [Theory]
+        [InlineData(0d, 0d, 0d, 10d, 0d)] // vertical difference with rotation 0
+        [InlineData(10d, 0d, 0d, 0d, 90d)] // horizontal difference with rotation 90
+        public void TryValidateLinearProjectedDistance_RejectsZeroProjectedMeasurement(
+            double sx, double sy, double ex, double ey, double rotation)
+        {
+            var ok = DimensionRequestValidator.TryValidateLinearProjectedDistance(
+                new CadPointInput(sx, sy, 0d),
+                new CadPointInput(ex, ey, 0d),
+                rotation,
+                out var error);
+
+            Assert.False(ok);
+            Assert.Contains("projected measurement distance along rotation axis must be greater than zero", error);
+        }
+
+        [Theory]
+        [InlineData(0d, 0d, 0d, 10d, 90d)] // vertical difference with rotation 90
+        [InlineData(0d, 0d, 10d, 0d, 0d)] // horizontal difference with rotation 0
+        [InlineData(0d, 0d, 10d, 10d, 45d)] // diagonal difference with rotation 45
+        public void TryValidateLinearProjectedDistance_AcceptsNonZeroProjectedMeasurement(
+            double sx, double sy, double ex, double ey, double rotation)
+        {
+            var ok = DimensionRequestValidator.TryValidateLinearProjectedDistance(
+                new CadPointInput(sx, sy, 0d),
+                new CadPointInput(ex, ey, 0d),
+                rotation,
+                out var error);
+
+            Assert.True(ok, error);
+            Assert.Null(error);
+        }
+
+        [Theory]
         [InlineData(0d, 0d)]
         [InlineData(90d, Math.PI / 2d)]
         [InlineData(180d, Math.PI)]
