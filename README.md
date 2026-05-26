@@ -243,9 +243,9 @@ Optional Annotation tools are exposed when the `annotation` toolset is enabled:
 
 | Tool | Purpose |
 |------|---------|
-| `dwg_create_text` | Create single-line text (DBText) with target alignment and height |
+| `dwg_create_text` | Create single-line text (DBText) with target height, rotation, and properties |
 | `dwg_create_mtext` | Create multi-line text (MText) with formatting and width |
-| `dwg_create_leader` | Create a multileader (MLeader) with block or text content |
+| `dwg_create_leader` | Create a multileader (MLeader) with optional leader text |
 | `dwg_create_table` | Create an AutoCAD table with specified row/column text contents |
 
 Optional Block tools are exposed when the `block` toolset is enabled:

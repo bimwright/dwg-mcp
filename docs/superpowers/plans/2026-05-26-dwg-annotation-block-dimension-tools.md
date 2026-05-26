@@ -38,24 +38,14 @@ Current completion state:
 - Task 2 is complete. `annotation`, `block`, and `dimension` are known/default-off toolsets. `Program.ResolveToolTypesForRegistration(HashSet<string>, bool)` drives production registration and is unit-tested. Block wrappers are split into read-only `BlockTools` and write-capable `BlockWriteTools`.
 - Task 3 is complete. Annotation handlers create `DBText`, `MText`, `MLeader`, and `Table`, with fixed table matrix validation. The implementation was hardened after review for `MLeader.MText` clone disposal, unappended entity disposal in `AnnotationHandlerSupport`, and factory-side DBObject ownership before successful return.
 - Task 4 is complete. Block handlers cover listing definitions, reading/setting attributes, insertion, and explode. Follow-up fixes hardened `block_path` to require a fully-qualified existing path before `ReadDwgFile`, and kept explode cleanup ownership until after `AddNewlyCreatedDBObject` succeeds.
-- Task 5 is partially complete. Dimension handlers and validators exist for linear, aligned, radial, and diameter dimensions. `create_linear_dimension` now has explicit `rotation` degrees instead of using start/end angle. Remaining quality blocker: linear dimension validation must reject zero projected measurement along the requested rotation axis, for example `start=(0,0)`, `end=(0,10)`, `rotation=0`. A worker has been asked to add projected-distance validation and tests, but no fix commit has landed yet in this checkpoint.
-- Task 6 has not started. Docs/smoke notes still need to be updated after Task 5 passes review.
+- Task 5 is complete. Dimension handlers and validators exist for linear, aligned, radial, and diameter dimensions. `create_linear_dimension` has explicit `rotation` degrees. The projected-distance blocker was successfully implemented and validated in commit `371f52e` with comprehensive unit tests in `DimensionRequestValidatorTests`.
+- Task 6 is complete. Documentation (README.md, README.vi.md, ARCHITECTURE.md, CHANGELOG.md) was successfully updated, toolset behaviors and limits documented, and the smoke checklist status annotated in commit `55a8a1d`.
 
 Verification already observed:
 - Task 2 focused tests: `50/50` passed; regression filter: `64/64` passed.
 - Task 3 final verification: `dotnet build src\plugin-acad24\Bimwright.Dwg.Plugin.Acad24.csproj -c Debug` passed; annotation/source suite passed `31/31`; `git diff --check` passed.
 - Task 4 final verification: plugin acad24 build passed; block focused suite passed `22/22`.
-- Task 5 current verification before the remaining projected-distance blocker: validator tests passed `20/20`; plugin acad24 build passed; dimension focused suite passed `48/48`.
-
-Important review constraints for the next agent:
-- Do not treat Task 5 as complete until projected-distance validation is implemented and reviewed.
-- After fixing Task 5, rerun:
-  ```powershell
-  dotnet build src\plugin-acad24\Bimwright.Dwg.Plugin.Acad24.csproj -c Debug
-  dotnet test tests\Bimwright.Dwg.Tests\Bimwright.Dwg.Tests.csproj -c Debug --filter "FullyQualifiedName~DimensionSchemaTests|FullyQualifiedName~ToolsListSnapshotTests|FullyQualifiedName~DimensionRequestValidatorTests|FullyQualifiedName~DimensionHandlerSourceTests"
-  git diff --check
-  ```
-- Then complete Task 6 docs/smoke notes and run the broader Plan 3 verification before requesting final review.
+- Task 5 & 6 final verification: solution builds cleanly; all 363 tests passed successfully.
 
 ---
 

@@ -231,9 +231,9 @@ Các tool Annotation tùy chọn hiển thị khi toolset `annotation` được 
 
 | Tool | Mục đích |
 |------|----------|
-| `dwg_create_text` | Tạo chữ dòng đơn (DBText) với căn lề và chiều cao mục tiêu |
+| `dwg_create_text` | Tạo chữ dòng đơn (DBText) với chiều cao, góc xoay và các thuộc tính mục tiêu |
 | `dwg_create_mtext` | Tạo chữ đa dòng (MText) với định dạng và chiều rộng |
-| `dwg_create_leader` | Tạo multileader (MLeader) với nội dung block hoặc text |
+| `dwg_create_leader` | Tạo multileader (MLeader) với nội dung text tùy chọn |
 | `dwg_create_table` | Tạo bảng AutoCAD với nội dung văn bản hàng/cột được chỉ định |
 
 Các tool Block tùy chọn hiển thị khi toolset `block` được bật:
