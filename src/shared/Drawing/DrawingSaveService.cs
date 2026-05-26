@@ -7,7 +7,7 @@ namespace Bimwright.Dwg.Plugin.Drawing
 {
     internal static class DrawingSaveService
     {
-        internal static string Save(Document doc, string outputPath, bool? confirm, out string error)
+        internal static string Save(Document doc, string outputPath, bool? confirm, bool overwriteExisting, bool allowRepoOutput, out string error)
         {
             error = null;
 
@@ -36,8 +36,8 @@ namespace Bimwright.Dwg.Plugin.Drawing
                 var normalizedPath = ExportPathPolicy.ValidateAndNormalize(
                     outputPath,
                     ".dwg",
-                    overwriteExisting: true,
-                    allowRepoOutput: true,
+                    overwriteExisting,
+                    allowRepoOutput,
                     out var pathError);
 
                 if (normalizedPath == null)

@@ -393,22 +393,7 @@ namespace Bimwright.Dwg.Plugin
         public static readonly CommandSchema ZoomToEntity = CommandSchema.Object(
             SchemaProperty.Required("handle", JTokenType.String));
 
-        public static readonly CommandSchema CaptureView = CommandSchema.Object(
-            SchemaProperty.Required("output_path", JTokenType.String),
-            SchemaProperty.Optional("overwrite_existing", JTokenType.Boolean),
-            SchemaProperty.Optional("allow_repo_output", JTokenType.Boolean));
-
-        public static readonly CommandSchema ExportPdf = CommandSchema.Object(
-            SchemaProperty.Required("output_path", JTokenType.String),
-            SchemaProperty.Optional("overwrite_existing", JTokenType.Boolean),
-            SchemaProperty.Optional("allow_repo_output", JTokenType.Boolean));
-
         public static readonly CommandSchema ExportDxf = CommandSchema.Object(
-            SchemaProperty.Required("output_path", JTokenType.String),
-            SchemaProperty.Optional("overwrite_existing", JTokenType.Boolean),
-            SchemaProperty.Optional("allow_repo_output", JTokenType.Boolean));
-
-        public static readonly CommandSchema ExportImage = CommandSchema.Object(
             SchemaProperty.Required("output_path", JTokenType.String),
             SchemaProperty.Optional("overwrite_existing", JTokenType.Boolean),
             SchemaProperty.Optional("allow_repo_output", JTokenType.Boolean));
@@ -421,7 +406,9 @@ namespace Bimwright.Dwg.Plugin
 
         public static readonly CommandSchema SaveDrawing = CommandSchema.Object(
             SchemaProperty.Optional("output_path", JTokenType.String),
-            SchemaProperty.Optional("confirm", JTokenType.Boolean));
+            SchemaProperty.Optional("confirm", JTokenType.Boolean),
+            SchemaProperty.Optional("overwrite_existing", JTokenType.Boolean),
+            SchemaProperty.Optional("allow_repo_output", JTokenType.Boolean));
 
         public static readonly CommandSchema PurgeDrawing = CommandSchema.Object(
             SchemaProperty.Optional("dry_run", JTokenType.Boolean),

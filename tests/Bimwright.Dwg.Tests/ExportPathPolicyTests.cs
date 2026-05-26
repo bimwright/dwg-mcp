@@ -175,5 +175,21 @@ namespace Bimwright.Dwg.Tests
             Assert.NotNull(result);
             Assert.Null(error);
         }
+
+        [Theory]
+        [InlineData("C:foo.dxf")]
+        [InlineData("\\foo.dxf")]
+        public void Validate_RejectsPathRootedButNotFullyQualified(string path)
+        {
+            var result = ExportPathPolicy.ValidateAndNormalize(
+                path,
+                ".dxf",
+                overwriteExisting: true,
+                allowRepoOutput: true,
+                out var error);
+
+            Assert.Null(result);
+            Assert.Contains("fully qualified", error);
+        }
     }
 }

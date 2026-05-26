@@ -27,10 +27,7 @@ namespace Bimwright.Dwg.Tests
         [Theory]
         [InlineData("ZoomWindow", "zoom_window", "{\"corner1\":{\"x\":0,\"y\":0},\"corner2\":{\"x\":100,\"y\":100}}")]
         [InlineData("ZoomToEntity", "zoom_to_entity", "{\"handle\":\"1A2B\"}")]
-        [InlineData("CaptureView", "capture_view", "{\"output_path\":\"C:\\\\Temp\\\\cap.png\",\"overwrite_existing\":true}")]
-        [InlineData("ExportPdf", "export_pdf", "{\"output_path\":\"C:\\\\Temp\\\\cap.pdf\",\"allow_repo_output\":true}")]
         [InlineData("ExportDxf", "export_dxf", "{\"output_path\":\"C:\\\\Temp\\\\cap.dxf\",\"overwrite_existing\":false}")]
-        [InlineData("ExportImage", "export_image", "{\"output_path\":\"C:\\\\Temp\\\\cap.png\"}")]
         [InlineData("SetSystemVariable", "set_system_variable", "{\"name\":\"CLAYER\",\"value\":\"0\"}")]
         [InlineData("SetSystemVariable", "set_system_variable", "{\"name\":\"ORTHOMODE\",\"value\":1}")]
         [InlineData("SaveDrawing", "save_drawing", "{\"output_path\":\"C:\\\\Temp\\\\doc.dwg\",\"confirm\":true}")]
@@ -48,10 +45,7 @@ namespace Bimwright.Dwg.Tests
         [InlineData("ZoomWindow", "zoom_window", "corner1")]
         [InlineData("ZoomWindow", "zoom_window", "corner2")]
         [InlineData("ZoomToEntity", "zoom_to_entity", "handle")]
-        [InlineData("CaptureView", "capture_view", "output_path")]
-        [InlineData("ExportPdf", "export_pdf", "output_path")]
         [InlineData("ExportDxf", "export_dxf", "output_path")]
-        [InlineData("ExportImage", "export_image", "output_path")]
         [InlineData("SetSystemVariable", "set_system_variable", "name")]
         [InlineData("SetSystemVariable", "set_system_variable", "value")]
         public void Validate_DrawingOpsSchemasRequireContractFields(
@@ -101,14 +95,8 @@ namespace Bimwright.Dwg.Tests
                     return JObject.Parse("{\"corner1\":{\"x\":0,\"y\":0},\"corner2\":{\"x\":100,\"y\":100}}");
                 case "zoom_to_entity":
                     return JObject.Parse("{\"handle\":\"1A2B\"}");
-                case "capture_view":
-                    return JObject.Parse("{\"output_path\":\"C:\\\\Temp\\\\cap.png\"}");
-                case "export_pdf":
-                    return JObject.Parse("{\"output_path\":\"C:\\\\Temp\\\\cap.pdf\"}");
                 case "export_dxf":
                     return JObject.Parse("{\"output_path\":\"C:\\\\Temp\\\\cap.dxf\"}");
-                case "export_image":
-                    return JObject.Parse("{\"output_path\":\"C:\\\\Temp\\\\cap.png\"}");
                 case "set_system_variable":
                     return JObject.Parse("{\"name\":\"CLAYER\",\"value\":\"0\"}");
                 default:

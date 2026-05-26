@@ -108,10 +108,12 @@ namespace Bimwright.Dwg.Plugin.Handlers
 
             var outputPath = obj["output_path"]?.Value<string>();
             var confirm = obj["confirm"]?.Value<bool>();
+            var overwriteExisting = obj["overwrite_existing"]?.Value<bool>() ?? false;
+            var allowRepoOutput = obj["allow_repo_output"]?.Value<bool>() ?? false;
 
             try
             {
-                var savedPath = DrawingSaveService.Save(doc, outputPath, confirm, out var error);
+                var savedPath = DrawingSaveService.Save(doc, outputPath, confirm, overwriteExisting, allowRepoOutput, out var error);
                 if (savedPath == null)
                 {
                     return CommandResult.Fail(error);

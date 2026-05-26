@@ -26,11 +26,15 @@ namespace Bimwright.Dwg.Server.Tools
             "Save the current drawing. If output_path is omitted, saves the current drawing file (requires confirm=true).")]
         public static Task<string> SaveDrawing(
             [Description("Optional absolute path to save the drawing to. If specified, behaves like SaveAs.")] string output_path = null,
-            [Description("Must be set to true when saving to the active drawing file without a path.")] bool? confirm = null)
+            [Description("Must be set to true when saving to the active drawing file without a path.")] bool? confirm = null,
+            [Description("If true, allow overwriting an existing file when output_path is specified.")] bool? overwrite_existing = null,
+            [Description("If true, allow saving the drawing inside the repository directory.")] bool? allow_repo_output = null)
         {
             var request = new JObject();
             if (output_path != null) request["output_path"] = output_path;
             if (confirm.HasValue) request["confirm"] = confirm.Value;
+            if (overwrite_existing.HasValue) request["overwrite_existing"] = overwrite_existing.Value;
+            if (allow_repo_output.HasValue) request["allow_repo_output"] = allow_repo_output.Value;
 
             return ToolGateway.LoggedCall("save_drawing", request, request);
         }

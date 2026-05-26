@@ -21,9 +21,9 @@ namespace Bimwright.Dwg.Plugin.Export
                 return null;
             }
 
-            if (!Path.IsPathRooted(outputPath))
+            if (!IsPathFullyQualified(outputPath))
             {
-                error = "output path must be an absolute path";
+                error = "output path must be a fully qualified absolute path";
                 return null;
             }
 
@@ -116,6 +116,23 @@ namespace Bimwright.Dwg.Plugin.Export
             }
 
             return null;
+        }
+
+        private static bool IsPathFullyQualified(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path)) return false;
+
+            if (path.StartsWith("\\\\") || path.StartsWith("//")) return true;
+
+            if (path.Length >= 3 &&
+                char.IsLetter(path[0]) &&
+                path[1] == ':' &&
+                (path[2] == '\\' || path[2] == '/'))
+            {
+                return true;
+            }
+
+            return false;
         }
     }
 }
