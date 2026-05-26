@@ -122,13 +122,13 @@ namespace Bimwright.Dwg.Plugin.Pid
         private static void ApplyTransform(List<Entity> entities, Point3d center, double scale, double rotationRad)
         {
             var transform = Matrix3d.Displacement(center - Point3d.Origin);
-            if (scale != 1.0)
-            {
-                transform = transform * Matrix3d.Scaling(scale, center);
-            }
             if (rotationRad != 0.0)
             {
-                transform = transform * Matrix3d.Rotation(rotationRad, Vector3d.ZAxis, center);
+                transform = transform * Matrix3d.Rotation(rotationRad, Vector3d.ZAxis, Point3d.Origin);
+            }
+            if (scale != 1.0)
+            {
+                transform = transform * Matrix3d.Scaling(scale, Point3d.Origin);
             }
 
             foreach (var ent in entities)

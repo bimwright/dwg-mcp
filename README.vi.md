@@ -168,7 +168,7 @@ De pin mot AutoCAD cu the, dung nam 4 chu so:
 }
 ```
 
-Dung `--read-only` de chi mo tool doc/routing, cong them ToolBaker read tools neu toolset nay duoc bat. Dung `--toolsets query,modify,meta,toolbaker,pid` hoac `--toolsets all` de bat ToolBaker va P&ID.
+Dung `--read-only` de chi mo tool doc/routing, cong them ToolBaker read tools neu toolset nay duoc bat. Dung `--toolsets query,modify,meta,pid` (hoac `--toolsets all`) de bat toolset P&ID, hoac thiet lap bien moi truong `BIMWRIGHT_DWG_TOOLSETS=query,modify,meta,pid`.
 
 ---
 
@@ -295,7 +295,7 @@ Tất cả các hoạt động xuất/lưu file được kiểm soát nghiêm ng
 
 ### Các Toolset tùy chọn và Hành vi Read-Only
 
-Theo mặc định, chỉ có các toolset `query`, `modify`, `meta`, và `view` được bật. Bạn có thể bật các toolset khác bằng tham số `--toolsets` (ví dụ: `--toolsets all` hoặc `--toolsets query,modify,meta,view,annotation,block,dimension,export,drawing`).
+Theo mặc định, chỉ có các toolset `query`, `modify`, `meta`, và `view` được bật. Bạn có thể bật các toolset khác bằng tham số `--toolsets` (ví dụ: `--toolsets all` hoặc `--toolsets query,modify,meta,view,annotation,block,dimension,export,drawing,pid`).
 
 - **Hành vi Read-Only (`--read-only`)**: Khi chế độ read-only được kích hoạt, tất cả các toolset có khả năng chỉnh sửa (`modify`, `code`, `annotation`, `dimension`, `export`, `drawing` write tools, và `pid`) sẽ bị vô hiệu hóa hoàn toàn.
 - **Toolset P&ID (`pid`)**: Toolset `pid` mặc định tắt và có khả năng chỉnh sửa bản vẽ, vì vậy nó bị loại bỏ hoàn toàn trong chế độ read-only.

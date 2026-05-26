@@ -165,7 +165,7 @@ Pin a specific AutoCAD instance with a 4-digit target year:
 }
 ```
 
-Use `--read-only` to expose only query/routing tools plus ToolBaker read tools if that toolset is enabled. Use `--toolsets query,modify,meta,toolbaker,pid` or `--toolsets all` to opt into optional ToolBaker and P&ID toolsets.
+Use `--read-only` to expose only query/routing tools plus ToolBaker read tools if that toolset is enabled. Use `--toolsets query,modify,meta,pid` (or `--toolsets all`) to opt into the P&ID toolset, or set the environment variable `BIMWRIGHT_DWG_TOOLSETS=query,modify,meta,pid`.
 
 `dwg_send_code` is hidden from the default tool list. To expose it, opt in on both sides:
 
@@ -307,7 +307,7 @@ All export operations are strictly guarded by a path policy that enforces:
 
 ### Optional Toolsets and Read-Only Behavior
 
-By default, only `query`, `modify`, `meta`, and `view` toolsets are enabled. You can opt-in to others using the `--toolsets` flag (e.g., `--toolsets all` or `--toolsets query,modify,meta,view,annotation,block,dimension,export,drawing`).
+By default, only `query`, `modify`, `meta`, and `view` toolsets are enabled. You can opt-in to others using the `--toolsets` flag (e.g., `--toolsets all` or `--toolsets query,modify,meta,view,annotation,block,dimension,export,drawing,pid`).
 
 - **Read-Only Mode (`--read-only`)**: When read-only mode is active, all write-capable toolsets (`modify`, `code`, `annotation`, `dimension`, `export`, `drawing` write tools, and `pid`) are completely disabled.
 - **P&ID Toolset (`pid`)**: The `pid` toolset is default-off and write-capable, so it is completely stripped in read-only mode.

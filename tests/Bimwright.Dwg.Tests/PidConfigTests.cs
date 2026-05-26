@@ -48,7 +48,7 @@ namespace Bimwright.Dwg.Tests
 
             Assert.Equal("external", config.SymbolMode);
             Assert.False(config.UseProcedural);
-            
+
             var ex = Assert.Throws<NotSupportedException>(() => config.Validate());
             Assert.Contains("deferred", ex.Message);
         }
