@@ -49,6 +49,12 @@ namespace Bimwright.Dwg.Plugin.Cad
                 case MText mText:
                     DescribeMText(result, mText);
                     break;
+                case MLeader mLeader:
+                    DescribeMLeader(result, mLeader);
+                    break;
+                case Table table:
+                    DescribeTable(result, table);
+                    break;
                 case BlockReference blockReference:
                     DescribeBlockReference(result, blockReference, tx);
                     break;
@@ -144,6 +150,31 @@ namespace Bimwright.Dwg.Plugin.Cad
             result["attachment"] = mText.Attachment.ToString();
         }
 
+        private static void DescribeMLeader(IDictionary<string, object> result, MLeader mLeader)
+        {
+            result["text"] = mLeader.MText != null ? mLeader.MText.Contents : string.Empty;
+            result["text_height"] = mLeader.TextHeight;
+            result["leader_count"] = mLeader.LeaderCount;
+            result["leader_line_count"] = mLeader.LeaderLineCount;
+            try
+            {
+                result["first_vertex"] = Point(mLeader.GetFirstVertex(0));
+                result["last_vertex"] = Point(mLeader.GetLastVertex(0));
+            }
+            catch
+            {
+                result["first_vertex"] = null;
+                result["last_vertex"] = null;
+            }
+        }
+
+        private static void DescribeTable(IDictionary<string, object> result, Table table)
+        {
+            result["position"] = Point(table.Position);
+            result["rows"] = table.Rows.Count;
+            result["columns"] = table.Columns.Count;
+        }
+
         private static void DescribeBlockReference(
             IDictionary<string, object> result,
             BlockReference blockReference,
@@ -214,6 +245,8 @@ namespace Bimwright.Dwg.Plugin.Cad
             if (entity is Polyline) return "Polyline";
             if (entity is DBText) return entity.GetType().Name;
             if (entity is MText) return "MText";
+            if (entity is MLeader) return "MLeader";
+            if (entity is Table) return "Table";
             if (entity is BlockReference) return "BlockReference";
             if (entity is Hatch) return "Hatch";
             if (entity is Ellipse) return "Ellipse";
