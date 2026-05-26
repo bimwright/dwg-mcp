@@ -86,6 +86,24 @@ namespace Bimwright.Dwg.Tests
         }
 
         [Fact]
+        public void CreateMTextWrapperForwardsRotationParameter()
+        {
+            var method = typeof(AnnotationTools).GetMethod(nameof(AnnotationTools.CreateMText));
+
+            Assert.NotNull(method);
+            Assert.Equal(new[]
+            {
+                "text",
+                "location",
+                "width",
+                "height",
+                "rotation",
+                "layer",
+                "color_index"
+            }, method.GetParameters().Select(p => p.Name).ToArray());
+        }
+
+        [Fact]
         public void BlockToolClassesSplitReadOnlyAndWriteSurfaces()
         {
             var assembly = typeof(QueryTools).Assembly;

@@ -46,6 +46,7 @@ namespace Bimwright.Dwg.Server.Tools
             [Description("JSON point object, e.g. {\"x\":0,\"y\":0,\"z\":0}.")] string location,
             [Description("Optional MText width.")] double? width = null,
             [Description("Optional text height.")] double? height = null,
+            [Description("Optional text rotation in degrees.")] double? rotation = null,
             [Description("Optional target layer name.")] string layer = null,
             [Description("Optional ACI color index for the new entity. Valid range: 1-256.")] int? color_index = null)
         {
@@ -61,6 +62,7 @@ namespace Bimwright.Dwg.Server.Tools
             };
             if (width.HasValue) request["width"] = width.Value;
             if (height.HasValue) request["height"] = height.Value;
+            if (rotation.HasValue) request["rotation"] = rotation.Value;
             if (layer != null) request["layer"] = layer;
             if (color_index.HasValue) request["color_index"] = color_index.Value;
 

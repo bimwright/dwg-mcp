@@ -244,6 +244,7 @@ namespace Bimwright.Dwg.Plugin
             SchemaProperty.Required("location", JTokenType.Object),
             SchemaProperty.Optional("width", JTokenType.Float, JTokenType.Integer),
             SchemaProperty.Optional("height", JTokenType.Float, JTokenType.Integer),
+            SchemaProperty.Optional("rotation", JTokenType.Float, JTokenType.Integer),
             SchemaProperty.Optional("layer", JTokenType.String),
             SchemaProperty.Optional("color_index", JTokenType.Integer));
 

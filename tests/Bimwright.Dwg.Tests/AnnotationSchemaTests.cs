@@ -10,7 +10,7 @@ namespace Bimwright.Dwg.Tests
     {
         [Theory]
         [InlineData("CreateText", "create_text", "{\"text\":\"Room 101\",\"position\":{\"x\":0,\"y\":0},\"height\":2.5,\"rotation\":0,\"layer\":\"A-TEXT\"}")]
-        [InlineData("CreateMText", "create_mtext", "{\"text\":\"General notes\",\"location\":{\"x\":1,\"y\":2},\"width\":80,\"height\":2.5,\"layer\":\"A-NOTE\"}")]
+        [InlineData("CreateMText", "create_mtext", "{\"text\":\"General notes\",\"location\":{\"x\":1,\"y\":2},\"width\":80,\"height\":2.5,\"rotation\":15,\"layer\":\"A-NOTE\"}")]
         [InlineData("CreateLeader", "create_leader", "{\"points\":[{\"x\":0,\"y\":0},{\"x\":5,\"y\":5}],\"text\":\"Note\",\"layer\":\"A-ANNO\"}")]
         [InlineData("CreateTable", "create_table", "{\"insertion_point\":{\"x\":0,\"y\":0},\"rows\":2,\"columns\":2,\"cells\":[[\"A\",\"B\"],[\"C\",\"D\"]],\"layer\":\"A-TABLE\"}")]
         public void Validate_AnnotationSchemasAcceptValidShapes(

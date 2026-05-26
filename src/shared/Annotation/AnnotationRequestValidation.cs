@@ -49,9 +49,9 @@ namespace Bimwright.Dwg.Plugin.Annotation
                 return false;
             }
 
-            if (cells.Count > rows)
+            if (cells.Count != rows)
             {
-                error = "cells row count must fit within rows";
+                error = "cells row count must equal rows";
                 return false;
             }
 
@@ -64,9 +64,9 @@ namespace Bimwright.Dwg.Plugin.Annotation
                     return false;
                 }
 
-                if (cellRow.Count > columns)
+                if (cellRow.Count != columns)
                 {
-                    error = "cells[" + row + "] column count must fit within columns";
+                    error = "cells[" + row + "] column count must equal columns";
                     return false;
                 }
             }

@@ -46,6 +46,32 @@ namespace Bimwright.Dwg.Tests
         }
 
         [Fact]
+        public void TryValidateTableShape_RejectsTooFewRows()
+        {
+            var ok = AnnotationRequestValidation.TryValidateTableShape(
+                2,
+                2,
+                JArray.Parse("[[\"A\",\"B\"]]"),
+                out var error);
+
+            Assert.False(ok);
+            Assert.Contains("rows", error);
+        }
+
+        [Fact]
+        public void TryValidateTableShape_RejectsTooFewColumns()
+        {
+            var ok = AnnotationRequestValidation.TryValidateTableShape(
+                1,
+                2,
+                JArray.Parse("[[\"A\"]]"),
+                out var error);
+
+            Assert.False(ok);
+            Assert.Contains("columns", error);
+        }
+
+        [Fact]
         public void TryValidateTableShape_RejectsCellsOutsideDimensions()
         {
             var ok = AnnotationRequestValidation.TryValidateTableShape(

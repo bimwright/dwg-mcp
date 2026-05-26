@@ -152,7 +152,16 @@ namespace Bimwright.Dwg.Plugin.Cad
 
         private static void DescribeMLeader(IDictionary<string, object> result, MLeader mLeader)
         {
-            result["text"] = mLeader.MText != null ? mLeader.MText.Contents : string.Empty;
+            var mText = mLeader.MText;
+            try
+            {
+                result["text"] = mText != null ? mText.Contents : string.Empty;
+            }
+            finally
+            {
+                mText?.Dispose();
+            }
+
             result["text_height"] = mLeader.TextHeight;
             result["leader_count"] = mLeader.LeaderCount;
             result["leader_line_count"] = mLeader.LeaderLineCount;

@@ -108,12 +108,14 @@ namespace Bimwright.Dwg.Plugin.Annotation
                 entity.TextHeight = DefaultTextHeight;
                 var textLocation = ToPoint3d(points[points.Count - 1]);
                 entity.TextLocation = textLocation;
-                var leaderText = new MText();
-                leaderText.SetDatabaseDefaults();
-                leaderText.Contents = text;
-                leaderText.Location = textLocation;
-                leaderText.TextHeight = DefaultTextHeight;
-                entity.MText = leaderText;
+                using (var leaderText = new MText())
+                {
+                    leaderText.SetDatabaseDefaults();
+                    leaderText.Contents = text;
+                    leaderText.Location = textLocation;
+                    leaderText.TextHeight = DefaultTextHeight;
+                    entity.MText = leaderText;
+                }
             }
 
             return true;
