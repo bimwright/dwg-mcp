@@ -98,6 +98,21 @@ Call dwg_get_selected_texts before text writeback. In read-only mode only query/
             }
             if (enabled.Contains("dimension") && !readOnly) toolTypes.Add(typeof(DimensionTools));
 
+            if (enabled.Contains("view"))
+            {
+                toolTypes.Add(typeof(ViewTools));
+                if (!readOnly) toolTypes.Add(typeof(ViewOutputTools));
+            }
+            if (enabled.Contains("export") && !readOnly)
+            {
+                toolTypes.Add(typeof(ExportTools));
+            }
+            if (enabled.Contains("drawing"))
+            {
+                toolTypes.Add(typeof(DrawingTools));
+                if (!readOnly) toolTypes.Add(typeof(DrawingWriteTools));
+            }
+
             return toolTypes;
         }
 
@@ -114,6 +129,11 @@ Call dwg_get_selected_texts before text writeback. In read-only mode only query/
             if (toolType == typeof(BlockTools)) return mcp.WithTools<BlockTools>();
             if (toolType == typeof(BlockWriteTools)) return mcp.WithTools<BlockWriteTools>();
             if (toolType == typeof(DimensionTools)) return mcp.WithTools<DimensionTools>();
+            if (toolType == typeof(ViewTools)) return mcp.WithTools<ViewTools>();
+            if (toolType == typeof(ViewOutputTools)) return mcp.WithTools<ViewOutputTools>();
+            if (toolType == typeof(ExportTools)) return mcp.WithTools<ExportTools>();
+            if (toolType == typeof(DrawingTools)) return mcp.WithTools<DrawingTools>();
+            if (toolType == typeof(DrawingWriteTools)) return mcp.WithTools<DrawingWriteTools>();
 
             throw new InvalidOperationException("Unsupported MCP tool type: " + toolType.FullName);
         }

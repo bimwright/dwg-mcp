@@ -383,5 +383,48 @@ namespace Bimwright.Dwg.Plugin
             SchemaProperty.Optional("sequence", JTokenType.Array),
             SchemaProperty.Optional("params_schema", JTokenType.Object, JTokenType.String),
             SchemaProperty.Optional("source_code", JTokenType.String));
+
+        public static readonly CommandSchema ZoomExtents = CommandSchema.Empty;
+
+        public static readonly CommandSchema ZoomWindow = CommandSchema.Object(
+            SchemaProperty.Required("corner1", JTokenType.Object),
+            SchemaProperty.Required("corner2", JTokenType.Object));
+
+        public static readonly CommandSchema ZoomToEntity = CommandSchema.Object(
+            SchemaProperty.Required("handle", JTokenType.String));
+
+        public static readonly CommandSchema CaptureView = CommandSchema.Object(
+            SchemaProperty.Required("output_path", JTokenType.String),
+            SchemaProperty.Optional("overwrite_existing", JTokenType.Boolean),
+            SchemaProperty.Optional("allow_repo_output", JTokenType.Boolean));
+
+        public static readonly CommandSchema ExportPdf = CommandSchema.Object(
+            SchemaProperty.Required("output_path", JTokenType.String),
+            SchemaProperty.Optional("overwrite_existing", JTokenType.Boolean),
+            SchemaProperty.Optional("allow_repo_output", JTokenType.Boolean));
+
+        public static readonly CommandSchema ExportDxf = CommandSchema.Object(
+            SchemaProperty.Required("output_path", JTokenType.String),
+            SchemaProperty.Optional("overwrite_existing", JTokenType.Boolean),
+            SchemaProperty.Optional("allow_repo_output", JTokenType.Boolean));
+
+        public static readonly CommandSchema ExportImage = CommandSchema.Object(
+            SchemaProperty.Required("output_path", JTokenType.String),
+            SchemaProperty.Optional("overwrite_existing", JTokenType.Boolean),
+            SchemaProperty.Optional("allow_repo_output", JTokenType.Boolean));
+
+        public static readonly CommandSchema GetVariables = CommandSchema.Empty;
+
+        public static readonly CommandSchema SetSystemVariable = CommandSchema.Object(
+            SchemaProperty.Required("name", JTokenType.String),
+            SchemaProperty.Required("value", JTokenType.String, JTokenType.Integer, JTokenType.Float, JTokenType.Boolean));
+
+        public static readonly CommandSchema SaveDrawing = CommandSchema.Object(
+            SchemaProperty.Optional("output_path", JTokenType.String),
+            SchemaProperty.Optional("confirm", JTokenType.Boolean));
+
+        public static readonly CommandSchema PurgeDrawing = CommandSchema.Object(
+            SchemaProperty.Optional("dry_run", JTokenType.Boolean),
+            SchemaProperty.Optional("confirm", JTokenType.Boolean));
     }
 }

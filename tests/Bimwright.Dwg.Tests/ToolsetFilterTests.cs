@@ -15,8 +15,11 @@ namespace Bimwright.Dwg.Tests
             Assert.Contains("query", set);
             Assert.Contains("modify", set);
             Assert.Contains("meta", set);
+            Assert.Contains("view", set);
             Assert.DoesNotContain("code", set);
             Assert.DoesNotContain("toolbaker", set);
+            Assert.DoesNotContain("export", set);
+            Assert.DoesNotContain("drawing", set);
         }
 
         [Fact]
@@ -92,6 +95,30 @@ namespace Bimwright.Dwg.Tests
             });
 
             Assert.Equal(new[] { "block", "query" }, set.OrderBy(s => s).ToArray());
+        }
+
+        [Fact]
+        public void KnownToolsets_IncludePlan4ToolsetsButDefaultsKeepExportAndDrawingOff()
+        {
+            Assert.Contains("view", ToolsetFilter.KnownToolsets);
+            Assert.Contains("export", ToolsetFilter.KnownToolsets);
+            Assert.Contains("drawing", ToolsetFilter.KnownToolsets);
+
+            Assert.Contains("view", ToolsetFilter.DefaultOn);
+            Assert.DoesNotContain("export", ToolsetFilter.DefaultOn);
+            Assert.DoesNotContain("drawing", ToolsetFilter.DefaultOn);
+        }
+
+        [Fact]
+        public void Resolve_ReadOnlyStripsExportButKeepsViewAndDrawing()
+        {
+            var set = ToolsetFilter.Resolve(new DwgMcpConfig
+            {
+                Toolsets = new List<string> { "query", "view", "export", "drawing" },
+                ReadOnly = true
+            });
+
+            Assert.Equal(new[] { "drawing", "query", "view" }, set.OrderBy(s => s).ToArray());
         }
     }
 }

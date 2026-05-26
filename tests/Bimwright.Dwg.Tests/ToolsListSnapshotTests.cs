@@ -24,6 +24,7 @@ namespace Bimwright.Dwg.Tests
                 "dwg_accept_bake_suggestion",
                 "dwg_apply_unicode_style",
                 "dwg_batch_execute",
+                "dwg_capture_view",
                 "dwg_change_color",
                 "dwg_change_layer",
                 "dwg_collapse_and_rewrite",
@@ -49,11 +50,15 @@ namespace Bimwright.Dwg.Tests
                 "dwg_dismiss_bake_suggestion",
                 "dwg_erase_entities",
                 "dwg_explode_block",
+                "dwg_export_dxf",
+                "dwg_export_image",
+                "dwg_export_pdf",
                 "dwg_get_block_attributes",
                 "dwg_get_current_target",
                 "dwg_get_drawing_info",
                 "dwg_get_entity_properties",
                 "dwg_get_selected_texts",
+                "dwg_get_variables",
                 "dwg_insert_block",
                 "dwg_list_available_targets",
                 "dwg_list_bake_suggestions",
@@ -62,17 +67,23 @@ namespace Bimwright.Dwg.Tests
                 "dwg_list_layers",
                 "dwg_move_entities",
                 "dwg_offset_entities",
+                "dwg_purge_drawing",
                 "dwg_query_entities",
                 "dwg_rotate_entities",
                 "dwg_run_baked_tool",
+                "dwg_save_drawing",
                 "dwg_scale_entities",
                 "dwg_select_by_layer",
                 "dwg_select_by_type",
                 "dwg_send_code",
                 "dwg_set_block_attributes",
+                "dwg_set_system_variable",
                 "dwg_switch_target",
                 "dwg_translate_and_rewrite",
-                "dwg_update_texts"
+                "dwg_update_texts",
+                "dwg_zoom_extents",
+                "dwg_zoom_to_entity",
+                "dwg_zoom_window"
             }, names);
             Assert.All(names, name => Assert.StartsWith("dwg_", name, StringComparison.Ordinal));
         }
@@ -208,7 +219,9 @@ namespace Bimwright.Dwg.Tests
                 "BatchTools",
                 "MetaTools",
                 "ModifyTools",
-                "QueryTools"
+                "QueryTools",
+                "ViewOutputTools",
+                "ViewTools"
             }, defaultTypeNames);
 
             var defaultReadOnlyTypeNames = InvokeToolTypeResolver(
@@ -218,7 +231,8 @@ namespace Bimwright.Dwg.Tests
             Assert.Equal(new[]
             {
                 "MetaTools",
-                "QueryTools"
+                "QueryTools",
+                "ViewTools"
             }, defaultReadOnlyTypeNames);
 
             var codeWriteTypeNames = InvokeToolTypeResolver(method, new[] { "code" }, readOnly: false);
@@ -257,6 +271,21 @@ namespace Bimwright.Dwg.Tests
                 "BlockTools",
                 "BlockWriteTools"
             }, blockWriteTypeNames);
+
+            var viewWriteTypeNames = InvokeToolTypeResolver(method, new[] { "view" }, readOnly: false);
+            var viewReadOnlyTypeNames = InvokeToolTypeResolver(method, new[] { "view" }, readOnly: true);
+            Assert.Equal(new[] { "ViewOutputTools", "ViewTools" }, viewWriteTypeNames);
+            Assert.Equal(new[] { "ViewTools" }, viewReadOnlyTypeNames);
+
+            var exportWriteTypeNames = InvokeToolTypeResolver(method, new[] { "export" }, readOnly: false);
+            var exportReadOnlyTypeNames = InvokeToolTypeResolver(method, new[] { "export" }, readOnly: true);
+            Assert.Equal(new[] { "ExportTools" }, exportWriteTypeNames);
+            Assert.Equal(Array.Empty<string>(), exportReadOnlyTypeNames);
+
+            var drawingWriteTypeNames = InvokeToolTypeResolver(method, new[] { "drawing" }, readOnly: false);
+            var drawingReadOnlyTypeNames = InvokeToolTypeResolver(method, new[] { "drawing" }, readOnly: true);
+            Assert.Equal(new[] { "DrawingTools", "DrawingWriteTools" }, drawingWriteTypeNames);
+            Assert.Equal(new[] { "DrawingTools" }, drawingReadOnlyTypeNames);
         }
 
         private static string[] GetMcpToolNames(Type type)
