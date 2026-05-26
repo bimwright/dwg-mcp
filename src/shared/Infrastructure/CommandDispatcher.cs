@@ -70,6 +70,10 @@ namespace Bimwright.Dwg.Plugin
                 { "zoom_window",             new ZoomWindowHandler() },
                 { "zoom_to_entity",          new ZoomToEntityHandler() },
                 { "export_dxf",              new ExportDxfHandler() },
+                { "get_variables",           new GetVariablesHandler() },
+                { "set_system_variable",     new SetSystemVariableHandler() },
+                { "save_drawing",            new SaveDrawingHandler() },
+                { "purge_drawing",           new PurgeDrawingHandler() },
             };
             _commands.Add("apply_bake", new ApplyBakeSuggestionHandler((cmd, parameters) => ValidateCommand(cmd, parameters, out _)));
             _commands.Add("batch_execute", new BatchExecuteHandler(ExecuteCommand));
