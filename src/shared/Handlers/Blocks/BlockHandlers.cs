@@ -366,8 +366,8 @@ namespace Bimwright.Dwg.Plugin.Handlers
                 foreach (var entity in entities)
                 {
                     owner.AppendEntity(entity);
-                    unappended.Remove(entity);
                     tx.AddNewlyCreatedDBObject(entity, true);
+                    unappended.Remove(entity);
                     createdHandles.Add(entity.Handle.ToString());
                 }
 

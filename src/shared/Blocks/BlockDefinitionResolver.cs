@@ -55,7 +55,7 @@ namespace Bimwright.Dwg.Plugin.Blocks
                 return false;
             }
 
-            if (!Path.IsPathRooted(blockPath))
+            if (!IsFullyQualifiedPath(blockPath))
             {
                 error = "block_path must be an absolute existing DWG path";
                 return false;
@@ -142,6 +142,27 @@ namespace Bimwright.Dwg.Plugin.Blocks
             blockDefinitionId = candidateId;
             resolvedName = record.Name;
             return true;
+        }
+
+        private static bool IsFullyQualifiedPath(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path) || !Path.IsPathRooted(path))
+            {
+                return false;
+            }
+
+            try
+            {
+                return Path.GetFullPath(path).Equals(path, StringComparison.OrdinalIgnoreCase);
+            }
+            catch (Exception ex) when (
+                ex is ArgumentException ||
+                ex is NotSupportedException ||
+                ex is PathTooLongException ||
+                ex is System.Security.SecurityException)
+            {
+                return false;
+            }
         }
     }
 }

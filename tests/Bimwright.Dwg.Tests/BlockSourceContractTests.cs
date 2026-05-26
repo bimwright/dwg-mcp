@@ -11,11 +11,15 @@ namespace Bimwright.Dwg.Tests
         {
             var source = ReadSharedSource("Blocks", "BlockDefinitionResolver.cs");
 
-            Assert.Contains("Path.IsPathRooted(blockPath)", source, StringComparison.Ordinal);
+            Assert.Contains("IsFullyQualifiedPath(blockPath)", source, StringComparison.Ordinal);
+            Assert.Contains("private static bool IsFullyQualifiedPath(string path)", source, StringComparison.Ordinal);
+            Assert.Contains("Path.GetFullPath(path)", source, StringComparison.Ordinal);
+            Assert.Contains("StringComparison.OrdinalIgnoreCase", source, StringComparison.Ordinal);
+            Assert.DoesNotContain("if (!Path.IsPathRooted(blockPath))", source, StringComparison.Ordinal);
             Assert.Contains("File.Exists(blockPath)", source, StringComparison.Ordinal);
             Assert.Contains("ReadDwgFile", source, StringComparison.Ordinal);
 
-            var absolutePathGuardIndex = source.IndexOf("Path.IsPathRooted(blockPath)", StringComparison.Ordinal);
+            var absolutePathGuardIndex = source.IndexOf("IsFullyQualifiedPath(blockPath)", StringComparison.Ordinal);
             var existsGuardIndex = source.IndexOf("File.Exists(blockPath)", StringComparison.Ordinal);
             var importIndex = source.IndexOf("ReadDwgFile", StringComparison.Ordinal);
 
@@ -33,6 +37,22 @@ namespace Bimwright.Dwg.Tests
             Assert.Contains("StringComparer.OrdinalIgnoreCase", source, StringComparison.Ordinal);
             Assert.Contains("strictTags", source, StringComparison.Ordinal);
             Assert.Contains("missing_tags", source, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void ExplodeBlockHandlerKeepsCleanupOwnershipUntilTransactionOwnsEntity()
+        {
+            var source = ReadSharedSource("Handlers", "Blocks", "BlockHandlers.cs");
+
+            var appendIndex = source.IndexOf("owner.AppendEntity(entity);", StringComparison.Ordinal);
+            var addNewIndex = source.IndexOf("tx.AddNewlyCreatedDBObject(entity, true);", StringComparison.Ordinal);
+            var cleanupReleaseIndex = source.IndexOf("unappended.Remove(entity);", StringComparison.Ordinal);
+            var handleIndex = source.IndexOf("createdHandles.Add(entity.Handle.ToString());", StringComparison.Ordinal);
+
+            Assert.True(appendIndex >= 0, "ExplodeBlockHandler must append exploded entities to the source owner.");
+            Assert.True(addNewIndex > appendIndex, "ExplodeBlockHandler must register the appended entity with the transaction after append.");
+            Assert.True(cleanupReleaseIndex > addNewIndex, "ExplodeBlockHandler must release local cleanup ownership only after AddNewlyCreatedDBObject succeeds.");
+            Assert.True(handleIndex > cleanupReleaseIndex, "ExplodeBlockHandler should record created handles only after transaction ownership transfer.");
         }
 
         private static string ReadSharedSource(params string[] parts)
