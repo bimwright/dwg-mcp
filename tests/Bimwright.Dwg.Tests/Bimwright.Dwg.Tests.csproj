@@ -36,5 +36,6 @@
     <Compile Include="..\..\src\shared\Dimensions\DimensionRequestValidator.cs" LinkBase="Shared\Dimensions" />
     <Compile Include="..\..\src\shared\Security\ErrorSanitizer.cs" LinkBase="Shared\Security" />
     <Compile Include="..\..\src\shared\Security\McpResponsePrivacy.cs" LinkBase="Shared\Security" />
+    <Compile Include="..\..\src\shared\Export\ExportPathPolicy.cs" LinkBase="Shared\Export" />
   </ItemGroup>
 </Project>

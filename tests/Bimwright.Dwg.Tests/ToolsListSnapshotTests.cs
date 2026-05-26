@@ -24,7 +24,6 @@ namespace Bimwright.Dwg.Tests
                 "dwg_accept_bake_suggestion",
                 "dwg_apply_unicode_style",
                 "dwg_batch_execute",
-                "dwg_capture_view",
                 "dwg_change_color",
                 "dwg_change_layer",
                 "dwg_collapse_and_rewrite",
@@ -51,8 +50,6 @@ namespace Bimwright.Dwg.Tests
                 "dwg_erase_entities",
                 "dwg_explode_block",
                 "dwg_export_dxf",
-                "dwg_export_image",
-                "dwg_export_pdf",
                 "dwg_get_block_attributes",
                 "dwg_get_current_target",
                 "dwg_get_drawing_info",
@@ -220,7 +217,6 @@ namespace Bimwright.Dwg.Tests
                 "MetaTools",
                 "ModifyTools",
                 "QueryTools",
-                "ViewOutputTools",
                 "ViewTools"
             }, defaultTypeNames);
 
@@ -274,7 +270,7 @@ namespace Bimwright.Dwg.Tests
 
             var viewWriteTypeNames = InvokeToolTypeResolver(method, new[] { "view" }, readOnly: false);
             var viewReadOnlyTypeNames = InvokeToolTypeResolver(method, new[] { "view" }, readOnly: true);
-            Assert.Equal(new[] { "ViewOutputTools", "ViewTools" }, viewWriteTypeNames);
+            Assert.Equal(new[] { "ViewTools" }, viewWriteTypeNames);
             Assert.Equal(new[] { "ViewTools" }, viewReadOnlyTypeNames);
 
             var exportWriteTypeNames = InvokeToolTypeResolver(method, new[] { "export" }, readOnly: false);

@@ -101,7 +101,6 @@ Call dwg_get_selected_texts before text writeback. In read-only mode only query/
             if (enabled.Contains("view"))
             {
                 toolTypes.Add(typeof(ViewTools));
-                if (!readOnly) toolTypes.Add(typeof(ViewOutputTools));
             }
             if (enabled.Contains("export") && !readOnly)
             {
@@ -130,7 +129,6 @@ Call dwg_get_selected_texts before text writeback. In read-only mode only query/
             if (toolType == typeof(BlockWriteTools)) return mcp.WithTools<BlockWriteTools>();
             if (toolType == typeof(DimensionTools)) return mcp.WithTools<DimensionTools>();
             if (toolType == typeof(ViewTools)) return mcp.WithTools<ViewTools>();
-            if (toolType == typeof(ViewOutputTools)) return mcp.WithTools<ViewOutputTools>();
             if (toolType == typeof(ExportTools)) return mcp.WithTools<ExportTools>();
             if (toolType == typeof(DrawingTools)) return mcp.WithTools<DrawingTools>();
             if (toolType == typeof(DrawingWriteTools)) return mcp.WithTools<DrawingWriteTools>();

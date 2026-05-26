@@ -69,6 +69,7 @@ namespace Bimwright.Dwg.Plugin
                 { "zoom_extents",            new ZoomExtentsHandler() },
                 { "zoom_window",             new ZoomWindowHandler() },
                 { "zoom_to_entity",          new ZoomToEntityHandler() },
+                { "export_dxf",              new ExportDxfHandler() },
             };
             _commands.Add("apply_bake", new ApplyBakeSuggestionHandler((cmd, parameters) => ValidateCommand(cmd, parameters, out _)));
             _commands.Add("batch_execute", new BatchExecuteHandler(ExecuteCommand));
