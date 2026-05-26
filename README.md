@@ -10,7 +10,7 @@
   <a href="https://github.com/bimwright/dwg-mcp/actions/workflows/build.yml"><img src="https://github.com/bimwright/dwg-mcp/actions/workflows/build.yml/badge.svg" alt="build" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="license" /></a>
   <a href="#supported-autocad-versions"><img src="https://img.shields.io/badge/AutoCAD-2022--2027-186BFF" alt="AutoCAD 2022-2027" /></a>
-  <a href="#tools"><img src="https://img.shields.io/badge/MCP-32%20default%20%2B%20optional-6C47FF" alt="MCP tools" /></a>
+  <a href="#tools"><img src="https://img.shields.io/badge/MCP-35%20default%20%2B%20optional-6C47FF" alt="MCP tools" /></a>
 </p>
 
 <p align="center">
@@ -186,7 +186,7 @@ Then run `MCPENABLECODE` inside AutoCAD for the current plugin session. `MCPDISA
 
 ## Tools
 
-Default startup exposes 32 tools: query, modify, routing/meta, and batch. Optional ToolBaker, annotation, block, and dimension toolsets, enabled through `--toolsets`, and `dwg_send_code` bring the backed MCP surface to 52 tools.
+Default startup exposes 35 tools: query, modify, routing/meta, batch, and view. Optional ToolBaker, annotation, block, dimension, export, and drawing toolsets, enabled through `--toolsets`, and `dwg_send_code` bring the backed MCP surface to 60 tools.
 
 General CAD tools operate on the current active document in the selected AutoCAD target. Entity inputs and returned entity IDs use AutoCAD hex handles, such as `7F5AD`, returned by selection, creation, or property tools. Creation, copy, offset, and modify responses identify generated or modified entities by hex handle.
 
@@ -227,6 +227,9 @@ Plan 2 query expansion is model-space only: `dwg_query_entities`, `dwg_count_ent
 | `dwg_switch_target` | Pin this server process to AutoCAD `2022` through `2027` |
 | `dwg_batch_execute` | Run multiple internal wire commands as a logical batch |
 | `dwg_send_code` | **Opt-in only.** Execute C# after server flag/env enablement and AutoCAD-side `MCPENABLECODE` consent |
+| `dwg_zoom_extents` | Zoom to the extents of the drawing viewport |
+| `dwg_zoom_window` | Zoom viewport to a window defined by two corner points |
+| `dwg_zoom_to_entity` | Zoom viewport to the extents of a specific drawing entity identified by handle |
 
 Optional ToolBaker tools are exposed when the `toolbaker` toolset is enabled:
 
@@ -267,13 +270,38 @@ Optional Dimension tools are exposed when the `dimension` toolset is enabled:
 | `dwg_create_radial_dimension` | Create a radial dimension for a circle or arc |
 | `dwg_create_diameter_dimension` | Create a diametric dimension for a circle or arc |
 
+Optional Export tools are exposed when the `export` toolset is enabled:
+
+| Tool | Purpose |
+|------|---------|
+| `dwg_export_dxf` | Export the drawing to a DXF file (guarded by output path policy) |
+
+Optional Drawing tools are exposed when the `drawing` toolset is enabled:
+
+| Tool | Purpose |
+|------|---------|
+| `dwg_get_variables` | Read current values of drawing system variables |
+| `dwg_set_system_variable` | Set the value of a drawing system variable |
+| `dwg_save_drawing` | Save the current drawing to a file (requires confirm=true) |
+| `dwg_purge_drawing` | Purge unused named objects (blocks, layers, styles) (supports dry_run=true, actual purge requires confirm=true) |
+
+### Output Path Policy
+All export operations are strictly guarded by a path policy that enforces:
+- Output paths must be absolute.
+- File extensions must match the specific tool (e.g., `.dxf` for DXF export).
+- Existing files are not overwritten unless `overwrite_existing=true` is explicitly provided.
+- Writing to the repository root directory is rejected unless `allow_repo_output=true` is set.
+
 ### Optional Toolsets and Read-Only Behavior
 
-By default, only `query`, `modify`, and `meta` toolsets are enabled. You can opt-in to others using the `--toolsets` flag (e.g., `--toolsets all` or `--toolsets query,modify,meta,annotation,block,dimension`).
+By default, only `query`, `modify`, `meta`, and `view` toolsets are enabled. You can opt-in to others using the `--toolsets` flag (e.g., `--toolsets all` or `--toolsets query,modify,meta,view,annotation,block,dimension,export,drawing`).
 
-- **Read-Only Mode (`--read-only`)**: When read-only mode is active, all write-capable toolsets (`modify`, `code`, `annotation`, `dimension`) are completely disabled.
+- **Read-Only Mode (`--read-only`)**: When read-only mode is active, all write-capable toolsets (`modify`, `code`, `annotation`, `dimension`, `export`, and `drawing` write tools) are completely disabled.
 - **Block Toolset Split**: The `block` toolset is split into read-only and write-capable tools. If `--read-only` is active, `dwg_list_blocks` and `dwg_get_block_attributes` are still available (safe read inspection), but the mutation/creation tools (`dwg_insert_block`, `dwg_set_block_attributes`, `dwg_explode_block`) are stripped.
+- **View Navigation and Read-Only**: The `view` toolset is default-on and retains the viewport navigation tools (`dwg_zoom_extents`, `dwg_zoom_window`, `dwg_zoom_to_entity`) in read-only mode, but strips the deferred `dwg_capture_view` tool.
+- **Drawing Operations and Read-Only**: The `drawing` toolset retains `dwg_get_variables` in read-only mode, but strips `dwg_set_system_variable`, `dwg_save_drawing`, and `dwg_purge_drawing`.
 - **Deferred Angular Dimensions**: Note that only linear, aligned, radial, and diametric dimension types are currently supported. Angular dimensions are deferred and not yet implemented.
+- **Deferred File Export/Capture Tools**: The `dwg_export_pdf`, `dwg_export_image`, and `dwg_capture_view` tools have been deferred to ensure absolute reliability of drawing view captures and plot configurations.
 
 ### Manual smoke checklist
 
@@ -299,6 +327,18 @@ The manual smoke testing for Plan 3 annotation, block, and dimension tools is cu
 4. Get and set block attributes with `dwg_get_block_attributes` and `dwg_set_block_attributes`.
 5. Explode a block reference with `dwg_explode_block`.
 6. Create linear, aligned, radial, and diameter dimensions with `dwg_create_linear_dimension`, `dwg_create_aligned_dimension`, `dwg_create_radial_dimension`, and `dwg_create_diameter_dimension`, confirming linear projected-distance validation succeeds/rejects as expected.
+
+### Plan 4 Manual Smoke Checklist (Manual Smoke Pending)
+
+The manual smoke testing for Plan 4 view navigation, dxf export, and drawing variable/save/purge tools is currently **pending** AutoCAD execution, but the following scenarios are designed:
+
+1. Run `dwg_zoom_extents`.
+2. Run `dwg_zoom_window` with coordinates.
+3. Zoom to an entity with `dwg_zoom_to_entity` using a recorded hex handle.
+4. Read drawing variables with `dwg_get_variables`.
+5. Export drawing to dxf with `dwg_export_dxf`.
+6. Run `dwg_purge_drawing` with `dry_run=true`, then with `confirm=true` (on a copied/disposable DWG only).
+7. Run `dwg_save_drawing` with `confirm=true` (on a copied/disposable DWG only).
 
 ### Migration from 0.1.x tool names
 

@@ -25,7 +25,11 @@ Added:
 - Explicit rotation angle (degrees) and projected measurement distance validation along the rotation axis for linear dimensions.
 - Split block toolset registration into read-only BlockTools and write-capable BlockWriteTools, allowing safe block inspection in read-only mode.
 - Expanded manual smoke checklist for Plan 3 CAD tools (status: manual smoke pending).
-- Manual smoke checklist covers Plan 2 core CAD operations, Plan 3 CAD operations (pending), and the existing text translation workflow.
+- Plan 4 view navigation, guarded DXF export, and drawing variable/save/purge tools: zoom_extents, zoom_window, zoom_to_entity, export_dxf, get_variables, set_system_variable, save_drawing, and purge_drawing.
+- Guarded file output policy enforcing absolute paths, matching extensions, overwrite checks, and repository root write protection.
+- Deferred export_pdf, export_image, and capture_view from Plan 4 to prioritize stable DXF export and robust path security.
+- Expanded manual smoke checklist for Plan 4 CAD tools (status: manual smoke pending).
+- Manual smoke checklist covers Plan 2 core CAD operations, Plan 3 CAD operations (pending), Plan 4 drawing operations (pending), and the existing text translation workflow.
 
 Notes:
 

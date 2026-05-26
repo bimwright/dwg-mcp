@@ -10,7 +10,7 @@
   <a href="https://github.com/bimwright/dwg-mcp/actions/workflows/build.yml"><img src="https://github.com/bimwright/dwg-mcp/actions/workflows/build.yml/badge.svg" alt="build" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="license" /></a>
   <a href="#phien-ban-autocad-ho-tro"><img src="https://img.shields.io/badge/AutoCAD-2022--2027-186BFF" alt="AutoCAD 2022-2027" /></a>
-  <a href="#cong-cu"><img src="https://img.shields.io/badge/MCP-32%20default%20%2B%20optional-6C47FF" alt="MCP tools" /></a>
+  <a href="#cong-cu"><img src="https://img.shields.io/badge/MCP-35%20default%20%2B%20optional-6C47FF" alt="MCP tools" /></a>
 </p>
 
 <p align="center">
@@ -174,7 +174,7 @@ Dung `--read-only` de chi mo tool doc/routing, cong them ToolBaker read tools ne
 
 ## Cong cu
 
-Mặc định server expose 32 tool: query, modify, routing/meta, và batch. Các toolset tùy chọn ToolBaker, annotation, block, và dimension được kích hoạt qua `--toolsets`, cùng với `dwg_send_code` nâng tổng diện tích bề mặt MCP lên 52 tool.
+Mặc định server expose 35 tool: query, modify, routing/meta, batch, và view. Các toolset tùy chọn ToolBaker, annotation, block, dimension, export, và drawing được kích hoạt qua `--toolsets`, cùng với `dwg_send_code` nâng tổng diện tích bề mặt MCP lên 60 tool.
 
 CAD tool chay tren active document hien tai cua AutoCAD target dang chon. Entity input va entity id tra ve dung AutoCAD hex handle, vi du `7F5AD`, do tool selection, creation, hoac properties tra ve. Creation, copy, offset, va modify response identify entity tao/sua bang hex handle.
 
@@ -215,6 +215,9 @@ Plan 2 query expansion chi quet model space: `dwg_query_entities`, `dwg_count_en
 | `dwg_switch_target` | Pin server sang AutoCAD `2022` den `2027` |
 | `dwg_batch_execute` | Chay nhieu wire command noi bo nhu mot logical batch |
 | `dwg_send_code` | **Chi opt-in.** Chay C# sau khi bat flag/env server va dong y phia AutoCAD bang `MCPENABLECODE` |
+| `dwg_zoom_extents` | Zoom đến giới hạn của viewport bản vẽ |
+| `dwg_zoom_window` | Zoom viewport đến một cửa sổ được xác định bởi hai điểm góc |
+| `dwg_zoom_to_entity` | Zoom viewport đến giới hạn của một entity cụ thể theo handle |
 
 ToolBaker la toolset tuy chon:
 
@@ -255,13 +258,38 @@ Các tool Dimension (Kích thước) tùy chọn hiển thị khi toolset `dimen
 | `dwg_create_radial_dimension` | Tạo kích thước bán kính (Radial Dimension) cho đường tròn hoặc cung tròn |
 | `dwg_create_diameter_dimension` | Tạo kích thước đường kính (Diametric Dimension) cho đường tròn hoặc cung tròn |
 
+Các tool Export tùy chọn hiển thị khi toolset `export` được bật:
+
+| Tool | Mục đích |
+|------|----------|
+| `dwg_export_dxf` | Xuất bản vẽ ra file DXF (được bảo vệ bởi chính sách đường dẫn đầu ra) |
+
+Các tool Drawing tùy chọn hiển thị khi toolset `drawing` được bật:
+
+| Tool | Mục đích |
+|------|----------|
+| `dwg_get_variables` | Đọc giá trị hiện tại của danh sách các biến hệ thống AutoCAD |
+| `dwg_set_system_variable` | Thiết lập giá trị cho một biến hệ thống AutoCAD |
+| `dwg_save_drawing` | Lưu bản vẽ hiện tại ra file (yêu cầu confirm=true) |
+| `dwg_purge_drawing` | Purge các đối tượng không sử dụng (blocks, layers, styles) (hỗ trợ dry_run=true, thực tế purge cần confirm=true) |
+
+### Chính sách đường dẫn đầu ra (Output Path Policy)
+Tất cả các hoạt động xuất/lưu file được kiểm soát nghiêm ngặt bởi một chính sách bảo vệ:
+- Đường dẫn đầu ra phải là đường dẫn tuyệt đối.
+- Phần mở rộng của file phải khớp chính xác (ví dụ `.dxf` cho xuất DXF).
+- Không tự động ghi đè file hiện có trừ khi có `overwrite_existing=true`.
+- Từ chối ghi đè vào thư mục gốc của repository trừ khi có `allow_repo_output=true`.
+
 ### Các Toolset tùy chọn và Hành vi Read-Only
 
-Theo mặc định, chỉ có các toolset `query`, `modify`, và `meta` được bật. Bạn có thể bật các toolset khác bằng tham số `--toolsets` (ví dụ: `--toolsets all` hoặc `--toolsets query,modify,meta,annotation,block,dimension`).
+Theo mặc định, chỉ có các toolset `query`, `modify`, `meta`, và `view` được bật. Bạn có thể bật các toolset khác bằng tham số `--toolsets` (ví dụ: `--toolsets all` hoặc `--toolsets query,modify,meta,view,annotation,block,dimension,export,drawing`).
 
-- **Hành vi Read-Only (`--read-only`)**: Khi chế độ read-only được kích hoạt, tất cả các toolset có khả năng chỉnh sửa (`modify`, `code`, `annotation`, `dimension`) sẽ bị vô hiệu hóa hoàn toàn.
+- **Hành vi Read-Only (`--read-only`)**: Khi chế độ read-only được kích hoạt, tất cả các toolset có khả năng chỉnh sửa (`modify`, `code`, `annotation`, `dimension`, `export`, và `drawing` write tools) sẽ bị vô hiệu hóa hoàn toàn.
 - **Phân tách Toolset Block**: Toolset `block` được phân tách thành các công cụ read-only và write-capable. Nếu `--read-only` được bật, các công cụ `dwg_list_blocks` và `dwg_get_block_attributes` vẫn hoạt động bình thường để kiểm tra thông tin, nhưng các công cụ chỉnh sửa (`dwg_insert_block`, `dwg_set_block_attributes`, `dwg_explode_block`) sẽ bị loại bỏ.
-- **Hoãn hỗ trợ Angular Dimension**: Lưu ý rằng phiên bản hiện tại chỉ hỗ trợ các loại kích thước tuyến tính (linear), song song (aligned), bán kính (radial), và đường kính (diameter). Kích thước góc (angular dimensions) tạm thời bị hoãn và chưa được thực hiện.
+- **View Navigation và Read-Only**: Toolset `view` mặc định bật và giữ lại các công cụ zoom (`dwg_zoom_extents`, `dwg_zoom_window`, `dwg_zoom_to_entity`) ở chế độ read-only, loại bỏ tool capture_view tạm hoãn.
+- **Drawing Operations và Read-Only**: Toolset `drawing` giữ lại `dwg_get_variables` ở chế độ read-only, nhưng loại bỏ `dwg_set_system_variable`, `dwg_save_drawing`, và `dwg_purge_drawing`.
+- **Hoãn hỗ trợ Angular Dimension**: Kích thước góc (angular dimensions) tạm thời bị hoãn và chưa được thực hiện.
+- **Tạm hoãn các công cụ xuất/chụp ảnh khác**: `dwg_export_pdf`, `dwg_export_image`, và `dwg_capture_view` tạm thời bị hoãn để đảm bảo độ tin cậy tuyệt đối của xuất bản vẽ.
 
 ### Checklist smoke thu cong
 
@@ -277,16 +305,28 @@ Trong scratch DWG:
 8. Doi color reserved curve bang `dwg_change_color`, sau do offset curve do bang `dwg_offset_entities` va xac nhan generated handle tra ve la hex handle.
 9. Xac nhan workflow dich text cu van chay: chon scratch text, chay `dwg_get_selected_texts`, roi rewrite bang `dwg_translate_and_rewrite`.
 
-### Checklist smoke thủ công cho Plan 3 (Đang chờ kiểm tra thực tế)
+### Plan 3 Manual Smoke Checklist (Manual Smoke Pending)
 
 Kiểm tra smoke thủ công cho các công cụ annotation, block, và dimension của Plan 3 hiện tại **đang chờ** chạy thực tế trên AutoCAD (manual smoke pending), nhưng các kịch bản sau đã được thiết kế sẵn:
 
 1. Tạo text, mtext, leader, và table trong scratch DWG với `dwg_create_text`, `dwg_create_mtext`, `dwg_create_leader`, và `dwg_create_table`.
 2. Liệt kê định nghĩa block với `dwg_list_blocks`.
 3. Chèn một block đã biết từ bản vẽ hoặc đường dẫn DWG bên ngoài với `dwg_insert_block`.
-4. Đọc và ghi các thuộc tính block reference với `dwg_get_block_attributes` và `dwg_set_block_attributes`.
+4. Đọc và ghi các thuộc tính block reference với `dwg_get_block_attributes` and `dwg_set_block_attributes`.
 5. Phá vỡ (explode) một block reference với `dwg_explode_block`.
 6. Tạo kích thước linear, aligned, radial, và diameter với `dwg_create_linear_dimension`, `dwg_create_aligned_dimension`, `dwg_create_radial_dimension`, và `dwg_create_diameter_dimension`; xác nhận validator cho projected-distance hoạt động đúng như mong đợi.
+
+### Plan 4 Manual Smoke Checklist (Manual Smoke Pending)
+
+Kiểm tra smoke thủ công cho các công cụ view, export và drawing của Plan 4 hiện tại **đang chờ** chạy thực tế trên AutoCAD (manual smoke pending), nhưng các kịch bản sau đã được thiết kế sẵn:
+
+1. Chạy `dwg_zoom_extents`.
+2. Chạy `dwg_zoom_window` với toạ độ cụ thể.
+3. Zoom đến một entity với `dwg_zoom_to_entity` sử dụng handle.
+4. Đọc biến bản vẽ với `dwg_get_variables`.
+5. Xuất bản vẽ ra dxf với `dwg_export_dxf`.
+6. Chạy `dwg_purge_drawing` với `dry_run=true`, rồi với `confirm=true` (chỉ chạy thử trên bản vẽ copy bỏ đi).
+7. Chạy `dwg_save_drawing` với `confirm=true` (chỉ chạy thử trên bản vẽ copy bỏ đi).
 
 ### Migration tu ten tool 0.1.x
 
