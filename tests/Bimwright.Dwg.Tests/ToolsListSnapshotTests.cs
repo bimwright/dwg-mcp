@@ -104,6 +104,15 @@ namespace Bimwright.Dwg.Tests
         }
 
         [Fact]
+        public void SetBlockAttributesWrapperForwardsStrictTagsParameter()
+        {
+            var method = typeof(BlockWriteTools).GetMethod(nameof(BlockWriteTools.SetBlockAttributes));
+
+            Assert.NotNull(method);
+            Assert.Equal(new[] { "handle", "attributes", "strict_tags" }, method.GetParameters().Select(p => p.Name).ToArray());
+        }
+
+        [Fact]
         public void BlockToolClassesSplitReadOnlyAndWriteSurfaces()
         {
             var assembly = typeof(QueryTools).Assembly;

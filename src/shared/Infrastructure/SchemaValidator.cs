@@ -315,7 +315,8 @@ namespace Bimwright.Dwg.Plugin
 
         public static readonly CommandSchema SetBlockAttributes = CommandSchema.Object(
             SchemaProperty.Required("handle", JTokenType.String),
-            SchemaProperty.Required("attributes", JTokenType.Object));
+            SchemaProperty.Required("attributes", JTokenType.Object),
+            SchemaProperty.Optional("strict_tags", JTokenType.Boolean));
 
         public static readonly CommandSchema ExplodeBlock = CommandSchema.Object(
             SchemaProperty.Required("handle", JTokenType.String));

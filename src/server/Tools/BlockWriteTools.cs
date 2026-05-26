@@ -49,7 +49,8 @@ namespace Bimwright.Dwg.Server.Tools
             "Set attribute values on a block reference identified by handle. attributes is a JSON object.")]
         public static Task<string> SetBlockAttributes(
             [Description("AutoCAD handle of the block reference.")] string handle,
-            [Description("JSON object of attribute tag/value pairs.")] string attributes)
+            [Description("JSON object of attribute tag/value pairs.")] string attributes,
+            [Description("When true, missing attribute tags are reported per tag.")] bool strict_tags = false)
         {
             if (!TryParseJsonObject(attributes, "attributes", out var attributesObject, out var attributesError))
             {
@@ -61,6 +62,7 @@ namespace Bimwright.Dwg.Server.Tools
                 ["handle"] = handle,
                 ["attributes"] = attributesObject
             };
+            if (strict_tags) request["strict_tags"] = true;
 
             return ToolGateway.LoggedCall("set_block_attributes", request, request);
         }

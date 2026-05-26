@@ -20,7 +20,7 @@ namespace Bimwright.Dwg.Tests
         [Theory]
         [InlineData("GetBlockAttributes", "get_block_attributes", "{\"handle\":\"1A2B\"}")]
         [InlineData("InsertBlock", "insert_block", "{\"block_name\":\"VALVE\",\"insertion_point\":{\"x\":10,\"y\":20},\"block_path\":\"C:\\\\Blocks\\\\valve.dwg\",\"scale\":1.25,\"rotation\":45,\"attributes\":{\"TAG\":\"V-101\"}}")]
-        [InlineData("SetBlockAttributes", "set_block_attributes", "{\"handle\":\"1A2B\",\"attributes\":{\"TAG\":\"V-102\",\"SERVICE\":\"CW\"}}")]
+        [InlineData("SetBlockAttributes", "set_block_attributes", "{\"handle\":\"1A2B\",\"attributes\":{\"TAG\":\"V-102\",\"SERVICE\":\"CW\"},\"strict_tags\":true}")]
         [InlineData("ExplodeBlock", "explode_block", "{\"handle\":\"1A2B\"}")]
         public void Validate_BlockSchemasAcceptValidShapes(
             string schemaName,
@@ -49,6 +49,16 @@ namespace Bimwright.Dwg.Tests
             parameters.Remove(fieldName);
 
             AssertMissingRequiredField(commandName, parameters, schema, fieldName);
+        }
+
+        [Fact]
+        public void Validate_SetBlockAttributesSchemaIncludesOptionalStrictTags()
+        {
+            var schema = GetCommandSchema("SetBlockAttributes");
+
+            var strictTags = Assert.Single(schema.Properties, property => property.Name == "strict_tags");
+            Assert.False(strictTags.IsRequired);
+            Assert.Contains(JTokenType.Boolean, strictTags.AcceptedTypes);
         }
 
         private static CommandSchema GetCommandSchema(string name)
