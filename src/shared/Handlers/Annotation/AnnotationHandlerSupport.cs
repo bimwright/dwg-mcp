@@ -15,28 +15,39 @@ namespace Bimwright.Dwg.Plugin.Handlers
             Entity entity,
             string failurePrefix)
         {
-            if (!CreatePrimitiveInput.TryReadEntityOptions(
-                obj,
-                parameters,
-                out var layer,
-                out var hasLayer,
-                out var colorIndex,
-                out var hasColorIndex,
-                out var optionsError))
+            var ownsEntity = true;
+            try
             {
-                return CommandResult.Fail(optionsError);
-            }
-
-            return Append(doc, entity, failurePrefix, tx =>
-            {
-                if (!CreatePrimitiveInput.TryEnsureLayer(doc.Database, tx, layer, hasLayer, colorIndex, out var layerError))
+                if (!CreatePrimitiveInput.TryReadEntityOptions(
+                    obj,
+                    parameters,
+                    out var layer,
+                    out var hasLayer,
+                    out var colorIndex,
+                    out var hasColorIndex,
+                    out var optionsError))
                 {
-                    return layerError;
+                    return CommandResult.Fail(optionsError);
                 }
 
-                CreatePrimitiveInput.ApplyEntityOptions(entity, layer, hasLayer, colorIndex, hasColorIndex);
-                return null;
-            });
+                return Append(doc, entity, failurePrefix, () => ownsEntity = false, tx =>
+                {
+                    if (!CreatePrimitiveInput.TryEnsureLayer(doc.Database, tx, layer, hasLayer, colorIndex, out var layerError))
+                    {
+                        return layerError;
+                    }
+
+                    CreatePrimitiveInput.ApplyEntityOptions(entity, layer, hasLayer, colorIndex, hasColorIndex);
+                    return null;
+                });
+            }
+            finally
+            {
+                if (ownsEntity)
+                {
+                    entity.Dispose();
+                }
+            }
         }
 
         internal static CommandResult AppendWithLayerOption(
@@ -45,30 +56,42 @@ namespace Bimwright.Dwg.Plugin.Handlers
             Entity entity,
             string failurePrefix)
         {
-            var layer = obj["layer"]?.Value<string>();
-            var hasLayer = obj["layer"] != null && obj["layer"].Type != JTokenType.Null;
-
-            return Append(doc, entity, failurePrefix, tx =>
+            var ownsEntity = true;
+            try
             {
-                if (hasLayer &&
-                    !CadLayerService.TryEnsureLayer(doc.Database, tx, layer, 7, out _, out _, out var layerError))
-                {
-                    return layerError;
-                }
+                var layer = obj["layer"]?.Value<string>();
+                var hasLayer = obj["layer"] != null && obj["layer"].Type != JTokenType.Null;
 
-                if (hasLayer)
+                return Append(doc, entity, failurePrefix, () => ownsEntity = false, tx =>
                 {
-                    entity.Layer = layer;
-                }
+                    if (hasLayer &&
+                        !CadLayerService.TryEnsureLayer(doc.Database, tx, layer, 7, out _, out _, out var layerError))
+                    {
+                        return layerError;
+                    }
 
-                return null;
-            });
+                    if (hasLayer)
+                    {
+                        entity.Layer = layer;
+                    }
+
+                    return null;
+                });
+            }
+            finally
+            {
+                if (ownsEntity)
+                {
+                    entity.Dispose();
+                }
+            }
         }
 
         private static CommandResult Append(
             Document doc,
             Entity entity,
             string failurePrefix,
+            Action transferOwnership,
             Func<Transaction, string> configure)
         {
             var db = doc.Database;
@@ -83,6 +106,8 @@ namespace Bimwright.Dwg.Plugin.Handlers
                     }
 
                     CadPrimitiveWriter.AppendToCurrentSpace(db, tx, entity);
+                    // AutoCAD transaction owns the entity after AddNewlyCreatedDBObject.
+                    transferOwnership();
                     var described = CadEntityProperties.Describe(entity, tx, includeGeometry: true);
                     var result = new
                     {
