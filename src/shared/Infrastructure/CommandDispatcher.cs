@@ -66,6 +66,9 @@ namespace Bimwright.Dwg.Plugin
                 { "collapse_and_rewrite",    new CollapseAndRewriteHandler() },
                 { "translate_and_rewrite",   new TranslateAndRewriteHandler() },
                 { "list_baked_tools",        new ListBakedToolsHandler() },
+                { "zoom_extents",            new ZoomExtentsHandler() },
+                { "zoom_window",             new ZoomWindowHandler() },
+                { "zoom_to_entity",          new ZoomToEntityHandler() },
             };
             _commands.Add("apply_bake", new ApplyBakeSuggestionHandler((cmd, parameters) => ValidateCommand(cmd, parameters, out _)));
             _commands.Add("batch_execute", new BatchExecuteHandler(ExecuteCommand));
