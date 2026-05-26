@@ -10,6 +10,55 @@
 
 ---
 
+## Implementation Handoff Notes
+
+Status captured on 2026-05-26 from branch `feature/dwg-tool-plans`.
+
+Plans 1-2 were completed before this plan began. This plan has been implemented task-by-task using the Superpowers subagent/reviewer workflow: one worker implements a bounded task, then a spec reviewer and a code-quality reviewer check it before moving on.
+
+Completed commits for this plan:
+- `0b33256` `test(cad): add annotation block dimension contracts`
+- `849c31e` `test(cad): add block read-only wrapper contract`
+- `318b689` `test(cad): add block read-only registration contract`
+- `b6e5e12` `test(cad): expand plan3 registration contracts`
+- `e47aaed` `test(cad): make plan3 registration contracts exact`
+- `fb1dcac` `test(cad): cover plan3 tool surfaces and optional registration`
+- `1335279` `feat(cad): register annotation block dimension toolsets`
+- `c9f1e63` `feat(annotation): add creation handlers`
+- `ca78254` `fix(annotation): address task 3 review blockers`
+- `bb80851` `fix(annotation): dispose unappended entities`
+- `ee44e8e` `fix(annotation): dispose factory allocation failures`
+- `54ae4b8` `feat(blocks): add block inspection and mutation handlers`
+- `43f9259` `fix(blocks): harden block import and explode ownership`
+- `a9c75a4` `feat(dimensions): add safe dimension creation handlers`
+- `e991b0b` `fix(dimensions): use explicit linear rotation`
+
+Current completion state:
+- Task 1 is complete. The RED contract suite now covers exact wrapper surfaces, exact registration type sets, Plan 3 toolsets being default-off, read-only block split, and existing optional toolset regressions for `code` and `toolbaker`.
+- Task 2 is complete. `annotation`, `block`, and `dimension` are known/default-off toolsets. `Program.ResolveToolTypesForRegistration(HashSet<string>, bool)` drives production registration and is unit-tested. Block wrappers are split into read-only `BlockTools` and write-capable `BlockWriteTools`.
+- Task 3 is complete. Annotation handlers create `DBText`, `MText`, `MLeader`, and `Table`, with fixed table matrix validation. The implementation was hardened after review for `MLeader.MText` clone disposal, unappended entity disposal in `AnnotationHandlerSupport`, and factory-side DBObject ownership before successful return.
+- Task 4 is complete. Block handlers cover listing definitions, reading/setting attributes, insertion, and explode. Follow-up fixes hardened `block_path` to require a fully-qualified existing path before `ReadDwgFile`, and kept explode cleanup ownership until after `AddNewlyCreatedDBObject` succeeds.
+- Task 5 is partially complete. Dimension handlers and validators exist for linear, aligned, radial, and diameter dimensions. `create_linear_dimension` now has explicit `rotation` degrees instead of using start/end angle. Remaining quality blocker: linear dimension validation must reject zero projected measurement along the requested rotation axis, for example `start=(0,0)`, `end=(0,10)`, `rotation=0`. A worker has been asked to add projected-distance validation and tests, but no fix commit has landed yet in this checkpoint.
+- Task 6 has not started. Docs/smoke notes still need to be updated after Task 5 passes review.
+
+Verification already observed:
+- Task 2 focused tests: `50/50` passed; regression filter: `64/64` passed.
+- Task 3 final verification: `dotnet build src\plugin-acad24\Bimwright.Dwg.Plugin.Acad24.csproj -c Debug` passed; annotation/source suite passed `31/31`; `git diff --check` passed.
+- Task 4 final verification: plugin acad24 build passed; block focused suite passed `22/22`.
+- Task 5 current verification before the remaining projected-distance blocker: validator tests passed `20/20`; plugin acad24 build passed; dimension focused suite passed `48/48`.
+
+Important review constraints for the next agent:
+- Do not treat Task 5 as complete until projected-distance validation is implemented and reviewed.
+- After fixing Task 5, rerun:
+  ```powershell
+  dotnet build src\plugin-acad24\Bimwright.Dwg.Plugin.Acad24.csproj -c Debug
+  dotnet test tests\Bimwright.Dwg.Tests\Bimwright.Dwg.Tests.csproj -c Debug --filter "FullyQualifiedName~DimensionSchemaTests|FullyQualifiedName~ToolsListSnapshotTests|FullyQualifiedName~DimensionRequestValidatorTests|FullyQualifiedName~DimensionHandlerSourceTests"
+  git diff --check
+  ```
+- Then complete Task 6 docs/smoke notes and run the broader Plan 3 verification before requesting final review.
+
+---
+
 ## Dependencies
 
 This plan assumes Plans 1-2 have landed with:
