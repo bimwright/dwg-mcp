@@ -64,6 +64,14 @@ namespace Bimwright.Dwg.Tests
                 "dwg_list_layers",
                 "dwg_move_entities",
                 "dwg_offset_entities",
+                "dwg_pid_add_equipment_tag",
+                "dwg_pid_add_flow_arrow",
+                "dwg_pid_add_line_number",
+                "dwg_pid_draw_pipe",
+                "dwg_pid_insert_symbol",
+                "dwg_pid_list_categories",
+                "dwg_pid_list_symbols",
+                "dwg_pid_setup_layers",
                 "dwg_purge_drawing",
                 "dwg_query_entities",
                 "dwg_rotate_entities",
@@ -282,6 +290,11 @@ namespace Bimwright.Dwg.Tests
             var drawingReadOnlyTypeNames = InvokeToolTypeResolver(method, new[] { "drawing" }, readOnly: true);
             Assert.Equal(new[] { "DrawingTools", "DrawingWriteTools" }, drawingWriteTypeNames);
             Assert.Equal(new[] { "DrawingTools" }, drawingReadOnlyTypeNames);
+
+            var pidWriteTypeNames = InvokeToolTypeResolver(method, new[] { "pid" }, readOnly: false);
+            var pidReadOnlyTypeNames = InvokeToolTypeResolver(method, new[] { "pid" }, readOnly: true);
+            Assert.Equal(new[] { "PidTools" }, pidWriteTypeNames);
+            Assert.Equal(Array.Empty<string>(), pidReadOnlyTypeNames);
         }
 
         private static string[] GetMcpToolNames(Type type)
