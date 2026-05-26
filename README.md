@@ -165,7 +165,7 @@ Pin a specific AutoCAD instance with a 4-digit target year:
 }
 ```
 
-Use `--read-only` to expose only query/routing tools plus ToolBaker read tools if that toolset is enabled. Use `--toolsets query,modify,meta,toolbaker` or `--toolsets all` to opt into optional ToolBaker tools.
+Use `--read-only` to expose only query/routing tools plus ToolBaker read tools if that toolset is enabled. Use `--toolsets query,modify,meta,toolbaker,pid` or `--toolsets all` to opt into optional ToolBaker and P&ID toolsets.
 
 `dwg_send_code` is hidden from the default tool list. To expose it, opt in on both sides:
 
@@ -186,7 +186,7 @@ Then run `MCPENABLECODE` inside AutoCAD for the current plugin session. `MCPDISA
 
 ## Tools
 
-Default startup exposes 35 tools: query, modify, routing/meta, batch, and view. Optional ToolBaker, annotation, block, dimension, export, and drawing toolsets, enabled through `--toolsets`, and `dwg_send_code` bring the backed MCP surface to 60 tools.
+Default startup exposes 35 tools: query, modify, routing/meta, batch, and view. Optional ToolBaker, annotation, block, dimension, export, drawing, and P&ID (`pid`) toolsets, enabled through `--toolsets`, and `dwg_send_code` bring the backed MCP surface to 68 tools.
 
 General CAD tools operate on the current active document in the selected AutoCAD target. Entity inputs and returned entity IDs use AutoCAD hex handles, such as `7F5AD`, returned by selection, creation, or property tools. Creation, copy, offset, and modify responses identify generated or modified entities by hex handle.
 
@@ -285,6 +285,19 @@ Optional Drawing tools are exposed when the `drawing` toolset is enabled:
 | `dwg_save_drawing` | Save the current drawing to a file (requires confirm=true) |
 | `dwg_purge_drawing` | Purge unused named objects (blocks, layers, styles) (supports dry_run=true, actual purge requires confirm=true) |
 
+Optional P&ID tools are exposed when the `pid` toolset is enabled:
+
+| Tool | Purpose |
+|------|---------|
+| `dwg_pid_setup_layers` | Setup P&ID standard layers and optionally WWTP-specific layers |
+| `dwg_pid_list_categories` | List standard fallback P&ID symbol categories |
+| `dwg_pid_list_symbols` | List supported P&ID symbols for a category |
+| `dwg_pid_draw_pipe` | Draw piping between start and end coordinates on a selected layer |
+| `dwg_pid_insert_symbol` | Insert a procedural symbol (pump, tank, valve, generic) |
+| `dwg_pid_add_flow_arrow` | Draw a flow arrow annotation polyline pointing in a direction vector |
+| `dwg_pid_add_equipment_tag` | Add equipment tag text at a position on the annotation layer |
+| `dwg_pid_add_line_number` | Add pipe line number text at a position on the annotation layer |
+
 ### Output Path Policy
 All export operations are strictly guarded by a path policy that enforces:
 - Output paths must be absolute.
@@ -296,7 +309,9 @@ All export operations are strictly guarded by a path policy that enforces:
 
 By default, only `query`, `modify`, `meta`, and `view` toolsets are enabled. You can opt-in to others using the `--toolsets` flag (e.g., `--toolsets all` or `--toolsets query,modify,meta,view,annotation,block,dimension,export,drawing`).
 
-- **Read-Only Mode (`--read-only`)**: When read-only mode is active, all write-capable toolsets (`modify`, `code`, `annotation`, `dimension`, `export`, and `drawing` write tools) are completely disabled.
+- **Read-Only Mode (`--read-only`)**: When read-only mode is active, all write-capable toolsets (`modify`, `code`, `annotation`, `dimension`, `export`, `drawing` write tools, and `pid`) are completely disabled.
+- **P&ID Toolset (`pid`)**: The `pid` toolset is default-off and write-capable, so it is completely stripped in read-only mode.
+- **P&ID Exclusions**: The procedural-first P&ID toolset does not scan `C:\PIDv4-CTO` at runtime, has no dependencies on ezdxf, does not load or invoke the `pid_tools.lsp` LISP file, does not call `SendStringToExecute`, and does not support external DWG symbol libraries or automated ISA-grade symbol replacements (which are deferred).
 - **Block Toolset Split**: The `block` toolset is split into read-only and write-capable tools. If `--read-only` is active, `dwg_list_blocks` and `dwg_get_block_attributes` are still available (safe read inspection), but the mutation/creation tools (`dwg_insert_block`, `dwg_set_block_attributes`, `dwg_explode_block`) are stripped.
 - **View Navigation and Read-Only**: The `view` toolset is default-on and retains the viewport navigation tools (`dwg_zoom_extents`, `dwg_zoom_window`, `dwg_zoom_to_entity`) in read-only mode, but strips the deferred `dwg_capture_view` tool.
 - **Drawing Operations and Read-Only**: The `drawing` toolset retains `dwg_get_variables` in read-only mode, but strips `dwg_set_system_variable`, `dwg_save_drawing`, and `dwg_purge_drawing`.
@@ -339,6 +354,19 @@ The manual smoke testing for Plan 4 view navigation, dxf export, and drawing var
 5. Export drawing to dxf with `dwg_export_dxf`.
 6. Run `dwg_purge_drawing` with `dry_run=true`, then with `confirm=true` (on a copied/disposable DWG only).
 7. Run `dwg_save_drawing` with `confirm=true` (on a copied/disposable DWG only).
+
+### Plan 5 Manual Smoke Checklist (Manual Smoke Pending)
+
+The manual smoke testing for Plan 5 WWTP P&ID tools is currently **pending** AutoCAD execution, but the following scenarios are designed:
+
+1. Setup layers with `dwg_pid_setup_layers`, optionally with `include_wwtp_layers=true` and verify that the correct standard and wastewater layers are created.
+2. List categories with `dwg_pid_list_categories`.
+3. List symbols with `dwg_pid_list_symbols` for a category such as `PUMPS-BLOWERS` or `VALVES`.
+4. Draw process piping with `dwg_pid_draw_pipe`.
+5. Insert procedural P&ID symbols with `dwg_pid_insert_symbol` for `PUMP-METERING`, `VA-KNIFEGATE`, etc., and verify handles are returned.
+6. Add flow arrow annotation with `dwg_pid_add_flow_arrow`.
+7. Add equipment tag text with `dwg_pid_add_equipment_tag`.
+8. Add line number text with `dwg_pid_add_line_number`.
 
 ### Migration from 0.1.x tool names
 

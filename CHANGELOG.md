@@ -29,11 +29,16 @@ Added:
 - Guarded file output policy enforcing absolute paths, matching extensions, overwrite checks, and repository root write protection.
 - Deferred export_pdf, export_image, and capture_view from Plan 4 to prioritize stable DXF export and robust path security.
 - Expanded manual smoke checklist for Plan 4 CAD tools (status: manual smoke pending).
-- Manual smoke checklist covers Plan 2 core CAD operations, Plan 3 CAD operations (pending), Plan 4 drawing operations (pending), and the existing text translation workflow.
+- Plan 5 Wastewater Treatment Plant P&ID tools: setup layers, list categories, list symbols, draw piping, insert symbol (pump, tank, valve, generic), add flow arrow, add equipment tag, add line number.
+- Procedural rendering of P&ID symbols natively in C#/.NET 8 AutoCAD transactions without external ezdxf or `pid_tools.lsp` dependencies.
+- Static catalog and config for environment variables supporting `procedural` and `auto` symbol modes, and rejecting `external` mode.
+- Complete read-only mode stripping for the `pid` toolset.
+- Expanded manual smoke checklist for Plan 5 CAD tools (status: manual smoke pending).
+- Manual smoke checklist covers Plan 2 core CAD operations, Plan 3 CAD operations (pending), Plan 4 drawing operations (pending), Plan 5 P&ID operations (pending), and the existing text translation workflow.
 
 Notes:
 
-- Default startup exposes 32 tools. Optional `code`, `toolbaker`, `annotation`, `block`, and `dimension` toolsets bring the backed MCP surface to 52 tools.
+- Default startup exposes 35 tools. Optional `code`, `toolbaker`, `annotation`, `block`, `dimension`, `export`, `drawing`, and `pid` toolsets bring the backed MCP surface to 68 tools.
 - Plan 2 query expansion is model-space only. `dwg_select_by_layer` and `dwg_select_by_type` return handle lists and do not change AutoCAD pickfirst selection.
 - `dwg_send_code` still requires both server opt-in (`--enable-send-code` or `BIMWRIGHT_DWG_ENABLE_SEND_CODE=1`) and AutoCAD-side `MCPENABLECODE`.
 - Server/tests can pass without release-building every AutoCAD shell. Shipping a year requires matching Autodesk managed assemblies on the release machine.

@@ -138,6 +138,14 @@ _commands = new Dictionary<string, IAcadCommand>
     { "set_system_variable",     new SetSystemVariableHandler() },
     { "save_drawing",            new SaveDrawingHandler() },
     { "purge_drawing",           new PurgeDrawingHandler() },
+    { "pid_setup_layers",        new PidSetupLayersHandler() },
+    { "pid_list_categories",     new PidListCategoriesHandler() },
+    { "pid_list_symbols",        new PidListSymbolsHandler() },
+    { "pid_draw_pipe",           new PidDrawPipeHandler() },
+    { "pid_insert_symbol",       new PidInsertSymbolHandler() },
+    { "pid_add_flow_arrow",      new PidAddFlowArrowHandler() },
+    { "pid_add_equipment_tag",   new PidAddEquipmentTagHandler() },
+    { "pid_add_line_number",     new PidAddLineNumberHandler() },
 };
 _commands.Add("apply_bake", new ApplyBakeSuggestionHandler((cmd, p) => ValidateCommand(cmd, p, out _)));
 _commands.Add("batch_execute", new BatchExecuteHandler(ExecuteCommand));
@@ -163,15 +171,18 @@ Toolsets are resolved by `DwgMcpConfig` and `ToolsetFilter`:
 | `view` | `dwg_zoom_extents`, `dwg_zoom_window`, `dwg_zoom_to_entity`, and deferred `dwg_capture_view` |
 | `export` | `dwg_export_dxf`, and deferred `dwg_export_pdf`, `dwg_export_image` |
 | `drawing` | `dwg_get_variables`, `dwg_set_system_variable`, `dwg_save_drawing`, `dwg_purge_drawing` |
+| `pid` | `dwg_pid_setup_layers`, `dwg_pid_list_categories`, `dwg_pid_list_symbols`, `dwg_pid_draw_pipe`, `dwg_pid_insert_symbol`, `dwg_pid_add_flow_arrow`, `dwg_pid_add_equipment_tag`, `dwg_pid_add_line_number` |
 
-`--read-only` or `BIMWRIGHT_DWG_READ_ONLY=1` removes write-capable toolsets/methods completely (`modify`, `code`, `annotation`, `dimension`, `dwg_batch_execute`, ToolBaker write tools, `export` tools, and `drawing` write tools).
+`--read-only` or `BIMWRIGHT_DWG_READ_ONLY=1` removes write-capable toolsets/methods completely (`modify`, `code`, `annotation`, `dimension`, `dwg_batch_execute`, ToolBaker write tools, `export` tools, `drawing` write tools, and `pid` tools).
+- **P&ID Toolset (`pid`)**: The `pid` toolset is default-off and write-capable, so it is completely stripped in read-only mode.
+- **P&ID Exclusions**: The procedural-first P&ID toolset has zero runtime dependencies on `C:\PIDv4-CTO` path scanning, `pid_tools.lsp`, ezdxf, or `SendStringToExecute`. It uses standard AutoCAD .NET transactions and native 2D geometry primitives.
 - **Block Toolset Split**: The `block` toolset splits registration between read-only `BlockTools` (`dwg_list_blocks`, `dwg_get_block_attributes`) and write-capable `BlockWriteTools` (`dwg_insert_block`, `dwg_set_block_attributes`, `dwg_explode_block`). In read-only mode, only the read-only wrappers are registered, preserving safe drawing inspection.
 - **View Navigation and Read-Only**: The `view` toolset is default-on and retains the viewport navigation tools (`dwg_zoom_extents`, `dwg_zoom_window`, `dwg_zoom_to_entity`) in read-only mode, but strips the deferred `dwg_capture_view` tool.
 - **Drawing Operations and Read-Only**: The `drawing` toolset retains `dwg_get_variables` in read-only mode, but strips `dwg_set_system_variable`, `dwg_save_drawing`, and `dwg_purge_drawing`.
 - **Deferred Angular Dimensions**: The `dimension` toolset only registers linear, aligned, radial, and diametric dimension creators. Angular dimensions are deferred and not included in this release.
 - **Deferred File Export/Capture Tools**: The `dwg_export_pdf`, `dwg_export_image`, and `dwg_capture_view` tools have been deferred to ensure absolute reliability of drawing view captures and plot configurations.
 
-The default startup surface is 35 tools. Enabling the optional `code`, `toolbaker`, `annotation`, `block`, `dimension`, `export`, and `drawing` toolsets exposes the full 60 backed MCP tools.
+The default startup surface is 35 tools. Enabling the optional `code`, `toolbaker`, `annotation`, `block`, `dimension`, `export`, `drawing`, and `pid` toolsets exposes the full 68 backed MCP tools.
 
 Plan 2 entity query/select tools are model-space only. `dwg_select_by_layer` and `dwg_select_by_type` return handle lists and do not mutate AutoCAD pickfirst selection. Create, copy, offset, and modify handlers identify generated or modified entities with AutoCAD hex handles.
 
