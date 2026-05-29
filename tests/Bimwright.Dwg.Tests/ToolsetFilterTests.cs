@@ -20,7 +20,6 @@ namespace Bimwright.Dwg.Tests
             Assert.DoesNotContain("toolbaker", set);
             Assert.DoesNotContain("export", set);
             Assert.DoesNotContain("drawing", set);
-            Assert.DoesNotContain("pid", set);
         }
 
         [Fact]
@@ -120,47 +119,6 @@ namespace Bimwright.Dwg.Tests
             });
 
             Assert.Equal(new[] { "drawing", "query", "view" }, set.OrderBy(s => s).ToArray());
-        }
-
-        [Fact]
-        public void KnownToolsets_IncludePidButDefaultExcludesIt()
-        {
-            Assert.Contains("pid", ToolsetFilter.KnownToolsets);
-            Assert.DoesNotContain("pid", ToolsetFilter.DefaultOn);
-        }
-
-        [Fact]
-        public void Resolve_ExplicitPidExposesIt()
-        {
-            var set = ToolsetFilter.Resolve(new DwgMcpConfig
-            {
-                Toolsets = new List<string> { "pid" }
-            });
-
-            Assert.Contains("pid", set);
-        }
-
-        [Fact]
-        public void Resolve_AllIncludesPid()
-        {
-            var set = ToolsetFilter.Resolve(new DwgMcpConfig
-            {
-                Toolsets = new List<string> { "all" }
-            });
-
-            Assert.Contains("pid", set);
-        }
-
-        [Fact]
-        public void Resolve_ReadOnlyStripsPid()
-        {
-            var set = ToolsetFilter.Resolve(new DwgMcpConfig
-            {
-                Toolsets = new List<string> { "pid" },
-                ReadOnly = true
-            });
-
-            Assert.DoesNotContain("pid", set);
         }
     }
 }

@@ -168,13 +168,13 @@ De pin mot AutoCAD cu the, dung nam 4 chu so:
 }
 ```
 
-Dung `--read-only` de chi mo tool doc/routing, cong them ToolBaker read tools neu toolset nay duoc bat. Dung `--toolsets query,modify,meta,pid` (hoac `--toolsets all`) de bat toolset P&ID, hoac thiet lap bien moi truong `BIMWRIGHT_DWG_TOOLSETS=query,modify,meta,pid`.
+Dung `--read-only` de chi mo tool doc/routing, cong them ToolBaker read tools neu toolset nay duoc bat. Dung `--toolsets query,modify,meta,annotation` (hoac `--toolsets all`) de bat cac toolset tuy chon, hoac thiet lap bien moi truong `BIMWRIGHT_DWG_TOOLSETS=query,modify,meta,annotation`.
 
 ---
 
 ## Cong cu
 
-Mặc định server expose 35 tool: query, modify, routing/meta, batch, và view. Các toolset tùy chọn ToolBaker, annotation, block, dimension, export, drawing, và P&ID (`pid`) được kích hoạt qua `--toolsets`, cùng với `dwg_send_code` nâng tổng diện tích bề mặt MCP lên 68 tool.
+Mặc định server expose 35 tool: query, modify, routing/meta, batch, và view. Các toolset tùy chọn ToolBaker, annotation, block, dimension, export, và drawing được kích hoạt qua `--toolsets`, cùng với `dwg_send_code` nâng tổng diện tích bề mặt MCP lên 60 tool.
 
 CAD tool chay tren active document hien tai cua AutoCAD target dang chon. Entity input va entity id tra ve dung AutoCAD hex handle, vi du `7F5AD`, do tool selection, creation, hoac properties tra ve. Creation, copy, offset, va modify response identify entity tao/sua bang hex handle.
 
@@ -273,19 +273,6 @@ Các tool Drawing tùy chọn hiển thị khi toolset `drawing` được bật:
 | `dwg_save_drawing` | Lưu bản vẽ hiện tại ra file (yêu cầu confirm=true) |
 | `dwg_purge_drawing` | Purge các đối tượng không sử dụng (blocks, layers, styles) (hỗ trợ dry_run=true, thực tế purge cần confirm=true) |
 
-Các tool P&ID tùy chọn hiển thị khi toolset `pid` được bật:
-
-| Tool | Mục đích |
-|------|----------|
-| `dwg_pid_setup_layers` | Thiết lập các layer tiêu chuẩn P&ID và tùy chọn các layer xử lý nước thải WWTP |
-| `dwg_pid_list_categories` | Liệt kê các danh mục ký hiệu P&ID tiêu chuẩn |
-| `dwg_pid_list_symbols` | Liệt kê các ký hiệu P&ID được hỗ trợ trong danh mục |
-| `dwg_pid_draw_pipe` | Vẽ đường ống công nghệ/tiện ích giữa tọa độ đầu và cuối |
-| `dwg_pid_insert_symbol` | Chèn ký hiệu P&ID dạng procedural (bơm, bể, van, thiết bị chung) |
-| `dwg_pid_add_flow_arrow` | Vẽ ký hiệu mũi tên hướng dòng chảy |
-| `dwg_pid_add_equipment_tag` | Thêm văn bản tag thiết bị trên layer chú thích |
-| `dwg_pid_add_line_number` | Thêm văn bản số hiệu đường ống trên layer chú thích |
-
 ### Chính sách đường dẫn đầu ra (Output Path Policy)
 Tất cả các hoạt động xuất/lưu file được kiểm soát nghiêm ngặt bởi một chính sách bảo vệ:
 - Đường dẫn đầu ra phải là đường dẫn tuyệt đối.
@@ -295,11 +282,9 @@ Tất cả các hoạt động xuất/lưu file được kiểm soát nghiêm ng
 
 ### Các Toolset tùy chọn và Hành vi Read-Only
 
-Theo mặc định, chỉ có các toolset `query`, `modify`, `meta`, và `view` được bật. Bạn có thể bật các toolset khác bằng tham số `--toolsets` (ví dụ: `--toolsets all` hoặc `--toolsets query,modify,meta,view,annotation,block,dimension,export,drawing,pid`).
+Theo mặc định, chỉ có các toolset `query`, `modify`, `meta`, và `view` được bật. Bạn có thể bật các toolset khác bằng tham số `--toolsets` (ví dụ: `--toolsets all` hoặc `--toolsets query,modify,meta,view,annotation,block,dimension,export,drawing`).
 
-- **Hành vi Read-Only (`--read-only`)**: Khi chế độ read-only được kích hoạt, tất cả các toolset có khả năng chỉnh sửa (`modify`, `code`, `annotation`, `dimension`, `export`, `drawing` write tools, và `pid`) sẽ bị vô hiệu hóa hoàn toàn.
-- **Toolset P&ID (`pid`)**: Toolset `pid` mặc định tắt và có khả năng chỉnh sửa bản vẽ, vì vậy nó bị loại bỏ hoàn toàn trong chế độ read-only.
-- **Loại trừ P&ID**: Phiên bản P&ID dạng procedural này không quét thư mục `C:\PIDv4-CTO` khi chạy, không phụ thuộc vào ezdxf, không tải hoặc thực thi file LISP `pid_tools.lsp`, không gọi `SendStringToExecute`, và tạm hoãn hỗ trợ thư viện ký hiệu bên ngoài hay tự động thay thế ký hiệu chuẩn ISA.
+- **Hành vi Read-Only (`--read-only`)**: Khi chế độ read-only được kích hoạt, tất cả các toolset có khả năng chỉnh sửa (`modify`, `code`, `annotation`, `dimension`, `export`, và `drawing` write tools) sẽ bị vô hiệu hóa hoàn toàn.
 - **Phân tách Toolset Block**: Toolset `block` được phân tách thành các công cụ read-only và write-capable. Nếu `--read-only` được bật, các công cụ `dwg_list_blocks` và `dwg_get_block_attributes` vẫn hoạt động bình thường để kiểm tra thông tin, nhưng các công cụ chỉnh sửa (`dwg_insert_block`, `dwg_set_block_attributes`, `dwg_explode_block`) sẽ bị loại bỏ.
 - **View Navigation và Read-Only**: Toolset `view` mặc định bật và giữ lại các công cụ zoom (`dwg_zoom_extents`, `dwg_zoom_window`, `dwg_zoom_to_entity`) ở chế độ read-only, loại bỏ tool capture_view tạm hoãn.
 - **Drawing Operations và Read-Only**: Toolset `drawing` giữ lại `dwg_get_variables` ở chế độ read-only, nhưng loại bỏ `dwg_set_system_variable`, `dwg_save_drawing`, và `dwg_purge_drawing`.
@@ -342,19 +327,6 @@ Kiểm tra smoke thủ công cho các công cụ view, export và drawing của 
 5. Xuất bản vẽ ra dxf với `dwg_export_dxf`.
 6. Chạy `dwg_purge_drawing` with `dry_run=true`, rồi với `confirm=true` (chỉ chạy thử trên bản vẽ copy bỏ đi).
 7. Chạy `dwg_save_drawing` với `confirm=true` (chỉ chạy thử trên bản vẽ copy bỏ đi).
-
-### Plan 5 Manual Smoke Checklist (Manual Smoke Pending)
-
-Kiểm tra smoke thủ công cho các công cụ P&ID WWTP của Plan 5 hiện tại **đang chờ** chạy thực tế trên AutoCAD (manual smoke pending), nhưng các kịch bản sau đã được thiết kế sẵn:
-
-1. Thiết lập các layer với `dwg_pid_setup_layers`, tùy chọn `include_wwtp_layers=true` và xác nhận các layer P&ID tiêu chuẩn và xử lý nước thải được tạo ra thành công.
-2. Liệt kê danh mục với `dwg_pid_list_categories`.
-3. Liệt kê các ký hiệu với `dwg_pid_list_symbols` cho một danh mục (ví dụ `PUMPS-BLOWERS` hoặc `VALVES`).
-4. Vẽ đường ống công nghệ với `dwg_pid_draw_pipe`.
-5. Chèn ký hiệu P&ID dạng procedural với `dwg_pid_insert_symbol` cho `PUMP-METERING`, `VA-KNIFEGATE`, v.v. và xác nhận handle được trả về.
-6. Thêm ký hiệu mũi tên hướng dòng chảy với `dwg_pid_add_flow_arrow`.
-7. Thêm tag thiết bị với `dwg_pid_add_equipment_tag`.
-8. Thêm số hiệu đường ống với `dwg_pid_add_line_number`.
 
 ### Migration tu ten tool 0.1.x
 

@@ -4,7 +4,7 @@
 
 **Goal:** Expand the general CAD surface with entity query filters, additional 2D primitives, and basic entity transforms after the foundation slice has landed.
 
-**Architecture:** Reuse Plan 1 helpers in `src/shared/Cad`. Add separate server tool classes only where they improve read-only gating; plugin handlers remain explicit `IAcadCommand` classes registered in `CommandDispatcher`. Avoid P&ID, block, annotation, dimension, view, export, and drawing-file operations in this plan.
+**Architecture:** Reuse Plan 1 helpers in `src/shared/Cad`. Add separate server tool classes only where they improve read-only gating; plugin handlers remain explicit `IAcadCommand` classes registered in `CommandDispatcher`. Avoid block, annotation, dimension, view, export, and drawing-file operations in this plan.
 
 **Tech Stack:** C#/.NET 8 server, AutoCAD plugin shells, AutoCAD .NET API, Newtonsoft.Json/JToken, xUnit.
 

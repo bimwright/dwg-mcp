@@ -41,9 +41,6 @@
     <Compile Include="..\shared\ToolBaker\*.cs" LinkBase="Shared\ToolBaker" />
     <Compile Include="..\shared\Security\SecretMasker.cs" LinkBase="Shared\Security" />
     <Compile Include="..\shared\Security\BakeRedactor.cs" LinkBase="Shared\Security" />
-    <Compile Include="..\shared\Pid\PidCatalog.cs" LinkBase="Shared\Pid" />
-    <Compile Include="..\shared\Pid\PidConfig.cs" LinkBase="Shared\Pid" />
-    <Compile Include="..\shared\Pid\PidLayerCatalog.cs" LinkBase="Shared\Pid" />
   </ItemGroup>
 
 </Project>

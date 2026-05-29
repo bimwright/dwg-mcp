@@ -24,7 +24,7 @@ Ship these tools:
 | `dwg_create_circle` | `create_circle` | `ModifyTools` | `CreateCircleHandler` |
 | `dwg_change_layer` | `change_layer` | `ModifyTools` | `ChangeLayerHandler` |
 
-Exclude from this plan: move/rotate/scale/copy/erase, block tools, annotation tools, dimensions, P&ID, export, raw AutoCAD commands, layer delete/rename, paper-space support beyond returning current layout info.
+Exclude from this plan: move/rotate/scale/copy/erase, block tools, annotation tools, dimensions, export, raw AutoCAD commands, layer delete/rename, paper-space support beyond returning current layout info.
 
 ## File Structure
 

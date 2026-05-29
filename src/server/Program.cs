@@ -111,11 +111,6 @@ Call dwg_get_selected_texts before text writeback. In read-only mode only query/
                 toolTypes.Add(typeof(DrawingTools));
                 if (!readOnly) toolTypes.Add(typeof(DrawingWriteTools));
             }
-            if (enabled.Contains("pid") && !readOnly)
-            {
-                toolTypes.Add(typeof(PidTools));
-            }
-
             return toolTypes;
         }
 
@@ -136,7 +131,6 @@ Call dwg_get_selected_texts before text writeback. In read-only mode only query/
             if (toolType == typeof(ExportTools)) return mcp.WithTools<ExportTools>();
             if (toolType == typeof(DrawingTools)) return mcp.WithTools<DrawingTools>();
             if (toolType == typeof(DrawingWriteTools)) return mcp.WithTools<DrawingWriteTools>();
-            if (toolType == typeof(PidTools)) return mcp.WithTools<PidTools>();
 
             throw new InvalidOperationException("Unsupported MCP tool type: " + toolType.FullName);
         }

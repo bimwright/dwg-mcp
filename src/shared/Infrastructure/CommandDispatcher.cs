@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Bimwright.Dwg.Plugin.Handlers;
-using Bimwright.Dwg.Plugin.Handlers.Pid;
 
 namespace Bimwright.Dwg.Plugin
 {
@@ -75,14 +74,6 @@ namespace Bimwright.Dwg.Plugin
                 { "set_system_variable",     new SetSystemVariableHandler() },
                 { "save_drawing",            new SaveDrawingHandler() },
                 { "purge_drawing",           new PurgeDrawingHandler() },
-                { "pid_setup_layers",        new PidSetupLayersHandler() },
-                { "pid_list_categories",     new PidListCategoriesHandler() },
-                { "pid_list_symbols",        new PidListSymbolsHandler() },
-                { "pid_draw_pipe",           new PidDrawPipeHandler() },
-                { "pid_insert_symbol",       new PidInsertSymbolHandler() },
-                { "pid_add_flow_arrow",      new PidAddFlowArrowHandler() },
-                { "pid_add_equipment_tag",   new PidAddEquipmentTagHandler() },
-                { "pid_add_line_number",     new PidAddLineNumberHandler() },
             };
             _commands.Add("apply_bake", new ApplyBakeSuggestionHandler((cmd, parameters) => ValidateCommand(cmd, parameters, out _)));
             _commands.Add("batch_execute", new BatchExecuteHandler(ExecuteCommand));

@@ -413,41 +413,5 @@ namespace Bimwright.Dwg.Plugin
         public static readonly CommandSchema PurgeDrawing = CommandSchema.Object(
             SchemaProperty.Optional("dry_run", JTokenType.Boolean),
             SchemaProperty.Optional("confirm", JTokenType.Boolean));
-
-        public static readonly CommandSchema SetupLayers = CommandSchema.Object(
-            SchemaProperty.Optional("include_wwtp_layers", JTokenType.Boolean));
-
-        public static readonly CommandSchema ListCategories = CommandSchema.Empty;
-
-        public static readonly CommandSchema ListSymbols = CommandSchema.Object(
-            SchemaProperty.RequiredNonEmptyString("category"));
-
-        public static readonly CommandSchema DrawPipe = CommandSchema.Object(
-            SchemaProperty.Required("start", JTokenType.Object),
-            SchemaProperty.Required("end", JTokenType.Object),
-            SchemaProperty.Optional("layer", JTokenType.String));
-
-        public static readonly CommandSchema InsertSymbol = CommandSchema.Object(
-            SchemaProperty.RequiredNonEmptyString("category"),
-            SchemaProperty.RequiredNonEmptyString("symbol"),
-            SchemaProperty.Required("position", JTokenType.Object),
-            SchemaProperty.Optional("scale", JTokenType.Float, JTokenType.Integer),
-            SchemaProperty.Optional("rotation", JTokenType.Float, JTokenType.Integer),
-            SchemaProperty.Optional("text_content", JTokenType.String));
-
-        public static readonly CommandSchema AddFlowArrow = CommandSchema.Object(
-            SchemaProperty.Required("position", JTokenType.Object),
-            SchemaProperty.Required("direction", JTokenType.Object),
-            SchemaProperty.Optional("layer", JTokenType.String));
-
-        public static readonly CommandSchema AddEquipmentTag = CommandSchema.Object(
-            SchemaProperty.Required("position", JTokenType.Object),
-            SchemaProperty.RequiredNonEmptyString("tag_text"),
-            SchemaProperty.Optional("layer", JTokenType.String));
-
-        public static readonly CommandSchema AddLineNumber = CommandSchema.Object(
-            SchemaProperty.Required("position", JTokenType.Object),
-            SchemaProperty.RequiredNonEmptyString("line_text"),
-            SchemaProperty.Optional("layer", JTokenType.String));
     }
 }
