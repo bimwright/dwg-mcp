@@ -423,9 +423,21 @@ dwg-mcp/
 
 ---
 
+## The bimwright family
+
+Hand-forged MCP gateways for the AEC toolchain — one architecture, predictable / auditable / reversible:
+
+- [**rvt-mcp**](https://github.com/bimwright/rvt-mcp) — Autodesk® Revit®
+- [**dwg-mcp**](https://github.com/bimwright/dwg-mcp) — Autodesk® AutoCAD®
+- [**nwd-mcp**](https://github.com/bimwright/nwd-mcp) — Autodesk® Navisworks®
+- [**ipt-mcp**](https://github.com/bimwright/ipt-mcp) — Autodesk® Inventor®
+- [**bim-wiki**](https://github.com/bimwright/bim-wiki) — Vietnamese-first BIM knowledge base
+
+---
+
 ## Disclaimer
 
-This project is not affiliated with, endorsed by, or sponsored by Autodesk, Inc. AutoCAD is a registered trademark of Autodesk, Inc.
+AutoCAD and Autodesk are registered trademarks of Autodesk, Inc. bimwright is an independent open-source project and is not affiliated with, sponsored by, or endorsed by Autodesk, Inc.
 
 ---
 

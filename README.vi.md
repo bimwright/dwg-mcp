@@ -384,12 +384,22 @@ Bao mat dua tren:
 
 ---
 
-## Giay phep
+## Họ bimwright
 
-[Apache License 2.0](LICENSE)
+Các MCP gateway hand-forged cho toolchain AEC — cùng một kiến trúc, predictable / auditable / reversible:
 
-Thong bao ben thu ba: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
+- [**rvt-mcp**](https://github.com/bimwright/rvt-mcp) — Autodesk® Revit®
+- [**dwg-mcp**](https://github.com/bimwright/dwg-mcp) — Autodesk® AutoCAD®
+- [**nwd-mcp**](https://github.com/bimwright/nwd-mcp) — Autodesk® Navisworks®
+- [**ipt-mcp**](https://github.com/bimwright/ipt-mcp) — Autodesk® Inventor®
+- [**bim-wiki**](https://github.com/bimwright/bim-wiki) — Kho kiến thức BIM ưu tiên tiếng Việt
 
 ---
 
-*Du an nay khong lien ket voi Autodesk, Inc. AutoCAD la nhan hieu dang ky cua Autodesk, Inc.*
+## Giấy phép
+
+[Apache License 2.0](LICENSE)
+
+Thông báo bên thứ ba: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
+
+AutoCAD và Autodesk là thương hiệu đã đăng ký của Autodesk, Inc. bimwright là dự án open-source độc lập, không liên kết, không được tài trợ và không được bảo chứng bởi Autodesk, Inc.
