@@ -9,8 +9,8 @@
 <p align="center">
   <a href="https://github.com/bimwright/dwg-mcp/actions/workflows/build.yml"><img src="https://github.com/bimwright/dwg-mcp/actions/workflows/build.yml/badge.svg" alt="build" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="license" /></a>
-  <a href="#phien-ban-autocad-ho-tro"><img src="https://img.shields.io/badge/AutoCAD-2022--2027-186BFF" alt="AutoCAD 2022-2027" /></a>
-  <a href="#cong-cu"><img src="https://img.shields.io/badge/MCP-35%20default%20%2B%20optional-6C47FF" alt="MCP tools" /></a>
+  <a href="#phiên-bản-autocad-hỗ-trợ"><img src="https://img.shields.io/badge/AutoCAD-2022--2027-186BFF" alt="AutoCAD 2022-2027" /></a>
+  <a href="#công-cụ"><img src="https://img.shields.io/badge/MCP-35%20default%20%2B%20optional-6C47FF" alt="MCP tools" /></a>
 </p>
 
 <p align="center">
@@ -31,12 +31,12 @@ Quy trình thông thường rất đau đầu: chọn text từng entity, copy s
 
 ## dwg-mcp là gì
 
-`dwg-mcp` la cong MCP cuc bo cho Autodesk AutoCAD 2022-2027.
+`dwg-mcp` là cổng MCP cục bộ cho Autodesk AutoCAD 2022-2027.
 
 Gồm hai phần:
 
 - **Bimwright.Dwg.Server**: MCP server .NET 8, được Claude Code, Cursor, OpenCode hoặc MCP client khác khởi chạy.
-- **Bimwright.Dwg.Plugin**: cac shell add-in theo tung phien ban AutoCAD, thuc thi lenh truc tiep len database ban ve.
+- **Bimwright.Dwg.Plugin**: các shell add-in theo từng phiên bản AutoCAD, thực thi lệnh trực tiếp lên database bản vẽ.
 
 Agent nói MCP. Server nói TCP với plugin. Plugin nói AutoCAD .NET API.
 
@@ -106,7 +106,7 @@ AI agent cho phép mô tả "dịch tất cả text đã chọn sang tiếng Vi�
 
 ---
 
-## Cai dat
+## Cài đặt
 
 ### 1. Server
 
@@ -120,14 +120,14 @@ bimwright-dwg --help
 **Auto-deploy:**
 
 ```powershell
-pwsh scripts/install.ps1 -Version 2024 -WhatIf    # xem truoc
-pwsh scripts/install.ps1 -Version 2024            # cai dat
-pwsh scripts/install.ps1 -Uninstall               # go bo
+pwsh scripts/install.ps1 -Version 2024 -WhatIf    # xem trước
+pwsh scripts/install.ps1 -Version 2024            # cài đặt
+pwsh scripts/install.ps1 -Uninstall               # gỡ bỏ
 ```
 
-**Thu cong:** Trong AutoCAD: `NETLOAD` -> chon DLL.
+**Thủ công:** Trong AutoCAD: `NETLOAD` -> chọn DLL.
 
-### 3. Cau hinh MCP client
+### 3. Cấu hình MCP client
 
 ```json
 {
@@ -140,7 +140,7 @@ pwsh scripts/install.ps1 -Uninstall               # go bo
 }
 ```
 
-`dwg_send_code` bi an khoi danh sach tool mac dinh. Muon bat, phai opt-in o ca server va AutoCAD:
+`dwg_send_code` bị ẩn khỏi danh sách tool mặc định. Muốn bật, phải opt-in ở cả server và AutoCAD:
 
 ```json
 {
@@ -155,7 +155,7 @@ pwsh scripts/install.ps1 -Uninstall               # go bo
 
 Sau đó chạy `MCPENABLECODE` trong AutoCAD cho session plugin hiện tại. `MCPDISABLECODE` tắt lại quyền này.
 
-De pin mot AutoCAD cu the, dung nam 4 chu so:
+Để pin một AutoCAD cụ thể, dùng năm 4 chữ số:
 
 ```json
 {
@@ -168,67 +168,67 @@ De pin mot AutoCAD cu the, dung nam 4 chu so:
 }
 ```
 
-Dung `--read-only` de chi mo tool doc/routing, cong them ToolBaker read tools neu toolset nay duoc bat. Dung `--toolsets query,modify,meta,annotation` (hoac `--toolsets all`) de bat cac toolset tuy chon, hoac thiet lap bien moi truong `BIMWRIGHT_DWG_TOOLSETS=query,modify,meta,annotation`.
+Dùng `--read-only` để chỉ mở tool đọc/routing, cộng thêm ToolBaker read tools nếu toolset này được bật. Dùng `--toolsets query,modify,meta,annotation` (hoặc `--toolsets all`) để bật các toolset tùy chọn, hoặc thiết lập biến môi trường `BIMWRIGHT_DWG_TOOLSETS=query,modify,meta,annotation`.
 
 ---
 
-## Cong cu
+## Công cụ
 
 Mặc định server expose 35 tool: query, modify, routing/meta, batch, và view. Các toolset tùy chọn ToolBaker, annotation, block, dimension, export, và drawing được kích hoạt qua `--toolsets`, cùng với `dwg_send_code` nâng tổng diện tích bề mặt MCP lên 60 tool.
 
-CAD tool chay tren active document hien tai cua AutoCAD target dang chon. Entity input va entity id tra ve dung AutoCAD hex handle, vi du `7F5AD`, do tool selection, creation, hoac properties tra ve. Creation, copy, offset, va modify response identify entity tao/sua bang hex handle.
+CAD tool chạy trên active document hiện tại của AutoCAD target đang chọn. Entity input và entity id trả về dùng AutoCAD hex handle, ví dụ `7F5AD`, do tool selection, creation, hoặc properties trả về. Creation, copy, offset, và modify response identify entity tạo/sửa bằng hex handle.
 
-Plan 2 query expansion chi quet model space: `dwg_query_entities`, `dwg_count_entities`, `dwg_select_by_layer`, va `dwg_select_by_type` khong quet paper-space/layout entity. `dwg_select_by_layer` va `dwg_select_by_type` tra ve handle list cho caller; chung khong doi AutoCAD pickfirst selection.
+Plan 2 query expansion chỉ quét model space: `dwg_query_entities`, `dwg_count_entities`, `dwg_select_by_layer`, và `dwg_select_by_type` không quét paper-space/layout entity. `dwg_select_by_layer` và `dwg_select_by_type` trả về handle list cho caller; chúng không đổi AutoCAD pickfirst selection.
 
-| Tool | Muc dich |
+| Tool | Mục đích |
 |------|----------|
-| `dwg_get_drawing_info` | Doc ten drawing, current layer, current space/layout, va unit scalar |
-| `dwg_get_entity_properties` | Doc property cua entity theo AutoCAD hex handle |
-| `dwg_list_layers` | Liet ke layer trong drawing hien tai kem color va state flag |
-| `dwg_query_entities` | Query model-space entity theo type, layer, color, limit, va geometry flag tuy chon |
-| `dwg_count_entities` | Dem model-space entity theo type, layer, hoac color filter tuy chon |
-| `dwg_select_by_layer` | Tra ve handle list cua model-space entity tren mot layer, khong doi pickfirst selection |
-| `dwg_select_by_type` | Tra ve handle list cua model-space entity theo mot entity type, khong doi pickfirst selection |
-| `dwg_get_selected_texts` | Doc text dang chon, cluster khong gian, tra ve nhom text |
-| `dwg_update_texts` | Ghi text theo handle trong mot transaction |
-| `dwg_create_layer` | Dam bao layer ton tai, khong ghi de property cua layer da co |
-| `dwg_create_line` | Tao mot line trong drawing space hien tai |
-| `dwg_create_circle` | Tao mot circle trong drawing space hien tai |
-| `dwg_create_point` | Tao mot point va tra ve hex handle |
-| `dwg_create_polyline` | Tao lightweight polyline tu vertices va tra ve hex handle |
-| `dwg_create_rectangle` | Tao rectangle polyline va tra ve hex handle |
-| `dwg_create_arc` | Tao mot arc va tra ve hex handle |
-| `dwg_create_ellipse` | Tao mot ellipse va tra ve hex handle |
-| `dwg_change_layer` | Chuyen entity theo hex handle sang layer khac |
-| `dwg_change_color` | Doi color entity bang AutoCAD color index |
-| `dwg_move_entities` | Move entity theo hex handle bang displacement vector |
+| `dwg_get_drawing_info` | Đọc tên drawing, current layer, current space/layout, và unit scalar |
+| `dwg_get_entity_properties` | Đọc property của entity theo AutoCAD hex handle |
+| `dwg_list_layers` | Liệt kê layer trong drawing hiện tại kèm color và state flag |
+| `dwg_query_entities` | Query model-space entity theo type, layer, color, limit, và geometry flag tùy chọn |
+| `dwg_count_entities` | Đếm model-space entity theo type, layer, hoặc color filter tùy chọn |
+| `dwg_select_by_layer` | Trả về handle list của model-space entity trên một layer, không đổi pickfirst selection |
+| `dwg_select_by_type` | Trả về handle list của model-space entity theo một entity type, không đổi pickfirst selection |
+| `dwg_get_selected_texts` | Đọc text đang chọn, cluster không gian, trả về nhóm text |
+| `dwg_update_texts` | Ghi text theo handle trong một transaction |
+| `dwg_create_layer` | Đảm bảo layer tồn tại, không ghi đè property của layer đã có |
+| `dwg_create_line` | Tạo một line trong drawing space hiện tại |
+| `dwg_create_circle` | Tạo một circle trong drawing space hiện tại |
+| `dwg_create_point` | Tạo một point và trả về hex handle |
+| `dwg_create_polyline` | Tạo lightweight polyline từ vertices và trả về hex handle |
+| `dwg_create_rectangle` | Tạo rectangle polyline và trả về hex handle |
+| `dwg_create_arc` | Tạo một arc và trả về hex handle |
+| `dwg_create_ellipse` | Tạo một ellipse và trả về hex handle |
+| `dwg_change_layer` | Chuyển entity theo hex handle sang layer khác |
+| `dwg_change_color` | Đổi color entity bằng AutoCAD color index |
+| `dwg_move_entities` | Move entity theo hex handle bằng displacement vector |
 | `dwg_rotate_entities` | Rotate entity theo hex handle quanh base point |
 | `dwg_scale_entities` | Scale entity theo hex handle quanh base point |
-| `dwg_copy_entities` | Copy entity theo hex handle va tra ve copied handle |
+| `dwg_copy_entities` | Copy entity theo hex handle và trả về copied handle |
 | `dwg_erase_entities` | Erase entity theo hex handle |
-| `dwg_offset_entities` | Offset curve entity va tra ve generated handle |
-| `dwg_translate_and_rewrite` | **Uu tien.** Ghi text da dich, tu dong xu ly anchor, xoa, MText, font, chieu cao |
-| `dwg_apply_unicode_style` | Dam bao style `Bimwright_Unicode` ton tai va ap dung |
-| `dwg_collapse_and_rewrite` | Rewrite low-level voi kiem soat hinh hoc chi tiet |
-| `dwg_list_available_targets` | Liet ke AutoCAD dang chay tu discovery v2 va legacy 2024 |
-| `dwg_get_current_target` | Xem target dang pin |
-| `dwg_switch_target` | Pin server sang AutoCAD `2022` den `2027` |
-| `dwg_batch_execute` | Chay nhieu wire command noi bo nhu mot logical batch |
-| `dwg_send_code` | **Chi opt-in.** Chay C# sau khi bat flag/env server va dong y phia AutoCAD bang `MCPENABLECODE` |
+| `dwg_offset_entities` | Offset curve entity và trả về generated handle |
+| `dwg_translate_and_rewrite` | **Ưu tiên.** Ghi text đã dịch, tự động xử lý anchor, xóa, MText, font, chiều cao |
+| `dwg_apply_unicode_style` | Đảm bảo style `Bimwright_Unicode` tồn tại và áp dụng |
+| `dwg_collapse_and_rewrite` | Rewrite low-level với kiểm soát hình học chi tiết |
+| `dwg_list_available_targets` | Liệt kê AutoCAD đang chạy từ discovery v2 và legacy 2024 |
+| `dwg_get_current_target` | Xem target đang pin |
+| `dwg_switch_target` | Pin server sang AutoCAD `2022` đến `2027` |
+| `dwg_batch_execute` | Chạy nhiều wire command nội bộ như một logical batch |
+| `dwg_send_code` | **Chỉ opt-in.** Chạy C# sau khi bật flag/env server và đồng ý phía AutoCAD bằng `MCPENABLECODE` |
 | `dwg_zoom_extents` | Zoom đến giới hạn của viewport bản vẽ |
 | `dwg_zoom_window` | Zoom viewport đến một cửa sổ được xác định bởi hai điểm góc |
 | `dwg_zoom_to_entity` | Zoom viewport đến giới hạn của một entity cụ thể theo handle |
 
-ToolBaker la toolset tuy chon:
+ToolBaker là toolset tùy chọn:
 
-| Tool | Muc dich |
+| Tool | Mục đích |
 |------|----------|
-| `dwg_list_baked_tools` | Liet ke baked tool da accept trong SQLite registry cua server |
-| `dwg_run_baked_tool` | Chay baked tool da accept |
-| `dwg_list_bake_suggestions` | Liet ke goi y workflow lap lai |
-| `dwg_accept_bake_suggestion` | Validate, smoke-test, va accept goi y |
-| `dwg_dismiss_bake_suggestion` | Dismiss hoac suppress goi y |
-| `dwg_create_bake_issue_draft` | Tao GitHub issue draft cho goi y ma khong submit |
+| `dwg_list_baked_tools` | Liệt kê baked tool đã accept trong SQLite registry của server |
+| `dwg_run_baked_tool` | Chạy baked tool đã accept |
+| `dwg_list_bake_suggestions` | Liệt kê gợi ý workflow lặp lại |
+| `dwg_accept_bake_suggestion` | Validate, smoke-test, và accept gợi ý |
+| `dwg_dismiss_bake_suggestion` | Dismiss hoặc suppress gợi ý |
+| `dwg_create_bake_issue_draft` | Tạo GitHub issue draft cho gợi ý mà không submit |
 
 Các tool Annotation tùy chọn hiển thị khi toolset `annotation` được bật:
 
@@ -291,19 +291,19 @@ Theo mặc định, chỉ có các toolset `query`, `modify`, `meta`, và `view`
 - **Hoãn hỗ trợ Angular Dimension**: Kích thước góc (angular dimensions) tạm thời bị hoãn và chưa được thực hiện.
 - **Tạm hoãn các công cụ xuất/chụp ảnh khác**: `dwg_export_pdf`, `dwg_export_image`, và `dwg_capture_view` tạm thời bị hoãn để đảm bảo độ tin cậy tuyệt đối của xuất bản vẽ.
 
-### Checklist smoke thu cong
+### Checklist smoke thủ công
 
 Trong scratch DWG:
 
-1. Chay `dwg_get_drawing_info`.
-2. Chay `dwg_list_layers`.
-3. Tao `BIMWRIGHT_TEST` bang `dwg_create_layer`.
-4. Tao point, polyline, rectangle, arc, va ellipse tren `BIMWRIGHT_TEST` bang `dwg_create_point`, `dwg_create_polyline`, `dwg_create_rectangle`, `dwg_create_arc`, va `dwg_create_ellipse`; ghi lai hex handle tra ve va giu rieng mot curve, vi du arc hoac ellipse, de check color va offset.
-5. Query, count, va select cac entity do theo layer va type bang `dwg_query_entities`, `dwg_count_entities`, `dwg_select_by_layer`, va `dwg_select_by_type`; xac nhan select tool tra ve handle list va khong doi pickfirst selection.
-6. Move, rotate, va scale scratch entity khong reserve bang `dwg_move_entities`, `dwg_rotate_entities`, va `dwg_scale_entities`.
-7. Copy mot scratch entity khong reserve bang `dwg_copy_entities`, roi chi erase disposable copied temp entity do bang `dwg_erase_entities`.
-8. Doi color reserved curve bang `dwg_change_color`, sau do offset curve do bang `dwg_offset_entities` va xac nhan generated handle tra ve la hex handle.
-9. Xac nhan workflow dich text cu van chay: chon scratch text, chay `dwg_get_selected_texts`, roi rewrite bang `dwg_translate_and_rewrite`.
+1. Chạy `dwg_get_drawing_info`.
+2. Chạy `dwg_list_layers`.
+3. Tạo `BIMWRIGHT_TEST` bằng `dwg_create_layer`.
+4. Tạo point, polyline, rectangle, arc, và ellipse trên `BIMWRIGHT_TEST` bằng `dwg_create_point`, `dwg_create_polyline`, `dwg_create_rectangle`, `dwg_create_arc`, và `dwg_create_ellipse`; ghi lại hex handle trả về và giữ riêng một curve, ví dụ arc hoặc ellipse, để check color và offset.
+5. Query, count, và select các entity đó theo layer và type bằng `dwg_query_entities`, `dwg_count_entities`, `dwg_select_by_layer`, và `dwg_select_by_type`; xác nhận select tool trả về handle list và không đổi pickfirst selection.
+6. Move, rotate, và scale scratch entity không reserve bằng `dwg_move_entities`, `dwg_rotate_entities`, và `dwg_scale_entities`.
+7. Copy một scratch entity không reserve bằng `dwg_copy_entities`, rồi chỉ erase disposable copied temp entity đó bằng `dwg_erase_entities`.
+8. Đổi color reserved curve bằng `dwg_change_color`, sau đó offset curve đó bằng `dwg_offset_entities` và xác nhận generated handle trả về là hex handle.
+9. Xác nhận workflow dịch text cũ vẫn chạy: chọn scratch text, chạy `dwg_get_selected_texts`, rồi rewrite bằng `dwg_translate_and_rewrite`.
 
 ### Plan 3 Manual Smoke Checklist (Manual Smoke Pending)
 
@@ -328,11 +328,11 @@ Kiểm tra smoke thủ công cho các công cụ view, export và drawing của 
 6. Chạy `dwg_purge_drawing` with `dry_run=true`, rồi với `confirm=true` (chỉ chạy thử trên bản vẽ copy bỏ đi).
 7. Chạy `dwg_save_drawing` với `confirm=true` (chỉ chạy thử trên bản vẽ copy bỏ đi).
 
-### Migration tu ten tool 0.1.x
+### Migration từ tên tool 0.1.x
 
-Ten MCP tool nay co prefix `dwg_`. Ten command raw trong plugin chi con la wire command noi bo.
+Tên MCP tool này có prefix `dwg_`. Tên command raw trong plugin chỉ còn là wire command nội bộ.
 
-| Ten MCP 0.1.x | Ten MCP 1.0 |
+| Tên MCP 0.1.x | Tên MCP 1.0 |
 |---------------|-------------|
 | `get_selected_texts` | `dwg_get_selected_texts` |
 | `update_texts` | `dwg_update_texts` |
@@ -343,44 +343,44 @@ Ten MCP tool nay co prefix `dwg_`. Ten command raw trong plugin chi con la wire 
 
 ---
 
-## Quy trinh tieu chuan
+## Quy trình tiêu chuẩn
 
 ```
-1. Nguoi dung chon text trong AutoCAD
-2. Agent goi dwg_get_selected_texts -> nhan nhom text da cluster
-3. Agent dich tung cluster
-4. Agent goi dwg_translate_and_rewrite([{id, new_text}, ...])
-   Tool tu xu ly: anchor, xoa, MText, font, chieu cao. Xong.
+1. Người dùng chọn text trong AutoCAD
+2. Agent gọi dwg_get_selected_texts -> nhận nhóm text đã cluster
+3. Agent dịch từng cluster
+4. Agent gọi dwg_translate_and_rewrite([{id, new_text}, ...])
+   Tool tự xử lý: anchor, xóa, MText, font, chiều cao. Xong.
 ```
 
 ---
 
-## Phien ban AutoCAD ho tro
+## Phiên bản AutoCAD hỗ trợ
 
-| Phien ban | ObjectARX release | Plugin TFM | Trang thai |
+| Phiên bản | ObjectARX release | Plugin TFM | Trạng thái |
 |-----------|-------------------|------------|-----------|
-| AutoCAD 2022 | 24.1 | `net48` | Da scaffold shell; release build can Autodesk refs tuong ung |
-| AutoCAD 2023 | 24.2 | `net48` | Da scaffold shell; release build can Autodesk refs tuong ung |
-| AutoCAD 2024 | 24.3 | `net48` | Shell mac dinh va normal solution build |
-| AutoCAD 2025 | 25.0 | `net8.0-windows` | Da scaffold shell; release build can Autodesk refs tuong ung |
-| AutoCAD 2026 | 25.1 | `net8.0-windows` | Da scaffold shell; binary-compatible voi 2025 nhung build thanh shell rieng |
-| AutoCAD 2027 | 26.0 | `net10.0-windows` | Da scaffold shell; khong binary-compatible voi 2025/2026 |
+| AutoCAD 2022 | 24.1 | `net48` | Đã scaffold shell; release build cần Autodesk refs tương ứng |
+| AutoCAD 2023 | 24.2 | `net48` | Đã scaffold shell; release build cần Autodesk refs tương ứng |
+| AutoCAD 2024 | 24.3 | `net48` | Shell mặc định và normal solution build |
+| AutoCAD 2025 | 25.0 | `net8.0-windows` | Đã scaffold shell; release build cần Autodesk refs tương ứng |
+| AutoCAD 2026 | 25.1 | `net8.0-windows` | Đã scaffold shell; binary-compatible với 2025 nhưng build thành shell riêng |
+| AutoCAD 2027 | 26.0 | `net10.0-windows` | Đã scaffold shell; không binary-compatible với 2025/2026 |
 
-Server va tests co the pass khi chua build release tat ca shell. Muon ship mot nam AutoCAD thi phai build shell do tren may da co managed assemblies Autodesk tuong ung.
+Server và tests có thể pass khi chưa build release tất cả shell. Muốn ship một năm AutoCAD thì phải build shell đó trên máy đã có managed assemblies Autodesk tương ứng.
 
 ---
 
-## Bao mat
+## Bảo mật
 
-`dwg_send_code` chay C# tuy y voi toan quyen truy cap process AutoCAD va filesystem. Tool nay khong nam trong danh sach MCP mac dinh. Muon dung, khoi dong server voi `--enable-send-code` hoac `BIMWRIGHT_DWG_ENABLE_SEND_CODE=1`, roi chay `MCPENABLECODE` trong AutoCAD cho session plugin hien tai.
+`dwg_send_code` chạy C# tùy ý với toàn quyền truy cập process AutoCAD và filesystem. Tool này không nằm trong danh sách MCP mặc định. Muốn dùng, khởi động server với `--enable-send-code` hoặc `BIMWRIGHT_DWG_ENABLE_SEND_CODE=1`, rồi chạy `MCPENABLECODE` trong AutoCAD cho session plugin hiện tại.
 
-Bao mat dua tren:
+Bảo mật dựa trên:
 
-- **Chi local** — TCP tren 127.0.0.1.
-- **Auth token moi session** — xoay khi plugin khoi dong lai.
-- **Opt-in hai phia** — server dang ky tool va AutoCAD xac nhan cho phep.
-- **Gioi han timeout** — script chay tren thread rieng, co cancellation va abort khi qua timeout.
-- **Gia dinh agent tin cay** — chi dung voi MCP client ban kiem soat.
+- **Chỉ local** — TCP trên 127.0.0.1.
+- **Auth token mỗi session** — xoay khi plugin khởi động lại.
+- **Opt-in hai phía** — server đăng ký tool và AutoCAD xác nhận cho phép.
+- **Giới hạn timeout** — script chạy trên thread riêng, có cancellation và abort khi quá timeout.
+- **Giả định agent tin cậy** — chỉ dùng với MCP client bạn kiểm soát.
 
 ---
 
