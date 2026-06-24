@@ -34,6 +34,7 @@
       <HintPath>$(AutoCad2024Dir)\acmgd.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="System.Drawing" />
   </ItemGroup>
 
   <ItemGroup>

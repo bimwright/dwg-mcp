@@ -3,6 +3,7 @@ using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.Geometry;
 using Bimwright.Dwg.Plugin.Cad;
+using Bimwright.Dwg.Plugin.Export;
 using Bimwright.Dwg.Plugin.View;
 using Newtonsoft.Json.Linq;
 
@@ -104,6 +105,51 @@ namespace Bimwright.Dwg.Plugin.Handlers
             catch (Exception ex)
             {
                 return CommandResult.Fail("failed to zoom to entity: " + ErrorSanitizer.Sanitize(ex.Message));
+            }
+        }
+    }
+
+    public class CaptureViewImageHandler : IAcadCommand
+    {
+        public string Name => "capture_view_image";
+        public string Description => "Capture the current view to a raster image file the agent can read back.";
+        public CommandSchema Schema => CommandSchemas.CaptureViewImage;
+
+        public CommandResult Execute(Document doc, JToken parameters)
+        {
+            var obj = parameters as JObject ?? new JObject();
+
+            var outputPath = obj["output_path"]?.Value<string>();
+            var pixelSize = obj["pixel_size"]?.Value<int>() ?? 1600;
+            var imageFormat = obj["image_format"]?.Value<string>();
+            var overwrite = obj["overwrite_existing"]?.Value<bool>() ?? false;
+            var allowRepo = obj["allow_repo_output"]?.Value<bool>() ?? false;
+
+            if (string.IsNullOrWhiteSpace(outputPath))
+            {
+                outputPath = CaptureViewService.BuildDefaultOutputPath(imageFormat, out var pathError);
+                if (outputPath == null)
+                {
+                    return CommandResult.Fail(pathError);
+                }
+                overwrite = true; // generated name is unique
+            }
+
+            var normalizedPath = ExportPathPolicy.ValidateAndNormalize(
+                outputPath, ".image", overwrite, allowRepo, out var error);
+            if (normalizedPath == null)
+            {
+                return CommandResult.Fail(error);
+            }
+
+            try
+            {
+                var result = CaptureViewService.Capture(doc, normalizedPath, pixelSize);
+                return CommandResult.Success(result);
+            }
+            catch (Exception ex)
+            {
+                return CommandResult.Fail("failed to capture view: " + ErrorSanitizer.Sanitize(ex.Message));
             }
         }
     }

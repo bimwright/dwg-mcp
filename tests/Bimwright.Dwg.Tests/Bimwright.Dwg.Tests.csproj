@@ -37,6 +37,7 @@
     <Compile Include="..\..\src\shared\Security\ErrorSanitizer.cs" LinkBase="Shared\Security" />
     <Compile Include="..\..\src\shared\Security\McpResponsePrivacy.cs" LinkBase="Shared\Security" />
     <Compile Include="..\..\src\shared\Export\ExportPathPolicy.cs" LinkBase="Shared\Export" />
+    <Compile Include="..\..\src\shared\View\CaptureViewMath.cs" LinkBase="Shared\View" />
     <Compile Include="..\..\src\shared\Drawing\SystemVariableCatalog.cs" LinkBase="Shared\Drawing" />
   </ItemGroup>
 </Project>
