@@ -38,7 +38,7 @@ Gồm hai phần:
 - **Bimwright.Dwg.Server**: MCP server .NET 8, được Claude Code, Cursor, OpenCode hoặc MCP client khác khởi chạy.
 - **Bimwright.Dwg.Plugin**: các shell add-in theo từng phiên bản AutoCAD, thực thi lệnh trực tiếp lên database bản vẽ.
 
-Agent nói MCP. Server nói TCP với plugin. Plugin nói AutoCAD .NET API.
+Agent nói MCP. Server nói với plugin qua local wire: TCP NDJSON cho AutoCAD 2022–2024, và Named Pipe (loopback, tránh firewall prompt) cho 2025–2027. Plugin nói AutoCAD .NET API.
 
 Mọi thứ chạy trên máy bạn.
 
@@ -88,7 +88,7 @@ AI agent cho phép mô tả "dịch tất cả text đã chọn sang tiếng Vi�
 | .NET 8 / C#               |
 +---------------------------+
               |
-              | TCP (127.0.0.1)
+               | TCP NDJSON (2022-2024) / Named Pipe (2025-2027)
               | token auth
               v
 +---------------------------+
@@ -104,6 +104,8 @@ AI agent cho phép mô tả "dịch tất cả text đã chọn sang tiếng Vi�
 +---------------------------+
 ```
 
+Xem [ARCHITECTURE.md](ARCHITECTURE.md) để biết chi tiết về threading, discovery, và auth.
+
 ---
 
 ## Cài đặt
@@ -115,9 +117,13 @@ dotnet tool install -g Bimwright.Dwg.Server
 bimwright-dwg --help
 ```
 
+Yêu cầu .NET 8 SDK.
+
 ### 2. Plugin
 
 **Auto-deploy:**
+
+Tải plugin từ [GitHub Releases](https://github.com/bimwright/dwg-mcp/releases/latest):
 
 ```powershell
 pwsh scripts/install.ps1 -Version 2024 -WhatIf    # xem trước
@@ -125,7 +131,9 @@ pwsh scripts/install.ps1 -Version 2024            # cài đặt
 pwsh scripts/install.ps1 -Uninstall               # gỡ bỏ
 ```
 
-**Thủ công:** Trong AutoCAD: `NETLOAD` -> chọn DLL.
+Script triển khai vào `%APPDATA%\Autodesk\ApplicationPlugins\Bimwright.Dwg.bundle\`. Khởi động lại AutoCAD để tải.
+
+**Thủ công:** Trong AutoCAD: `NETLOAD` → chọn `src/plugin-acad24/bin/Debug/net48/Bimwright.Dwg.Plugin.Acad24.dll`. Listener tự động khởi động.
 
 ### 3. Cấu hình MCP client
 
@@ -174,7 +182,7 @@ Dùng `--read-only` để chỉ mở tool đọc/routing, cộng thêm ToolBaker
 
 ## Công cụ
 
-Mặc định server expose 35 tool: query, modify, routing/meta, batch, và view. Các toolset tùy chọn ToolBaker, annotation, block, dimension, export, và drawing được kích hoạt qua `--toolsets`, cùng với `dwg_send_code` nâng tổng diện tích bề mặt MCP lên 60 tool.
+Mặc định server expose 35 tool: query, modify, meta, và view. Các toolset tùy chọn ToolBaker, annotation, block, dimension, export, và drawing được kích hoạt qua `--toolsets`, cùng với `dwg_send_code` nâng tổng diện tích bề mặt MCP lên 60 tool.
 
 CAD tool chạy trên active document hiện tại của AutoCAD target đang chọn. Entity input và entity id trả về dùng AutoCAD hex handle, ví dụ `7F5AD`, do tool selection, creation, hoặc properties trả về. Creation, copy, offset, và modify response identify entity tạo/sửa bằng hex handle.
 
@@ -351,6 +359,7 @@ Tên MCP tool này có prefix `dwg_`. Tên command raw trong plugin chỉ còn l
 3. Agent dịch từng cluster
 4. Agent gọi dwg_translate_and_rewrite([{id, new_text}, ...])
    Tool tự xử lý: anchor, xóa, MText, font, chiều cao. Xong.
+5. Nếu cần, người dùng chạy REGEN
 ```
 
 ---
@@ -376,11 +385,33 @@ Server và tests có thể pass khi chưa build release tất cả shell. Muốn
 
 Bảo mật dựa trên:
 
-- **Chỉ local** — TCP trên 127.0.0.1.
+- **Chỉ local** — TCP trên 127.0.0.1 cho AutoCAD 2022–2024, loopback Named Pipe cho 2025–2027.
 - **Auth token mỗi session** — xoay khi plugin khởi động lại.
 - **Opt-in hai phía** — server đăng ký tool và AutoCAD xác nhận cho phép.
 - **Giới hạn timeout** — script chạy trên thread riêng, có cancellation và abort khi quá timeout.
 - **Giả định agent tin cậy** — chỉ dùng với MCP client bạn kiểm soát.
+
+---
+
+## Cấu trúc dự án
+
+```
+dwg-mcp/
+├── src/
+│   ├── Bimwright.Dwg.sln
+│   ├── server/            # .NET 8 MCP server (global tool)
+│   ├── shared/            # Handlers, clustering, rewriting, unicode
+│   ├── plugin-acad22/     # AutoCAD 2022 shell (.NET 4.8)
+│   ├── plugin-acad23/     # AutoCAD 2023 shell (.NET 4.8)
+│   ├── plugin-acad24/     # AutoCAD 2024 shell (.NET 4.8)
+│   ├── plugin-acad25/     # AutoCAD 2025 shell (.NET 8)
+│   ├── plugin-acad26/     # AutoCAD 2026 shell (.NET 8)
+│   └── plugin-acad27/     # AutoCAD 2027 shell (.NET 10)
+├── tests/                 # xUnit
+├── scripts/               # install/uninstall PowerShell
+├── lib/acad24/            # Notes only; Autodesk DLLs are never committed
+└── .github/workflows/     # CI
+```
 
 ---
 
@@ -396,10 +427,14 @@ Các MCP gateway hand-forged cho toolchain AEC — cùng một kiến trúc, pre
 
 ---
 
+## Tuyên bố miễn trừ
+
+AutoCAD và Autodesk là thương hiệu đã đăng ký của Autodesk, Inc. bimwright là dự án open-source độc lập, không liên kết, không được tài trợ và không được bảo chứng bởi Autodesk, Inc.
+
+---
+
 ## Giấy phép
 
 [Apache License 2.0](LICENSE)
 
 Thông báo bên thứ ba: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
-
-AutoCAD và Autodesk là thương hiệu đã đăng ký của Autodesk, Inc. bimwright là dự án open-source độc lập, không liên kết, không được tài trợ và không được bảo chứng bởi Autodesk, Inc.

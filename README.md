@@ -38,7 +38,7 @@ It has two parts:
 - **Bimwright.Dwg.Server**: a .NET 8 MCP server launched by Claude Code, Cursor, OpenCode, or another stdio MCP client.
 - **Bimwright.Dwg.Plugin**: version-specific AutoCAD add-in shells loaded inside AutoCAD, executing commands against the drawing database.
 
-The agent talks MCP. The server talks to the plugin over localhost TCP. The plugin talks to the AutoCAD .NET API.
+The agent talks MCP. The server talks to the plugin over a local wire: TCP NDJSON for AutoCAD 2022–2024, and a Named Pipe (loopback, avoids the firewall prompt) for 2025–2027. The plugin talks to the AutoCAD .NET API.
 
 Everything stays on your machine.
 
@@ -88,8 +88,8 @@ AI agents make it possible to describe "translate all selected text to Vietnames
 | .NET 8 / C#               |
 +---------------------------+
               |
-              | TCP (127.0.0.1)
-              | token auth
+               | TCP NDJSON (2022-2024) / Named Pipe (2025-2027)
+               | token auth
               v
 +---------------------------+
 | Bimwright.Dwg.Plugin      |
@@ -167,7 +167,7 @@ Pin a specific AutoCAD instance with a 4-digit target year:
 
 Use `--read-only` to expose only query/routing tools plus ToolBaker read tools if that toolset is enabled. Use `--toolsets query,modify,meta,annotation` (or `--toolsets all`) to opt into optional toolsets, or set the environment variable `BIMWRIGHT_DWG_TOOLSETS=query,modify,meta,annotation`.
 
-`dwg_send_code` is hidden from the default tool list. To expose it, opt in on both sides:
+`dwg_send_code` is hidden from the default tool list. Opt in on **both** sides to expose it: start the server with `--enable-send-code` (or `BIMWRIGHT_DWG_ENABLE_SEND_CODE=1`), then run `MCPENABLECODE` inside AutoCAD for that plugin session (`MCPDISABLECODE` revokes it):
 
 ```json
 {
@@ -180,13 +180,11 @@ Use `--read-only` to expose only query/routing tools plus ToolBaker read tools i
 }
 ```
 
-Then run `MCPENABLECODE` inside AutoCAD for the current plugin session. `MCPDISABLECODE` turns it off again.
-
 ---
 
 ## Tools
 
-Default startup exposes 35 tools: query, modify, routing/meta, batch, and view. Optional ToolBaker, annotation, block, dimension, export, and drawing toolsets, enabled through `--toolsets`, and `dwg_send_code` bring the backed MCP surface to 60 tools.
+Default startup exposes 35 tools: query, modify, meta, and view. Optional ToolBaker, annotation, block, dimension, export, and drawing toolsets, enabled through `--toolsets`, and `dwg_send_code` bring the backed MCP surface to 60 tools.
 
 General CAD tools operate on the current active document in the selected AutoCAD target. Entity inputs and returned entity IDs use AutoCAD hex handles, such as `7F5AD`, returned by selection, creation, or property tools. Creation, copy, offset, and modify responses identify generated or modified entities by hex handle.
 
@@ -226,7 +224,7 @@ Plan 2 query expansion is model-space only: `dwg_query_entities`, `dwg_count_ent
 | `dwg_get_current_target` | Show the pinned target year, if any |
 | `dwg_switch_target` | Pin this server process to AutoCAD `2022` through `2027` |
 | `dwg_batch_execute` | Run multiple internal wire commands as a logical batch |
-| `dwg_send_code` | **Opt-in only.** Execute C# after server flag/env enablement and AutoCAD-side `MCPENABLECODE` consent |
+| `dwg_send_code` | **Two-sided opt-in.** Execute C#; exposed only when the server is started with `--enable-send-code` or `BIMWRIGHT_DWG_ENABLE_SEND_CODE=1` **and** AutoCAD-side `MCPENABLECODE` consent is granted for the plugin session |
 | `dwg_zoom_extents` | Zoom to the extents of the drawing viewport |
 | `dwg_zoom_window` | Zoom viewport to a window defined by two corner points |
 | `dwg_zoom_to_entity` | Zoom viewport to the extents of a specific drawing entity identified by handle |
@@ -387,13 +385,13 @@ The server and tests can pass without every AutoCAD shell being release-built. S
 
 ## Security
 
-`dwg_send_code` executes arbitrary C# with full access to the AutoCAD process and local filesystem. It is not registered in the default MCP tool surface. To use it, start the server with `--enable-send-code` or `BIMWRIGHT_DWG_ENABLE_SEND_CODE=1`, then run `MCPENABLECODE` inside AutoCAD for that plugin session.
+`dwg_send_code` executes arbitrary C# with full access to the AutoCAD process and local filesystem. It is not registered in the default MCP tool surface. To use it, start the server with `--enable-send-code` or `BIMWRIGHT_DWG_ENABLE_SEND_CODE=1`, then run `MCPENABLECODE` inside AutoCAD to grant plugin-side consent for that session.
 
 The security model relies on:
 
-- **Local-only transport** — TCP on 127.0.0.1, no remote access.
+- **Local-only transport** — TCP on 127.0.0.1 for AutoCAD 2022–2024, loopback Named Pipe for 2025–2027, no remote access.
 - **Per-session auth token** — rotates on each plugin start, verified per request.
-- **Two-sided code opt-in** — server-side tool registration plus AutoCAD-side consent.
+- **Two-sided code opt-in** — `dwg_send_code` is registered only when the server is started with `--enable-send-code` (or `BIMWRIGHT_DWG_ENABLE_SEND_CODE=1`) **and** the user runs `MCPENABLECODE` inside AutoCAD for that plugin session.
 - **Timeout boundary** — script execution runs on a dedicated thread with cancellation and abort on timeout.
 - **Trusted agent assumption** — only use with MCP clients you control.
 
