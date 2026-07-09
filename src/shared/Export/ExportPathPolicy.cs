@@ -122,8 +122,10 @@ namespace Bimwright.Dwg.Plugin.Export
         {
             if (string.IsNullOrWhiteSpace(path)) return false;
 
+            // Windows UNC
             if (path.StartsWith("\\\\") || path.StartsWith("//")) return true;
 
+            // Windows drive-rooted: C:\ or C:/
             if (path.Length >= 3 &&
                 char.IsLetter(path[0]) &&
                 path[1] == ':' &&
@@ -131,6 +133,9 @@ namespace Bimwright.Dwg.Plugin.Export
             {
                 return true;
             }
+
+            // Unix absolute (CI Linux runners use /tmp/... for Path.GetTempPath())
+            if (path[0] == '/') return true;
 
             return false;
         }
