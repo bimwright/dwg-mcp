@@ -10,7 +10,7 @@
   <a href="https://github.com/bimwright/dwg-mcp/actions/workflows/build.yml"><img src="https://github.com/bimwright/dwg-mcp/actions/workflows/build.yml/badge.svg" alt="build" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="license" /></a>
   <a href="#supported-autocad-versions"><img src="https://img.shields.io/badge/AutoCAD-2022--2027-186BFF" alt="AutoCAD 2022-2027" /></a>
-  <a href="#tools"><img src="https://img.shields.io/badge/MCP-35%20default%20%2B%20optional-6C47FF" alt="MCP tools" /></a>
+  <a href="#tools"><img src="https://img.shields.io/badge/MCP-36%20default%20%2B%20optional-6C47FF" alt="MCP tools" /></a>
 </p>
 
 <p align="center">
@@ -184,7 +184,7 @@ Use `--read-only` to expose only query/routing tools plus ToolBaker read tools i
 
 ## Tools
 
-Default startup exposes 35 tools: query, modify, meta, and view. Optional ToolBaker, annotation, block, dimension, export, and drawing toolsets, enabled through `--toolsets`, and `dwg_send_code` bring the backed MCP surface to 60 tools.
+Default startup exposes 36 tools: query, modify, meta, view, and default-on `dwg_capture_view_image`. Optional ToolBaker, annotation, block, dimension, export, and drawing toolsets, enabled through `--toolsets`, and `dwg_send_code` bring the backed MCP surface to 61 tools.
 
 General CAD tools operate on the current active document in the selected AutoCAD target. Entity inputs and returned entity IDs use AutoCAD hex handles, such as `7F5AD`, returned by selection, creation, or property tools. Creation, copy, offset, and modify responses identify generated or modified entities by hex handle.
 
@@ -296,10 +296,10 @@ By default, only `query`, `modify`, `meta`, and `view` toolsets are enabled. You
 
 - **Read-Only Mode (`--read-only`)**: When read-only mode is active, all write-capable toolsets (`modify`, `code`, `annotation`, `dimension`, `export`, and `drawing` write tools) are completely disabled.
 - **Block Toolset Split**: The `block` toolset is split into read-only and write-capable tools. If `--read-only` is active, `dwg_list_blocks` and `dwg_get_block_attributes` are still available (safe read inspection), but the mutation/creation tools (`dwg_insert_block`, `dwg_set_block_attributes`, `dwg_explode_block`) are stripped.
-- **View Navigation and Read-Only**: The `view` toolset is default-on and retains the viewport navigation tools (`dwg_zoom_extents`, `dwg_zoom_window`, `dwg_zoom_to_entity`) in read-only mode, but strips the deferred `dwg_capture_view` tool.
+- **View Navigation and Read-Only**: The `view` toolset is default-on and retains the viewport navigation tools (`dwg_zoom_extents`, `dwg_zoom_window`, `dwg_zoom_to_entity`) in read-only mode, but strips the `dwg_capture_view_image` tool (which is disabled in read-only mode).
 - **Drawing Operations and Read-Only**: The `drawing` toolset retains `dwg_get_variables` in read-only mode, but strips `dwg_set_system_variable`, `dwg_save_drawing`, and `dwg_purge_drawing`.
 - **Deferred Angular Dimensions**: Note that only linear, aligned, radial, and diametric dimension types are currently supported. Angular dimensions are deferred and not yet implemented.
-- **Deferred File Export/Capture Tools**: The `dwg_export_pdf`, `dwg_export_image`, and `dwg_capture_view` tools have been deferred to ensure absolute reliability of drawing view captures and plot configurations.
+- **Deferred File Export Tools**: The `dwg_export_pdf` and `dwg_export_image` tools have been deferred, while `dwg_capture_view_image` is fully enabled by default to ensure absolute reliability of drawing view captures and plot configurations.
 
 ### Manual smoke checklist
 

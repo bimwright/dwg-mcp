@@ -160,18 +160,18 @@ Toolsets are resolved by `DwgMcpConfig` and `ToolsetFilter`:
 | `annotation` | `dwg_create_text`, `dwg_create_mtext`, `dwg_create_leader`, `dwg_create_table` |
 | `block` | `dwg_list_blocks`, `dwg_get_block_attributes`, `dwg_insert_block`, `dwg_set_block_attributes`, `dwg_explode_block` |
 | `dimension` | `dwg_create_linear_dimension`, `dwg_create_aligned_dimension`, `dwg_create_radial_dimension`, `dwg_create_diameter_dimension` |
-| `view` | `dwg_zoom_extents`, `dwg_zoom_window`, `dwg_zoom_to_entity`, and deferred `dwg_capture_view` |
+| `view` | `dwg_zoom_extents`, `dwg_zoom_window`, `dwg_zoom_to_entity`, and default-on `dwg_capture_view_image` |
 | `export` | `dwg_export_dxf`, and deferred `dwg_export_pdf`, `dwg_export_image` |
 | `drawing` | `dwg_get_variables`, `dwg_set_system_variable`, `dwg_save_drawing`, `dwg_purge_drawing` |
 
 `--read-only` or `BIMWRIGHT_DWG_READ_ONLY=1` removes write-capable toolsets/methods completely (`modify`, `code`, `annotation`, `dimension`, `dwg_batch_execute`, ToolBaker write tools, `export` tools, and `drawing` write tools).
 - **Block Toolset Split**: The `block` toolset splits registration between read-only `BlockTools` (`dwg_list_blocks`, `dwg_get_block_attributes`) and write-capable `BlockWriteTools` (`dwg_insert_block`, `dwg_set_block_attributes`, `dwg_explode_block`). In read-only mode, only the read-only wrappers are registered, preserving safe drawing inspection.
-- **View Navigation and Read-Only**: The `view` toolset is default-on and retains the viewport navigation tools (`dwg_zoom_extents`, `dwg_zoom_window`, `dwg_zoom_to_entity`) in read-only mode, but strips the deferred `dwg_capture_view` tool.
+- **View Navigation and Read-Only**: The `view` toolset is default-on and retains the viewport navigation tools (`dwg_zoom_extents`, `dwg_zoom_window`, `dwg_zoom_to_entity`) in read-only mode, but strips the `dwg_capture_view_image` tool (which is disabled in read-only mode).
 - **Drawing Operations and Read-Only**: The `drawing` toolset retains `dwg_get_variables` in read-only mode, but strips `dwg_set_system_variable`, `dwg_save_drawing`, and `dwg_purge_drawing`.
 - **Deferred Angular Dimensions**: The `dimension` toolset only registers linear, aligned, radial, and diametric dimension creators. Angular dimensions are deferred and not included in this release.
-- **Deferred File Export/Capture Tools**: The `dwg_export_pdf`, `dwg_export_image`, and `dwg_capture_view` tools have been deferred to ensure absolute reliability of drawing view captures and plot configurations.
+- **Deferred File Export Tools**: The `dwg_export_pdf` and `dwg_export_image` tools have been deferred to ensure absolute reliability of drawing view captures and plot configurations. `dwg_capture_view_image` is fully enabled by default.
 
-The default startup surface is 35 tools. Enabling the optional `code`, `toolbaker`, `annotation`, `block`, `dimension`, `export`, and `drawing` toolsets exposes the full 60 backed MCP tools.
+The default startup surface is 36 tools. Enabling the optional `code`, `toolbaker`, `annotation`, `block`, `dimension`, `export`, and `drawing` toolsets exposes the full 61 backed MCP tools.
 
 Plan 2 entity query/select tools are model-space only. `dwg_select_by_layer` and `dwg_select_by_type` return handle lists and do not mutate AutoCAD pickfirst selection. Create, copy, offset, and modify handlers identify generated or modified entities with AutoCAD hex handles.
 

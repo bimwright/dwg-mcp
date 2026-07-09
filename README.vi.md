@@ -10,7 +10,7 @@
   <a href="https://github.com/bimwright/dwg-mcp/actions/workflows/build.yml"><img src="https://github.com/bimwright/dwg-mcp/actions/workflows/build.yml/badge.svg" alt="build" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="license" /></a>
   <a href="#phiên-bản-autocad-hỗ-trợ"><img src="https://img.shields.io/badge/AutoCAD-2022--2027-186BFF" alt="AutoCAD 2022-2027" /></a>
-  <a href="#công-cụ"><img src="https://img.shields.io/badge/MCP-35%20default%20%2B%20optional-6C47FF" alt="MCP tools" /></a>
+  <a href="#công-cụ"><img src="https://img.shields.io/badge/MCP-36%20default%20%2B%20optional-6C47FF" alt="MCP tools" /></a>
 </p>
 
 <p align="center">
@@ -182,7 +182,7 @@ Dùng `--read-only` để chỉ mở tool đọc/routing, cộng thêm ToolBaker
 
 ## Công cụ
 
-Mặc định server expose 35 tool: query, modify, meta, và view. Các toolset tùy chọn ToolBaker, annotation, block, dimension, export, và drawing được kích hoạt qua `--toolsets`, cùng với `dwg_send_code` nâng tổng diện tích bề mặt MCP lên 60 tool.
+Mặc định server expose 36 tool: query, modify, meta, view, và `dwg_capture_view_image` mặc định bật. Các toolset tùy chọn ToolBaker, annotation, block, dimension, export, và drawing được kích hoạt qua `--toolsets`, cùng với `dwg_send_code` nâng tổng diện tích bề mặt MCP lên 61 tool.
 
 CAD tool chạy trên active document hiện tại của AutoCAD target đang chọn. Entity input và entity id trả về dùng AutoCAD hex handle, ví dụ `7F5AD`, do tool selection, creation, hoặc properties trả về. Creation, copy, offset, và modify response identify entity tạo/sửa bằng hex handle.
 
@@ -294,10 +294,10 @@ Theo mặc định, chỉ có các toolset `query`, `modify`, `meta`, và `view`
 
 - **Hành vi Read-Only (`--read-only`)**: Khi chế độ read-only được kích hoạt, tất cả các toolset có khả năng chỉnh sửa (`modify`, `code`, `annotation`, `dimension`, `export`, và `drawing` write tools) sẽ bị vô hiệu hóa hoàn toàn.
 - **Phân tách Toolset Block**: Toolset `block` được phân tách thành các công cụ read-only và write-capable. Nếu `--read-only` được bật, các công cụ `dwg_list_blocks` và `dwg_get_block_attributes` vẫn hoạt động bình thường để kiểm tra thông tin, nhưng các công cụ chỉnh sửa (`dwg_insert_block`, `dwg_set_block_attributes`, `dwg_explode_block`) sẽ bị loại bỏ.
-- **View Navigation và Read-Only**: Toolset `view` mặc định bật và giữ lại các công cụ zoom (`dwg_zoom_extents`, `dwg_zoom_window`, `dwg_zoom_to_entity`) ở chế độ read-only, loại bỏ tool capture_view tạm hoãn.
+- **View Navigation và Read-Only**: Toolset `view` mặc định bật và giữ lại các công cụ zoom (`dwg_zoom_extents`, `dwg_zoom_window`, `dwg_zoom_to_entity`) ở chế độ read-only, loại bỏ tool `dwg_capture_view_image` (bị tắt ở chế độ read-only).
 - **Drawing Operations và Read-Only**: Toolset `drawing` giữ lại `dwg_get_variables` ở chế độ read-only, nhưng loại bỏ `dwg_set_system_variable`, `dwg_save_drawing`, và `dwg_purge_drawing`.
 - **Hoãn hỗ trợ Angular Dimension**: Kích thước góc (angular dimensions) tạm thời bị hoãn và chưa được thực hiện.
-- **Tạm hoãn các công cụ xuất/chụp ảnh khác**: `dwg_export_pdf`, `dwg_export_image`, và `dwg_capture_view` tạm thời bị hoãn để đảm bảo độ tin cậy tuyệt đối của xuất bản vẽ.
+- **Tạm hoãn các công cụ xuất khác**: `dwg_export_pdf` và `dwg_export_image` tạm thời bị hoãn, còn `dwg_capture_view_image` được hỗ trợ và mặc định bật để đảm bảo độ tin cậy tuyệt đối của xuất bản vẽ.
 
 ### Checklist smoke thủ công
 

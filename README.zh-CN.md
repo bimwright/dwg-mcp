@@ -10,7 +10,7 @@
   <a href="https://github.com/bimwright/dwg-mcp/actions/workflows/build.yml"><img src="https://github.com/bimwright/dwg-mcp/actions/workflows/build.yml/badge.svg" alt="build" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="license" /></a>
   <a href="#supported-autocad-versions"><img src="https://img.shields.io/badge/AutoCAD-2022--2027-186BFF" alt="AutoCAD 2022-2027" /></a>
-  <a href="#tools"><img src="https://img.shields.io/badge/MCP-60%20个工具-6C47FF" alt="MCP tools" /></a>
+  <a href="#tools"><img src="https://img.shields.io/badge/MCP-61%20个工具-6C47FF" alt="MCP tools" /></a>
 </p>
 
 <p align="center">
@@ -184,7 +184,7 @@ pwsh scripts/install.ps1 -Uninstall               # 卸载
 
 ## Tools
 
-默认启动暴露 35 个工具：query、modify、meta 和 view。可选 ToolBaker、annotation、block、dimension、export 和 drawing 工具集，通过 `--toolsets` 启用，再加上 `dwg_send_code`，把后端可用的 MCP surface 扩充到 60 个工具。
+默认启动暴露 36 个工具：query、modify、meta、view 和默认启用的 `dwg_capture_view_image`。可选 ToolBaker、annotation、block、dimension、export 和 drawing 工具集，通过 `--toolsets` 启用，再加上 `dwg_send_code`，把后端可用的 MCP surface 扩充到 61 个工具。
 
 通用 CAD 工具作用于所选 AutoCAD 目标中的当前活动文档。实体输入与返回的实体 ID 使用 AutoCAD 十六进制 handle，例如 `7F5AD`，由选择、创建或属性工具返回。创建、复制、偏移和修改操作的响应会用十六进制 handle 标识所生成或修改的实体。
 
@@ -298,10 +298,10 @@ Plan 2 的查询扩展仅限模型空间：`dwg_query_entities`、`dwg_count_ent
 
 - **只读模式（`--read-only`）**：当只读模式生效时，所有可写的工具集（`modify`、`code`、`annotation`、`dimension`、`export` 和 `drawing` 的写入工具）都会被完全禁用。
 - **Block 工具集拆分**：`block` 工具集拆分为只读和可写两部分。若 `--read-only` 生效，`dwg_list_blocks` 和 `dwg_get_block_attributes` 仍然可用（安全的只读检查），但变更/创建类工具（`dwg_insert_block`、`dwg_set_block_attributes`、`dwg_explode_block`）会被剔除。
-- **视口导航与只读**：`view` 工具集默认开启，在只读模式下保留视口导航工具（`dwg_zoom_extents`、`dwg_zoom_window`、`dwg_zoom_to_entity`），但剔除延迟的 `dwg_capture_view` 工具。
+- **视口导航与只读**：`view` 工具集默认开启，在只读模式下保留视口导航工具（`dwg_zoom_extents`、`dwg_zoom_window`、`dwg_zoom_to_entity`），但剔除 `dwg_capture_view_image` 工具（在只读模式下被禁用）。
 - **绘图操作与只读**：`drawing` 工具集在只读模式下保留 `dwg_get_variables`，但剔除 `dwg_set_system_variable`、`dwg_save_drawing` 和 `dwg_purge_drawing`。
 - **延迟的角度标注**：注意当前仅支持线性、对齐、半径和直径标注类型。角度标注已被推迟，尚未实现。
-- **延迟的文件导出/截图工具**：`dwg_export_pdf`、`dwg_export_image` 和 `dwg_capture_view` 工具已被推迟，以确保绘图视图截图与打印配置的绝对可靠性。
+- **延迟的文件导出工具**：`dwg_export_pdf` 和 `dwg_export_image` 工具已被推迟，而 `dwg_capture_view_image` 默认完全启用，以确保绘图视图截图与打印配置的绝对可靠性。
 
 ### 手动冒烟检查清单
 

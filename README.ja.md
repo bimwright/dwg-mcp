@@ -10,7 +10,7 @@
   <a href="https://github.com/bimwright/dwg-mcp/actions/workflows/build.yml"><img src="https://github.com/bimwright/dwg-mcp/actions/workflows/build.yml/badge.svg" alt="build" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="license" /></a>
   <a href="#supported-autocad-versions"><img src="https://img.shields.io/badge/AutoCAD-2022--2027-186BFF" alt="AutoCAD 2022-2027" /></a>
-  <a href="#tools"><img src="https://img.shields.io/badge/MCP-35%20default%20%2B%20optional-6C47FF" alt="MCP tools" /></a>
+  <a href="#tools"><img src="https://img.shields.io/badge/MCP-36%20default%20%2B%20optional-6C47FF" alt="MCP tools" /></a>
 </p>
 
 <p align="center">
@@ -184,7 +184,7 @@ MCP クライアント設定（例: `.mcp.json`）に追加:
 
 ## ツール
 
-デフォルト起動では35のツール（クエリ、変更、メタ、ビュー）が公開されます。オプショナルのToolBaker、注釈、ブロック、寸法、エクスポート、作図ツールセットは `--toolsets` で有効にでき、`dwg_send_code` と合わせてMCPサーフェス全体は60ツールになります。
+デフォルト起動では36のツール（クエリ、変更、メタ、ビュー、およびデフォルト有効の `dwg_capture_view_image`）が公開されます。オプショナルのToolBaker、注釈、ブロック、寸法、エクスポート、作図ツールセットは `--toolsets` で有効にでき、`dwg_send_code` と合わせてMCPサーフェス全体は61ツールになります。
 
 一般的なCADツールは、選択されたAutoCADターゲットの現在アクティブなドキュメントに対して動作します。エンティティ入力と返されるエンティティIDは、`7F5AD` のようなAutoCAD 16進ハンドルを使用します。作成、コピー、オフセット、および変更の応答は、生成または変更されたエンティティを16進ハンドルで識別します。
 
@@ -296,10 +296,10 @@ Plan 2 のクエリ拡張はモデル空間のみです。`dwg_query_entities`�
 
 - **読み取り専用モード（`--read-only`）**: 読み取り専用モードがアクティブな場合、書き込み可能なすべてのツールセット（`modify`、`code`、`annotation`、`dimension`、`export`、`drawing` の書き込みツール）は完全に無効化されます。
 - **ブロックツールセットの分割**: `block` ツールセットは読み取り専用ツールと書き込み可能ツールに分割されます。`--read-only` がアクティブな場合、`dwg_list_blocks` と `dwg_get_block_attributes` は引き続き使用可能ですが（安全な読み取り検査）、変更/作成ツール（`dwg_insert_block`、`dwg_set_block_attributes`、`dwg_explode_block`）は削除されます。
-- **ビューナビゲーションと読み取り専用**: `view` ツールセットはデフォルトでオンであり、読み取り専用モードでもビューポートナビゲーションツール（`dwg_zoom_extents`、`dwg_zoom_window`、`dwg_zoom_to_entity`）は維持されますが、延期された `dwg_capture_view` ツールは削除されます。
+- **ビューナビゲーションと読み取り専用**: `view` ツールセットはデフォルトでオンであり、読み取り専用モードでもビューポートナビゲーションツール（`dwg_zoom_extents`、`dwg_zoom_window`、`dwg_zoom_to_entity`）は維持されますが、`dwg_capture_view_image` ツールは削除されます（読み取り専用モードでは無効化されます）。
 - **作図操作と読み取り専用**: `drawing` ツールセットは、読み取り専用モードで `dwg_get_variables` を維持しますが、`dwg_set_system_variable`、`dwg_save_drawing`、`dwg_purge_drawing` は削除されます。
 - **延期された角度寸法**: 現在サポートされているのは linear、平行、半径、直径寸法タイプのみです。角度寸法は延期されており、まだ実装されていません。
-- **延期されたファイルエクスポート/キャプチャツール**: `dwg_export_pdf`、`dwg_export_image`、`dwg_capture_view` ツールは、図面ビューキャプチャとプロット設定の絶対的な信頼性を確保するために延期されています。
+- **延期されたファイルエクスポートツール**: `dwg_export_pdf`、`dwg_export_image` ツールは延期されています。`dwg_capture_view_image` ツールはデフォルトで有効化されています。
 
 ### 手動スモークチェックリスト
 
