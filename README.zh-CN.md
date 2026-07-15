@@ -9,8 +9,8 @@
 <p align="center">
   <a href="https://github.com/bimwright/dwg-mcp/actions/workflows/build.yml"><img src="https://github.com/bimwright/dwg-mcp/actions/workflows/build.yml/badge.svg" alt="build" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="license" /></a>
-  <a href="#supported-autocad-versions"><img src="https://img.shields.io/badge/AutoCAD-2022--2027-186BFF" alt="AutoCAD 2022-2027" /></a>
-  <a href="#tools"><img src="https://img.shields.io/badge/MCP-61%20个工具-6C47FF" alt="MCP tools" /></a>
+  <a href="#支持的-autocad-版本"><img src="https://img.shields.io/badge/AutoCAD-2022--2027-186BFF" alt="AutoCAD 2022-2027" /></a>
+  <a href="#tools"><img src="https://img.shields.io/badge/MCP-36%20default%20%2B%20optional-6C47FF" alt="MCP tools" /></a>
 </p>
 
 <p align="center">
@@ -165,7 +165,7 @@ pwsh scripts/install.ps1 -Uninstall               # 卸载
 }
 ```
 
-使用 `--read-only` 只暴露 query/routing 工具，以及在启用了该工具集时暴露 ToolBaker 的只读工具。使用 `--toolsets query,modify,meta,annotation`（或 `--toolsets all`）来选择启用可选工具集，或者设置环境变量 `BIMWRIGHT_DWG_TOOLSETS=query,modify,meta,annotation`。
+使用 `--read-only` 去掉可写 toolset。使用 `--toolsets all`，或显式列表且**包含**你需要的默认项（自定义列表会**替换**默认集合，例如 `query,modify,meta,view,annotation`）。环境变量：`BIMWRIGHT_DWG_TOOLSETS=…`。
 
 `dwg_send_code` 默认隐藏在工具列表之外。要暴露它，必须在**两侧**都选择启用：先用 `--enable-send-code`（或 `BIMWRIGHT_DWG_ENABLE_SEND_CODE=1`）启动 server，然后在 AutoCAD 中针对该 plugin 会话运行 `MCPENABLECODE` 命令（`MCPDISABLECODE` 可撤销该授权）：
 
@@ -224,10 +224,12 @@ Plan 2 的查询扩展仅限模型空间：`dwg_query_entities`、`dwg_count_ent
 | `dwg_get_current_target` | 显示锁定的目标年份（若有） |
 | `dwg_switch_target` | 把本 server 进程锁定到 AutoCAD `2022` 至 `2027` |
 | `dwg_batch_execute` | 把多个内部 wire 命令作为逻辑批处理运行 |
-| `dwg_send_code` | **双侧选择启用。** 执行 C#；仅当 server 以 `--enable-send-code` 或 `BIMWRIGHT_DWG_ENABLE_SEND_CODE=1` 启动，**且** AutoCAD 侧针对该 plugin 会话授予 `MCPENABLECODE` 同意时才会暴露 |
 | `dwg_zoom_extents` | 缩放到绘图视口的图形范围 |
 | `dwg_zoom_window` | 缩放到由两个角点定义的窗口 |
 | `dwg_zoom_to_entity` | 缩放到由 handle 标识的特定绘图实体的范围 |
+| `dwg_capture_view_image` | 将活动视图截取为图像文件（默认启用；受路径策略约束） |
+
+`dwg_send_code` **不在**上表 — 仅双侧 opt-in（见安装 / 安全）。
 
 启用 `toolbaker` 工具集时会暴露可选 ToolBaker 工具：
 
@@ -298,7 +300,7 @@ Plan 2 的查询扩展仅限模型空间：`dwg_query_entities`、`dwg_count_ent
 
 - **只读模式（`--read-only`）**：当只读模式生效时，所有可写的工具集（`modify`、`code`、`annotation`、`dimension`、`export` 和 `drawing` 的写入工具）都会被完全禁用。
 - **Block 工具集拆分**：`block` 工具集拆分为只读和可写两部分。若 `--read-only` 生效，`dwg_list_blocks` 和 `dwg_get_block_attributes` 仍然可用（安全的只读检查），但变更/创建类工具（`dwg_insert_block`、`dwg_set_block_attributes`、`dwg_explode_block`）会被剔除。
-- **视口导航与只读**：`view` 工具集默认开启，在只读模式下保留视口导航工具（`dwg_zoom_extents`、`dwg_zoom_window`、`dwg_zoom_to_entity`），但剔除 `dwg_capture_view_image` 工具（在只读模式下被禁用）。
+- **View 与只读**：只读模式下仍注册完整 `view` toolset（含 zoom 与 `dwg_capture_view_image`）。Capture 在 MCP schema 上标记为 read-only，但仍会按路径策略写图片文件——在 `--read-only` 下请注意输出路径。
 - **绘图操作与只读**：`drawing` 工具集在只读模式下保留 `dwg_get_variables`，但剔除 `dwg_set_system_variable`、`dwg_save_drawing` 和 `dwg_purge_drawing`。
 - **延迟的角度标注**：注意当前仅支持线性、对齐、半径和直径标注类型。角度标注已被推迟，尚未实现。
 - **延迟的文件导出工具**：`dwg_export_pdf` 和 `dwg_export_image` 工具已被推迟，而 `dwg_capture_view_image` 默认完全启用，以确保绘图视图截图与打印配置的绝对可靠性。
@@ -317,9 +319,9 @@ Plan 2 的查询扩展仅限模型空间：`dwg_query_entities`、`dwg_count_ent
 8. 在预留的曲线上用 `dwg_change_color` 改变颜色，再用 `dwg_offset_entities` 偏移该曲线，并确认返回的已生成 handle 是十六进制 handle。
 9. 确认既有的文字翻译 workflow 仍可用：选中临时文字，运行 `dwg_get_selected_texts`，再用 `dwg_translate_and_rewrite` 改写它。
 
-### Plan 3 手动冒烟检查清单（手动冒烟待执行）
+### 可选冒烟 — annotation / block / dimension
 
-Plan 3 的 annotation、block 和 dimension 工具手动冒烟测试目前**待** AutoCAD 执行，但已设计以下场景：
+先启用可选 toolset（`--toolsets …` 或 `--toolsets all`）。在 scratch DWG 上：
 
 1. 在临时 DWG 中用 `dwg_create_text`、`dwg_create_mtext`、`dwg_create_leader` 和 `dwg_create_table` 创建文字、多行文字、引线和表格。
 2. 用 `dwg_list_blocks` 列出块定义。
@@ -328,9 +330,9 @@ Plan 3 的 annotation、block 和 dimension 工具手动冒烟测试目前**待*
 5. 用 `dwg_explode_block` 分解一个块参照。
 6. 用 `dwg_create_linear_dimension`、`dwg_create_aligned_dimension`、`dwg_create_radial_dimension` 和 `dwg_create_diameter_dimension` 创建线性、对齐、半径和直径标注，确认线性投影距离校验按预期通过/拒绝。
 
-### Plan 4 手动冒烟检查清单（手动冒烟待执行）
+### 可选冒烟 — view / export / drawing
 
-Plan 4 的视口导航、DXF 导出以及绘图变量/保存/清理工具的手动冒烟测试目前**待** AutoCAD 执行，但已设计以下场景：
+在启用 `view`、`export`、`drawing` 等 toolset 后（按需）：
 
 1. 运行 `dwg_zoom_extents`。
 2. 用坐标运行 `dwg_zoom_window`。

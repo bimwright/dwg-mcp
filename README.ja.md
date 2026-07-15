@@ -9,8 +9,8 @@
 <p align="center">
   <a href="https://github.com/bimwright/dwg-mcp/actions/workflows/build.yml"><img src="https://github.com/bimwright/dwg-mcp/actions/workflows/build.yml/badge.svg" alt="build" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="license" /></a>
-  <a href="#supported-autocad-versions"><img src="https://img.shields.io/badge/AutoCAD-2022--2027-186BFF" alt="AutoCAD 2022-2027" /></a>
-  <a href="#tools"><img src="https://img.shields.io/badge/MCP-36%20default%20%2B%20optional-6C47FF" alt="MCP tools" /></a>
+  <a href="#サポート対象autocadバージョン"><img src="https://img.shields.io/badge/AutoCAD-2022--2027-186BFF" alt="AutoCAD 2022-2027" /></a>
+  <a href="#ツール"><img src="https://img.shields.io/badge/MCP-36%20default%20%2B%20optional-6C47FF" alt="MCP tools" /></a>
 </p>
 
 <p align="center">
@@ -165,7 +165,7 @@ MCP クライアント設定（例: `.mcp.json`）に追加:
 }
 ```
 
-`--read-only` を使用すると、クエリ/ルーティングツールと、そのツールセットが有効な場合のToolBaker読み取りツールのみが公開されます。`--toolsets query,modify,meta,annotation`（または `--toolsets all`）を使用してオプショナルツールセットをオプトインするか、環境変数 `BIMWRIGHT_DWG_TOOLSETS=query,modify,meta,annotation` を設定してください。
+`--read-only` で書き込み toolset を外します。`--toolsets all`、または必要な既定を**含めた**明示リストを使ってください（カスタムリストは既定セットを**置き換え**ます。例: `query,modify,meta,view,annotation`）。環境変数: `BIMWRIGHT_DWG_TOOLSETS=…`。
 
 `dwg_send_code` はデフォルトのツール一覧からは非表示です。公開するには**両方**の側でオプトインしてください。サーバーを `--enable-send-code`（または `BIMWRIGHT_DWG_ENABLE_SEND_CODE=1`）で起動し、AutoCAD内でそのプラグインセッションに対して `MCPENABLECODE` を実行します（`MCPDISABLECODE` で取り消し）:
 
@@ -224,10 +224,12 @@ Plan 2 のクエリ拡張はモデル空間のみです。`dwg_query_entities`�
 | `dwg_get_current_target` | 固定されているターゲット年（あれば）を表示 |
 | `dwg_switch_target` | このサーバープロセスをAutoCAD `2022`〜`2027` に固定 |
 | `dwg_batch_execute` | 複数の内部ワイヤーコマンドを論理バッチとして実行 |
-| `dwg_send_code` | **両面オプトイン。** C#を実行。サーバーが `--enable-send-code` または `BIMWRIGHT_DWG_ENABLE_SEND_CODE=1` で起動され **かつ** AutoCAD側で `MCPENABLECODE` による同意がプラグインセッションに対して付与されている場合のみ公開 |
 | `dwg_zoom_extents` | 図面ビューポートの範囲にズーム |
 | `dwg_zoom_window` | 2つのコーナー点で定義されたウィンドウにビューポートをズーム |
 | `dwg_zoom_to_entity` | ハンドルで識別される特定の図面エンティティの範囲にビューポートをズーム |
+| `dwg_capture_view_image` | アクティブビューを画像ファイルへキャプチャ（既定オン；パスポリシー適用） |
+
+`dwg_send_code` は上表に**含めない** — 両面オプトインのみ（インストール / セキュリティ参照）。
 
 オプショナルのToolBakerツールは、`toolbaker` ツールセットが有効な場合に公開されます:
 
@@ -296,7 +298,7 @@ Plan 2 のクエリ拡張はモデル空間のみです。`dwg_query_entities`�
 
 - **読み取り専用モード（`--read-only`）**: 読み取り専用モードがアクティブな場合、書き込み可能なすべてのツールセット（`modify`、`code`、`annotation`、`dimension`、`export`、`drawing` の書き込みツール）は完全に無効化されます。
 - **ブロックツールセットの分割**: `block` ツールセットは読み取り専用ツールと書き込み可能ツールに分割されます。`--read-only` がアクティブな場合、`dwg_list_blocks` と `dwg_get_block_attributes` は引き続き使用可能ですが（安全な読み取り検査）、変更/作成ツール（`dwg_insert_block`、`dwg_set_block_attributes`、`dwg_explode_block`）は削除されます。
-- **ビューナビゲーションと読み取り専用**: `view` ツールセットはデフォルトでオンであり、読み取り専用モードでもビューポートナビゲーションツール（`dwg_zoom_extents`、`dwg_zoom_window`、`dwg_zoom_to_entity`）は維持されますが、`dwg_capture_view_image` ツールは削除されます（読み取り専用モードでは無効化されます）。
+- **ビューと読み取り専用**: 読み取り専用でも `view` ツールセットは登録されたままです（ズームと `dwg_capture_view_image`）。Capture は MCP スキーマ上 read-only ですが、パスポリシーに従い画像ファイルを書き込みます — `--read-only` でも出力パスに注意。
 - **作図操作と読み取り専用**: `drawing` ツールセットは、読み取り専用モードで `dwg_get_variables` を維持しますが、`dwg_set_system_variable`、`dwg_save_drawing`、`dwg_purge_drawing` は削除されます。
 - **延期された角度寸法**: 現在サポートされているのは linear、平行、半径、直径寸法タイプのみです。角度寸法は延期されており、まだ実装されていません。
 - **延期されたファイルエクスポートツール**: `dwg_export_pdf`、`dwg_export_image` ツールは延期されています。`dwg_capture_view_image` ツールはデフォルトで有効化されています。
@@ -315,9 +317,9 @@ Plan 2 のクエリ拡張はモデル空間のみです。`dwg_query_entities`�
 8. `dwg_change_color` で予約済み曲線の色を変更し、`dwg_offset_entities` でその曲線をオフセットし、返された生成ハンドルが16進ハンドルであることを確認。
 9. 既存のテキスト翻訳ワークフローが引き続き機能することを確認: スクラッチテキストを選択、`dwg_get_selected_texts` を実行、`dwg_translate_and_rewrite` で書き換え。
 
-### Plan 3 手動スモークチェックリスト（手動スモーク保留中）
+### 任意スモーク — annotation / block / dimension
 
-Plan 3 の注釈、ブロック、寸法ツールの手動スモークテストは現在 **保留中**（AutoCADでの実行待ち）ですが、以下のシナリオが設計されています:
+先にオプション toolset を有効化（`--toolsets …` または `--toolsets all`）。スクラッチ DWG で:
 
 1. `dwg_create_text`、`dwg_create_mtext`、`dwg_create_leader`、`dwg_create_table` でスクラッチDWGにテキスト、mtext、リーダー、テーブルを作成。
 2. `dwg_list_blocks` でブロック定義を一覧表示。
@@ -326,9 +328,9 @@ Plan 3 の注釈、ブロック、寸法ツールの手動スモークテスト�
 5. `dwg_explode_block` でブロック参照を分解。
 6. `dwg_create_linear_dimension`、`dwg_create_aligned_dimension`、`dwg_create_radial_dimension`、`dwg_create_diameter_dimension` で linear、平行、半径、直径寸法を作成し、linear投影距離の検証が期待通りに成功/失敗することを確認。
 
-### Plan 4 手動スモークチェックリスト（手動スモーク保留中）
+### 任意スモーク — view / export / drawing
 
-Plan 4 のビューナビゲーション、DXFエクスポート、作図変数/保存/パージツールの手動スモークテストは現在 **保留中**（AutoCADでの実行待ち）ですが、以下のシナリオが設計されています:
+`view` / `export` / `drawing` toolset を必要に応じて有効化したうえで:
 
 1. `dwg_zoom_extents` を実行。
 2. 座標を指定して `dwg_zoom_window` を実行。

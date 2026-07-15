@@ -176,7 +176,7 @@ Sau đó chạy `MCPENABLECODE` trong AutoCAD cho session plugin hiện tại. `
 }
 ```
 
-Dùng `--read-only` để chỉ mở tool đọc/routing, cộng thêm ToolBaker read tools nếu toolset này được bật. Dùng `--toolsets query,modify,meta,annotation` (hoặc `--toolsets all`) để bật các toolset tùy chọn, hoặc thiết lập biến môi trường `BIMWRIGHT_DWG_TOOLSETS=query,modify,meta,annotation`.
+Dùng `--read-only` để gỡ toolset write-capable. Dùng `--toolsets all` hoặc danh sách **có đủ default bạn cần** (list tùy chỉnh **thay** default — ví dụ `query,modify,meta,view,annotation`). Env: `BIMWRIGHT_DWG_TOOLSETS=…`.
 
 ---
 
@@ -222,10 +222,12 @@ Plan 2 query expansion chỉ quét model space: `dwg_query_entities`, `dwg_count
 | `dwg_get_current_target` | Xem target đang pin |
 | `dwg_switch_target` | Pin server sang AutoCAD `2022` đến `2027` |
 | `dwg_batch_execute` | Chạy nhiều wire command nội bộ như một logical batch |
-| `dwg_send_code` | **Chỉ opt-in.** Chạy C# sau khi bật flag/env server và đồng ý phía AutoCAD bằng `MCPENABLECODE` |
 | `dwg_zoom_extents` | Zoom đến giới hạn của viewport bản vẽ |
 | `dwg_zoom_window` | Zoom viewport đến một cửa sổ được xác định bởi hai điểm góc |
 | `dwg_zoom_to_entity` | Zoom viewport đến giới hạn của một entity cụ thể theo handle |
+| `dwg_capture_view_image` | Capture view active ra file ảnh (mặc định bật; path policy) |
+
+`dwg_send_code` **không** nằm bảng default — chỉ opt-in hai phía (Install / Security).
 
 ToolBaker là toolset tùy chọn:
 
@@ -294,7 +296,7 @@ Theo mặc định, chỉ có các toolset `query`, `modify`, `meta`, và `view`
 
 - **Hành vi Read-Only (`--read-only`)**: Khi chế độ read-only được kích hoạt, tất cả các toolset có khả năng chỉnh sửa (`modify`, `code`, `annotation`, `dimension`, `export`, và `drawing` write tools) sẽ bị vô hiệu hóa hoàn toàn.
 - **Phân tách Toolset Block**: Toolset `block` được phân tách thành các công cụ read-only và write-capable. Nếu `--read-only` được bật, các công cụ `dwg_list_blocks` và `dwg_get_block_attributes` vẫn hoạt động bình thường để kiểm tra thông tin, nhưng các công cụ chỉnh sửa (`dwg_insert_block`, `dwg_set_block_attributes`, `dwg_explode_block`) sẽ bị loại bỏ.
-- **View Navigation và Read-Only**: Toolset `view` mặc định bật và giữ lại các công cụ zoom (`dwg_zoom_extents`, `dwg_zoom_window`, `dwg_zoom_to_entity`) ở chế độ read-only, loại bỏ tool `dwg_capture_view_image` (bị tắt ở chế độ read-only).
+- **View và Read-Only**: Toolset `view` vẫn đăng ký trong read-only (zoom và `dwg_capture_view_image`). Capture mang cờ read-only ở schema MCP nhưng vẫn ghi file ảnh theo path policy — cẩn thận path khi dùng `--read-only`.
 - **Drawing Operations và Read-Only**: Toolset `drawing` giữ lại `dwg_get_variables` ở chế độ read-only, nhưng loại bỏ `dwg_set_system_variable`, `dwg_save_drawing`, và `dwg_purge_drawing`.
 - **Hoãn hỗ trợ Angular Dimension**: Kích thước góc (angular dimensions) tạm thời bị hoãn và chưa được thực hiện.
 - **Tạm hoãn các công cụ xuất khác**: `dwg_export_pdf` và `dwg_export_image` tạm thời bị hoãn, còn `dwg_capture_view_image` được hỗ trợ và mặc định bật để đảm bảo độ tin cậy tuyệt đối của xuất bản vẽ.
@@ -313,9 +315,9 @@ Trong scratch DWG:
 8. Đổi color reserved curve bằng `dwg_change_color`, sau đó offset curve đó bằng `dwg_offset_entities` và xác nhận generated handle trả về là hex handle.
 9. Xác nhận workflow dịch text cũ vẫn chạy: chọn scratch text, chạy `dwg_get_selected_texts`, rồi rewrite bằng `dwg_translate_and_rewrite`.
 
-### Plan 3 Manual Smoke Checklist (Manual Smoke Pending)
+### Smoke tùy chọn — annotation / block / dimension
 
-Kiểm tra smoke thủ công cho các công cụ annotation, block, và dimension của Plan 3 hiện tại **đang chờ** chạy thực tế trên AutoCAD (manual smoke pending), nhưng các kịch bản sau đã được thiết kế sẵn:
+Bật các toolset tùy chọn trước (`--toolsets …` hoặc `--toolsets all`). Trên DWG scratch:
 
 1. Tạo text, mtext, leader, và table trong scratch DWG với `dwg_create_text`, `dwg_create_mtext`, `dwg_create_leader`, và `dwg_create_table`.
 2. Liệt kê định nghĩa block với `dwg_list_blocks`.
@@ -324,9 +326,9 @@ Kiểm tra smoke thủ công cho các công cụ annotation, block, và dimensio
 5. Phá vỡ (explode) một block reference với `dwg_explode_block`.
 6. Tạo kích thước linear, aligned, radial, và diameter với `dwg_create_linear_dimension`, `dwg_create_aligned_dimension`, `dwg_create_radial_dimension`, và `dwg_create_diameter_dimension`; xác nhận validator cho projected-distance hoạt động đúng như mong đợi.
 
-### Plan 4 Manual Smoke Checklist (Manual Smoke Pending)
+### Smoke tùy chọn — view / export / drawing
 
-Kiểm tra smoke thủ công cho các công cụ view, export và drawing của Plan 4 hiện tại **đang chờ** chạy thực tế trên AutoCAD (manual smoke pending), nhưng các kịch bản sau đã được thiết kế sẵn:
+Khi đã bật toolset `view`, `export`, `drawing` (tùy nhu cầu):
 
 1. Chạy `dwg_zoom_extents`.
 2. Chạy `dwg_zoom_window` với toạ độ cụ thể.

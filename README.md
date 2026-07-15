@@ -165,7 +165,7 @@ Pin a specific AutoCAD instance with a 4-digit target year:
 }
 ```
 
-Use `--read-only` to expose only query/routing tools plus ToolBaker read tools if that toolset is enabled. Use `--toolsets query,modify,meta,annotation` (or `--toolsets all`) to opt into optional toolsets, or set the environment variable `BIMWRIGHT_DWG_TOOLSETS=query,modify,meta,annotation`.
+Use `--read-only` to strip write-capable toolsets (query/view/meta routing remain as configured). Use `--toolsets all` or an explicit list that **includes** the defaults you need (a custom list **replaces** the default set — e.g. `query,modify,meta,view,annotation`). Env: `BIMWRIGHT_DWG_TOOLSETS=…`.
 
 `dwg_send_code` is hidden from the default tool list. Opt in on **both** sides to expose it: start the server with `--enable-send-code` (or `BIMWRIGHT_DWG_ENABLE_SEND_CODE=1`), then run `MCPENABLECODE` inside AutoCAD for that plugin session (`MCPDISABLECODE` revokes it):
 
@@ -224,10 +224,12 @@ Plan 2 query expansion is model-space only: `dwg_query_entities`, `dwg_count_ent
 | `dwg_get_current_target` | Show the pinned target year, if any |
 | `dwg_switch_target` | Pin this server process to AutoCAD `2022` through `2027` |
 | `dwg_batch_execute` | Run multiple internal wire commands as a logical batch |
-| `dwg_send_code` | **Two-sided opt-in.** Execute C#; exposed only when the server is started with `--enable-send-code` or `BIMWRIGHT_DWG_ENABLE_SEND_CODE=1` **and** AutoCAD-side `MCPENABLECODE` consent is granted for the plugin session |
 | `dwg_zoom_extents` | Zoom to the extents of the drawing viewport |
 | `dwg_zoom_window` | Zoom viewport to a window defined by two corner points |
 | `dwg_zoom_to_entity` | Zoom viewport to the extents of a specific drawing entity identified by handle |
+| `dwg_capture_view_image` | Capture the active view to an image file (default-on; path policy applies) |
+
+`dwg_send_code` is **not** listed above — two-sided opt-in only (Install / Security).
 
 Optional ToolBaker tools are exposed when the `toolbaker` toolset is enabled:
 
@@ -296,7 +298,7 @@ By default, only `query`, `modify`, `meta`, and `view` toolsets are enabled. You
 
 - **Read-Only Mode (`--read-only`)**: When read-only mode is active, all write-capable toolsets (`modify`, `code`, `annotation`, `dimension`, `export`, and `drawing` write tools) are completely disabled.
 - **Block Toolset Split**: The `block` toolset is split into read-only and write-capable tools. If `--read-only` is active, `dwg_list_blocks` and `dwg_get_block_attributes` are still available (safe read inspection), but the mutation/creation tools (`dwg_insert_block`, `dwg_set_block_attributes`, `dwg_explode_block`) are stripped.
-- **View Navigation and Read-Only**: The `view` toolset is default-on and retains the viewport navigation tools (`dwg_zoom_extents`, `dwg_zoom_window`, `dwg_zoom_to_entity`) in read-only mode, but strips the `dwg_capture_view_image` tool (which is disabled in read-only mode).
+- **View and Read-Only**: The `view` toolset stays registered in read-only mode (zoom tools and `dwg_capture_view_image`). Capture is marked read-only at the MCP schema level but still writes an image file under the path policy — treat paths carefully under `--read-only`.
 - **Drawing Operations and Read-Only**: The `drawing` toolset retains `dwg_get_variables` in read-only mode, but strips `dwg_set_system_variable`, `dwg_save_drawing`, and `dwg_purge_drawing`.
 - **Deferred Angular Dimensions**: Note that only linear, aligned, radial, and diametric dimension types are currently supported. Angular dimensions are deferred and not yet implemented.
 - **Deferred File Export Tools**: The `dwg_export_pdf` and `dwg_export_image` tools have been deferred, while `dwg_capture_view_image` is fully enabled by default to ensure absolute reliability of drawing view captures and plot configurations.
@@ -315,9 +317,9 @@ In a scratch DWG:
 8. Change color on the reserved curve with `dwg_change_color`, then offset that curve with `dwg_offset_entities` and confirm the returned generated handles are hex handles.
 9. Confirm the existing text translation workflow still works: select scratch text, run `dwg_get_selected_texts`, then rewrite it with `dwg_translate_and_rewrite`.
 
-### Plan 3 Manual Smoke Checklist (Manual Smoke Pending)
+### Optional smoke — annotation / block / dimension
 
-The manual smoke testing for Plan 3 annotation, block, and dimension tools is currently **pending** AutoCAD execution, but the following scenarios are designed:
+Enable the optional toolsets first (`--toolsets …` or `--toolsets all`). On a scratch DWG:
 
 1. Create text, mtext, leader, and table in a scratch DWG with `dwg_create_text`, `dwg_create_mtext`, `dwg_create_leader`, and `dwg_create_table`.
 2. List block definitions with `dwg_list_blocks`.
@@ -326,9 +328,9 @@ The manual smoke testing for Plan 3 annotation, block, and dimension tools is cu
 5. Explode a block reference with `dwg_explode_block`.
 6. Create linear, aligned, radial, and diameter dimensions with `dwg_create_linear_dimension`, `dwg_create_aligned_dimension`, `dwg_create_radial_dimension`, and `dwg_create_diameter_dimension`, confirming linear projected-distance validation succeeds/rejects as expected.
 
-### Plan 4 Manual Smoke Checklist (Manual Smoke Pending)
+### Optional smoke — view / export / drawing
 
-The manual smoke testing for Plan 4 view navigation, dxf export, and drawing variable/save/purge tools is currently **pending** AutoCAD execution, but the following scenarios are designed:
+With `view`, `export`, and `drawing` toolsets enabled (as needed):
 
 1. Run `dwg_zoom_extents`.
 2. Run `dwg_zoom_window` with coordinates.
