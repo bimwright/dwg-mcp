@@ -20,7 +20,7 @@ namespace Bimwright.Dwg.Tests
                 return JsonConvert.SerializeObject(resp);
             });
 
-            var client = new PluginClient(() => new DiscoveryInfo { Port = fake.Port, Token = "test" });
+            var client = new PluginClient(() => new DiscoveryInfo { PortNullable = fake.Port, Token = "test" });
             var response = await client.SendAsync("ping", new { });
 
             Assert.True(response.Ok);
@@ -56,7 +56,7 @@ namespace Bimwright.Dwg.Tests
                 return JsonConvert.SerializeObject(new McpResponse { Id = req.Id, Ok = true, Result = "ok" });
             });
 
-            var client = new PluginClient(() => new DiscoveryInfo { Port = fake.Port, Token = "test" });
+            var client = new PluginClient(() => new DiscoveryInfo { PortNullable = fake.Port, Token = "test" });
             var response = await client.SendAsync("ping", new { }, "req-123");
 
             Assert.True(response.Ok);
@@ -64,9 +64,61 @@ namespace Bimwright.Dwg.Tests
         }
 
         [Fact]
+        public async Task Sends_request_over_named_pipe_transport()
+        {
+            // Regression test: SendStreamAsync used to wrap the transport
+            // stream in a StreamWriter and a StreamReader without leaveOpen,
+            // so both disposed the same NamedPipeClientStream. The second
+            // Dispose threw ObjectDisposedException ("Cannot access a closed
+            // pipe"), which SendAsync's catch turned into a false failure even
+            // though the plugin had already answered successfully.
+            using var fake = new FakeNamedPipeServer(line =>
+            {
+                var req = JsonConvert.DeserializeObject<McpRequest>(line);
+                return JsonConvert.SerializeObject(new McpResponse { Id = req.Id, Ok = true, Result = "pong" });
+            });
+
+            var client = new PluginClient(() => new DiscoveryInfo
+            {
+                Transport = "pipe",
+                PipeName = fake.PipeName,
+                Token = "test"
+            });
+
+            var response = await client.SendAsync("ping", new { });
+
+            Assert.True(response.Ok);
+            Assert.Equal("pong", (string)response.Result);
+        }
+
+        [Fact]
+        public async Task Sends_multiple_sequential_requests_over_named_pipe_transport()
+        {
+            using var fake = new FakeNamedPipeServer(line =>
+            {
+                var req = JsonConvert.DeserializeObject<McpRequest>(line);
+                return JsonConvert.SerializeObject(new McpResponse { Id = req.Id, Ok = true, Result = "pong" });
+            });
+
+            var client = new PluginClient(() => new DiscoveryInfo
+            {
+                Transport = "pipe",
+                PipeName = fake.PipeName,
+                Token = "test"
+            });
+
+            for (var i = 0; i < 3; i++)
+            {
+                var response = await client.SendAsync("ping", new { }, "req-" + i);
+                Assert.True(response.Ok);
+                Assert.Equal("pong", (string)response.Result);
+            }
+        }
+
+        [Fact]
         public async Task Returns_error_response_when_plugin_unreachable()
         {
-            var client = new PluginClient(() => new DiscoveryInfo { Port = 1, Token = "test" });
+            var client = new PluginClient(() => new DiscoveryInfo { PortNullable = 1, Token = "test" });
             var response = await client.SendAsync("ping", new { });
 
             Assert.False(response.Ok);
@@ -91,7 +143,7 @@ namespace Bimwright.Dwg.Tests
                     Version = target,
                     Transport = "tcp",
                     Host = "127.0.0.1",
-                    Port = port,
+                    PortNullable = port,
                     Token = token,
                     Pid = Process.GetCurrentProcess().Id
                 };

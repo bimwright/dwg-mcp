@@ -210,7 +210,7 @@ namespace Bimwright.Dwg.Server
                     Version = "2024",
                     Transport = "tcp",
                     Host = "127.0.0.1",
-                    Port = port,
+                    PortNullable = port,
                     Token = token,
                     Pid = pid,
                     DiscoveryFile = path

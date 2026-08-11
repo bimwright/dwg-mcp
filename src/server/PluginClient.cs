@@ -77,9 +77,13 @@ namespace Bimwright.Dwg.Server
 
         private static async Task<McpResponse> SendStreamAsync(Stream stream, string requestId, string json)
         {
+            // Do not let the writer/reader dispose the underlying transport stream.
+            // Both wrap the same NamedPipeClientStream/NetworkStream; disposing it
+            // twice throws "Cannot access a closed pipe" on the second Dispose and
+            // masks an otherwise-successful response.
             var utf8 = new UTF8Encoding(false);
-            using var writer = new StreamWriter(stream, utf8) { AutoFlush = true };
-            using var reader = new StreamReader(stream, utf8);
+            using var writer = new StreamWriter(stream, utf8, -1, leaveOpen: true) { AutoFlush = true };
+            using var reader = new StreamReader(stream, utf8, true, -1, leaveOpen: true);
 
             await writer.WriteLineAsync(json);
             var readTask = reader.ReadLineAsync();
@@ -103,7 +107,12 @@ namespace Bimwright.Dwg.Server
         [JsonProperty("version")] public string Version { get; set; }
         [JsonProperty("transport")] public string Transport { get; set; } = "tcp";
         [JsonProperty("host")] public string Host { get; set; } = "127.0.0.1";
-        [JsonProperty("port")] public int Port { get; set; }
+        // Pipe transport (AutoCAD 2025-2027) writes "port": null in the discovery
+        // file. Deserializing null into a non-nullable int throws inside
+        // AuthToken.TryReadJson's try/catch, which is swallowed and reported as
+        // "invalid" discovery file, causing the file to be deleted on every call.
+        [JsonProperty("port")] public int? PortNullable { get; set; }
+        [JsonIgnore] public int Port => PortNullable ?? 0;
         [JsonProperty("pipe_name")] public string PipeName { get; set; }
         [JsonProperty("pipe_path")] public string PipePath { set => PipeName = value; }
         [JsonProperty("auth_token")] public string Token { get; set; }

@@ -94,6 +94,38 @@ namespace Bimwright.Dwg.Tests
         }
 
         [Fact]
+        public void Resolve_ParsesPipeDiscoveryWithLiteralNullPort()
+        {
+            // Regression test: the real plugin's PipeTransportServer writes
+            // "port": null for AutoCAD 2025-2027 (named pipe transport). Before
+            // the fix, deserializing that into a non-nullable int threw inside
+            // TryReadJson's try/catch, so the file was treated as invalid and
+            // deleted on every single resolve attempt, permanently breaking pipe
+            // discovery.
+            using var temp = new TempDiscoveryRoot();
+            var path = Path.Combine(temp.Root, "Dwg", "acad-2025.json");
+            File.WriteAllText(path, @"{
+  ""schema_version"": 2,
+  ""acad_year"": 2025,
+  ""transport"": ""pipe"",
+  ""port"": null,
+  ""pipe_name"": ""BimwrightDwg-2025-12345"",
+  ""auth_token"": ""abc123"",
+  ""pid"": " + Process.GetCurrentProcess().Id + @",
+  ""process_name"": ""acad"",
+  ""started_at_utc"": ""2026-01-01T00:00:00Z""
+}");
+
+            var info = AuthToken.Resolve("2025", temp.Root);
+
+            Assert.Equal("2025", info.Target);
+            Assert.Equal("pipe", info.Transport);
+            Assert.Equal("BimwrightDwg-2025-12345", info.PipeName);
+            Assert.Equal("abc123", info.Token);
+            Assert.True(File.Exists(path), "the discovery file must survive a literal null port");
+        }
+
+        [Fact]
         public void Resolve_FallsBackToLegacyAcad24Discovery()
         {
             using var temp = new TempDiscoveryRoot();
@@ -132,7 +164,7 @@ namespace Bimwright.Dwg.Tests
                     Version = target,
                     Transport = transport,
                     Host = "127.0.0.1",
-                    Port = port,
+                    PortNullable = port == 0 ? (int?)null : port,
                     PipeName = pipeName,
                     Token = token,
                     Pid = pid ?? Process.GetCurrentProcess().Id,
