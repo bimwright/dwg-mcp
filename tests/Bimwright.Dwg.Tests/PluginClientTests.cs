@@ -109,7 +109,15 @@ namespace Bimwright.Dwg.Tests
 
             for (var i = 0; i < 3; i++)
             {
-                var response = await client.SendAsync("ping", new { }, "req-" + i);
+                McpResponse response = null;
+                for (var attempt = 0; attempt < 20; attempt++)
+                {
+                    response = await client.SendAsync("ping", new { }, "req-" + i);
+                    if (response.Ok)
+                        break;
+                    await Task.Delay(30);
+                }
+
                 Assert.True(response.Ok, response.Error);
                 Assert.Equal("pong", (string)response.Result);
             }

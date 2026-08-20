@@ -85,6 +85,13 @@ namespace Bimwright.Dwg.Tests
                 }
 
                 _listeningPipe = null;
+
+                // Give Linux time to release the FIFO name before the next
+                // NamedPipeServerStream (max 1 instance) is created. Without
+                // this, the next PluginClient connect hits a dying instance
+                // ("Connection reset by peer") on Ubuntu CI.
+                try { await Task.Delay(50, ct); }
+                catch (OperationCanceledException) { return; }
             }
         }
 
