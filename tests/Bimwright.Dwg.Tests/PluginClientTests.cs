@@ -64,6 +64,66 @@ namespace Bimwright.Dwg.Tests
         }
 
         [Fact]
+        public async Task Sends_request_over_named_pipe_transport()
+        {
+            // Regression test: SendStreamAsync used to wrap the transport
+            // stream in a StreamWriter and a StreamReader without leaveOpen,
+            // so both disposed the same NamedPipeClientStream. The second
+            // Dispose threw ObjectDisposedException ("Cannot access a closed
+            // pipe"), which SendAsync's catch turned into a false failure even
+            // though the plugin had already answered successfully.
+            using var fake = new FakeNamedPipeServer(line =>
+            {
+                var req = JsonConvert.DeserializeObject<McpRequest>(line);
+                return JsonConvert.SerializeObject(new McpResponse { Id = req.Id, Ok = true, Result = "pong" });
+            });
+
+            var client = new PluginClient(() => new DiscoveryInfo
+            {
+                Transport = "pipe",
+                PipeName = fake.PipeName,
+                Token = "test"
+            });
+
+            var response = await client.SendAsync("ping", new { });
+
+            Assert.True(response.Ok);
+            Assert.Equal("pong", (string)response.Result);
+        }
+
+        [Fact]
+        public async Task Sends_multiple_sequential_requests_over_named_pipe_transport()
+        {
+            using var fake = new FakeNamedPipeServer(line =>
+            {
+                var req = JsonConvert.DeserializeObject<McpRequest>(line);
+                return JsonConvert.SerializeObject(new McpResponse { Id = req.Id, Ok = true, Result = "pong" });
+            });
+
+            var client = new PluginClient(() => new DiscoveryInfo
+            {
+                Transport = "pipe",
+                PipeName = fake.PipeName,
+                Token = "test"
+            });
+
+            for (var i = 0; i < 3; i++)
+            {
+                McpResponse response = null;
+                for (var attempt = 0; attempt < 20; attempt++)
+                {
+                    response = await client.SendAsync("ping", new { }, "req-" + i);
+                    if (response.Ok)
+                        break;
+                    await Task.Delay(30);
+                }
+
+                Assert.True(response.Ok, response.Error);
+                Assert.Equal("pong", (string)response.Result);
+            }
+        }
+
+        [Fact]
         public async Task Returns_error_response_when_plugin_unreachable()
         {
             var client = new PluginClient(() => new DiscoveryInfo { Port = 1, Token = "test" });

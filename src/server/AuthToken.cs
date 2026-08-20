@@ -150,7 +150,7 @@ namespace Bimwright.Dwg.Server
                     return false;
                 }
 
-                if (string.Equals(parsed.Transport, "tcp", StringComparison.OrdinalIgnoreCase) && parsed.Port <= 0)
+                if (string.Equals(parsed.Transport, "tcp", StringComparison.OrdinalIgnoreCase) && (parsed.Port ?? 0) <= 0)
                 {
                     return false;
                 }
