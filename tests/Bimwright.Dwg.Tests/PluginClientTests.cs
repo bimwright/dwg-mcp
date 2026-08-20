@@ -110,7 +110,7 @@ namespace Bimwright.Dwg.Tests
             for (var i = 0; i < 3; i++)
             {
                 var response = await client.SendAsync("ping", new { }, "req-" + i);
-                Assert.True(response.Ok);
+                Assert.True(response.Ok, response.Error);
                 Assert.Equal("pong", (string)response.Result);
             }
         }
