@@ -164,7 +164,7 @@ namespace Bimwright.Dwg.Tests
                     Version = target,
                     Transport = transport,
                     Host = "127.0.0.1",
-                    PortNullable = port == 0 ? (int?)null : port,
+                    Port = port == 0 ? (int?)null : port,
                     PipeName = pipeName,
                     Token = token,
                     Pid = pid ?? Process.GetCurrentProcess().Id,

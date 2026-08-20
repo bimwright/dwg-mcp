@@ -150,7 +150,7 @@ namespace Bimwright.Dwg.Server
                     return false;
                 }
 
-                if (string.Equals(parsed.Transport, "tcp", StringComparison.OrdinalIgnoreCase) && parsed.Port <= 0)
+                if (string.Equals(parsed.Transport, "tcp", StringComparison.OrdinalIgnoreCase) && (parsed.Port ?? 0) <= 0)
                 {
                     return false;
                 }
@@ -210,7 +210,7 @@ namespace Bimwright.Dwg.Server
                     Version = "2024",
                     Transport = "tcp",
                     Host = "127.0.0.1",
-                    PortNullable = port,
+                    Port = port,
                     Token = token,
                     Pid = pid,
                     DiscoveryFile = path

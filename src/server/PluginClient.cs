@@ -51,7 +51,7 @@ namespace Bimwright.Dwg.Server
         {
             using var tcp = new TcpClient();
             var host = string.IsNullOrWhiteSpace(discovery.Host) ? "127.0.0.1" : discovery.Host;
-            var connectTask = tcp.ConnectAsync(host, discovery.Port);
+            var connectTask = tcp.ConnectAsync(host, discovery.Port ?? 0);
             if (await Task.WhenAny(connectTask, Task.Delay(Timeout)) != connectTask)
                 return Error(requestId, "plugin connect timeout");
             await connectTask;
@@ -111,8 +111,7 @@ namespace Bimwright.Dwg.Server
         // file. Deserializing null into a non-nullable int throws inside
         // AuthToken.TryReadJson's try/catch, which is swallowed and reported as
         // "invalid" discovery file, causing the file to be deleted on every call.
-        [JsonProperty("port")] public int? PortNullable { get; set; }
-        [JsonIgnore] public int Port => PortNullable ?? 0;
+        [JsonProperty("port")] public int? Port { get; set; }
         [JsonProperty("pipe_name")] public string PipeName { get; set; }
         [JsonProperty("pipe_path")] public string PipePath { set => PipeName = value; }
         [JsonProperty("auth_token")] public string Token { get; set; }

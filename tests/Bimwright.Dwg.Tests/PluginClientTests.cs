@@ -20,7 +20,7 @@ namespace Bimwright.Dwg.Tests
                 return JsonConvert.SerializeObject(resp);
             });
 
-            var client = new PluginClient(() => new DiscoveryInfo { PortNullable = fake.Port, Token = "test" });
+            var client = new PluginClient(() => new DiscoveryInfo { Port = fake.Port, Token = "test" });
             var response = await client.SendAsync("ping", new { });
 
             Assert.True(response.Ok);
@@ -56,7 +56,7 @@ namespace Bimwright.Dwg.Tests
                 return JsonConvert.SerializeObject(new McpResponse { Id = req.Id, Ok = true, Result = "ok" });
             });
 
-            var client = new PluginClient(() => new DiscoveryInfo { PortNullable = fake.Port, Token = "test" });
+            var client = new PluginClient(() => new DiscoveryInfo { Port = fake.Port, Token = "test" });
             var response = await client.SendAsync("ping", new { }, "req-123");
 
             Assert.True(response.Ok);
@@ -118,7 +118,7 @@ namespace Bimwright.Dwg.Tests
         [Fact]
         public async Task Returns_error_response_when_plugin_unreachable()
         {
-            var client = new PluginClient(() => new DiscoveryInfo { PortNullable = 1, Token = "test" });
+            var client = new PluginClient(() => new DiscoveryInfo { Port = 1, Token = "test" });
             var response = await client.SendAsync("ping", new { });
 
             Assert.False(response.Ok);
@@ -143,7 +143,7 @@ namespace Bimwright.Dwg.Tests
                     Version = target,
                     Transport = "tcp",
                     Host = "127.0.0.1",
-                    PortNullable = port,
+                    Port = port,
                     Token = token,
                     Pid = Process.GetCurrentProcess().Id
                 };
