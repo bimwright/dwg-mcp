@@ -110,30 +110,11 @@ Xem [ARCHITECTURE.md](ARCHITECTURE.md) để biết chi tiết về threading, d
 
 ## Cài đặt
 
-### 1. Server
+Tải setup ZIP từ [GitHub Releases](https://github.com/bimwright/dwg-mcp/releases/latest) (`DwgMcp.Setup-*-win-x64.zip`). v1.0.0 gồm plugin AutoCAD **2024** và **2027**. Giải nén rồi `install.ps1` (xem README tiếng Anh để copy-paste đầy đủ).
 
-```bash
-dotnet tool install -g Bimwright.Dwg.Server
-bimwright-dwg --help
-```
+Không `dotnet tool install -g Bimwright.Dwg.Server`.
 
-Yêu cầu .NET 8 SDK.
-
-### 2. Plugin
-
-**Auto-deploy:**
-
-Tải plugin từ [GitHub Releases](https://github.com/bimwright/dwg-mcp/releases/latest):
-
-```powershell
-pwsh scripts/install.ps1 -Version 2024 -WhatIf    # xem trước
-pwsh scripts/install.ps1 -Version 2024            # cài đặt
-pwsh scripts/install.ps1 -Uninstall               # gỡ bỏ
-```
-
-Script triển khai vào `%APPDATA%\Autodesk\ApplicationPlugins\Bimwright.Dwg.bundle\`. Khởi động lại AutoCAD để tải.
-
-**Thủ công:** Trong AutoCAD: `NETLOAD` → chọn `src/plugin-acad24/bin/Debug/net48/Bimwright.Dwg.Plugin.Acad24.dll`. Listener tự động khởi động.
+**Developer:** `pwsh scripts/install.ps1 -Version 2024` từ repo sau khi build; hoặc `NETLOAD` DLL Debug.
 
 ### 3. Cấu hình MCP client
 

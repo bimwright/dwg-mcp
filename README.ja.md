@@ -110,32 +110,11 @@ AIエージェントは、「選択したすべてのテキストをベトナム
 
 ## インストール
 
-### 1. サーバー — .NET グローバルツール
+[GitHub Releases](https://github.com/bimwright/dwg-mcp/releases/latest) から setup ZIP（`DwgMcp.Setup-*-win-x64.zip`）を入手。v1.0.0 は AutoCAD **2024** と **2027** プラグイン入り。展開して `install.ps1`（全文は英語 README）。
 
-```bash
-dotnet tool install -g Bimwright.Dwg.Server
-bimwright-dwg --help
-```
+`dotnet tool install -g Bimwright.Dwg.Server` は使わないでください。
 
-.NET 8 SDK が必要です。
-
-### 2. プラグイン — AutoCAD アドイン
-
-**オプション A: 自動デプロイ (.bundle)**
-
-[GitHub Releases](https://github.com/bimwright/dwg-mcp/releases/latest) からプラグインをダウンロード:
-
-```powershell
-pwsh scripts/install.ps1 -Version 2024 -WhatIf    # プレビュー
-pwsh scripts/install.ps1 -Version 2024            # インストール
-pwsh scripts/install.ps1 -Uninstall               # 削除
-```
-
-スクリプトは `%APPDATA%\Autodesk\ApplicationPlugins\Bimwright.Dwg.bundle\` にデプロイします。AutoCADを再起動してロードしてください。
-
-**オプション B: 手動 NETLOAD (開発者向け)**
-
-AutoCAD で: `NETLOAD` → `src/plugin-acad24/bin/Debug/net48/Bimwright.Dwg.Plugin.Acad24.dll` を選択。リスナーが自動起動します。
+**開発者:** ビルド後 `pwsh scripts/install.ps1 -Version 2024`、または Debug DLL を `NETLOAD`。
 
 ### 3. MCP クライアントの接続設定
 

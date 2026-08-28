@@ -14,7 +14,7 @@
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>bimwright-dwg</ToolCommandName>
     <PackageId>Bimwright.Dwg.Server</PackageId>
-    <Version>1.0.0-dev</Version>
+    <Version>1.0.0</Version>
     <Authors>Khoa Le</Authors>
     <Description>MCP gateway for AutoCAD 2022-2027 DWG workflows: text reading, translation rewriting, target routing, optional ToolBaker, and opt-in code execution.</Description>
     <PackageProjectUrl>https://github.com/bimwright/dwg-mcp</PackageProjectUrl>

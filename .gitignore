@@ -9,6 +9,7 @@ obj/
 *.nupkg
 artifacts/
 artifacts-*/
+build/
 
 # .NET user-local launch profiles
 **/Properties/launchSettings.json

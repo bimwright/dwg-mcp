@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ApplicationPackage
   SchemaVersion="1.0"
-  AppVersion="1.0.0-dev"
+  AppVersion="1.0.0"
   AutodeskProduct="AutoCAD"
   Name="Bimwright.Dwg"
   Description="MCP gateway plugin for AI-assisted text translation in AutoCAD"

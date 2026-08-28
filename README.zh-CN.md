@@ -110,32 +110,11 @@ AI agent 让“把选中的文字全部翻译成越南语”这类意图可以�
 
 ## 安装
 
-### 1. Server —— .NET global tool
+从 [GitHub Releases](https://github.com/bimwright/dwg-mcp/releases/latest) 下载 setup ZIP（`DwgMcp.Setup-*-win-x64.zip`）。v1.0.0 含 AutoCAD **2024** 与 **2027** 插件。解压后运行 `install.ps1`（完整命令见英文 README）。
 
-```bash
-dotnet tool install -g Bimwright.Dwg.Server
-bimwright-dwg --help
-```
+不要 `dotnet tool install -g Bimwright.Dwg.Server`。
 
-需要 .NET 8 SDK。
-
-### 2. Plugin —— AutoCAD add-in
-
-**方式 A：自动部署（.bundle）**
-
-从 [GitHub Releases](https://github.com/bimwright/dwg-mcp/releases/latest) 下载 plugin：
-
-```powershell
-pwsh scripts/install.ps1 -Version 2024 -WhatIf    # 预览
-pwsh scripts/install.ps1 -Version 2024            # 安装
-pwsh scripts/install.ps1 -Uninstall               # 卸载
-```
-
-脚本会部署到 `%APPDATA%\Autodesk\ApplicationPlugins\Bimwright.Dwg.bundle\`。重启 AutoCAD 以加载。
-
-**方式 B：手动 NETLOAD（开发用）**
-
-在 AutoCAD 中：`NETLOAD` → 选择 `src/plugin-acad24/bin/Debug/net48/Bimwright.Dwg.Plugin.Acad24.dll`。监听器自动启动。
+**开发者：** 本地 build 后 `pwsh scripts/install.ps1 -Version 2024`，或 `NETLOAD` Debug DLL。
 
 ### 3. 接好你的 MCP client
 

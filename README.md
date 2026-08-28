@@ -110,32 +110,24 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for threading, discovery, and auth detail
 
 ## Install
 
-### 1. Server — .NET global tool
-
-```bash
-dotnet tool install -g Bimwright.Dwg.Server
-bimwright-dwg --help
-```
-
-Requires .NET 8 SDK.
-
-### 2. Plugin — AutoCAD add-in
-
-**Option A: Auto-deploy (.bundle)**
-
-Download the plugin from [GitHub Releases](https://github.com/bimwright/dwg-mcp/releases/latest):
+Download the client setup ZIP from [GitHub Releases](https://github.com/bimwright/dwg-mcp/releases/latest). It includes a self-contained MCP server and the AutoCAD plugin years that were compiled for that release (see `manifest.json` inside the ZIP). This machine’s v1.0.0 ZIP ships **2024** and **2027**. Other years: build the plugin from source with that year’s AutoCAD SDK.
 
 ```powershell
-pwsh scripts/install.ps1 -Version 2024 -WhatIf    # preview
-pwsh scripts/install.ps1 -Version 2024            # install
-pwsh scripts/install.ps1 -Uninstall               # remove
+$tag = (Invoke-RestMethod https://api.github.com/repos/bimwright/dwg-mcp/releases/latest).tag_name
+$zip = "$env:TEMP\DwgMcp.Setup-$tag-win-x64.zip"
+$dir = "$env:TEMP\DwgMcp.Setup-$tag-win-x64"
+Invoke-WebRequest "https://github.com/bimwright/dwg-mcp/releases/download/$tag/DwgMcp.Setup-$tag-win-x64.zip" -OutFile $zip
+Expand-Archive $zip -DestinationPath $dir -Force
+
+powershell -ExecutionPolicy Bypass -File "$dir\install.ps1" -WhatIf
+powershell -ExecutionPolicy Bypass -File "$dir\install.ps1"
 ```
 
-The script deploys to `%APPDATA%\Autodesk\ApplicationPlugins\Bimwright.Dwg.bundle\`. Restart AutoCAD to load.
+The installer deploys `%APPDATA%\Autodesk\ApplicationPlugins\Bimwright.Dwg.bundle\` and copies `dwg-mcp.exe` under `%LOCALAPPDATA%\Bimwright\Dwg\server\<version>\`. Restart AutoCAD. Point your MCP client at that `dwg-mcp.exe` path.
 
-**Option B: Manual NETLOAD (dev)**
+Do **not** `dotnet tool install -g Bimwright.Dwg.Server` — that package is not the supported client install.
 
-In AutoCAD: `NETLOAD` → pick `src/plugin-acad24/bin/Debug/net48/Bimwright.Dwg.Plugin.Acad24.dll`. Listener auto-starts.
+**Developer (local SDK):** `dotnet build` the year you have, then `pwsh scripts/install.ps1 -Version 2024` from the repo (copies that year’s `bin` output). `NETLOAD` remains available for Debug DLLs.
 
 ### 3. Wire up your MCP client
 

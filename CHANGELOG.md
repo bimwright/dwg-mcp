@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 1.0.0 — 2026-08-28
+
+First GitHub Release. Client setup ZIP: `DwgMcp.Setup-v1.0.0-win-x64.zip` (self-contained `dwg-mcp.exe`). **Plugin years in this ZIP** are those that compiled on the release machine (AutoCAD **2024** and **2027**). Source still supports 2022–2027; other years need a local AutoCAD SDK build.
+
 ### Added
 
 - `dwg_capture_view_image` — render the current view to an image.
