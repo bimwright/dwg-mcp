@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- `dwg_capture_view_image` — render the current view to an image.
+- Japanese and Simplified Chinese README mirrors.
+
+### Changed
+
+- Public tool counts aligned in docs; P&ID toolset removed from the public surface.
+- README locale parity (badges, read-only capture wording, family cross-links).
+
+### Fixed
+
+- Named-pipe discovery: nullable `Port`, stop the fake pipe server on dispose, and sequential connect retries so Linux CI does not flake (PR #2).
+- CI accepts Unix absolute paths and refreshes the tools snapshot.
+
 ## 1.0.0-dev — 2026-05-25
 
 Breaking changes:
