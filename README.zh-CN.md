@@ -406,7 +406,9 @@ dwg-mcp/
 
 ## bimwright 家族
 
-为 AEC 工具链亲手打造的 MCP gateway——同一套架构，predictable / auditable / reversible：
+连接 AI 助手与 BIM、CAD 应用的开源工具。
+
+**bimwright** 这个名字由 **BIM** 和 **wright** 组成。wright 是英语中表示制作者或建造者的旧词，如 *shipwright*（造船工）。
 
 - [**rvt-mcp**](https://github.com/bimwright/rvt-mcp) —— Autodesk® Revit®
 - [**dwg-mcp**](https://github.com/bimwright/dwg-mcp) —— Autodesk® AutoCAD®

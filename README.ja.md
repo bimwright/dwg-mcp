@@ -404,7 +404,9 @@ dwg-mcp/
 
 ## bimwright ファミリー
 
-AECツールチェーンのための手鍛造MCPゲートウェイ — 単一のアーキテクチャ、予測可能/監査可能/可逆:
+AI アシスタントと BIM・CAD アプリケーションをつなぐオープンソースのツール。
+
+**bimwright** は **BIM** と **wright** を組み合わせた名前です。wright は、ものを作る人や建てる人を表す古い英語で、*shipwright*（船大工）などに使われます。
 
 - [**rvt-mcp**](https://github.com/bimwright/rvt-mcp) — Autodesk® Revit®
 - [**dwg-mcp**](https://github.com/bimwright/dwg-mcp) — Autodesk® AutoCAD®
