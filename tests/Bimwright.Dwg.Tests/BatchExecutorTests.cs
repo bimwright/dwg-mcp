@@ -7,6 +7,18 @@ namespace Bimwright.Dwg.Tests
     public class BatchExecutorTests
     {
         [Fact]
+        public void Run_RejectsLispBeforeExecutingAnyBatchItem()
+        {
+            var executed = 0;
+            var result = BatchExecutor.Run(
+                JObject.Parse("{\"commands\":[{\"cmd\":\"update_texts\",\"params\":{}},{\"cmd\":\"run_lisp\",\"params\":{\"code\":\"(princ)\"}}]}"),
+                (cmd, parameters) => { executed++; return CommandResult.Success(null); });
+            Assert.False(result.Ok);
+            Assert.Equal(0, executed);
+            Assert.Contains("run_lisp", result.Error);
+        }
+
+        [Fact]
         public void Run_RejectsNestedBatch()
         {
             var result = BatchExecutor.Run(

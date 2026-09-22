@@ -60,6 +60,7 @@ namespace Bimwright.Dwg.Tests
 
         [Theory]
         [InlineData("send_code")]
+        [InlineData("run_lisp")]
         [InlineData("batch_execute")]
         [InlineData("run_baked_tool")]
         [InlineData("apply_bake")]

@@ -129,20 +129,9 @@ Không `dotnet tool install -g Bimwright.Dwg.Server`.
 }
 ```
 
-`dwg_send_code` bị ẩn khỏi danh sách tool mặc định. Muốn bật, phải opt-in ở cả server và AutoCAD:
+`dwg_send_code` và `dwg_run_lisp` nằm sẵn trong danh sách tool mặc định qua toolset `meta` (cùng posture với rvt-mcp) — không cần flag server. Trong AutoCAD, `MCPDISABLECODE` tắt cả hai tool cho session plugin hiện tại và `MCPENABLECODE` bật lại. `--read-only` gỡ chúng cùng các tool write-capable khác.
 
-```json
-{
-  "mcpServers": {
-    "bimwright-dwg": {
-      "command": "bimwright-dwg",
-      "args": ["--enable-send-code"]
-    }
-  }
-}
-```
-
-Sau đó chạy `MCPENABLECODE` trong AutoCAD cho session plugin hiện tại. `MCPDISABLECODE` tắt lại quyền này.
+`dwg_send_code` chỉ nhận snippet đồng bộ: `async`/`await` bị chặn trước khi thực thi. Giữ các lệnh gọi AutoCAD API trên luồng hiện tại; không chuyển sang `Task.Run` hoặc luồng khác. Chỉ trả DTO có thể biểu diễn bằng JSON; object AutoCAD/COM bị từ chối kể cả khi lồng trong DTO hoặc collection. Gọi `dwg_run_lisp` trực tiếp: batch chứa `run_lisp` bị từ chối trước khi chạy bất kỳ item nào. Nguồn LISP quá 2.000.000 ký tự bị từ chối vì không thể quét đầy đủ; giới hạn hiển thị 200 findings không làm mất phát hiện nguy hiểm. Scanner dùng heuristic, không phải sandbox hay bảo đảm an toàn.
 
 Để pin một AutoCAD cụ thể, dùng năm 4 chữ số:
 
@@ -163,7 +152,7 @@ Dùng `--read-only` để gỡ toolset write-capable. Dùng `--toolsets all` ho�
 
 ## Công cụ
 
-Mặc định server expose 36 tool: query, modify, meta, view, và `dwg_capture_view_image` mặc định bật. Các toolset tùy chọn ToolBaker, annotation, block, dimension, export, và drawing được kích hoạt qua `--toolsets`, cùng với `dwg_send_code` nâng tổng diện tích bề mặt MCP lên 61 tool.
+Mặc định server expose 39 tool: query (gồm `dwg_inspect_lisp`), modify, meta (gồm `dwg_send_code`/`dwg_run_lisp`), view, và `dwg_capture_view_image` mặc định bật. Các toolset tùy chọn ToolBaker, annotation, block, dimension, export, và drawing được kích hoạt qua `--toolsets`, nâng tổng diện tích bề mặt MCP lên 63 tool.
 
 CAD tool chạy trên active document hiện tại của AutoCAD target đang chọn. Entity input và entity id trả về dùng AutoCAD hex handle, ví dụ `7F5AD`, do tool selection, creation, hoặc properties trả về. Creation, copy, offset, và modify response identify entity tạo/sửa bằng hex handle.
 
@@ -203,12 +192,13 @@ Plan 2 query expansion chỉ quét model space: `dwg_query_entities`, `dwg_count
 | `dwg_get_current_target` | Xem target đang pin |
 | `dwg_switch_target` | Pin server sang AutoCAD `2022` đến `2027` |
 | `dwg_batch_execute` | Chạy nhiều wire command nội bộ như một logical batch |
+| `dwg_send_code` | Chạy C# snippet trên AutoCAD .NET API (globals `doc`/`db`/`ed`, hỗ trợ `return` value + stdout capture, cooperative cancel 30s; `MCPDISABLECODE`/`MCPENABLECODE` bật/tắt theo session) |
+| `dwg_run_lisp` | Chạy AutoLISP cho các automation lisp có sẵn: `file` (path tuyệt đối .lsp để `(load)`), `code` (lisp inline — giá trị biểu thức cuối → `result`), và/hoặc `command` (như gõ ở command line; biểu thức `(…)` được capture, tên lệnh `c:` trần chạy queue). Gating giống `dwg_send_code`. Input được scan an toàn trước — verdict `dangerous` bị từ chối thẳng. |
+| `dwg_inspect_lisp` | Quét an toàn tĩnh cho file `.lsp` hoặc AutoLISP inline — phát hiện exec process (`startapp`/`shell`), COM nguy hiểm (`WScript.Shell`/`XMLHTTP`), persistence (`acaddoc.lsp`, ghi registry), xóa file, `(load …)` tầng hai, obfuscation (`eval`/`read`). Trả `verdict` clean/caution/dangerous + findings. Phân tích local thuần; không thực thi, không cần AutoCAD; dùng được cả dưới `--read-only`. |
 | `dwg_zoom_extents` | Zoom đến giới hạn của viewport bản vẽ |
 | `dwg_zoom_window` | Zoom viewport đến một cửa sổ được xác định bởi hai điểm góc |
 | `dwg_zoom_to_entity` | Zoom viewport đến giới hạn của một entity cụ thể theo handle |
 | `dwg_capture_view_image` | Capture view active ra file ảnh (mặc định bật; path policy) |
-
-`dwg_send_code` **không** nằm bảng default — chỉ opt-in hai phía (Install / Security).
 
 ToolBaker là toolset tùy chọn:
 
@@ -331,6 +321,7 @@ Tên MCP tool này có prefix `dwg_`. Tên command raw trong plugin chỉ còn l
 | `apply_unicode_style` | `dwg_apply_unicode_style` |
 | `collapse_and_rewrite` | `dwg_collapse_and_rewrite` |
 | `send_code` | `dwg_send_code` |
+| `run_lisp` | `dwg_run_lisp` |
 
 ---
 
@@ -364,14 +355,14 @@ Server và tests có thể pass khi chưa build release tất cả shell. Muốn
 
 ## Bảo mật
 
-`dwg_send_code` chạy C# tùy ý với toàn quyền truy cập process AutoCAD và filesystem. Tool này không nằm trong danh sách MCP mặc định. Muốn dùng, khởi động server với `--enable-send-code` hoặc `BIMWRIGHT_DWG_ENABLE_SEND_CODE=1`, rồi chạy `MCPENABLECODE` trong AutoCAD cho session plugin hiện tại.
+`dwg_send_code` chạy C# tùy ý và `dwg_run_lisp` chạy AutoLISP tùy ý — cùng mức rủi ro, toàn quyền truy cập process AutoCAD và filesystem. Cả hai nằm trong danh sách MCP mặc định qua toolset `meta` (cùng posture rvt-mcp); `--read-only` sẽ gỡ chúng. Trong AutoCAD, `MCPDISABLECODE` tắt chúng cho session plugin hiện tại và `MCPENABLECODE` bật lại. Lớp phòng vệ: `dwg_run_lisp` scan input trước bằng engine của `dwg_inspect_lisp` — verdict `dangerous` (kể cả `.fas`/`.vlx` không inspect được) bị từ chối thẳng không có override, trả findings về cho caller; `caution` vẫn chạy nhưng response kèm `lisp_warnings`.
 
 Bảo mật dựa trên:
 
 - **Chỉ local** — TCP trên 127.0.0.1 cho AutoCAD 2022–2024, loopback Named Pipe cho 2025–2027.
 - **Auth token mỗi session** — xoay khi plugin khởi động lại.
-- **Opt-in hai phía** — server đăng ký tool và AutoCAD xác nhận cho phép.
-- **Giới hạn timeout** — script chạy trên thread riêng, có cancellation và abort khi quá timeout.
+- **Kill-switch theo session** — `MCPDISABLECODE` trong AutoCAD chặn `dwg_send_code`/`dwg_run_lisp` cho session plugin đó tới khi `MCPENABLECODE` bật lại (hoặc listener restart).
+- **Giới hạn timeout** — script chạy inline trên thread giữ document lock, cooperative cancel sau 30s.
 - **Giả định agent tin cậy** — chỉ dùng với MCP client bạn kiểm soát.
 
 ---

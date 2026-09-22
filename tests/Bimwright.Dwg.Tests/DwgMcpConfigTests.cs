@@ -18,7 +18,6 @@ namespace Bimwright.Dwg.Tests
                 Target = "2024",
                 Toolsets = new List<string> { "query" },
                 ReadOnly = false,
-                EnableSendCode = false,
                 EnableToolbaker = true,
                 AllowLanBind = false,
                 LogLevel = "info"
@@ -31,7 +30,6 @@ namespace Bimwright.Dwg.Tests
                     [DwgMcpConfig.EnvTarget] = "2025",
                     [DwgMcpConfig.EnvToolsets] = "query,modify",
                     [DwgMcpConfig.EnvReadOnly] = "true",
-                    [DwgMcpConfig.EnvEnableSendCode] = "yes",
                     [DwgMcpConfig.EnvEnableToolbaker] = "false",
                     [DwgMcpConfig.EnvAllowLanBind] = "false",
                     [DwgMcpConfig.EnvLogLevel] = "debug"
@@ -44,7 +42,6 @@ namespace Bimwright.Dwg.Tests
                 Assert.Equal("2026", config.Target);
                 Assert.Equal(new[] { "query" }, config.Toolsets);
                 Assert.True(config.ReadOnly);
-                Assert.True(config.EnableSendCode);
                 Assert.False(config.EnableToolbaker);
                 Assert.True(config.AllowLanBind);
                 Assert.Equal("warn", config.LogLevel);
@@ -63,11 +60,9 @@ namespace Bimwright.Dwg.Tests
             Assert.Null(config.Target);
             Assert.Null(config.Toolsets);
             Assert.Null(config.ReadOnly);
-            Assert.Null(config.EnableSendCode);
             Assert.Null(config.EnableToolbaker);
             Assert.Null(config.AllowLanBind);
             Assert.False(config.ReadOnlyOrDefault);
-            Assert.False(config.EnableSendCodeOrDefault);
             Assert.True(config.EnableToolbakerOrDefault);
             Assert.False(config.AllowLanBindOrDefault);
         }

@@ -64,7 +64,7 @@ namespace Bimwright.Dwg.Plugin
         public static void McpEnableCode()
         {
             CommandDispatcher.SetSendCodeEnabled(true);
-            WriteLine("send_code enabled for this AutoCAD session. Start the MCP server with --enable-send-code to expose it.");
+            WriteLine("send_code re-enabled for this AutoCAD session.");
         }
 
         [CommandMethod("MCPDISABLECODE", CommandFlags.Session)]
@@ -76,7 +76,7 @@ namespace Bimwright.Dwg.Plugin
 
         private static void StartServerInternal()
         {
-            CommandDispatcher.SetSendCodeEnabled(false);
+            CommandDispatcher.SetSendCodeEnabled(true);
 #if ACAD2025_OR_GREATER
             _server = new PipeTransportServer(PluginTarget.AutoCadYear);
 #else

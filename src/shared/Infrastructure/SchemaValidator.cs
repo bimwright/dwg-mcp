@@ -355,6 +355,11 @@ namespace Bimwright.Dwg.Plugin
         public static readonly CommandSchema SendCode = CommandSchema.Object(
             SchemaProperty.Required("code", JTokenType.String));
 
+        public static readonly CommandSchema RunLisp = CommandSchema.Object(
+            SchemaProperty.Optional("file", JTokenType.String),
+            SchemaProperty.Optional("code", JTokenType.String),
+            SchemaProperty.Optional("command", JTokenType.String));
+
         public static readonly CommandSchema ApplyUnicodeStyle = CommandSchema.Object(
             SchemaProperty.Optional("handles", JTokenType.Array));
 

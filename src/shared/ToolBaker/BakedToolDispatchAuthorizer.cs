@@ -17,6 +17,7 @@ namespace Bimwright.Dwg.Plugin.ToolBaker
         private static readonly HashSet<string> Denied = new HashSet<string>(StringComparer.Ordinal)
         {
             "send_code",
+            "run_lisp",
             "batch_execute",
             "run_baked_tool",
             "apply_bake",

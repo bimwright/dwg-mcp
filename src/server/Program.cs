@@ -31,9 +31,6 @@ namespace Bimwright.Dwg.Server
             await builder.Build().RunAsync();
         }
 
-        public static bool IsSendCodeEnabled(string[] args)
-            => DwgMcpConfig.Load(args).EnableSendCodeOrDefault;
-
         private static void ConfigureMcpServerOptions(ModelContextProtocol.Server.McpServerOptions opts)
         {
             opts.ServerInfo = new ModelContextProtocol.Protocol.Implementation
@@ -53,11 +50,11 @@ namespace Bimwright.Dwg.Server
 AutoCAD routing: versions are 4-digit years 2022..2027. If multiple AutoCAD instances run, use dwg_list_available_targets then dwg_switch_target, or start the server with --target 2022|2023|2024|2025|2026|2027.
 
 Tools use prefix dwg_:
-- query: dwg_get_drawing_info, dwg_list_layers, and dwg_get_entity_properties read the current active document; dwg_get_selected_texts reads current AutoCAD pickfirst text selection and returns clustered text groups.
+- query: dwg_get_drawing_info, dwg_list_layers, and dwg_get_entity_properties read the current active document; dwg_get_selected_texts reads current AutoCAD pickfirst text selection and returns clustered text groups; dwg_inspect_lisp statically scans .lsp files or inline AutoLISP for dangerous content (verdict clean/caution/dangerous) — use it before dwg_run_lisp on untrusted lisp.
 - modify: dwg_create_layer, dwg_create_line, dwg_create_circle, dwg_change_layer, dwg_update_texts, dwg_translate_and_rewrite, dwg_apply_unicode_style, dwg_collapse_and_rewrite write drawing/text/style changes.
-- meta: dwg_batch_execute, dwg_list_available_targets, dwg_get_current_target, dwg_switch_target.
+- meta: dwg_batch_execute, dwg_list_available_targets, dwg_get_current_target, dwg_switch_target, dwg_send_code, dwg_run_lisp.
 - optional toolbaker, when enabled: dwg_list_baked_tools, dwg_run_baked_tool, dwg_list_bake_suggestions, dwg_accept_bake_suggestion, dwg_dismiss_bake_suggestion, dwg_create_bake_issue_draft.
-- code: dwg_send_code is disabled unless --enable-send-code or BIMWRIGHT_DWG_ENABLE_SEND_CODE=1.
+- dwg_send_code is on by default; the AutoCAD MCPDISABLECODE command disables it for the session (MCPENABLECODE re-enables).
 
 General CAD tools operate on the current AutoCAD active document. Entity arguments use AutoCAD hex handles returned by selection, creation, or property tools.
 Call dwg_get_selected_texts before text writeback. In read-only mode only query/routing/list tools are exposed.";
@@ -89,7 +86,9 @@ Call dwg_get_selected_texts before text writeback. In read-only mode only query/
                 toolTypes.Add(typeof(ToolBakerTools));
                 if (!readOnly) toolTypes.Add(typeof(ToolBakerWriteTools));
             }
-            if (enabled.Contains("code") && !readOnly) toolTypes.Add(typeof(CodeTools));
+            // dwg_send_code ships on the default surface via meta (rvt-mcp parity); the
+            // legacy "code" toolset name is still honored as an explicit opt-in alias.
+            if ((enabled.Contains("meta") || enabled.Contains("code")) && !readOnly) toolTypes.Add(typeof(CodeTools));
             if (enabled.Contains("annotation") && !readOnly) toolTypes.Add(typeof(AnnotationTools));
             if (enabled.Contains("block"))
             {

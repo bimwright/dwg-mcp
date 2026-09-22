@@ -38,16 +38,6 @@ namespace Bimwright.Dwg.Server
                 }
             }
 
-            if (config.EnableSendCodeOrDefault && (config.Toolsets == null || config.Toolsets.Count == 0))
-            {
-                enabled.Add("code");
-            }
-
-            if (!config.EnableSendCodeOrDefault)
-            {
-                enabled.Remove("code");
-            }
-
             if (!config.EnableToolbakerOrDefault)
             {
                 enabled.Remove("toolbaker");

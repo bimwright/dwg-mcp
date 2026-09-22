@@ -62,6 +62,7 @@ namespace Bimwright.Dwg.Plugin
                 { "offset_entities",         new OffsetEntitiesHandler() },
                 { "update_texts",            new UpdateTextsHandler() },
                 { "send_code",               new SendCodeHandler() },
+                { "run_lisp",                new RunLispHandler() },
                 { "apply_unicode_style",     new ApplyUnicodeStyleHandler() },
                 { "collapse_and_rewrite",    new CollapseAndRewriteHandler() },
                 { "translate_and_rewrite",   new TranslateAndRewriteHandler() },
@@ -121,8 +122,11 @@ namespace Bimwright.Dwg.Plugin
         private CommandResult ValidateCommand(string cmd, JToken parameters, out IAcadCommand handler)
         {
             handler = null;
-            if (string.Equals(cmd, "send_code", StringComparison.Ordinal) && !SendCodeEnabled)
-                return CommandResult.Fail("send_code is disabled. Run MCPENABLECODE in AutoCAD and start the MCP server with --enable-send-code to opt in.");
+            // send_code and run_lisp share the same arbitrary-execution kill-switch.
+            if ((string.Equals(cmd, "send_code", StringComparison.Ordinal)
+                    || string.Equals(cmd, "run_lisp", StringComparison.Ordinal))
+                && !SendCodeEnabled)
+                return CommandResult.Fail("code/lisp execution is disabled for this AutoCAD session. Run MCPENABLECODE in AutoCAD to re-enable.");
 
             if (!_commands.TryGetValue(cmd, out handler))
                 return CommandResult.Fail($"unknown command: {cmd}");

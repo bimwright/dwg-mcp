@@ -53,9 +53,13 @@ pwsh scripts\install.ps1 -Version 2024 -SourceDir src\plugin-acad24\bin\Release\
 
 ## Security Gates
 
-- Confirm `dwg_send_code` is absent unless the server is started with `--enable-send-code` or `BIMWRIGHT_DWG_ENABLE_SEND_CODE=1`.
-- Even when exposed, confirm `dwg_send_code` fails until `MCPENABLECODE` is run inside AutoCAD.
-- Run `MCPDISABLECODE` and confirm `dwg_send_code` fails again.
+- Confirm `dwg_send_code`/`dwg_run_lisp` are present on the default tool surface (via `meta`) and absent under `--read-only`.
+- Confirm `dwg_send_code` works out of the box; run `MCPDISABLECODE` inside AutoCAD and confirm it fails, then `MCPENABLECODE` and confirm it works again.
+- Confirm `dwg_run_lisp` with `code="(+ 1 2 3)"` returns `result` `6`; then a real `.lsp` via `file` + `command="(c:MYCMD)"`.
+- Confirm a synchronous `dwg_send_code` DTO + stdout response works, while `async`/`await` is refused before any drawing mutation and `return doc;` (also nested in a DTO) reports a DTO error.
+- Confirm `batch_execute` containing `run_lisp` rejects the whole batch before earlier items run; use the direct `dwg_run_lisp` tool instead.
+- Automated tests cover severity detection after 200 findings, refusal above 2,000,000 characters (inline/file), and masked LISP error payloads. Run `dotnet test tests/Bimwright.Dwg.Tests/Bimwright.Dwg.Tests.csproj -c Release`.
+- Live acceptance remains separate from these tests: verify LISP completion while AutoCAD is idle/busy, prompting commands, and timeout/queued-wrapper behavior in a disposable drawing. Test doubles and plugin compilation do not close these host-runtime gates.
 
 ## ToolBaker
 

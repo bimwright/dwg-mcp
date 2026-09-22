@@ -28,20 +28,18 @@ namespace Bimwright.Dwg.Tests
             var set = ToolsetFilter.Resolve(new DwgMcpConfig
             {
                 Toolsets = new List<string> { "query", "modify", "code", "meta" },
-                ReadOnly = true,
-                EnableSendCode = true
+                ReadOnly = true
             });
 
             Assert.Equal(new[] { "meta", "query" }, set.OrderBy(s => s).ToArray());
         }
 
         [Fact]
-        public void Resolve_EnableSendCodeAllowsCodeToolsetWhenRequested()
+        public void Resolve_CodeToolsetEnablesWhenRequestedWithoutFlag()
         {
             var set = ToolsetFilter.Resolve(new DwgMcpConfig
             {
-                Toolsets = new List<string> { "query", "code" },
-                EnableSendCode = true
+                Toolsets = new List<string> { "query", "code" }
             });
 
             Assert.Contains("query", set);
@@ -49,17 +47,16 @@ namespace Bimwright.Dwg.Tests
         }
 
         [Fact]
-        public void Resolve_EnableSendCodeAddsCodeToDefaultSurface()
+        public void Resolve_CodeToolsetStaysOffDefaultSurface()
         {
-            var set = ToolsetFilter.Resolve(new DwgMcpConfig
-            {
-                EnableSendCode = true
-            });
+            // dwg_send_code ships by default via meta (rvt-mcp parity), not via the
+            // "code" toolset name; the name remains an explicit opt-in alias.
+            var set = ToolsetFilter.Resolve(new DwgMcpConfig());
 
             Assert.Contains("query", set);
             Assert.Contains("modify", set);
             Assert.Contains("meta", set);
-            Assert.Contains("code", set);
+            Assert.DoesNotContain("code", set);
         }
 
         [Fact]

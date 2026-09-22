@@ -15,9 +15,9 @@ Bimwright.Dwg.Plugin  (AutoCAD 2022-2027 shells)
 AutoCAD .NET API  (ObjectARX 2022-2027)
 ```
 
-**Server** is an MCP server. It talks stdio to the client, translates each tool call into a JSON envelope, and forwards it over localhost transport to the plugin. Server is a plain .NET 8 global tool with no AutoCAD reference. The default server registers query, modify, routing/meta, and batch tools. `dwg_send_code` lives in a separate `CodeTools` surface and is registered only when the process starts with `--enable-send-code` or `BIMWRIGHT_DWG_ENABLE_SEND_CODE=1`.
+**Server** is an MCP server. It talks stdio to the client, translates each tool call into a JSON envelope, and forwards it over localhost transport to the plugin. Server is a plain .NET 8 global tool with no AutoCAD reference. The default server registers query, modify, routing/meta, and batch tools. `dwg_send_code` ships on the default surface through the `meta` toolset (rvt-mcp parity) and is stripped by `--read-only`; the legacy `code` toolset name remains an explicit opt-in alias.
 
-**Plugin** is an `IExtensionApplication` loaded by AutoCAD. It runs a local listener on a background thread, dispatches requests through `DwgApiExecutor`, locks the document, and executes commands within transactions. Unlike Revit, AutoCAD allows `Document.LockDocument()` from background threads; `DwgApiExecutor` still serializes AutoCAD API work so concurrent requests do not interleave drawing mutations. Plugin-side code execution is disabled until the user runs `MCPENABLECODE` in AutoCAD; `MCPDISABLECODE` revokes it for the current plugin session.
+**Plugin** is an `IExtensionApplication` loaded by AutoCAD. It runs a local listener on a background thread, dispatches requests through `DwgApiExecutor`, locks the document, and executes commands within transactions. Unlike Revit, AutoCAD allows `Document.LockDocument()` from background threads; `DwgApiExecutor` still serializes AutoCAD API work so concurrent requests do not interleave drawing mutations. Plugin-side code execution is enabled by default when the listener starts; `MCPDISABLECODE` disables it for the current plugin session and `MCPENABLECODE` re-enables it.
 
 ## Discovery
 
@@ -63,7 +63,7 @@ Server reads v2 files from `%LOCALAPPDATA%\Bimwright\Dwg\`, verifies the PID is 
 4. `PluginClient.SendAsync` opens a TCP or named pipe connection based on discovery.
 5. Plugin's listener thread reads the NDJSON line, `CommandDispatcher.Dispatch` is called:
    - Auth token verified.
-   - `send_code` rejected unless AutoCAD-side consent is enabled.
+   - `send_code`/`run_lisp` rejected only when `MCPDISABLECODE` disabled the current plugin session.
    - Handler looked up by command name.
    - `DocumentInvoker.Invoke` locks the active document.
    - General CAD handlers operate on that active document and resolve entity references from AutoCAD hex handles.
@@ -72,7 +72,9 @@ Server reads v2 files from `%LOCALAPPDATA%\Bimwright\Dwg\`, verifies the PID is 
 6. Response travels back over TCP.
 7. `LoggedCall` logs finish (duration, success/error).
 
-Timeout: 30s per request on the server side. `send_code` also runs its Roslyn script on a dedicated plugin thread with cancellation and abort fallback before the handler returns. Connection-per-call for TCP; named pipe transport is also supported by the server discovery contract.
+Timeout: 30s per request on the server side. `send_code` runs synchronous Roslyn snippets inline on the document-lock thread (`LockDocument` is thread-affine, so a worker thread would fail writes with `eLockViolation`) with cooperative 30s cancellation; a script blocked in a native call keeps the executor queued until it returns. Syntax containing `async`/`await` is rejected before execution; callers must not offload AutoCAD API calls to other threads. Return values are serialized with a contract resolver that rejects AutoCAD/COM runtime types before traversing their properties, including nested values. Connection-per-call for TCP; named pipe transport is also supported by the server discovery contract.
+
+`run_lisp` is rejected during batch preflight, before any item executes, so MCP callers must use the inspected direct tool. The scanner continues severity detection after its 200-finding response cap and refuses sources over 2,000,000 characters rather than executing incompletely inspected input. LISP error payloads pass through the same error sanitizer as dispatcher failures. These checks are not a sandbox: `send_code` remains a trusted-agent escape hatch, and static LISP scanning cannot establish arbitrary code safety.
 
 ## Threading model
 
@@ -95,7 +97,7 @@ AutoCAD allows multiple threads to lock the same document sequentially. Each req
 
 ## Handler dispatch
 
-`CommandDispatcher` uses an explicit dictionary (not reflection). `send_code` remains in the dispatch table so opt-in calls can be handled, but dispatch rejects it unless `MCPENABLECODE` has enabled the current plugin session. The snippet below is abbreviated around the full runtime class, but it includes representative Plan 2 query/create/modify wire commands so it stays aligned with the toolset table.
+`CommandDispatcher` uses an explicit dictionary (not reflection). `send_code` sits in the dispatch table like every other command; dispatch rejects it only when `MCPDISABLECODE` has disabled the current plugin session (`MCPENABLECODE` re-enables). The snippet below is abbreviated around the full runtime class, but it includes representative Plan 2 query/create/modify wire commands so it stays aligned with the toolset table.
 
 ```csharp
 _commands = new Dictionary<string, IAcadCommand>
@@ -154,9 +156,9 @@ Toolsets are resolved by `DwgMcpConfig` and `ToolsetFilter`:
 |---------|-----------|
 | `query` | `dwg_get_drawing_info`, `dwg_get_entity_properties`, `dwg_list_layers`, `dwg_query_entities`, `dwg_count_entities`, `dwg_select_by_layer`, `dwg_select_by_type`, `dwg_get_selected_texts` |
 | `modify` | `dwg_create_layer`, `dwg_create_line`, `dwg_create_circle`, `dwg_create_point`, `dwg_create_polyline`, `dwg_create_rectangle`, `dwg_create_arc`, `dwg_create_ellipse`, `dwg_change_layer`, `dwg_change_color`, `dwg_move_entities`, `dwg_rotate_entities`, `dwg_scale_entities`, `dwg_copy_entities`, `dwg_erase_entities`, `dwg_offset_entities`, `dwg_update_texts`, `dwg_translate_and_rewrite`, `dwg_apply_unicode_style`, `dwg_collapse_and_rewrite` |
-| `meta` | `dwg_batch_execute`, `dwg_list_available_targets`, `dwg_get_current_target`, `dwg_switch_target` |
+| `meta` | `dwg_batch_execute`, `dwg_list_available_targets`, `dwg_get_current_target`, `dwg_switch_target`, `dwg_send_code`, `dwg_run_lisp` |
 | `toolbaker` | `dwg_list_baked_tools`, `dwg_run_baked_tool`, `dwg_list_bake_suggestions`, `dwg_accept_bake_suggestion`, `dwg_dismiss_bake_suggestion`, `dwg_create_bake_issue_draft` |
-| `code` | `dwg_send_code` |
+| `code` | legacy alias — registers `dwg_send_code` and `dwg_run_lisp` (already on via `meta` by default) |
 | `annotation` | `dwg_create_text`, `dwg_create_mtext`, `dwg_create_leader`, `dwg_create_table` |
 | `block` | `dwg_list_blocks`, `dwg_get_block_attributes`, `dwg_insert_block`, `dwg_set_block_attributes`, `dwg_explode_block` |
 | `dimension` | `dwg_create_linear_dimension`, `dwg_create_aligned_dimension`, `dwg_create_radial_dimension`, `dwg_create_diameter_dimension` |
@@ -164,14 +166,14 @@ Toolsets are resolved by `DwgMcpConfig` and `ToolsetFilter`:
 | `export` | `dwg_export_dxf`, and deferred `dwg_export_pdf`, `dwg_export_image` |
 | `drawing` | `dwg_get_variables`, `dwg_set_system_variable`, `dwg_save_drawing`, `dwg_purge_drawing` |
 
-`--read-only` or `BIMWRIGHT_DWG_READ_ONLY=1` removes write-capable toolsets/methods completely (`modify`, `code`, `annotation`, `dimension`, `dwg_batch_execute`, ToolBaker write tools, `export` tools, and `drawing` write tools).
+`--read-only` or `BIMWRIGHT_DWG_READ_ONLY=1` removes write-capable toolsets/methods completely (`modify`, `dwg_send_code`/`dwg_run_lisp`, `annotation`, `dimension`, `dwg_batch_execute`, ToolBaker write tools, `export` tools, and `drawing` write tools).
 - **Block Toolset Split**: The `block` toolset splits registration between read-only `BlockTools` (`dwg_list_blocks`, `dwg_get_block_attributes`) and write-capable `BlockWriteTools` (`dwg_insert_block`, `dwg_set_block_attributes`, `dwg_explode_block`). In read-only mode, only the read-only wrappers are registered, preserving safe drawing inspection.
 - **View Navigation and Read-Only**: The `view` toolset is default-on and retains the viewport navigation tools (`dwg_zoom_extents`, `dwg_zoom_window`, `dwg_zoom_to_entity`) in read-only mode, but strips the `dwg_capture_view_image` tool (which is disabled in read-only mode).
 - **Drawing Operations and Read-Only**: The `drawing` toolset retains `dwg_get_variables` in read-only mode, but strips `dwg_set_system_variable`, `dwg_save_drawing`, and `dwg_purge_drawing`.
 - **Deferred Angular Dimensions**: The `dimension` toolset only registers linear, aligned, radial, and diametric dimension creators. Angular dimensions are deferred and not included in this release.
 - **Deferred File Export Tools**: The `dwg_export_pdf` and `dwg_export_image` tools have been deferred to ensure absolute reliability of drawing view captures and plot configurations. `dwg_capture_view_image` is fully enabled by default.
 
-The default startup surface is 36 tools. Enabling the optional `code`, `toolbaker`, `annotation`, `block`, `dimension`, `export`, and `drawing` toolsets exposes the full 61 backed MCP tools.
+The default startup surface is 39 tools (`dwg_send_code`/`dwg_run_lisp` via `meta`, `dwg_inspect_lisp` via `query`). Enabling the optional `toolbaker`, `annotation`, `block`, `dimension`, `export`, and `drawing` toolsets exposes the full 63 backed MCP tools.
 
 Plan 2 entity query/select tools are model-space only. `dwg_select_by_layer` and `dwg_select_by_type` return handle lists and do not mutate AutoCAD pickfirst selection. Create, copy, offset, and modify handlers identify generated or modified entities with AutoCAD hex handles.
 

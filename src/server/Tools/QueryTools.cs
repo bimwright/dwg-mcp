@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Threading.Tasks;
 using ModelContextProtocol.Server;
@@ -121,6 +122,47 @@ namespace Bimwright.Dwg.Server.Tools
         {
             var request = new { grouping_strength = groupingStrength, include_entities = includeEntities };
             return ToolGateway.LoggedCall("get_selected_texts", request, request);
+        }
+
+        [McpServerTool(Name = "dwg_inspect_lisp", ReadOnly = true, Idempotent = true), Description(
+            "Statically inspect AutoLISP for dangerous content BEFORE running it — " +
+            "downloaded .lsp files can embed malware (process exec via startapp/shell, " +
+            "COM automation like WScript.Shell/XMLHTTP, persistence via acad.lsp/acaddoc.lsp " +
+            "or registry writes, file deletion, staged (load ...) payloads, obfuscation via " +
+            "eval/read). Pure local analysis: does not execute anything and needs no AutoCAD " +
+            "round-trip, so it works under --read-only too. Params: 'file' (absolute path) " +
+            "and/or 'code' (inline source). Returns {ok, verdict: clean|caution|dangerous, " +
+            "opaque, summary, findings[]}. Compiled .fas/.vlx cannot be inspected and always " +
+            "verdict 'dangerous'. Always call this on an untrusted file before dwg_run_lisp.")]
+        public static Task<string> InspectLisp(
+            [Description("Absolute path to a .lsp/.fas/.vlx file to inspect")] string file = null,
+            [Description("Inline AutoLISP source to inspect")] string code = null)
+        {
+            if (string.IsNullOrWhiteSpace(file) && string.IsNullOrWhiteSpace(code))
+            {
+                return ToolInputError("at least one of file or code is required");
+            }
+
+            var merged = new LispSecurityScanner.Report();
+            var scanned = new List<string>();
+
+            if (!string.IsNullOrWhiteSpace(file))
+            {
+                var rep = LispSecurityScanner.ScanFile(file, out var err);
+                if (rep == null)
+                {
+                    return ToolInputError(err);
+                }
+                LispSecurityScanner.AbsorbInto(merged, rep);
+                scanned.Add("file: " + file);
+            }
+            if (!string.IsNullOrWhiteSpace(code))
+            {
+                LispSecurityScanner.AbsorbInto(merged, LispSecurityScanner.ScanText(code));
+                scanned.Add("code: " + code.Length + " chars");
+            }
+
+            return Task.FromResult(LispSecurityScanner.ToJson(merged, string.Join("; ", scanned)).ToString(Newtonsoft.Json.Formatting.None));
         }
 
         private static JObject BuildEntityQueryRequest(

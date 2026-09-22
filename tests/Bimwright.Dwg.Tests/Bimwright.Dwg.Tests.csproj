@@ -10,6 +10,7 @@
     <PackageReference Include="xunit" Version="2.6.2" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.5.4" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="4.8.0" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\server\Bimwright.Dwg.Server.csproj" />
@@ -39,5 +40,12 @@
     <Compile Include="..\..\src\shared\Export\ExportPathPolicy.cs" LinkBase="Shared\Export" />
     <Compile Include="..\..\src\shared\View\CaptureViewMath.cs" LinkBase="Shared\View" />
     <Compile Include="..\..\src\shared\Drawing\SystemVariableCatalog.cs" LinkBase="Shared\Drawing" />
+  </ItemGroup>
+  <!-- Exercise the actual escape-hatch handlers against explicit AutoCAD test doubles.
+       These tests never load Autodesk assemblies or connect to a running host. -->
+  <ItemGroup>
+    <Compile Include="..\..\src\shared\Handlers\SendCodeHandler.cs" LinkBase="Shared\Handlers" />
+    <Compile Include="..\..\src\shared\Handlers\RunLispHandler.cs" LinkBase="Shared\Handlers" />
+    <Compile Include="..\..\src\shared\Infrastructure\IAcadCommand.cs" LinkBase="Shared\Infrastructure" />
   </ItemGroup>
 </Project>
