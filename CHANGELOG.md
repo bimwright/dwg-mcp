@@ -4,14 +4,17 @@
 
 ### Fixed
 
-- Reject `run_lisp` during batch preflight before any item executes; direct calls retain mandatory input inspection.
+- Reject `run_lisp` during batch preflight before any item executes; direct execution is also blocked (see breaking change below).
+- Detect bare AutoCAD SHELL commands and literal command forms in LISP inspection; report `execution_authorized=false`, `safety_assured=false` and scanner limitations even for `clean` findings.
+- Remove the LISP wrapper/queued-command/result-file executor, eliminating its untrusted-load, early-result and timeout cleanup paths. This closes those paths by disabling execution, not by claiming a working sandbox or repaired asynchronous executor.
 - Keep LISP severity detection active after the 200-finding display cap; refuse sources over 2,000,000 characters, including oversized files read with a bounded buffer.
 - Reject `async`/`await` before executing `send_code` snippets, preserving the synchronous document-lock contract. Callers must not offload AutoCAD API work to other threads.
 - Reject AutoCAD/COM return values before JSON property traversal, including values nested in DTOs or collections; preserve JSON-safe DTOs and stdout.
-- Sanitize nested C# and LISP error responses. Add behavioral regression tests using the actual handlers with explicit AutoCAD test doubles.
+- Sanitize nested C# errors and keep LISP refusal messages free of input content. Add behavioral regression tests using the actual handlers with explicit AutoCAD test doubles.
 
 ### Changed (breaking)
 
+- **LISP execution is blocked.** `dwg_run_lisp` retains its name/parameters for compatibility but refuses every input locally with `lisp_execution_blocked`, without file access or plugin dispatch. The plugin independently refuses `run_lisp` before document locking, including calls from older servers. No scanner verdict, `MCPENABLECODE`, input override, batch or ToolBaker authorizes it. There is no isolated executor or approved-script trust mechanism in this build. Both server and plugin need updating/restarting; previously installed binaries are unchanged. C# `send_code` remains full-trust and must not be used to bypass LISP refusal.
 - `dwg_send_code` is now always-on like `revit_send_code_to_revit`: it ships on the default surface via the `meta` toolset and no longer needs `--enable-send-code` / `BIMWRIGHT_DWG_ENABLE_SEND_CODE` / `MCPENABLECODE` opt-in. The `code` toolset name remains as an explicit opt-in alias; `--read-only` still strips it.
 - `MCPDISABLECODE` is now a per-session kill-switch in AutoCAD (enabled by default when the listener starts); `MCPENABLECODE` re-enables.
 - `send_code` now runs its Roslyn script inline on the document-lock thread instead of a dedicated worker thread — `Document.LockDocument()` is thread-affine, so worker-thread execution could not write to the database (`eLockViolation`). The 30s limit is now cooperative cancellation; there is no abort fallback.
@@ -19,9 +22,9 @@
 
 ### Added
 
-- `dwg_run_lisp` (`run_lisp`) — run existing AutoLISP automation through the command line. Params: `file` (absolute .lsp/.fas/.vlx to `(load)`), `code` (inline AutoLISP; last expression's value captured as `result` via a `vl-catch-all-apply` wrapper + temp result file), and `command` (command-line input after load — a `(…)` expression captures its value, a bare `c:` command name runs queued/fire-and-forget). Errors surface via `vl-catch-all-error-message`; 30s wait limit. Registered via `meta` (default-on), denied to ToolBaker, stripped by `--read-only`, and governed by the same `MCPDISABLECODE`/`MCPENABLECODE` session switch as `dwg_send_code`. Default tool surface is now 39 tools.
+- `dwg_run_lisp` (`run_lisp`) — compatibility refusal only. Registered via `meta`, denied to ToolBaker and stripped by `--read-only`. Default registered surface is 39 tools, including this non-executing endpoint.
 - `dwg_inspect_lisp` — static safety scan of `.lsp` files or inline AutoLISP (server-side, no AutoCAD needed; lives in `query` so it survives `--read-only`). Flags process exec, dangerous COM progIds, persistence vectors (`acaddoc.lsp`, registry writes), destructive file ops, staged `(load …)`, and obfuscation; returns `verdict` clean/caution/dangerous + findings.
-- `dwg_run_lisp` pre-flight safety gate — every input (`file`/`code`/`command`) is scanned with the inspect engine before dispatch. Verdict `dangerous` — including opaque compiled `.fas`/`.vlx`, which cannot be inspected — is **refused outright** (no override param; the agent gets the findings and must not execute). `caution` still runs but the response carries `lisp_warnings`. Unreadable files fail closed.
+- `dwg_inspect_lisp` is analysis only: `clean` means no known pattern matched, never authorization or a malware-free certificate. Static inspection cannot establish arbitrary code safety.
 
 ## 1.0.0 — 2026-08-28
 

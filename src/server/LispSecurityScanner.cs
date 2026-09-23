@@ -7,11 +7,11 @@ using Newtonsoft.Json.Linq;
 namespace Bimwright.Dwg.Server
 {
     /// <summary>
-    /// Static triage for AutoLISP payloads before dwg_run_lisp executes them. AutoLISP is
+    /// Static triage for AutoLISP payloads; this scanner never authorizes execution. AutoLISP is
     /// not sandboxed — it can spawn processes (startapp/shell), automate COM
     /// (WScript.Shell, XMLHTTP), write persistence hooks (acad.lsp/acaddoc.lsp/registry),
     /// and stage further payloads (load/eval/read). This scanner reports findings so an
-    /// agent can refuse dangerous content; it is a lint, not a guarantee — obfuscated or
+    /// agent can identify known suspicious content; it is a lint, not a guarantee — obfuscated or
     /// compiled (.fas/.vlx) payloads cannot be fully inspected and are flagged dangerous.
     /// </summary>
     public static class LispSecurityScanner
@@ -57,9 +57,14 @@ namespace Bimwright.Dwg.Server
 
         private static readonly Rule[] Rules =
         {
-            // --- high: refuse ---
+            // --- high: known dangerous patterns (all execution is independently blocked) ---
             Fn("startapp", "high", "process-exec", "Launches an external process (startapp)."),
             Fn("shell", "high", "process-exec", "Launches an OS shell (VisualLISP shell)."),
+            // SHELL is also an AutoCAD command: bare command-line input or a
+            // string passed to command/command-s/vl-cmdf. This is conservative
+            // triage (literals/comments may match), never execution authorization.
+            Any(@"(?:^|[\r\n])\s*[._']*shell(?=\s|$)|""[._']*shell""", "high", "process-exec",
+                "References the AutoCAD SHELL command — can execute operating-system commands."),
             Fn("arxload", "high", "native-load", "Loads a compiled ARX/.NET module — full unmanaged code execution."),
             Fn("arxunload", "medium", "native-load", "Unloads an ARX module."),
             Fn("vl-arx-import", "high", "native-load", "Imports ARX/.NET functions — native code execution."),
@@ -85,7 +90,7 @@ namespace Bimwright.Dwg.Server
             Any(@"acaddoc\.lsp|acad20\d\ddoc\.lsp", "high", "persistence", "Touches acaddoc.lsp — auto-loaded into EVERY drawing session."),
             Any(@"acad20\d\d\.lsp|\bacad\.lsp|acad\.mnl|acaddoc\.mnl|acad\.vlx|\bacad\.fas", "high", "persistence", "Touches an AutoCAD startup file — persists code across sessions."),
 
-            // --- medium: caution (run_lisp still executes but surfaces warnings) ---
+            // --- medium: caution findings for analysis only ---
             Fn("vlax-create-object", "medium", "com-automation", "Creates a COM object — check which progId it instantiates."),
             Fn("vlax-get-or-create-object", "medium", "com-automation", "Gets/creates a COM object — check which progId it instantiates."),
             Fn("vlax-get-object", "low", "com-automation", "Attaches to a running COM object."),
@@ -220,6 +225,11 @@ namespace Bimwright.Dwg.Server
             {
                 ok = true,
                 verdict = report.Verdict,
+                execution_authorized = false,
+                safety_assured = false,
+                limitations = "Static inspection is not a sandbox or an antivirus guarantee. "
+                    + "A clean verdict means no known pattern matched; it does not authorize execution. "
+                    + "Dynamic code and dependencies may escape inspection.",
                 opaque = report.Opaque,
                 summary = new { high = report.High, medium = report.Medium, low = report.Low },
                 findings = report.Findings,

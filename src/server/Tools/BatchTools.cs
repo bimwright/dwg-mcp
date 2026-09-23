@@ -11,7 +11,7 @@ namespace Bimwright.Dwg.Server.Tools
     {
         [McpServerTool(Name = "dwg_batch_execute"), Description(
             "Run multiple internal DWG commands sequentially as a logical batch. commands must be a JSON array of {cmd, params}. " +
-            "run_lisp is not supported in batches; use dwg_run_lisp directly for input inspection.")]
+            "run_lisp is blocked in this build, including batches; use dwg_inspect_lisp for analysis only.")]
         public static Task<string> BatchExecute(
             [Description("JSON array: [{\"cmd\":\"get_selected_texts\",\"params\":{}}]. Wire command names are unprefixed.")] string commands)
         {

@@ -1,5 +1,3 @@
-using System.IO;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Autodesk.AutoCAD.ApplicationServices;
 using Bimwright.Dwg.Plugin.Handlers;
@@ -55,28 +53,19 @@ namespace Bimwright.Dwg.Tests
         }
 
         [Fact]
-        public void Lisp_error_response_masks_secrets_and_local_paths()
+        public void Lisp_refusal_does_not_require_a_document_or_echo_input_secrets()
         {
-            string scriptPath = null, resultPath = null;
-            var doc = new Document
+            var result = new RunLispHandler().Execute(null, JObject.FromObject(new
             {
-                OnSendString = input =>
-                {
-                    scriptPath = Regex.Match(input, "\\(load \\\"([^\\\"]+)\\\"").Groups[1].Value;
-                    var wrapper = File.ReadAllText(scriptPath);
-                    resultPath = Regex.Match(wrapper, "\\(open \\\"([^\\\"]+)\\\"").Groups[1].Value;
-                    File.WriteAllText(resultPath, "ERROR:password=sample-value token=sample-token C:\\private\\drawing.dwg");
-                }
-            };
-            var result = new RunLispHandler().Execute(doc, JObject.FromObject(new { code = "(princ)" }));
-            var payload = JObject.FromObject(result.Result);
-            Assert.False(payload.Value<bool>("ok"));
-            var error = payload.Value<string>("error");
+                file = @"C:\private\drawing.lsp",
+                code = "password=sample-value token=sample-token"
+            }));
+            Assert.False(result.Ok);
+            var error = result.Error;
+            Assert.Contains("LISP execution is blocked", error);
             Assert.DoesNotContain("sample-value", error);
             Assert.DoesNotContain("sample-token", error);
             Assert.DoesNotContain("C:\\private", error);
-            Assert.False(File.Exists(scriptPath));
-            Assert.False(File.Exists(resultPath));
         }
     }
 }

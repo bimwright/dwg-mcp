@@ -159,15 +159,15 @@ Pin a specific AutoCAD instance with a 4-digit target year:
 
 Use `--read-only` to strip write-capable toolsets (query/view/meta routing remain as configured). Use `--toolsets all` or an explicit list that **includes** the defaults you need (a custom list **replaces** the default set — e.g. `query,modify,meta,view,annotation`). Env: `BIMWRIGHT_DWG_TOOLSETS=…`.
 
-`dwg_send_code` and `dwg_run_lisp` are on the default tool list via the `meta` toolset (same posture as rvt-mcp) — no server flag needed. Inside AutoCAD, `MCPDISABLECODE` disables both for that plugin session and `MCPENABLECODE` re-enables them. `--read-only` removes them along with the other write-capable tools.
+`dwg_send_code` is available by default via `meta`; `MCPDISABLECODE` disables C# execution for the session and `MCPENABLECODE` re-enables it. `dwg_run_lisp` remains registered for compatibility but refuses every request at both server and plugin. This build has no isolated LISP executor or approved-script trust mechanism. `--read-only` removes both tools.
 
-`dwg_send_code` accepts synchronous snippets only: `async`/`await` is rejected before execution. Keep AutoCAD API calls on the calling thread; do not offload them to `Task.Run` or other threads. Return JSON-safe DTOs; AutoCAD/COM objects are rejected even when nested in a DTO or collection. Call `dwg_run_lisp` directly: batches reject `run_lisp` before executing any item. LISP sources over 2,000,000 characters are refused because they cannot be fully inspected. The 200-finding display limit never suppresses severity detection. Static scanning is a heuristic, not a sandbox or a guarantee of safety.
+`dwg_send_code` accepts synchronous snippets only: `async`/`await` is rejected before execution. Keep AutoCAD API calls on the calling thread; do not offload them to `Task.Run` or other threads. Return JSON-safe DTOs; AutoCAD/COM objects are rejected even when nested. LISP inspection is available through `dwg_inspect_lisp`: sources over 2,000,000 characters are reported uninspectable/dangerous, and the 200-finding display cap does not stop severity detection.
 
 ---
 
 ## Tools
 
-Default startup exposes 39 tools: query (including `dwg_inspect_lisp`), modify, meta (including `dwg_send_code`/`dwg_run_lisp`), view, and default-on `dwg_capture_view_image`. Optional ToolBaker, annotation, block, dimension, export, and drawing toolsets, enabled through `--toolsets`, bring the backed MCP surface to 63 tools.
+Default startup exposes 39 tools: query (including `dwg_inspect_lisp`), modify, meta (including `dwg_send_code`/`dwg_run_lisp`), view, and default-on `dwg_capture_view_image`. Optional ToolBaker, annotation, block, dimension, export, and drawing toolsets, enabled through `--toolsets`, bring the backed MCP surface to 63 tools. The registered counts include `dwg_run_lisp`, which only returns a refusal; no scan verdict authorizes execution.
 
 General CAD tools operate on the current active document in the selected AutoCAD target. Entity inputs and returned entity IDs use AutoCAD hex handles, such as `7F5AD`, returned by selection, creation, or property tools. Creation, copy, offset, and modify responses identify generated or modified entities by hex handle.
 
@@ -208,8 +208,8 @@ Plan 2 query expansion is model-space only: `dwg_query_entities`, `dwg_count_ent
 | `dwg_switch_target` | Pin this server process to AutoCAD `2022` through `2027` |
 | `dwg_batch_execute` | Run multiple internal wire commands as a logical batch |
 | `dwg_send_code` | Execute a C# snippet against the AutoCAD .NET API (globals `doc`/`db`/`ed`, `return` value + captured stdout, cooperative 30s cancellation; `MCPDISABLECODE`/`MCPENABLECODE` toggle per session) |
-| `dwg_run_lisp` | Run AutoLISP for existing lisp automation: `file` (absolute .lsp path to `(load)`), `code` (inline lisp — last expression's value becomes `result`), and/or `command` (what you'd type at the command line; a `(…)` expression captures its value, a bare `c:` command name runs queued). Same gating as `dwg_send_code`. Inputs are safety-scanned first — `dangerous` verdicts are refused outright. |
-| `dwg_inspect_lisp` | Static safety scan of a `.lsp` file or inline AutoLISP — flags process exec (`startapp`/`shell`), dangerous COM (`WScript.Shell`/`XMLHTTP`), persistence (`acaddoc.lsp`, registry writes), file deletion, staged `(load …)`, obfuscation (`eval`/`read`). Returns `verdict` clean/caution/dangerous + findings. Pure local analysis; no execution, no AutoCAD needed; available even under `--read-only`. |
+| `dwg_run_lisp` | Compatibility endpoint only: all `file`/`code`/`command` inputs are refused with `lisp_execution_blocked`. No file read, plugin dispatch or execution from this tool. Use `dwg_inspect_lisp` for analysis only. |
+| `dwg_inspect_lisp` | Static safety scan of a `.lsp` file or inline AutoLISP — flags process exec (`startapp`/`shell`), dangerous COM (`WScript.Shell`/`XMLHTTP`), persistence (`acaddoc.lsp`, registry writes), file deletion, staged `(load …)`, obfuscation (`eval`/`read`). Returns `verdict` clean/caution/dangerous + findings. Pure local analysis; no execution, no AutoCAD needed; available even under `--read-only`. `clean` does not certify safety. Reports include `execution_authorized=false` and `safety_assured=false`. |
 | `dwg_zoom_extents` | Zoom to the extents of the drawing viewport |
 | `dwg_zoom_window` | Zoom viewport to a window defined by two corner points |
 | `dwg_zoom_to_entity` | Zoom viewport to the extents of a specific drawing entity identified by handle |
@@ -372,13 +372,13 @@ The server and tests can pass without every AutoCAD shell being release-built. S
 
 ## Security
 
-`dwg_send_code` executes arbitrary C# with full access to the AutoCAD process and local filesystem, and `dwg_run_lisp` runs arbitrary AutoLISP — same risk class. Both are registered on the default MCP tool surface via the `meta` toolset (rvt-mcp parity); `--read-only` strips them. Inside AutoCAD, `MCPDISABLECODE` disables them for that plugin session and `MCPENABLECODE` re-enables them. As a pre-flight guard, `dwg_run_lisp` statically scans its inputs with the same engine behind `dwg_inspect_lisp`: content verdict `dangerous` — including opaque compiled `.fas`/`.vlx` — is refused outright (no override) and the findings are returned to the caller; `caution` executes but attaches `lisp_warnings` to the response.
+`dwg_send_code` executes arbitrary C# with full access to AutoCAD and the local filesystem; it is for trusted agents, not a sandbox. `dwg_run_lisp` is blocked regardless of input, scanner verdict or `MCPENABLECODE`. No LISP wrapper is created or queued, and no trusted path or SECURELOAD setting is changed. Do not bypass a LISP refusal through C#, batch or ToolBaker. `dwg_inspect_lisp` is static triage, not antivirus or machine-wide malware protection; `clean` means no known pattern matched, not safe. All reports set `execution_authorized=false` and `safety_assured=false`. Update both server and plugin and restart their processes to apply the restriction; old binaries retain their old behavior.
 
 The security model relies on:
 
 - **Local-only transport** — TCP on 127.0.0.1 for AutoCAD 2022–2024, loopback Named Pipe for 2025–2027, no remote access.
 - **Per-session auth token** — rotates on each plugin start, verified per request.
-- **Session kill-switch** — `MCPDISABLECODE` inside AutoCAD blocks `dwg_send_code`/`dwg_run_lisp` for that plugin session until `MCPENABLECODE` re-enables them (or the listener restarts).
+- **Session kill-switch** — `MCPDISABLECODE` / `MCPENABLECODE` control `dwg_send_code`. LISP remains blocked even after enabling code or restarting the listener.
 - **Timeout boundary** — script execution runs inline on the document-lock thread with cooperative 30s cancellation.
 - **Trusted agent assumption** — only use with MCP clients you control.
 

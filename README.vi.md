@@ -129,9 +129,9 @@ Không `dotnet tool install -g Bimwright.Dwg.Server`.
 }
 ```
 
-`dwg_send_code` và `dwg_run_lisp` nằm sẵn trong danh sách tool mặc định qua toolset `meta` (cùng posture với rvt-mcp) — không cần flag server. Trong AutoCAD, `MCPDISABLECODE` tắt cả hai tool cho session plugin hiện tại và `MCPENABLECODE` bật lại. `--read-only` gỡ chúng cùng các tool write-capable khác.
+`dwg_send_code` có sẵn qua `meta`; `MCPDISABLECODE` tắt C# trong session và `MCPENABLECODE` bật lại. `dwg_run_lisp` giữ tên để tương thích nhưng từ chối mọi yêu cầu ở cả server và plugin. Bản này chưa có môi trường cách ly LISP hoặc cơ chế xác lập script tin cậy. `--read-only` gỡ cả hai tool.
 
-`dwg_send_code` chỉ nhận snippet đồng bộ: `async`/`await` bị chặn trước khi thực thi. Giữ các lệnh gọi AutoCAD API trên luồng hiện tại; không chuyển sang `Task.Run` hoặc luồng khác. Chỉ trả DTO có thể biểu diễn bằng JSON; object AutoCAD/COM bị từ chối kể cả khi lồng trong DTO hoặc collection. Gọi `dwg_run_lisp` trực tiếp: batch chứa `run_lisp` bị từ chối trước khi chạy bất kỳ item nào. Nguồn LISP quá 2.000.000 ký tự bị từ chối vì không thể quét đầy đủ; giới hạn hiển thị 200 findings không làm mất phát hiện nguy hiểm. Scanner dùng heuristic, không phải sandbox hay bảo đảm an toàn.
+`dwg_send_code` chỉ nhận snippet đồng bộ: `async`/`await` bị chặn trước thực thi. Giữ AutoCAD API trên luồng gọi; không chuyển sang `Task.Run` hoặc luồng khác. Chỉ trả DTO JSON; object AutoCAD/COM bị từ chối kể cả khi lồng nhau. `dwg_inspect_lisp` vẫn phân tích tĩnh: nguồn quá 2.000.000 ký tự bị đánh dấu không thể kiểm tra đầy đủ/nguy hiểm; giới hạn hiển thị 200 findings không làm mất phát hiện mức nguy hiểm.
 
 Để pin một AutoCAD cụ thể, dùng năm 4 chữ số:
 
@@ -152,7 +152,7 @@ Dùng `--read-only` để gỡ toolset write-capable. Dùng `--toolsets all` ho�
 
 ## Công cụ
 
-Mặc định server expose 39 tool: query (gồm `dwg_inspect_lisp`), modify, meta (gồm `dwg_send_code`/`dwg_run_lisp`), view, và `dwg_capture_view_image` mặc định bật. Các toolset tùy chọn ToolBaker, annotation, block, dimension, export, và drawing được kích hoạt qua `--toolsets`, nâng tổng diện tích bề mặt MCP lên 63 tool.
+Mặc định server expose 39 tool: query (gồm `dwg_inspect_lisp`), modify, meta (gồm `dwg_send_code`/`dwg_run_lisp`), view, và `dwg_capture_view_image` mặc định bật. Các toolset tùy chọn ToolBaker, annotation, block, dimension, export, và drawing được kích hoạt qua `--toolsets`, nâng tổng diện tích bề mặt MCP lên 63 tool. Số tool đăng ký có tính `dwg_run_lisp`, hiện chỉ trả từ chối; không verdict nào cấp quyền thực thi.
 
 CAD tool chạy trên active document hiện tại của AutoCAD target đang chọn. Entity input và entity id trả về dùng AutoCAD hex handle, ví dụ `7F5AD`, do tool selection, creation, hoặc properties trả về. Creation, copy, offset, và modify response identify entity tạo/sửa bằng hex handle.
 
@@ -193,8 +193,8 @@ Plan 2 query expansion chỉ quét model space: `dwg_query_entities`, `dwg_count
 | `dwg_switch_target` | Pin server sang AutoCAD `2022` đến `2027` |
 | `dwg_batch_execute` | Chạy nhiều wire command nội bộ như một logical batch |
 | `dwg_send_code` | Chạy C# snippet trên AutoCAD .NET API (globals `doc`/`db`/`ed`, hỗ trợ `return` value + stdout capture, cooperative cancel 30s; `MCPDISABLECODE`/`MCPENABLECODE` bật/tắt theo session) |
-| `dwg_run_lisp` | Chạy AutoLISP cho các automation lisp có sẵn: `file` (path tuyệt đối .lsp để `(load)`), `code` (lisp inline — giá trị biểu thức cuối → `result`), và/hoặc `command` (như gõ ở command line; biểu thức `(…)` được capture, tên lệnh `c:` trần chạy queue). Gating giống `dwg_send_code`. Input được scan an toàn trước — verdict `dangerous` bị từ chối thẳng. |
-| `dwg_inspect_lisp` | Quét an toàn tĩnh cho file `.lsp` hoặc AutoLISP inline — phát hiện exec process (`startapp`/`shell`), COM nguy hiểm (`WScript.Shell`/`XMLHTTP`), persistence (`acaddoc.lsp`, ghi registry), xóa file, `(load …)` tầng hai, obfuscation (`eval`/`read`). Trả `verdict` clean/caution/dangerous + findings. Phân tích local thuần; không thực thi, không cần AutoCAD; dùng được cả dưới `--read-only`. |
+| `dwg_run_lisp` | Giữ để tương thích: mọi input `file`/`code`/`command` đều bị từ chối với `lisp_execution_blocked`. Tool không đọc file, không gửi plugin và không thực thi. Dùng `dwg_inspect_lisp` để phân tích tĩnh. |
+| `dwg_inspect_lisp` | Quét an toàn tĩnh cho file `.lsp` hoặc AutoLISP inline — phát hiện exec process (`startapp`/`shell`), COM nguy hiểm (`WScript.Shell`/`XMLHTTP`), persistence (`acaddoc.lsp`, ghi registry), xóa file, `(load …)` tầng hai, obfuscation (`eval`/`read`). Trả `verdict` clean/caution/dangerous + findings. Phân tích local thuần; không thực thi, không cần AutoCAD; dùng được cả dưới `--read-only`. `clean` không chứng nhận an toàn. Report luôn có `execution_authorized=false` và `safety_assured=false`. |
 | `dwg_zoom_extents` | Zoom đến giới hạn của viewport bản vẽ |
 | `dwg_zoom_window` | Zoom viewport đến một cửa sổ được xác định bởi hai điểm góc |
 | `dwg_zoom_to_entity` | Zoom viewport đến giới hạn của một entity cụ thể theo handle |
@@ -355,13 +355,13 @@ Server và tests có thể pass khi chưa build release tất cả shell. Muốn
 
 ## Bảo mật
 
-`dwg_send_code` chạy C# tùy ý và `dwg_run_lisp` chạy AutoLISP tùy ý — cùng mức rủi ro, toàn quyền truy cập process AutoCAD và filesystem. Cả hai nằm trong danh sách MCP mặc định qua toolset `meta` (cùng posture rvt-mcp); `--read-only` sẽ gỡ chúng. Trong AutoCAD, `MCPDISABLECODE` tắt chúng cho session plugin hiện tại và `MCPENABLECODE` bật lại. Lớp phòng vệ: `dwg_run_lisp` scan input trước bằng engine của `dwg_inspect_lisp` — verdict `dangerous` (kể cả `.fas`/`.vlx` không inspect được) bị từ chối thẳng không có override, trả findings về cho caller; `caution` vẫn chạy nhưng response kèm `lisp_warnings`.
+`dwg_send_code` chạy C# tùy ý với toàn quyền của AutoCAD và filesystem, chỉ dành cho agent tin cậy, không phải sandbox. `dwg_run_lisp` bị chặn bất kể input, verdict hay `MCPENABLECODE`. Không tạo wrapper, không xếp lệnh LISP vào hàng đợi, không đổi trusted paths hoặc SECURELOAD. Không lách từ chối qua C#, batch hoặc ToolBaker. `dwg_inspect_lisp` chỉ phân tích tĩnh, không phải antivirus hay cơ chế bảo vệ toàn máy; `clean` chỉ có nghĩa chưa thấy mẫu đã biết. Mọi report trả `execution_authorized=false` và `safety_assured=false`. Cần cập nhật cả server/plugin rồi khởi động lại để áp dụng; binary cũ vẫn giữ hành vi cũ.
 
 Bảo mật dựa trên:
 
 - **Chỉ local** — TCP trên 127.0.0.1 cho AutoCAD 2022–2024, loopback Named Pipe cho 2025–2027.
 - **Auth token mỗi session** — xoay khi plugin khởi động lại.
-- **Kill-switch theo session** — `MCPDISABLECODE` trong AutoCAD chặn `dwg_send_code`/`dwg_run_lisp` cho session plugin đó tới khi `MCPENABLECODE` bật lại (hoặc listener restart).
+- **Kill-switch theo session** — `MCPDISABLECODE` / `MCPENABLECODE` điều khiển `dwg_send_code`. LISP vẫn bị chặn sau khi bật code hoặc khởi động lại listener.
 - **Giới hạn timeout** — script chạy inline trên thread giữ document lock, cooperative cancel sau 30s.
 - **Giả định agent tin cậy** — chỉ dùng với MCP client bạn kiểm soát.
 

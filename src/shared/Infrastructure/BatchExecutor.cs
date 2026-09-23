@@ -87,11 +87,11 @@ namespace Bimwright.Dwg.Plugin
                     return CommandResult.Fail("run_baked_tool is not allowed inside batch_execute");
                 }
 
-                // LISP must enter through the server's inspected direct tool. Reject
-                // the entire batch before any earlier item can mutate the drawing.
+                // Reject the entire batch before any earlier item can mutate the
+                // drawing. Direct run_lisp is also blocked; do not suggest a bypass.
                 if (string.Equals(cmd, "run_lisp", StringComparison.Ordinal))
                 {
-                    return CommandResult.Fail("run_lisp is not allowed inside batch_execute; use dwg_run_lisp so its inputs are inspected first");
+                    return CommandResult.Fail("run_lisp is not allowed inside batch_execute. LISP execution is blocked in this build; use dwg_inspect_lisp for analysis only.");
                 }
             }
 

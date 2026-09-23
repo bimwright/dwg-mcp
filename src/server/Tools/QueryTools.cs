@@ -125,7 +125,7 @@ namespace Bimwright.Dwg.Server.Tools
         }
 
         [McpServerTool(Name = "dwg_inspect_lisp", ReadOnly = true, Idempotent = true), Description(
-            "Statically inspect AutoLISP for dangerous content BEFORE running it — " +
+            "Statically inspect AutoLISP for known suspicious patterns without executing it — " +
             "downloaded .lsp files can embed malware (process exec via startapp/shell, " +
             "COM automation like WScript.Shell/XMLHTTP, persistence via acad.lsp/acaddoc.lsp " +
             "or registry writes, file deletion, staged (load ...) payloads, obfuscation via " +
@@ -133,7 +133,9 @@ namespace Bimwright.Dwg.Server.Tools
             "round-trip, so it works under --read-only too. Params: 'file' (absolute path) " +
             "and/or 'code' (inline source). Returns {ok, verdict: clean|caution|dangerous, " +
             "opaque, summary, findings[]}. Compiled .fas/.vlx cannot be inspected and always " +
-            "verdict 'dangerous'. Always call this on an untrusted file before dwg_run_lisp.")]
+            "verdict 'dangerous'. This is not a sandbox or an antivirus guarantee: clean means no known " +
+            "pattern matched, not safe. execution_authorized and safety_assured are always false. " +
+            "dwg_run_lisp is blocked in this build; do not bypass that refusal through other execution tools.")]
         public static Task<string> InspectLisp(
             [Description("Absolute path to a .lsp/.fas/.vlx file to inspect")] string file = null,
             [Description("Inline AutoLISP source to inspect")] string code = null)

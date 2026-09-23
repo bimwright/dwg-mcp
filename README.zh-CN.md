@@ -146,15 +146,15 @@ AI agent 让“把选中的文字全部翻译成越南语”这类意图可以�
 
 使用 `--read-only` 去掉可写 toolset。使用 `--toolsets all`，或显式列表且**包含**你需要的默认项（自定义列表会**替换**默认集合，例如 `query,modify,meta,view,annotation`）。环境变量：`BIMWRIGHT_DWG_TOOLSETS=…`。
 
-`dwg_send_code` 和 `dwg_run_lisp` 通过 `meta` toolset 默认出现在工具列表中（与 rvt-mcp 相同 posture）—— 无需 server 端 flag。在 AutoCAD 中运行 `MCPDISABLECODE` 可在该 plugin 会话中禁用两者，`MCPENABLECODE` 可重新启用。`--read-only` 会将其连同其他可写 toolset 一并移除。
+`dwg_send_code` 通过 `meta` 默认注册；`MCPDISABLECODE` / `MCPENABLECODE` 控制当前会话中的 C# 执行。`dwg_run_lisp` 保留注册以兼容旧客户端，但 server 和 plugin 均拒绝所有请求。此版本没有 LISP 隔离执行环境或脚本信任机制。`--read-only` 会移除这两个工具。
 
-`dwg_send_code` 仅接受同步代码片段；`async`/`await` 会在执行前被拒绝。AutoCAD API 调用必须留在调用线程上，不要移至 `Task.Run` 或其他线程。返回值应为可表示为 JSON 的 DTO；嵌套在 DTO 或集合中的 AutoCAD/COM 对象也会被拒绝。请直接调用 `dwg_run_lisp`；包含 `run_lisp` 的批次会在任何项目执行前被拒绝。超过 2,000,000 字符的 LISP 无法完整检查，因此会被拒绝。200 条 findings 的显示上限不会停止危险级别检测。静态扫描采用启发式规则，并非沙箱或安全保证。
+`dwg_send_code` 仅接受同步片段，执行前拒绝 `async`/`await`。AutoCAD API 必须留在调用线程，不要移至 `Task.Run` 或其他线程。只返回 JSON DTO，嵌套的 AutoCAD/COM 对象也会被拒绝。`dwg_inspect_lisp` 仍可用于静态分析；超过 2,000,000 字符的源码因无法完整检查而被标记为危险，200 条 findings 的显示上限不会停止危险级别检测。
 
 ---
 
 ## Tools
 
-默认启动暴露 39 个工具：query（含 `dwg_inspect_lisp`）、modify、meta（含 `dwg_send_code`/`dwg_run_lisp`）、view 和默认启用的 `dwg_capture_view_image`。可选 ToolBaker、annotation、block、dimension、export 和 drawing 工具集，通过 `--toolsets` 启用，把后端可用的 MCP surface 扩充到 63 个工具。
+默认启动暴露 39 个工具：query（含 `dwg_inspect_lisp`）、modify、meta（含 `dwg_send_code`/`dwg_run_lisp`）、view 和默认启用的 `dwg_capture_view_image`。可选 ToolBaker、annotation、block、dimension、export 和 drawing 工具集，通过 `--toolsets` 启用，把后端可用的 MCP surface 扩充到 63 个工具。 注册数量包含仅返回拒绝的 `dwg_run_lisp`；任何扫描判定都不授权执行。
 
 通用 CAD 工具作用于所选 AutoCAD 目标中的当前活动文档。实体输入与返回的实体 ID 使用 AutoCAD 十六进制 handle，例如 `7F5AD`，由选择、创建或属性工具返回。创建、复制、偏移和修改操作的响应会用十六进制 handle 标识所生成或修改的实体。
 
@@ -195,8 +195,8 @@ Plan 2 的查询扩展仅限模型空间：`dwg_query_entities`、`dwg_count_ent
 | `dwg_switch_target` | 把本 server 进程锁定到 AutoCAD `2022` 至 `2027` |
 | `dwg_batch_execute` | 把多个内部 wire 命令作为逻辑批处理运行 |
 | `dwg_send_code` | 在 AutoCAD .NET API 上执行 C# 代码片段（globals `doc`/`db`/`ed`，支持 `return` 返回值 + stdout 捕获，30 秒协作式取消；`MCPDISABLECODE`/`MCPENABLECODE` 按会话开关） |
-| `dwg_run_lisp` | 运行既有 AutoLISP 自动化:`file`(待 `(load)` 的 .lsp 绝对路径)、`code`(内联 lisp — 最后表达式的值进入 `result`)、和/或 `command`(如同在命令行输入;`(…)` 表达式会捕获值,裸 `c:` 命令名排队执行)。门控与 `dwg_send_code` 相同。输入先经安全扫描 — `dangerous` 判定直接拒绝。 |
-| `dwg_inspect_lisp` | 对 `.lsp` 文件或内联 AutoLISP 做静态安全扫描 — 检出进程执行(`startapp`/`shell`)、危险 COM(`WScript.Shell`/`XMLHTTP`)、持久化(`acaddoc.lsp`、注册表写入)、删文件、二级 `(load …)`、混淆(`eval`/`read`)。返回 `verdict` clean/caution/dangerous + findings。纯本地分析;不执行、无需 AutoCAD;`--read-only` 下仍可用。 |
+| `dwg_run_lisp` | 仅用于兼容：所有 `file`/`code`/`command` 输入均以 `lisp_execution_blocked` 拒绝。不读取文件、不发送到 plugin、不执行。请使用 `dwg_inspect_lisp` 做静态分析。 |
+| `dwg_inspect_lisp` | 对 `.lsp` 文件或内联 AutoLISP 做静态安全扫描 — 检出进程执行(`startapp`/`shell`)、危险 COM(`WScript.Shell`/`XMLHTTP`)、持久化(`acaddoc.lsp`、注册表写入)、删文件、二级 `(load …)`、混淆(`eval`/`read`)。返回 `verdict` clean/caution/dangerous + findings。纯本地分析;不执行、无需 AutoCAD;`--read-only` 下仍可用。 `clean` 不证明安全。报告均含 `execution_authorized=false` 和 `safety_assured=false`。 |
 | `dwg_zoom_extents` | 缩放到绘图视口的图形范围 |
 | `dwg_zoom_window` | 缩放到由两个角点定义的窗口 |
 | `dwg_zoom_to_entity` | 缩放到由 handle 标识的特定绘图实体的范围 |
@@ -361,13 +361,13 @@ Server 和测试不需要每个 AutoCAD shell 都完成发布构建即可通过�
 
 ## 安全
 
-`dwg_send_code` 执行任意 C#，`dwg_run_lisp` 执行任意 AutoLISP —— 同属一类风险，拥有对 AutoCAD 进程和本地文件系统的完全访问权。两者通过 `meta` toolset 注册在默认的 MCP 工具 surface 中（与 rvt-mcp 相同 posture）；`--read-only` 会将其移除。在 AutoCAD 中运行 `MCPDISABLECODE` 可在该 plugin 会话中禁用两者，`MCPENABLECODE` 可重新启用。防御层：`dwg_run_lisp` 会用与 `dwg_inspect_lisp` 相同的引擎预扫描输入 —— `dangerous`（含无法检查的 `.fas`/`.vlx`）直接拒绝并返回 findings，`caution` 仍执行但响应附带 `lisp_warnings`。
+`dwg_send_code` 以 AutoCAD 和本地文件系统的完整权限执行任意 C#，仅供可信 agent 使用，并非沙箱。`dwg_run_lisp` 无论输入、扫描判定或 `MCPENABLECODE` 状态如何均被拒绝。不创建 wrapper，不排队执行 LISP，不修改 trusted paths 或 SECURELOAD。不得通过 C#、batch 或 ToolBaker 绕过拒绝。`dwg_inspect_lisp` 只是静态分析，不是杀毒软件或整机防护；`clean` 仅表示未匹配已知模式。所有报告均返回 `execution_authorized=false` 和 `safety_assured=false`。需更新 server 和 plugin 并重启才能应用此限制；旧二进制文件仍保留旧行为。
 
 安全模型依赖以下几点：
 
 - **仅本地传输**——AutoCAD 2022–2024 走 127.0.0.1 上的 TCP，2025–2027 走 loopback Named Pipe，无远程访问。
 - **每会话鉴权令牌**——在每次 plugin 启动时轮换，按请求校验。
-- **会话级 kill-switch**——在 AutoCAD 中运行 `MCPDISABLECODE` 可在该 plugin 会话中阻止 `dwg_send_code`/`dwg_run_lisp`（`MCPENABLECODE` 重新启用，或重启 listener）。
+- **会话级 kill-switch** — `MCPDISABLECODE` / `MCPENABLECODE` 控制 `dwg_send_code`。启用代码或重启 listener 后 LISP 仍被拒绝。
 - **超时边界**——脚本在持有文档锁的线程上内联执行，带 30 秒协作式取消。
 - **可信 agent 假设**——仅在与你可控的 MCP client 一起使用时才启用。
 

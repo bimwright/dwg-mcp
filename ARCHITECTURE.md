@@ -63,7 +63,7 @@ Server reads v2 files from `%LOCALAPPDATA%\Bimwright\Dwg\`, verifies the PID is 
 4. `PluginClient.SendAsync` opens a TCP or named pipe connection based on discovery.
 5. Plugin's listener thread reads the NDJSON line, `CommandDispatcher.Dispatch` is called:
    - Auth token verified.
-   - `send_code`/`run_lisp` rejected only when `MCPDISABLECODE` disabled the current plugin session.
+   - `run_lisp` always rejected before document locking; no scanner verdict or session toggle authorizes it. `send_code` is rejected when `MCPDISABLECODE` disabled the current plugin session.
    - Handler looked up by command name.
    - `DocumentInvoker.Invoke` locks the active document.
    - General CAD handlers operate on that active document and resolve entity references from AutoCAD hex handles.
@@ -74,7 +74,11 @@ Server reads v2 files from `%LOCALAPPDATA%\Bimwright\Dwg\`, verifies the PID is 
 
 Timeout: 30s per request on the server side. `send_code` runs synchronous Roslyn snippets inline on the document-lock thread (`LockDocument` is thread-affine, so a worker thread would fail writes with `eLockViolation`) with cooperative 30s cancellation; a script blocked in a native call keeps the executor queued until it returns. Syntax containing `async`/`await` is rejected before execution; callers must not offload AutoCAD API calls to other threads. Return values are serialized with a contract resolver that rejects AutoCAD/COM runtime types before traversing their properties, including nested values. Connection-per-call for TCP; named pipe transport is also supported by the server discovery contract.
 
-`run_lisp` is rejected during batch preflight, before any item executes, so MCP callers must use the inspected direct tool. The scanner continues severity detection after its 200-finding response cap and refuses sources over 2,000,000 characters rather than executing incompletely inspected input. LISP error payloads pass through the same error sanitizer as dispatcher failures. These checks are not a sandbox: `send_code` remains a trusted-agent escape hatch, and static LISP scanning cannot establish arbitrary code safety.
+`run_lisp` is a compatibility refusal in this build: the server returns `lisp_execution_blocked` before reading any source or contacting AutoCAD. The plugin independently rejects it before document locking, and its handler also refuses direct calls. Batch preflight and ToolBaker deny it. There is no approved-script trust mechanism or isolated executor, so all `file`/`code`/`command` inputs are blocked, including apparently harmless expressions. `MCPENABLECODE` only enables C#; it cannot enable LISP. The former wrapper/command queue/result-file path has been removed: no SECURELOAD changes, trusted-path enrollment, delayed execution or result polling occurs through this tool.
+
+`dwg_inspect_lisp` remains available for static triage. It continues severity detection after its 200-finding display cap and marks sources over 2,000,000 characters as incompletely inspected/dangerous. Reports always include `execution_authorized=false`, `safety_assured=false`, and limitations. `clean` only means no known pattern matched, not safe; unknown/dynamic dependencies remain outside static analysis. Bare SHELL input and literal command forms are flagged conservatively. `send_code` remains a full-trust escape hatch, not a sandbox or machine-wide malware protection. Agent instructions prohibit using it, batches or ToolBaker to bypass LISP refusal; this instruction is not a technical sandbox for arbitrary C#.
+
+Both server and plugin must be updated and restarted for these guards to apply to all supported entry points. New server + old plugin rejects MCP `dwg_run_lisp` locally; new plugin + old server rejects the wire command. Old server + old plugin retains the previous execution behavior. Any future reintroduction of LISP execution requires a new isolation/trust design and lifecycle acceptance; the removed executor is not a safe fallback.
 
 ## Threading model
 
@@ -173,7 +177,7 @@ Toolsets are resolved by `DwgMcpConfig` and `ToolsetFilter`:
 - **Deferred Angular Dimensions**: The `dimension` toolset only registers linear, aligned, radial, and diametric dimension creators. Angular dimensions are deferred and not included in this release.
 - **Deferred File Export Tools**: The `dwg_export_pdf` and `dwg_export_image` tools have been deferred to ensure absolute reliability of drawing view captures and plot configurations. `dwg_capture_view_image` is fully enabled by default.
 
-The default startup surface is 39 tools (`dwg_send_code`/`dwg_run_lisp` via `meta`, `dwg_inspect_lisp` via `query`). Enabling the optional `toolbaker`, `annotation`, `block`, `dimension`, `export`, and `drawing` toolsets exposes the full 63 backed MCP tools.
+The default startup surface is 39 registered tools (`dwg_send_code`/`dwg_run_lisp` via `meta`, `dwg_inspect_lisp` via `query`). Enabling the optional `toolbaker`, `annotation`, `block`, `dimension`, `export`, and `drawing` toolsets exposes 63 registered MCP tools. Both counts include `dwg_run_lisp`, which only returns a compatibility refusal.
 
 Plan 2 entity query/select tools are model-space only. `dwg_select_by_layer` and `dwg_select_by_type` return handle lists and do not mutate AutoCAD pickfirst selection. Create, copy, offset, and modify handlers identify generated or modified entities with AutoCAD hex handles.
 

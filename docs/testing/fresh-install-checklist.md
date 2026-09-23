@@ -53,13 +53,24 @@ pwsh scripts\install.ps1 -Version 2024 -SourceDir src\plugin-acad24\bin\Release\
 
 ## Security Gates
 
+### Deferred live tests — owner decision, 2026-09-23
+
+- [ ] **`dwg_send_code` — TEST LATER:** live AutoCAD DTO/stdout, drawing write + undo, async/await and host-object refusal, kill-switch, read-only and timeout behavior.
+- [ ] **`dwg_run_lisp` — TEST LATER:** live refusal at the MCP and authenticated plugin wire boundaries, including after `MCPENABLECODE`/listener restart and while busy; no wrapper, queued command or host security-setting change. Execution remains blocked. Testing a future enabled LISP executor requires a separate approved isolation/trust design.
+
+These two live acceptance gates are explicitly deferred, not passed. The 452 passing automated tests and successful 2024/2027 plugin builds do not close them. No deployment or live AutoCAD acceptance was performed for this change.
+
+### Acceptance steps
+
 - Confirm `dwg_send_code`/`dwg_run_lisp` are present on the default tool surface (via `meta`) and absent under `--read-only`.
 - Confirm `dwg_send_code` works out of the box; run `MCPDISABLECODE` inside AutoCAD and confirm it fails, then `MCPENABLECODE` and confirm it works again.
-- Confirm `dwg_run_lisp` with `code="(+ 1 2 3)"` returns `result` `6`; then a real `.lsp` via `file` + `command="(c:MYCMD)"`.
+- Confirm `dwg_run_lisp` refuses `code="(+ 1 2 3)"`, `file`, bare `command`, and combined inputs with `error_code="lisp_execution_blocked"`; no LISP should be executed or queued. `MCPENABLECODE` and listener restart must not enable LISP.
 - Confirm a synchronous `dwg_send_code` DTO + stdout response works, while `async`/`await` is refused before any drawing mutation and `return doc;` (also nested in a DTO) reports a DTO error.
-- Confirm `batch_execute` containing `run_lisp` rejects the whole batch before earlier items run; use the direct `dwg_run_lisp` tool instead.
-- Automated tests cover severity detection after 200 findings, refusal above 2,000,000 characters (inline/file), and masked LISP error payloads. Run `dotnet test tests/Bimwright.Dwg.Tests/Bimwright.Dwg.Tests.csproj -c Release`.
-- Live acceptance remains separate from these tests: verify LISP completion while AutoCAD is idle/busy, prompting commands, and timeout/queued-wrapper behavior in a disposable drawing. Test doubles and plugin compilation do not close these host-runtime gates.
+- Confirm `batch_execute` containing `run_lisp` rejects the whole batch before earlier items run; ToolBaker must also deny it. Neither response should suggest another execution route.
+- Inspect clean, SHELL, staged-load and opaque sources without executing them. Every successful inspection report must include `execution_authorized=false`, `safety_assured=false` and limitations; `clean` must not be presented as a safety guarantee.
+- Automated tests cover SHELL command forms, severity detection after 200 findings, source size limits, local refusal without discovery/file access, direct-handler refusal without command queueing, and input privacy. Run `dotnet test tests/Bimwright.Dwg.Tests/Bimwright.Dwg.Tests.csproj -c Release`.
+- Update and restart both server and plugin. On a disposable drawing, confirm authenticated direct wire `run_lisp` is refused by the new plugin even from an older server, both before and after `MCPENABLECODE`, and while the drawing is busy. No wrapper/result files or delayed LISP commands should appear. Verify SECURELOAD/TRUSTEDPATHS remain unchanged. Compilation and test doubles do not close this live acceptance gate.
+- Future LISP execution is a separate design/release gate: enforceable isolation/trust, exact inspected source/dependencies, atomic completion and safe idle/busy/prompt/timeout/cancel lifecycle must all be established before re-enabling it. No such executor is shipped by this change.
 
 ## ToolBaker
 

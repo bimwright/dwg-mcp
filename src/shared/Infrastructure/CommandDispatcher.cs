@@ -122,11 +122,13 @@ namespace Bimwright.Dwg.Plugin
         private CommandResult ValidateCommand(string cmd, JToken parameters, out IAcadCommand handler)
         {
             handler = null;
-            // send_code and run_lisp share the same arbitrary-execution kill-switch.
-            if ((string.Equals(cmd, "send_code", StringComparison.Ordinal)
-                    || string.Equals(cmd, "run_lisp", StringComparison.Ordinal))
-                && !SendCodeEnabled)
-                return CommandResult.Fail("code/lisp execution is disabled for this AutoCAD session. Run MCPENABLECODE in AutoCAD to re-enable.");
+            // Reject before DocumentInvoker/LockDocument, including direct wire
+            // callers and older servers. MCPENABLECODE cannot authorize LISP.
+            if (string.Equals(cmd, "run_lisp", StringComparison.Ordinal))
+                return CommandResult.Fail(LispExecutionPolicy.Refusal);
+
+            if (string.Equals(cmd, "send_code", StringComparison.Ordinal) && !SendCodeEnabled)
+                return CommandResult.Fail("code execution is disabled for this AutoCAD session. Run MCPENABLECODE in AutoCAD to re-enable.");
 
             if (!_commands.TryGetValue(cmd, out handler))
                 return CommandResult.Fail($"unknown command: {cmd}");

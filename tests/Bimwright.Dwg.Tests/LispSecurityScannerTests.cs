@@ -63,6 +63,30 @@ namespace Bimwright.Dwg.Tests
         }
 
         [Theory]
+        [InlineData("SHELL notepad.exe")]
+        [InlineData("_.shell\nnotepad.exe")]
+        [InlineData("(princ)\n'SHELL notepad.exe")]
+        [InlineData("(command \"_.SHELL\" \"notepad.exe\")")]
+        [InlineData("(command-s \".SHELL\" \"notepad.exe\")")]
+        [InlineData("(vl-cmdf \"_SHELL\" \"notepad.exe\")")]
+        public void Shell_command_forms_are_flagged_without_execution(string code)
+        {
+            var report = LispSecurityScanner.ScanText(code);
+            Assert.Equal("dangerous", report.Verdict);
+            Assert.Contains(report.Findings, f => (string)f["category"] == "process-exec");
+        }
+
+        [Fact]
+        public void Clean_report_does_not_authorize_execution_or_certify_safety()
+        {
+            var json = LispSecurityScanner.ToJson(LispSecurityScanner.ScanText("(+ 1 2)"), "code");
+            Assert.Equal("clean", (string)json["verdict"]);
+            Assert.Equal(false, (bool?)json["execution_authorized"]);
+            Assert.Equal(false, (bool?)json["safety_assured"]);
+            Assert.Contains("not a sandbox", (string)json["limitations"]);
+        }
+
+        [Theory]
         [InlineData("(load \"helpers.lsp\")")]
         [InlineData("(eval (read expr))")]
         [InlineData("(vl-file-copy a b)")]
