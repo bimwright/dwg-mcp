@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.RegularExpressions;
+using Bimwright.Dwg.Plugin;
 using Newtonsoft.Json.Linq;
 
 namespace Bimwright.Dwg.Server
@@ -36,11 +37,12 @@ namespace Bimwright.Dwg.Server
         }
 
         private static readonly RegexOptions Rx = RegexOptions.IgnoreCase | RegexOptions.Compiled;
+        private static readonly TimeSpan MatchTimeout = TimeSpan.FromSeconds(1);
 
         // Code tokens matched in call/quote position: ( token  or  ' token
         private static Rule Fn(string token, string severity, string category, string detail) => new Rule
         {
-            Pattern = new Regex(@"[(']\s*" + Regex.Escape(token) + @"(?![\w-])", Rx),
+            Pattern = new Regex(@"[(']\s*" + Regex.Escape(token) + @"(?![\w-])", Rx, MatchTimeout),
             Severity = severity,
             Category = category,
             Detail = detail
@@ -49,7 +51,7 @@ namespace Bimwright.Dwg.Server
         // Strings/filenames matched anywhere (they usually sit inside quoted literals).
         private static Rule Any(string regex, string severity, string category, string detail) => new Rule
         {
-            Pattern = new Regex(regex, Rx),
+            Pattern = new Regex(regex, Rx, MatchTimeout),
             Severity = severity,
             Category = category,
             Detail = detail
@@ -63,7 +65,9 @@ namespace Bimwright.Dwg.Server
             // SHELL is also an AutoCAD command: bare command-line input or a
             // string passed to command/command-s/vl-cmdf. This is conservative
             // triage (literals/comments may match), never execution authorization.
-            Any(@"(?:^|[\r\n])\s*[._']*shell(?=\s|$)|""[._']*shell""", "high", "process-exec",
+            // Keep indentation on the same line: \s* rescans all remaining blank
+            // lines at every line boundary, producing quadratic backtracking.
+            Any(@"(?:^|[\r\n])[^\S\r\n]*[._']*shell(?=\s|$)|""[._']*shell""", "high", "process-exec",
                 "References the AutoCAD SHELL command — can execute operating-system commands."),
             Fn("arxload", "high", "native-load", "Loads a compiled ARX/.NET module — full unmanaged code execution."),
             Fn("arxunload", "medium", "native-load", "Unloads an ARX module."),
@@ -137,22 +141,42 @@ namespace Bimwright.Dwg.Server
             }
             var scan = text;
 
-            foreach (var rule in Rules)
+            try
             {
-                foreach (Match m in rule.Pattern.Matches(scan))
+                foreach (var rule in Rules)
                 {
-                    // Cap only the response detail, never the security decision.
-                    Count(report, rule.Severity);
-                    if (report.Findings.Count >= MaxFindings) continue;
-                    report.Findings.Add(JObject.FromObject(new
+                    foreach (Match m in rule.Pattern.Matches(scan))
                     {
-                        severity = rule.Severity,
-                        category = rule.Category,
-                        line = LineOf(scan, m.Index),
-                        match = Truncate(m.Value.Trim(), 100),
-                        detail = rule.Detail
-                    }));
+                        // Cap only the response detail, never the security decision.
+                        Count(report, rule.Severity);
+                        if (report.Findings.Count >= MaxFindings) continue;
+                        report.Findings.Add(JObject.FromObject(new
+                        {
+                            severity = rule.Severity,
+                            category = rule.Category,
+                            line = LineOf(scan, m.Index),
+                            match = Truncate(m.Value.Trim(), 100),
+                            detail = rule.Detail
+                        }));
+                    }
                 }
+            }
+            catch (RegexMatchTimeoutException)
+            {
+                // Never describe an incomplete scan as clean or echo the exception's input.
+                report.High++;
+                report.Verdict = "dangerous";
+                if (report.Findings.Count >= MaxFindings)
+                    report.Findings.RemoveAt(report.Findings.Count - 1);
+                report.Findings.Add(JObject.FromObject(new
+                {
+                    severity = "high",
+                    category = "scan-timeout",
+                    line = 0,
+                    match = (string)null,
+                    detail = "Inspection timed out and is incomplete; source safety cannot be established."
+                }));
+                return report;
             }
 
             report.Verdict = report.High > 0 ? "dangerous" : (report.Medium + report.Low > 0 ? "caution" : "clean");
@@ -211,7 +235,7 @@ namespace Bimwright.Dwg.Server
             }
             catch (Exception ex)
             {
-                error = $"cannot read file for inspection: {ex.Message}";
+                error = ErrorSanitizer.Sanitize($"cannot read file for inspection: {ex.Message}");
                 return null;
             }
 

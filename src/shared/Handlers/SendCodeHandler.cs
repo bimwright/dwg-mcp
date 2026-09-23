@@ -40,6 +40,10 @@ namespace Bimwright.Dwg.Plugin.Handlers
             // A blocking wait on EvaluateAsync does not keep script continuations on
             // the thread that owns DocumentLock. Reject before executing any statement.
             var syntax = CSharpSyntaxTree.ParseText(code, CSharpParseOptions.Default.WithKind(SourceCodeKind.Script));
+            // Loaded sources are outside this syntax tree and could resume after await
+            // on a thread that does not own DocumentLock. Accept inline source only.
+            if (syntax.GetRoot().DescendantNodes(descendIntoTrivia: true).Any(n => n.IsKind(SyntaxKind.LoadDirectiveTrivia)))
+                return CommandResult.Fail("send_code does not support #load; provide the complete synchronous snippet inline.");
             if (syntax.GetRoot().DescendantTokens().Any(t => t.IsKind(SyntaxKind.AwaitKeyword) || t.IsKind(SyntaxKind.AsyncKeyword)))
                 return CommandResult.Fail("send_code requires synchronous code; async/await is not supported. Keep AutoCAD API calls on the calling thread.");
 
@@ -53,6 +57,7 @@ namespace Bimwright.Dwg.Plugin.Handlers
                     .Where(a => !a.IsDynamic && !string.IsNullOrEmpty(a.Location))
                     .ToArray();
                 var options = ScriptOptions.Default
+                    .WithSourceResolver(null)
                     .WithReferences(refs)
                     .WithImports(
                         "System",

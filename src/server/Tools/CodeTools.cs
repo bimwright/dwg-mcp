@@ -19,7 +19,7 @@ namespace Bimwright.Dwg.Server.Tools
             "Globals available: Document doc, Database db, Editor ed. The script runs on the " +
             "document-lock thread; end with 'return <expr>;' or a trailing expression to return a " +
             "JSON-safe DTO value in the result field; AutoCAD/COM objects, including nested objects, are rejected. " +
-            "Only synchronous snippets are supported: async/await is rejected before execution. " +
+            "Only inline synchronous snippets are supported: async/await and #load directives are rejected before execution. " +
             "Do not move AutoCAD API calls to Task.Run or other threads. Use System.Console.WriteLine for stdout output. " +
             "Execution has cooperative 30s cancellation.")]
         public static Task<string> SendCode(

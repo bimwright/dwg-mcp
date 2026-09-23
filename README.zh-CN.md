@@ -148,7 +148,7 @@ AI agent 让“把选中的文字全部翻译成越南语”这类意图可以�
 
 `dwg_send_code` 通过 `meta` 默认注册；`MCPDISABLECODE` / `MCPENABLECODE` 控制当前会话中的 C# 执行。`dwg_run_lisp` 保留注册以兼容旧客户端，但 server 和 plugin 均拒绝所有请求。此版本没有 LISP 隔离执行环境或脚本信任机制。`--read-only` 会移除这两个工具。
 
-`dwg_send_code` 仅接受同步片段，执行前拒绝 `async`/`await`。AutoCAD API 必须留在调用线程，不要移至 `Task.Run` 或其他线程。只返回 JSON DTO，嵌套的 AutoCAD/COM 对象也会被拒绝。`dwg_inspect_lisp` 仍可用于静态分析；超过 2,000,000 字符的源码因无法完整检查而被标记为危险，200 条 findings 的显示上限不会停止危险级别检测。
+`dwg_send_code` 仅接受内联同步片段，执行前拒绝 `async`/`await` 和 `#load` 指令。AutoCAD API 必须留在调用线程，不要移至 `Task.Run` 或其他线程。只返回 JSON DTO，嵌套的 AutoCAD/COM 对象也会被拒绝。`dwg_inspect_lisp` 仍可用于静态分析；超过 2,000,000 字符的源码因无法完整检查而被标记为危险，200 条 findings 的显示上限不会停止危险级别检测。正则匹配设有超时；超时扫描会报告检查不完整并标记为危险，不会返回 `clean`。
 
 ---
 

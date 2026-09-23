@@ -1,6 +1,9 @@
+using System;
+using System.IO;
 using System.Threading.Tasks;
 using Autodesk.AutoCAD.ApplicationServices;
 using Bimwright.Dwg.Plugin.Handlers;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Xunit;
 
@@ -14,6 +17,25 @@ namespace Bimwright.Dwg.Tests
     [Collection("Script handlers")]
     public class ScriptHandlerTests
     {
+        [Theory]
+        [InlineData("doc.MutationCount++;")]
+        [InlineData("await System.Threading.Tasks.Task.Delay(10); doc.MutationCount++;")]
+        public async Task Load_directives_are_rejected_before_root_or_loaded_side_effects(string loadedCode)
+        {
+            var path = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".csx");
+            try
+            {
+                File.WriteAllText(path, loadedCode);
+                var code = "#load " + JsonConvert.SerializeObject(path) + "\ndoc.MutationCount++;";
+                var doc = new Document();
+                var result = await Task.Run(() => new SendCodeHandler().Execute(doc, JObject.FromObject(new { code })));
+                Assert.Equal(0, doc.MutationCount);
+                Assert.False(result.Ok);
+                Assert.Contains("#load", result.Error);
+            }
+            finally { File.Delete(path); }
+        }
+
         [Theory]
         [InlineData("doc.MutationCount++; await System.Threading.Tasks.Task.Delay(1); return 1;")]
         [InlineData("doc.MutationCount++; System.Func<System.Threading.Tasks.Task> f = async () => {}; return 1;")]
@@ -43,7 +65,7 @@ namespace Bimwright.Dwg.Tests
         [Fact]
         public async Task Synchronous_dto_result_and_stdout_are_preserved()
         {
-            var code = "// async and await in comments/strings are valid\nConsole.WriteLine(\"hello\"); return new { value = 42, names = new[] { \"async\", \"await\" } };";
+            var code = "// async, await and #load in comments/strings are valid\nConsole.WriteLine(\"hello #load\"); return new { value = 42, names = new[] { \"async\", \"await\" } };";
             var result = await Task.Run(() => new SendCodeHandler().Execute(new Document(), JObject.FromObject(new { code })));
             var payload = JObject.FromObject(result.Result);
             Assert.True(payload.Value<bool>("ok"), payload.Value<string>("error"));

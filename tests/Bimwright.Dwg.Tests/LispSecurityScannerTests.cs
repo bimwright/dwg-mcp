@@ -1,13 +1,43 @@
 using System.IO;
 using System;
 using System.Linq;
+using System.Diagnostics;
+using System.Threading.Tasks;
 using Bimwright.Dwg.Server;
+using Bimwright.Dwg.Server.Tools;
+using Newtonsoft.Json.Linq;
 using Xunit;
 
 namespace Bimwright.Dwg.Tests
 {
     public class LispSecurityScannerTests
     {
+        [Fact]
+        public void Blank_lines_do_not_cause_quadratic_scan_time()
+        {
+            // Warm up compiled patterns; leave a broad margin for slower CI hosts.
+            LispSecurityScanner.ScanText("(princ)");
+            var code = new string('\n', 200_000) + "(princ)";
+            var watch = Stopwatch.StartNew();
+            var report = LispSecurityScanner.ScanText(code);
+            watch.Stop();
+            Assert.Equal("clean", report.Verdict);
+            Assert.True(watch.Elapsed < TimeSpan.FromSeconds(5), $"Blank-line scan took {watch.Elapsed}.");
+        }
+
+        [Fact]
+        public async Task Inspection_file_errors_hide_paths_and_secrets_at_the_tool_boundary()
+        {
+            var directory = @"C:\dwg-inspect-missing-" + Guid.NewGuid();
+            var path = directory + @"\password=probe-private-value.lsp";
+            var response = JObject.Parse(await QueryTools.InspectLisp(file: path));
+            Assert.False((bool)response["ok"]);
+            var error = (string)response["error"];
+            Assert.Contains("cannot read file", error);
+            Assert.DoesNotContain(directory, error);
+            Assert.DoesNotContain("probe-private-value", error);
+        }
+
         [Fact]
         public void Finding_limit_does_not_hide_later_high_severity_rules()
         {
@@ -66,6 +96,8 @@ namespace Bimwright.Dwg.Tests
         [InlineData("SHELL notepad.exe")]
         [InlineData("_.shell\nnotepad.exe")]
         [InlineData("(princ)\n'SHELL notepad.exe")]
+        [InlineData("\r\n\r\n\t _.SHELL notepad.exe")]
+        [InlineData("(\n\tshell \"dir\")")]
         [InlineData("(command \"_.SHELL\" \"notepad.exe\")")]
         [InlineData("(command-s \".SHELL\" \"notepad.exe\")")]
         [InlineData("(vl-cmdf \"_SHELL\" \"notepad.exe\")")]

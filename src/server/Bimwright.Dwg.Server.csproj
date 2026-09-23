@@ -40,6 +40,7 @@
   <ItemGroup>
     <Compile Include="..\shared\ToolBaker\*.cs" LinkBase="Shared\ToolBaker" />
     <Compile Include="..\shared\Security\SecretMasker.cs" LinkBase="Shared\Security" />
+    <Compile Include="..\shared\Security\ErrorSanitizer.cs" LinkBase="Shared\Security" />
     <Compile Include="..\shared\Security\BakeRedactor.cs" LinkBase="Shared\Security" />
     <Compile Include="..\shared\Security\LispExecutionPolicy.cs" LinkBase="Shared\Security" />
   </ItemGroup>

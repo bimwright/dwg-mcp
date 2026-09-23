@@ -4,6 +4,9 @@
 
 ### Fixed
 
+- Reject `#load` before any `send_code` execution and disable external source resolution; loaded scripts can no longer bypass the synchronous syntax check.
+- Sanitize LISP inspection file-read errors using the shared error sanitizer.
+- Avoid quadratic SHELL matching on blank lines; bound regex matching with a timeout and report timed-out scans as incomplete/dangerous.
 - Reject `run_lisp` during batch preflight before any item executes; direct execution is also blocked (see breaking change below).
 - Detect bare AutoCAD SHELL commands and literal command forms in LISP inspection; report `execution_authorized=false`, `safety_assured=false` and scanner limitations even for `clean` findings.
 - Remove the LISP wrapper/queued-command/result-file executor, eliminating its untrusted-load, early-result and timeout cleanup paths. This closes those paths by disabling execution, not by claiming a working sandbox or repaired asynchronous executor.
