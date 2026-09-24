@@ -71,6 +71,8 @@ namespace Bimwright.Dwg.Plugin
                 { "zoom_window",             new ZoomWindowHandler() },
                 { "zoom_to_entity",          new ZoomToEntityHandler() },
                 { "capture_view_image",      new CaptureViewImageHandler() },
+                { "inspect_view_region",     new InspectViewRegionHandler() },
+                { "restore_view",            new RestoreViewHandler() },
                 { "export_dxf",              new ExportDxfHandler() },
                 { "get_variables",           new GetVariablesHandler() },
                 { "set_system_variable",     new SetSystemVariableHandler() },

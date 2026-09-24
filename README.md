@@ -10,7 +10,7 @@
   <a href="https://github.com/bimwright/dwg-mcp/actions/workflows/build.yml"><img src="https://github.com/bimwright/dwg-mcp/actions/workflows/build.yml/badge.svg" alt="build" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="license" /></a>
   <a href="#supported-autocad-versions"><img src="https://img.shields.io/badge/AutoCAD-2022--2027-186BFF" alt="AutoCAD 2022-2027" /></a>
-  <a href="#tools"><img src="https://img.shields.io/badge/MCP-36%20default%20%2B%20optional-6C47FF" alt="MCP tools" /></a>
+  <a href="#tools"><img src="https://img.shields.io/badge/MCP-41%20default%20%2B%20optional-6C47FF" alt="MCP tools" /></a>
 </p>
 
 <p align="center">
@@ -167,7 +167,7 @@ Use `--read-only` to strip write-capable toolsets (query/view/meta routing remai
 
 ## Tools
 
-Default startup exposes 39 tools: query (including `dwg_inspect_lisp`), modify, meta (including `dwg_send_code`/`dwg_run_lisp`), view, and default-on `dwg_capture_view_image`. Optional ToolBaker, annotation, block, dimension, export, and drawing toolsets, enabled through `--toolsets`, bring the backed MCP surface to 63 tools. The registered counts include `dwg_run_lisp`, which only returns a refusal; no scan verdict authorizes execution.
+Default startup exposes 41 tools: query (including `dwg_inspect_lisp`), modify, meta (including `dwg_send_code`/`dwg_run_lisp`), view, and default-on `dwg_capture_view_image`. Optional ToolBaker, annotation, block, dimension, export, and drawing toolsets, enabled through `--toolsets`, bring the backed MCP surface to 65 tools. The registered counts include `dwg_run_lisp`, which only returns a refusal; no scan verdict authorizes execution.
 
 General CAD tools operate on the current active document in the selected AutoCAD target. Entity inputs and returned entity IDs use AutoCAD hex handles, such as `7F5AD`, returned by selection, creation, or property tools. Creation, copy, offset, and modify responses identify generated or modified entities by hex handle.
 
@@ -213,7 +213,11 @@ Plan 2 query expansion is model-space only: `dwg_query_entities`, `dwg_count_ent
 | `dwg_zoom_extents` | Zoom to the extents of the drawing viewport |
 | `dwg_zoom_window` | Zoom viewport to a window defined by two corner points |
 | `dwg_zoom_to_entity` | Zoom viewport to the extents of a specific drawing entity identified by handle |
-| `dwg_capture_view_image` | Capture drawing graphics inside AutoCAD; return image path, actual size, hash, document/viewport/camera metadata (default-on; path policy applies) |
+| `dwg_capture_view_image` | Capture drawing graphics inside AutoCAD; return inline image, path, actual size, hash, document/viewport/camera metadata (default-on; path policy applies) |
+| `dwg_inspect_view_region` | Choose a normalized rectangle on a capture; zoom, regenerate and return a fresh inline image with parent linkage |
+| `dwg_restore_view` | Return to an earlier capture's camera and obtain a fresh inline image |
+
+Visual reading: capture → inspect the image → choose a region → `dwg_inspect_view_region` → inspect again. Keep ancestor IDs and use `dwg_restore_view` to return to the overview. Source history lasts 30 minutes / 64 captures in one AutoCAD process. Region navigation initially supports one top-down, unrotated, orthographic model-space viewport; unsupported or stale sources are refused. Capture responses now include an MCP image block (8 MiB limit) alongside the existing JSON text. These tools change the visible camera and save images, including under `--read-only`; they do not edit geometry or save DWG. Installed-host acceptance is pending. See [workflow, compatibility and acceptance](docs/design/2026-09-24-visual-reading-loop.md).
 
 Optional ToolBaker tools are exposed when the `toolbaker` toolset is enabled:
 

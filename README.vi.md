@@ -10,7 +10,7 @@
   <a href="https://github.com/bimwright/dwg-mcp/actions/workflows/build.yml"><img src="https://github.com/bimwright/dwg-mcp/actions/workflows/build.yml/badge.svg" alt="build" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="license" /></a>
   <a href="#phiên-bản-autocad-hỗ-trợ"><img src="https://img.shields.io/badge/AutoCAD-2022--2027-186BFF" alt="AutoCAD 2022-2027" /></a>
-  <a href="#công-cụ"><img src="https://img.shields.io/badge/MCP-36%20default%20%2B%20optional-6C47FF" alt="MCP tools" /></a>
+  <a href="#công-cụ"><img src="https://img.shields.io/badge/MCP-41%20default%20%2B%20optional-6C47FF" alt="MCP tools" /></a>
 </p>
 
 <p align="center">
@@ -152,7 +152,7 @@ Dùng `--read-only` để gỡ toolset write-capable. Dùng `--toolsets all` ho�
 
 ## Công cụ
 
-Mặc định server expose 39 tool: query (gồm `dwg_inspect_lisp`), modify, meta (gồm `dwg_send_code`/`dwg_run_lisp`), view, và `dwg_capture_view_image` mặc định bật. Các toolset tùy chọn ToolBaker, annotation, block, dimension, export, và drawing được kích hoạt qua `--toolsets`, nâng tổng diện tích bề mặt MCP lên 63 tool. Số tool đăng ký có tính `dwg_run_lisp`, hiện chỉ trả từ chối; không verdict nào cấp quyền thực thi.
+Mặc định server expose 41 tool: query (gồm `dwg_inspect_lisp`), modify, meta (gồm `dwg_send_code`/`dwg_run_lisp`), view, và `dwg_capture_view_image` mặc định bật. Các toolset tùy chọn ToolBaker, annotation, block, dimension, export, và drawing được kích hoạt qua `--toolsets`, nâng tổng diện tích bề mặt MCP lên 65 tool. Số tool đăng ký có tính `dwg_run_lisp`, hiện chỉ trả từ chối; không verdict nào cấp quyền thực thi.
 
 CAD tool chạy trên active document hiện tại của AutoCAD target đang chọn. Entity input và entity id trả về dùng AutoCAD hex handle, ví dụ `7F5AD`, do tool selection, creation, hoặc properties trả về. Creation, copy, offset, và modify response identify entity tạo/sửa bằng hex handle.
 
@@ -198,7 +198,11 @@ Plan 2 query expansion chỉ quét model space: `dwg_query_entities`, `dwg_count
 | `dwg_zoom_extents` | Zoom đến giới hạn của viewport bản vẽ |
 | `dwg_zoom_window` | Zoom viewport đến một cửa sổ được xác định bởi hai điểm góc |
 | `dwg_zoom_to_entity` | Zoom viewport đến giới hạn của một entity cụ thể theo handle |
-| `dwg_capture_view_image` | Chụp đồ họa trong AutoCAD; trả đường dẫn ảnh, kích thước thực, hash, metadata bản vẽ/viewport/camera (mặc định bật; path policy) |
+| `dwg_capture_view_image` | Chụp đồ họa trong AutoCAD; trả ảnh trực tiếp qua MCP, đường dẫn ảnh, kích thước thực, hash, metadata bản vẽ/viewport/camera (mặc định bật; path policy) |
+| `dwg_inspect_view_region` | Chọn vùng 0–1 trên ảnh nguồn; zoom, regenerate và trả ảnh mới trực tiếp qua MCP, có liên kết ảnh cha |
+| `dwg_restore_view` | Quay lại camera của ảnh trước và nhận ảnh chụp mới |
+
+Đọc bản vẽ: chụp → xem ảnh → chọn vùng → `dwg_inspect_view_region` → xem chi tiết. Giữ ID ảnh cha và dùng `dwg_restore_view` để quay lại tổng thể. Lịch sử giữ tối đa 64 ảnh / 30 phút trong tiến trình AutoCAD. Bản đầu hỗ trợ một viewport model space, nhìn từ trên xuống, không xoay, trực giao; từ chối nguồn cũ hoặc view ngoài phạm vi. Capture trả thêm image block MCP (tối đa 8 MiB) cạnh JSON hiện có. Các tool thay đổi camera và ghi ảnh, kể cả `--read-only`; không sửa geometry hay lưu DWG. Kiểm chứng trên host đã cài vẫn pending. Xem [quy trình, tương thích và nghiệm thu](docs/design/2026-09-24-visual-reading-loop.md).
 
 ToolBaker là toolset tùy chọn:
 

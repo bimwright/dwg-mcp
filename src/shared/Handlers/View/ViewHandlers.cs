@@ -145,6 +145,7 @@ namespace Bimwright.Dwg.Plugin.Handlers
             try
             {
                 var result = CaptureViewService.Capture(doc, normalizedPath, pixelSize, overwrite, expectedFingerprint);
+                ViewReadingService.History.Remember(result);
                 return CommandResult.Success(result);
             }
             catch (Exception ex)
@@ -152,5 +153,35 @@ namespace Bimwright.Dwg.Plugin.Handlers
                 return CommandResult.Fail("failed to capture view: " + ErrorSanitizer.Sanitize(ex.Message));
             }
         }
+    }
+
+    public class InspectViewRegionHandler : IAcadCommand
+    {
+        public string Name => "inspect_view_region";
+        public string Description => "Zoom to a normalized region of a source capture, regenerate and return a new capture.";
+        public CommandSchema Schema => CommandSchemas.InspectViewRegion;
+        public CommandResult Execute(Document doc, JToken parameters) => Navigate(doc, parameters, false);
+
+        internal static CommandResult Navigate(Document doc, JToken parameters, bool restoring)
+        {
+            try
+            {
+                var result = ViewReadingService.Navigate(doc, (string)parameters["source_capture_id"],
+                    parameters["region"] as JObject, restoring, (int?)parameters["pixel_size"] ?? 1600);
+                return CommandResult.Success(result);
+            }
+            catch (Exception ex)
+            {
+                return CommandResult.Fail("view navigation failed: " + ErrorSanitizer.Sanitize(ex.Message));
+            }
+        }
+    }
+
+    public class RestoreViewHandler : IAcadCommand
+    {
+        public string Name => "restore_view";
+        public string Description => "Restore a recent supported capture's camera and return a fresh image.";
+        public CommandSchema Schema => CommandSchemas.RestoreView;
+        public CommandResult Execute(Document doc, JToken parameters) => InspectViewRegionHandler.Navigate(doc, parameters, true);
     }
 }

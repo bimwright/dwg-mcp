@@ -18,11 +18,12 @@ namespace Bimwright.Dwg.Plugin.View
     /// </summary>
     internal static class CaptureViewService
     {
-        internal static object Capture(Document doc, string outputPath, int pixelSize,
-            bool overwriteExisting = false, string expectedDocumentFingerprint = null)
+        internal static JObject Capture(Document doc, string outputPath, int pixelSize,
+            bool overwriteExisting = false, string expectedDocumentFingerprint = null, JObject expectedContext = null)
         {
             var watch = Stopwatch.StartNew();
             var before = ReadContext(doc);
+            if (expectedContext != null) CaptureViewContract.EnsureUnchanged(expectedContext, before);
             CaptureViewContract.ValidateExpectedDocument(expectedDocumentFingerprint,
                 (string)before["document"]["fingerprint"]);
             var (width, height) = CaptureViewMath.ComputeOutputSize(
@@ -52,7 +53,7 @@ namespace Bimwright.Dwg.Plugin.View
             }
         }
 
-        private static JObject ReadContext(Document doc)
+        internal static JObject ReadContext(Document doc)
         {
             if (doc == null || !ReferenceEquals(AcadApplication.DocumentManager.MdiActiveDocument, doc))
                 throw new InvalidOperationException("capture requires the active drawing");
@@ -60,6 +61,17 @@ namespace Bimwright.Dwg.Plugin.View
                 throw new InvalidOperationException("AutoCAD command is active; retry capture after it completes");
 
             var db = doc.Database;
+            var revision = DrawingRevision.For(db);
+            int activeViewports = 0;
+            using (var tx = db.TransactionManager.StartOpenCloseTransaction())
+            {
+                var table = (ViewportTable)tx.GetObject(db.ViewportTableId, OpenMode.ForRead);
+                foreach (ObjectId id in table)
+                {
+                    var record = (ViewportTableRecord)tx.GetObject(id, OpenMode.ForRead);
+                    if (string.Equals(record.Name, "*Active", StringComparison.OrdinalIgnoreCase)) activeViewports++;
+                }
+            }
             var screen = (Point2d)AcadApplication.GetSystemVariable("SCREENSIZE");
             if (screen.X <= 0 || screen.Y <= 0)
                 throw new InvalidOperationException("AutoCAD viewport has no drawable area");
@@ -71,6 +83,8 @@ namespace Bimwright.Dwg.Plugin.View
                     {
                         ["name"] = Path.GetFileName(doc.Name),
                         ["fingerprint"] = Guid.Parse(db.FingerprintGuid).ToString("D"),
+                        ["session_id"] = revision.SessionId,
+                        ["observed_revision"] = revision.Revision,
                         ["layout"] = LayoutManager.Current.CurrentLayout,
                         ["space_handle"] = db.CurrentSpaceId.Handle.ToString(),
                         ["tile_mode"] = db.TileMode
@@ -78,6 +92,7 @@ namespace Bimwright.Dwg.Plugin.View
                     ["viewport"] = new JObject
                     {
                         ["number"] = Convert.ToInt32(AcadApplication.GetSystemVariable("CVPORT")),
+                        ["active_tiled_viewports"] = activeViewports,
                         ["screen_width"] = (int)screen.X,
                         ["screen_height"] = (int)screen.Y
                     },

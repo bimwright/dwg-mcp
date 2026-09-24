@@ -39,6 +39,9 @@
     <Compile Include="..\..\src\shared\Export\ExportPathPolicy.cs" LinkBase="Shared\Export" />
     <Compile Include="..\..\src\shared\View\CaptureViewMath.cs" LinkBase="Shared\View" />
     <Compile Include="..\..\src\shared\View\CaptureViewContract.cs" LinkBase="Shared\View" />
+    <Compile Include="..\..\src\shared\View\ViewReadingContract.cs" LinkBase="Shared\View" />
+    <Compile Include="..\..\src\shared\View\ViewCaptureStore.cs" LinkBase="Shared\View" />
+    <Compile Include="..\..\src\shared\View\ViewReadingWorkflow.cs" LinkBase="Shared\View" />
     <Compile Include="..\..\src\shared\Drawing\SystemVariableCatalog.cs" LinkBase="Shared\Drawing" />
   </ItemGroup>
   <!-- Exercise the actual escape-hatch handlers against explicit AutoCAD test doubles.

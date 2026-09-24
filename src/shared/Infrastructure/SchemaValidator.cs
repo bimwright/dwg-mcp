@@ -406,6 +406,15 @@ namespace Bimwright.Dwg.Plugin
             SchemaProperty.Optional("allow_repo_output", JTokenType.Boolean),
             SchemaProperty.Optional("expected_document_fingerprint", JTokenType.String));
 
+        public static readonly CommandSchema InspectViewRegion = CommandSchema.Object(
+            SchemaProperty.RequiredNonEmptyString("source_capture_id"),
+            SchemaProperty.Required("region", JTokenType.Object),
+            SchemaProperty.Optional("pixel_size", JTokenType.Integer));
+
+        public static readonly CommandSchema RestoreView = CommandSchema.Object(
+            SchemaProperty.RequiredNonEmptyString("source_capture_id"),
+            SchemaProperty.Optional("pixel_size", JTokenType.Integer));
+
         public static readonly CommandSchema ExportDxf = CommandSchema.Object(
             SchemaProperty.Required("output_path", JTokenType.String),
             SchemaProperty.Optional("overwrite_existing", JTokenType.Boolean),

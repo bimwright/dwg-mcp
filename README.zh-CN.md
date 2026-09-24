@@ -10,7 +10,7 @@
   <a href="https://github.com/bimwright/dwg-mcp/actions/workflows/build.yml"><img src="https://github.com/bimwright/dwg-mcp/actions/workflows/build.yml/badge.svg" alt="build" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="license" /></a>
   <a href="#支持的-autocad-版本"><img src="https://img.shields.io/badge/AutoCAD-2022--2027-186BFF" alt="AutoCAD 2022-2027" /></a>
-  <a href="#tools"><img src="https://img.shields.io/badge/MCP-36%20default%20%2B%20optional-6C47FF" alt="MCP tools" /></a>
+  <a href="#tools"><img src="https://img.shields.io/badge/MCP-41%20default%20%2B%20optional-6C47FF" alt="MCP tools" /></a>
 </p>
 
 <p align="center">
@@ -154,7 +154,7 @@ AI agent 让“把选中的文字全部翻译成越南语”这类意图可以�
 
 ## Tools
 
-默认启动暴露 39 个工具：query（含 `dwg_inspect_lisp`）、modify、meta（含 `dwg_send_code`/`dwg_run_lisp`）、view 和默认启用的 `dwg_capture_view_image`。可选 ToolBaker、annotation、block、dimension、export 和 drawing 工具集，通过 `--toolsets` 启用，把后端可用的 MCP surface 扩充到 63 个工具。 注册数量包含仅返回拒绝的 `dwg_run_lisp`；任何扫描判定都不授权执行。
+默认启动暴露 41 个工具：query（含 `dwg_inspect_lisp`）、modify、meta（含 `dwg_send_code`/`dwg_run_lisp`）、view 和默认启用的 `dwg_capture_view_image`。可选 ToolBaker、annotation、block、dimension、export 和 drawing 工具集，通过 `--toolsets` 启用，把后端可用的 MCP surface 扩充到 65 个工具。 注册数量包含仅返回拒绝的 `dwg_run_lisp`；任何扫描判定都不授权执行。
 
 通用 CAD 工具作用于所选 AutoCAD 目标中的当前活动文档。实体输入与返回的实体 ID 使用 AutoCAD 十六进制 handle，例如 `7F5AD`，由选择、创建或属性工具返回。创建、复制、偏移和修改操作的响应会用十六进制 handle 标识所生成或修改的实体。
 
@@ -200,7 +200,11 @@ Plan 2 的查询扩展仅限模型空间：`dwg_query_entities`、`dwg_count_ent
 | `dwg_zoom_extents` | 缩放到绘图视口的图形范围 |
 | `dwg_zoom_window` | 缩放到由两个角点定义的窗口 |
 | `dwg_zoom_to_entity` | 缩放到由 handle 标识的特定绘图实体的范围 |
-| `dwg_capture_view_image` | 在 AutoCAD 内捕获图形；返回图像路径、实际尺寸、SHA-256 哈希及文档/视口/相机元数据（默认启用；受路径策略约束） |
+| `dwg_capture_view_image` | 在 AutoCAD 内捕获图形；返回内联图像、图像路径、实际尺寸、SHA-256 哈希及文档/视口/相机元数据（默认启用；受路径策略约束） |
+| `dwg_inspect_view_region` | 在源图像上指定归一化矩形，缩放并重新生成，返回新图像及父图像ID |
+| `dwg_restore_view` | 返回先前截图的相机位置并获取新图像 |
+
+读图流程：截图 → 查看图像 → 选择区域 → `dwg_inspect_view_region` → 查看细节。保留父图像ID，通过 `dwg_restore_view` 返回总览。历史记录在当前AutoCAD进程中最多保留64张、30分钟。首版区域导航仅支持模型空间中的单个视口、俯视正投影、无视图旋转；拒绝过期来源和不支持的视图。响应在原有JSON旁增加MCP图像块（最多8 MiB）。即使使用 `--read-only`，这些工具也会改变相机并保存图片，但不会编辑几何或保存DWG。已安装主机的运行验收仍待完成。参见[流程、兼容性及验收](docs/design/2026-09-24-visual-reading-loop.md)。
 
 启用 `toolbaker` 工具集时会暴露可选 ToolBaker 工具：
 

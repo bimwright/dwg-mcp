@@ -10,7 +10,7 @@
   <a href="https://github.com/bimwright/dwg-mcp/actions/workflows/build.yml"><img src="https://github.com/bimwright/dwg-mcp/actions/workflows/build.yml/badge.svg" alt="build" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="license" /></a>
   <a href="#サポート対象autocadバージョン"><img src="https://img.shields.io/badge/AutoCAD-2022--2027-186BFF" alt="AutoCAD 2022-2027" /></a>
-  <a href="#ツール"><img src="https://img.shields.io/badge/MCP-36%20default%20%2B%20optional-6C47FF" alt="MCP tools" /></a>
+  <a href="#ツール"><img src="https://img.shields.io/badge/MCP-41%20default%20%2B%20optional-6C47FF" alt="MCP tools" /></a>
 </p>
 
 <p align="center">
@@ -154,7 +154,7 @@ MCP クライアント設定（例: `.mcp.json`）に追加:
 
 ## ツール
 
-デフォルト起動では39のツール（クエリ（`dwg_inspect_lisp` 含む）、変更、メタ（`dwg_send_code`/`dwg_run_lisp` 含む）、ビュー、およびデフォルト有効の `dwg_capture_view_image`）が公開されます。オプショナルのToolBaker、注釈、ブロック、寸法、エクスポート、作図ツールセットは `--toolsets` で有効にでき、MCPサーフェス全体は63ツールになります。 登録数には拒否のみを返す `dwg_run_lisp` が含まれます。スキャン判定は実行を許可しません。
+デフォルト起動では41のツール（クエリ（`dwg_inspect_lisp` 含む）、変更、メタ（`dwg_send_code`/`dwg_run_lisp` 含む）、ビュー、およびデフォルト有効の `dwg_capture_view_image`）が公開されます。オプショナルのToolBaker、注釈、ブロック、寸法、エクスポート、作図ツールセットは `--toolsets` で有効にでき、MCPサーフェス全体は65ツールになります。 登録数には拒否のみを返す `dwg_run_lisp` が含まれます。スキャン判定は実行を許可しません。
 
 一般的なCADツールは、選択されたAutoCADターゲットの現在アクティブなドキュメントに対して動作します。エンティティ入力と返されるエンティティIDは、`7F5AD` のようなAutoCAD 16進ハンドルを使用します。作成、コピー、オフセット、および変更の応答は、生成または変更されたエンティティを16進ハンドルで識別します。
 
@@ -200,7 +200,11 @@ Plan 2 のクエリ拡張はモデル空間のみです。`dwg_query_entities`�
 | `dwg_zoom_extents` | 図面ビューポートの範囲にズーム |
 | `dwg_zoom_window` | 2つのコーナー点で定義されたウィンドウにビューポートをズーム |
 | `dwg_zoom_to_entity` | ハンドルで識別される特定の図面エンティティの範囲にビューポートをズーム |
-| `dwg_capture_view_image` | AutoCAD内で図面グラフィックスをキャプチャし、画像パス・実サイズ・SHA-256ハッシュ・図面/ビューポート/カメラのメタデータを返す（既定オン；パスポリシー適用） |
+| `dwg_capture_view_image` | AutoCAD内で図面グラフィックスをキャプチャし、インライン画像・画像パス・実サイズ・SHA-256ハッシュ・図面/ビューポート/カメラのメタデータを返す（既定オン；パスポリシー適用） |
+| `dwg_inspect_view_region` | キャプチャ上の正規化矩形を指定し、ズーム・再生成後の新しい画像と親画像IDを返す |
+| `dwg_restore_view` | 以前のキャプチャのカメラへ戻り、新しい画像を取得する |
+
+図面の読み取り: キャプチャ → 画像を確認 → 領域を選択 → `dwg_inspect_view_region` → 詳細を確認。全体へ戻るには親IDを保存して `dwg_restore_view` を使用します。履歴はAutoCADプロセス内で最大64件・30分です。初期対応はモデル空間の単一ビューポート、真上からの正投影、回転なしに限定されます。古い画像や非対応ビューは拒否されます。応答には既存JSONに加えてMCP画像ブロック（最大8 MiB）が含まれます。`--read-only`でもカメラの変更と画像保存を行いますが、図形編集やDWG保存は行いません。インストール済みホストでの受入検証は未完了です。[仕様・互換性・検証](docs/design/2026-09-24-visual-reading-loop.md)を参照。
 
 オプショナルのToolBakerツールは、`toolbaker` ツールセットが有効な場合に公開されます:
 

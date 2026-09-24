@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Visual reading
+
+- `dwg_capture_view_image` now returns an inline MCP image alongside the existing JSON envelope, with hash verification and an 8 MiB inline limit. Clients must accept multiple content blocks. Image-delivery failures preserve successful capture metadata and set MCP `isError`.
+- Add default-on `dwg_inspect_view_region` and `dwg_restore_view`: navigate by a normalized rectangle on a source image, capture fresh detail with parent linkage, and return to an earlier camera. No coordinate dump or known entity handle is required.
+- Keep bounded capture history (64 entries, 30 minutes) and reject stale/unsupported sources before zoom. Initial mapping is limited to one unrotated, top-down, orthographic model-space viewport; native image aspect checks and camera readback guard the operation. Failed navigation attempts restore the previous camera when context permits.
+- These view tools remain available under `--read-only`, change the visible camera and write image files. Installed-host image/mapping acceptance remains pending; see [visual reading contract](docs/design/2026-09-24-visual-reading-loop.md).
+
 ### Fixed
 
 - Reject `#load` before any `send_code` execution and disable external source resolution; loaded scripts can no longer bypass the synchronous syntax check.
@@ -21,11 +28,11 @@
 - `dwg_send_code` is now always-on like `revit_send_code_to_revit`: it ships on the default surface via the `meta` toolset and no longer needs `--enable-send-code` / `BIMWRIGHT_DWG_ENABLE_SEND_CODE` / `MCPENABLECODE` opt-in. The `code` toolset name remains as an explicit opt-in alias; `--read-only` still strips it.
 - `MCPDISABLECODE` is now a per-session kill-switch in AutoCAD (enabled by default when the listener starts); `MCPENABLECODE` re-enables.
 - `send_code` now runs its Roslyn script inline on the document-lock thread instead of a dedicated worker thread — `Document.LockDocument()` is thread-affine, so worker-thread execution could not write to the database (`eLockViolation`). The 30s limit is now cooperative cancellation; there is no abort fallback.
-- `send_code` responses now carry a `result` field with the script's return value (`return <expr>;` or a trailing expression), alongside the existing `stdout` capture. Default tool surface is now 37 tools (was 36).
+- `send_code` responses now carry a `result` field with the script's return value (`return <expr>;` or a trailing expression), alongside the existing `stdout` capture.
 
 ### Added
 
-- `dwg_run_lisp` (`run_lisp`) — compatibility refusal only. Registered via `meta`, denied to ToolBaker and stripped by `--read-only`. Default registered surface is 39 tools, including this non-executing endpoint.
+- `dwg_run_lisp` (`run_lisp`) — compatibility refusal only. Registered via `meta`, denied to ToolBaker and stripped by `--read-only`. With the visual-reading additions, the default registered surface is 41 tools, including this non-executing endpoint.
 - `dwg_inspect_lisp` — static safety scan of `.lsp` files or inline AutoLISP (server-side, no AutoCAD needed; lives in `query` so it survives `--read-only`). Flags process exec, dangerous COM progIds, persistence vectors (`acaddoc.lsp`, registry writes), destructive file ops, staged `(load …)`, and obfuscation; returns `verdict` clean/caution/dangerous + findings.
 - `dwg_inspect_lisp` is analysis only: `clean` means no known pattern matched, never authorization or a malware-free certificate. Static inspection cannot establish arbitrary code safety.
 

@@ -20,13 +20,13 @@ The result adds:
 
 The service reads context before and after the native capture and requires it to remain unchanged. The check guards against detectable document/view changes, not every possible graphics/model revision. The image is written after validation with `CreateNew` unless overwrite is explicitly enabled. Generated names include a GUID. The image hash links the response to exact saved bytes.
 
-Only the image is written. A reading-session orchestrator must persist this result beside its image and parent/region IDs. This change does not implement an atlas, object index, selection, or zoom completion protocol. Wait for a zoom/command to finish, then capture.
+Only the image is written to disk. The subsequent [visual reading implementation](2026-09-24-visual-reading-loop.md) adds inline MCP image delivery, bounded in-memory capture history, region navigation and view restoration. A persistent atlas and object index remain out of scope. For standalone zoom calls, wait for the command to finish before capturing.
 
 ## Validation evidence and remaining gates
 
 - A preceding live `send_code` probe on AutoCAD 2024 tested the native API at three zoom levels, including readable fabrication notes. The API plus PNG save took 53–87 ms in that session; this is not a benchmark or end-to-end latency promise.
 - That probe restored the original camera and observed unchanged entity count, handseed, DBMOD and selection. Sampled invariants are not a full drawing-content hash.
-- 471 automated tests passed, including 19 new contract cases covering document mismatch, camera/layout/viewport changes, native size rounding, metadata isolation, empty image rejection and schema compatibility.
+- At the native-capture checkpoint, 477 automated tests passed, including 19 new contract cases covering document mismatch, camera/layout/viewport changes, native size rounding, metadata isolation, empty image rejection and schema compatibility. Subsequent visual-reading validation is recorded in its linked design document.
 - AutoCAD 2024 and 2027 Release plugin builds passed. The 2027 build retained four existing Roslyn/obsolete-network-API warnings; 2024 built without warnings.
 - The production capture service/math/contract source was also executed through `send_code` on the live AutoCAD 2024 host, with only namespace wrappers removed for C# scripting. A valid PNG and actual dimensions/hash/camera were returned; an incorrect fingerprint produced no image, and an existing image was not overwritten. This validates the service path, not the newly installed MCP tool registration/transport.
 - Pending installed-tool acceptance: restart with the rebuilt plugin/server, call `dwg_capture_view_image` directly, inspect output and metadata, test incorrect fingerprint/no overwrite, and verify drawing/view state. Do not overwrite add-in DLLs while AutoCAD is running.

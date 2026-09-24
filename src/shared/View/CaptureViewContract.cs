@@ -41,6 +41,17 @@ namespace Bimwright.Dwg.Plugin.View
             result["duration_ms"] = durationMs;
             result["sha256"] = sha256;
             result["requested_size"] = new JObject { ["width"] = requestedWidth, ["height"] = requestedHeight };
+            string unsupported = ViewReadingContract.UnsupportedReason(context);
+            if (unsupported == null && Math.Abs(
+                (double)context["camera"]["width"] / (double)context["camera"]["height"] * actualHeight - actualWidth) > 2)
+                unsupported = "Native image and camera aspect ratios do not agree.";
+            result["region_navigation"] = new JObject
+            {
+                ["supported"] = unsupported == null,
+                ["reason"] = unsupported,
+                ["coordinates"] = "normalized_0_1_top_left",
+                ["history_ttl_seconds"] = 1800
+            };
             return result;
         }
     }
