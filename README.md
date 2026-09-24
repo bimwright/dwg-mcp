@@ -213,7 +213,7 @@ Plan 2 query expansion is model-space only: `dwg_query_entities`, `dwg_count_ent
 | `dwg_zoom_extents` | Zoom to the extents of the drawing viewport |
 | `dwg_zoom_window` | Zoom viewport to a window defined by two corner points |
 | `dwg_zoom_to_entity` | Zoom viewport to the extents of a specific drawing entity identified by handle |
-| `dwg_capture_view_image` | Capture the active view to an image file (default-on; path policy applies) |
+| `dwg_capture_view_image` | Capture drawing graphics inside AutoCAD; return image path, actual size, hash, document/viewport/camera metadata (default-on; path policy applies) |
 
 Optional ToolBaker tools are exposed when the `toolbaker` toolset is enabled:
 
@@ -285,7 +285,8 @@ By default, only `query`, `modify`, `meta`, and `view` toolsets are enabled. You
 - **View and Read-Only**: The `view` toolset stays registered in read-only mode (zoom tools and `dwg_capture_view_image`). Capture is marked read-only at the MCP schema level but still writes an image file under the path policy — treat paths carefully under `--read-only`.
 - **Drawing Operations and Read-Only**: The `drawing` toolset retains `dwg_get_variables` in read-only mode, but strips `dwg_set_system_variable`, `dwg_save_drawing`, and `dwg_purge_drawing`.
 - **Deferred Angular Dimensions**: Note that only linear, aligned, radial, and diametric dimension types are currently supported. Angular dimensions are deferred and not yet implemented.
-- **Deferred File Export Tools**: The `dwg_export_pdf` and `dwg_export_image` tools have been deferred, while `dwg_capture_view_image` is fully enabled by default to ensure absolute reliability of drawing view captures and plot configurations.
+- **Native View Capture**: `dwg_capture_view_image` uses AutoCAD's `Document.CapturePreviewImage` API, with no desktop automation or DWG save. It rejects an active command or a document/camera change during capture. Optional `expected_document_fingerprint` binds a subsequent capture to a prior result. Save the returned metadata alongside the image for a reading atlas; the tool itself writes only the image. Native output dimensions may differ slightly from the requested size. Camera metadata describes the active viewport, not a universal pixel-to-world mapping for tiled views or paper layouts. See [capture contract and validation](docs/design/2026-09-23-native-view-capture.md).
+- **Deferred File Export Tools**: `dwg_export_pdf` and `dwg_export_image` remain deferred; viewport capture does not configure or validate plotting.
 
 ### Manual smoke checklist
 

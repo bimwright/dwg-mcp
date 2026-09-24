@@ -200,7 +200,7 @@ Plan 2 のクエリ拡張はモデル空間のみです。`dwg_query_entities`�
 | `dwg_zoom_extents` | 図面ビューポートの範囲にズーム |
 | `dwg_zoom_window` | 2つのコーナー点で定義されたウィンドウにビューポートをズーム |
 | `dwg_zoom_to_entity` | ハンドルで識別される特定の図面エンティティの範囲にビューポートをズーム |
-| `dwg_capture_view_image` | アクティブビューを画像ファイルへキャプチャ（既定オン；パスポリシー適用） |
+| `dwg_capture_view_image` | AutoCAD内で図面グラフィックスをキャプチャし、画像パス・実サイズ・SHA-256ハッシュ・図面/ビューポート/カメラのメタデータを返す（既定オン；パスポリシー適用） |
 
 オプショナルのToolBakerツールは、`toolbaker` ツールセットが有効な場合に公開されます:
 
@@ -272,7 +272,8 @@ Plan 2 のクエリ拡張はモデル空間のみです。`dwg_query_entities`�
 - **ビューと読み取り専用**: 読み取り専用でも `view` ツールセットは登録されたままです（ズームと `dwg_capture_view_image`）。Capture は MCP スキーマ上 read-only ですが、パスポリシーに従い画像ファイルを書き込みます — `--read-only` でも出力パスに注意。
 - **作図操作と読み取り専用**: `drawing` ツールセットは、読み取り専用モードで `dwg_get_variables` を維持しますが、`dwg_set_system_variable`、`dwg_save_drawing`、`dwg_purge_drawing` は削除されます。
 - **延期された角度寸法**: 現在サポートされているのは linear、平行、半径、直径寸法タイプのみです。角度寸法は延期されており、まだ実装されていません。
-- **延期されたファイルエクスポートツール**: `dwg_export_pdf`、`dwg_export_image` ツールは延期されています。`dwg_capture_view_image` ツールはデフォルトで有効化されています。
+- **ネイティブビューキャプチャ**: `dwg_capture_view_image` は AutoCAD の `Document.CapturePreviewImage` API を使用し、デスクトップ自動化や DWG 保存を行いません。コマンド実行中やキャプチャ中の図面/カメラ変更は拒否されます。オプションの `expected_document_fingerprint` で後続キャプチャを既存結果にバインド可能。読み取りアトラス用に返されたメタデータは画像と共に保存してください。ツールが書き込むのは画像のみです。実際の出力サイズは要求値とわずかに異なる場合があり、カメラメタデータはアクティブビューポートを示します（タイルドビューやペーパーレイアウトの汎用ピクセル/ワールド変換ではありません）。[キャプチャ契約と検証](docs/design/2026-09-23-native-view-capture.md) を参照。
+- **延期されたファイルエクスポートツール**: `dwg_export_pdf` と `dwg_export_image` は延期されたままです。ビューポートキャプチャはプロットの設定・検証を行いません。
 
 ### 手動スモークチェックリスト
 

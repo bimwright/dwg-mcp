@@ -403,7 +403,8 @@ namespace Bimwright.Dwg.Plugin
             SchemaProperty.Optional("pixel_size", JTokenType.Integer),
             SchemaProperty.Optional("image_format", JTokenType.String),
             SchemaProperty.Optional("overwrite_existing", JTokenType.Boolean),
-            SchemaProperty.Optional("allow_repo_output", JTokenType.Boolean));
+            SchemaProperty.Optional("allow_repo_output", JTokenType.Boolean),
+            SchemaProperty.Optional("expected_document_fingerprint", JTokenType.String));
 
         public static readonly CommandSchema ExportDxf = CommandSchema.Object(
             SchemaProperty.Required("output_path", JTokenType.String),

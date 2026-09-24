@@ -200,7 +200,7 @@ Plan 2 的查询扩展仅限模型空间：`dwg_query_entities`、`dwg_count_ent
 | `dwg_zoom_extents` | 缩放到绘图视口的图形范围 |
 | `dwg_zoom_window` | 缩放到由两个角点定义的窗口 |
 | `dwg_zoom_to_entity` | 缩放到由 handle 标识的特定绘图实体的范围 |
-| `dwg_capture_view_image` | 将活动视图截取为图像文件（默认启用；受路径策略约束） |
+| `dwg_capture_view_image` | 在 AutoCAD 内捕获图形；返回图像路径、实际尺寸、SHA-256 哈希及文档/视口/相机元数据（默认启用；受路径策略约束） |
 
 启用 `toolbaker` 工具集时会暴露可选 ToolBaker 工具：
 
@@ -274,7 +274,8 @@ Plan 2 的查询扩展仅限模型空间：`dwg_query_entities`、`dwg_count_ent
 - **View 与只读**：只读模式下仍注册完整 `view` toolset（含 zoom 与 `dwg_capture_view_image`）。Capture 在 MCP schema 上标记为 read-only，但仍会按路径策略写图片文件——在 `--read-only` 下请注意输出路径。
 - **绘图操作与只读**：`drawing` 工具集在只读模式下保留 `dwg_get_variables`，但剔除 `dwg_set_system_variable`、`dwg_save_drawing` 和 `dwg_purge_drawing`。
 - **延迟的角度标注**：注意当前仅支持线性、对齐、半径和直径标注类型。角度标注已被推迟，尚未实现。
-- **延迟的文件导出工具**：`dwg_export_pdf` 和 `dwg_export_image` 工具已被推迟，而 `dwg_capture_view_image` 默认完全启用，以确保绘图视图截图与打印配置的绝对可靠性。
+- **原生视口捕获**：`dwg_capture_view_image` 使用 AutoCAD 的 `Document.CapturePreviewImage` API，无桌面自动化、不保存 DWG。命令进行中或捕获期间文档/相机变化会被拒绝。可选 `expected_document_fingerprint` 可将后续捕获绑定到先前结果。构建阅读图集时请把返回的元数据与图像一起保存；工具本身只写入图像。实际输出尺寸可能与请求值略有差异。相机元数据描述活动视口，并非平铺视图或图纸布局的通用像素-世界映射。参见[捕获契约与验证](docs/design/2026-09-23-native-view-capture.md)。
+- **延迟的文件导出工具**：`dwg_export_pdf` 和 `dwg_export_image` 仍为延迟状态；视口捕获不配置也不校验打印输出。
 
 ### 手动冒烟检查清单
 

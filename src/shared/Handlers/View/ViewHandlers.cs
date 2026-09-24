@@ -112,7 +112,7 @@ namespace Bimwright.Dwg.Plugin.Handlers
     public class CaptureViewImageHandler : IAcadCommand
     {
         public string Name => "capture_view_image";
-        public string Description => "Capture the current view to a raster image file the agent can read back.";
+        public string Description => "Capture the active drawing inside AutoCAD and return its image path, document and camera metadata.";
         public CommandSchema Schema => CommandSchemas.CaptureViewImage;
 
         public CommandResult Execute(Document doc, JToken parameters)
@@ -124,6 +124,7 @@ namespace Bimwright.Dwg.Plugin.Handlers
             var imageFormat = obj["image_format"]?.Value<string>();
             var overwrite = obj["overwrite_existing"]?.Value<bool>() ?? false;
             var allowRepo = obj["allow_repo_output"]?.Value<bool>() ?? false;
+            var expectedFingerprint = obj["expected_document_fingerprint"]?.Value<string>();
 
             if (string.IsNullOrWhiteSpace(outputPath))
             {
@@ -132,7 +133,6 @@ namespace Bimwright.Dwg.Plugin.Handlers
                 {
                     return CommandResult.Fail(pathError);
                 }
-                overwrite = true; // generated name is unique
             }
 
             var normalizedPath = ExportPathPolicy.ValidateAndNormalize(
@@ -144,7 +144,7 @@ namespace Bimwright.Dwg.Plugin.Handlers
 
             try
             {
-                var result = CaptureViewService.Capture(doc, normalizedPath, pixelSize);
+                var result = CaptureViewService.Capture(doc, normalizedPath, pixelSize, overwrite, expectedFingerprint);
                 return CommandResult.Success(result);
             }
             catch (Exception ex)
