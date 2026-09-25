@@ -11,8 +11,16 @@ namespace Bimwright.Dwg.Plugin
     {
         private static ITransportServer _server;
         private static bool _toastEnabled;
-        private static bool _wasClientConnected;
+        private static bool _wasClientPresent;
         private static bool _idleHooked;
+        private static System.DateTime _lastClientActivityUtc = System.DateTime.MinValue;
+
+        // The dwg wire is connect-per-request: every tool call opens a fresh
+        // socket, so a raw IsClientConnected edge would fire on each call.
+        // Treat the agent as present while a socket is open or a command ran
+        // within this window; the "agent connected" toast then fires once per
+        // burst of activity instead of once per call.
+        private static readonly System.TimeSpan ClientPresenceGap = System.TimeSpan.FromSeconds(30);
 
         /// <summary>Set at startup; CommandDispatcher fires completion toasts through it.</summary>
         public static McpToastNotifier ToastNotifier { get; private set; }
@@ -152,7 +160,8 @@ namespace Bimwright.Dwg.Plugin
 
         /// <summary>
         /// Runs on the AutoCAD main thread: flushes toasts held while the frame was
-        /// minimized/modal, and confirms the first agent attach (and re-attaches).
+        /// minimized/modal, and toasts when an agent becomes present (first attach
+        /// or return after a ClientPresenceGap of silence).
         /// </summary>
         private static void OnIdleToast(object sender, System.EventArgs args)
         {
@@ -162,10 +171,19 @@ namespace Bimwright.Dwg.Plugin
 
             notifier.FlushPendingIfUsable();
 
-            var connected = _server != null && _server.IsRunning && _server.IsClientConnected;
-            if (connected && !_wasClientConnected)
+            var now = System.DateTime.UtcNow;
+            var active = _server != null && _server.IsRunning
+                && (_server.IsClientConnected
+                    || (_server.LastCommandTime.HasValue
+                        && now - _server.LastCommandTime.Value < ClientPresenceGap));
+            if (active)
+                _lastClientActivityUtc = now;
+
+            var present = _lastClientActivityUtc != System.DateTime.MinValue
+                && now - _lastClientActivityUtc < ClientPresenceGap;
+            if (present && !_wasClientPresent)
                 notifier.OnClientConnected(_server.ConnectionInfo);
-            _wasClientConnected = connected;
+            _wasClientPresent = present;
         }
 
         private static string DescribeTransport(ITransportServer server)
