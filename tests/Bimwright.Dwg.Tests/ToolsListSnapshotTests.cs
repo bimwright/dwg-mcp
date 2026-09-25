@@ -100,6 +100,19 @@ namespace Bimwright.Dwg.Tests
         }
 
         [Fact]
+        public void ZoomWindowWrapperUsesDtoCornerParameters()
+        {
+            // JObject params produce a broken schema in the MCP SDK generator
+            // (same reason ViewImageRegion exists), so corners must be a real DTO.
+            var method = typeof(ViewTools).GetMethod(nameof(ViewTools.ZoomWindow));
+
+            Assert.NotNull(method);
+            Assert.Equal(
+                new[] { typeof(ViewPoint), typeof(ViewPoint) },
+                method.GetParameters().Select(p => p.ParameterType).ToArray());
+        }
+
+        [Fact]
         public void CreateMTextWrapperForwardsRotationParameter()
         {
             var method = typeof(AnnotationTools).GetMethod(nameof(AnnotationTools.CreateMText));

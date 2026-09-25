@@ -30,10 +30,17 @@ namespace Bimwright.Dwg.Plugin.View
             double screenWidth = (double?)vp["screen_width"] ?? 0, screenHeight = (double?)vp["screen_height"] ?? 0;
             if (!Finite(width) || !Finite(height) || width <= 0 || height <= 0 ||
                 screenWidth <= 0 || screenHeight <= 0 ||
-                Math.Abs(width / height * screenHeight - screenWidth) > 2)
+                Math.Abs(width / height * screenHeight - screenWidth) > AspectTolerancePx(screenWidth))
                 return "Camera and viewport aspect ratios do not agree.";
             return null;
         }
+
+        // SCREENSIZE can under-report the drawable canvas by a couple of pixels
+        // (observed ~2 px on a 2560 px viewport). The guard exists to reject
+        // genuinely mismatched viewport/camera pairings, not sub-percent quirks,
+        // so the tolerance scales with the reference width.
+        internal static double AspectTolerancePx(double referenceWidthPx) =>
+            Math.Max(4.0, referenceWidthPx * 0.005);
 
         internal static void ValidateSource(JObject source, JObject current, bool restoring)
         {

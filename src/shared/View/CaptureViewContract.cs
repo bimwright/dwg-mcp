@@ -43,7 +43,8 @@ namespace Bimwright.Dwg.Plugin.View
             result["requested_size"] = new JObject { ["width"] = requestedWidth, ["height"] = requestedHeight };
             string unsupported = ViewReadingContract.UnsupportedReason(context);
             if (unsupported == null && Math.Abs(
-                (double)context["camera"]["width"] / (double)context["camera"]["height"] * actualHeight - actualWidth) > 2)
+                (double)context["camera"]["width"] / (double)context["camera"]["height"] * actualHeight - actualWidth)
+                > ViewReadingContract.AspectTolerancePx(actualWidth))
                 unsupported = "Native image and camera aspect ratios do not agree.";
             result["region_navigation"] = new JObject
             {

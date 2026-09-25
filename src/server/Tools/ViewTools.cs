@@ -21,13 +21,19 @@ namespace Bimwright.Dwg.Server.Tools
         [McpServerTool(Name = "dwg_zoom_window", ReadOnly = true, Idempotent = true), Description(
             "Zoom viewport to a window defined by two corner points.")]
         public static Task<string> ZoomWindow(
-            [Description("First corner of the zoom window.")] JObject corner1,
-            [Description("Second corner of the zoom window.")] JObject corner2)
+            [Description("First corner of the zoom window.")] ViewPoint corner1,
+            [Description("Second corner of the zoom window.")] ViewPoint corner2)
         {
             var request = new JObject
             {
-                ["corner1"] = corner1,
-                ["corner2"] = corner2
+                ["corner1"] = new JObject
+                {
+                    ["x"] = corner1.X, ["y"] = corner1.Y, ["z"] = corner1.Z
+                },
+                ["corner2"] = new JObject
+                {
+                    ["x"] = corner2.X, ["y"] = corner2.Y, ["z"] = corner2.Z
+                }
             };
             return ToolGateway.LoggedCall("zoom_window", request, request);
         }
@@ -118,5 +124,12 @@ namespace Bimwright.Dwg.Server.Tools
         [JsonPropertyName("top")] public required double Top { get; set; }
         [JsonPropertyName("right")] public required double Right { get; set; }
         [JsonPropertyName("bottom")] public required double Bottom { get; set; }
+    }
+
+    public sealed class ViewPoint
+    {
+        [JsonPropertyName("x")] public required double X { get; set; }
+        [JsonPropertyName("y")] public required double Y { get; set; }
+        [JsonPropertyName("z")] public double Z { get; set; }
     }
 }

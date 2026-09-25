@@ -101,6 +101,48 @@ namespace Bimwright.Dwg.Tests
             Assert.False((bool)result["region_navigation"]["supported"]);
         }
 
+        [Fact]
+        public void Screensize_underreport_quirk_no_longer_blocks_navigation()
+        {
+            // Observed live: SCREENSIZE reports 2560x817 while the real drawable canvas
+            // is ~2562.2 px wide, so camera aspect (3.1360) exceeds the old ±2 px check.
+            var context = Context();
+            context["viewport"]["screen_width"] = 2560;
+            context["viewport"]["screen_height"] = 817;
+            context["camera"]["width"] = 3136.029411764706;
+            context["camera"]["height"] = 1000.0;
+            var capture = CaptureViewContract.BuildResult(context, "c.png", "png", 1601, 511, 1601, 511, "h", "t", 0);
+            Assert.True((bool)capture["region_navigation"]["supported"]);
+        }
+
+        [Fact]
+        public void Camera_aspect_beyond_scaled_tolerance_is_still_refused()
+        {
+            var context = Context();
+            context["viewport"]["screen_width"] = 2560;
+            context["viewport"]["screen_height"] = 817;
+            context["camera"]["width"] = 3200.0;
+            context["camera"]["height"] = 1000.0;
+            var capture = CaptureViewContract.BuildResult(context, "c.png", "png", 1635, 511, 1635, 511, "h", "t", 0);
+            Assert.False((bool)capture["region_navigation"]["supported"]);
+            Assert.Equal("Camera and viewport aspect ratios do not agree.", (string)capture["region_navigation"]["reason"]);
+        }
+
+        [Fact]
+        public void Sub_percent_native_image_drift_is_tolerated_but_real_mismatch_is_not()
+        {
+            var context = Context();
+            context["viewport"]["screen_width"] = 2560;
+            context["viewport"]["screen_height"] = 817;
+            context["camera"]["width"] = 3136.029411764706;
+            context["camera"]["height"] = 1000.0;
+            var ok = CaptureViewContract.BuildResult(context, "c.png", "png", 1601, 511, 1601, 511, "h", "t", 0);
+            Assert.True((bool)ok["region_navigation"]["supported"]);
+            var bad = CaptureViewContract.BuildResult(context, "c.png", "png", 1590, 511, 1601, 511, "h", "t", 0);
+            Assert.False((bool)bad["region_navigation"]["supported"]);
+            Assert.Equal("Native image and camera aspect ratios do not agree.", (string)bad["region_navigation"]["reason"]);
+        }
+
         [Theory]
         [InlineData("document", "session_id", "another-open-copy")]
         [InlineData("document", "observed_revision", 1)]
