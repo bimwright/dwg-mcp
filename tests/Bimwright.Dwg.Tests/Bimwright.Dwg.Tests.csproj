@@ -27,6 +27,7 @@
     <Compile Include="..\..\src\shared\Infrastructure\CommandResult.cs" LinkBase="Shared\Infrastructure" />
     <Compile Include="..\..\src\shared\Infrastructure\ClusterStateStore.cs" LinkBase="Shared\Infrastructure" />
     <Compile Include="..\..\src\shared\Infrastructure\DwgApiExecutor.cs" LinkBase="Shared\Infrastructure" />
+    <Compile Include="..\..\src\shared\Infrastructure\MainThreadExecutor.cs" LinkBase="Shared\Infrastructure" />
     <Compile Include="..\..\src\shared\Infrastructure\SchemaValidator.cs" LinkBase="Shared\Infrastructure" />
     <Compile Include="..\..\src\shared\Infrastructure\ResponseSizeGuard.cs" LinkBase="Shared\Infrastructure" />
     <Compile Include="..\..\src\shared\Infrastructure\BatchExecutor.cs" LinkBase="Shared\Infrastructure" />
@@ -42,7 +43,17 @@
     <Compile Include="..\..\src\shared\View\ViewReadingContract.cs" LinkBase="Shared\View" />
     <Compile Include="..\..\src\shared\View\ViewCaptureStore.cs" LinkBase="Shared\View" />
     <Compile Include="..\..\src\shared\View\ViewReadingWorkflow.cs" LinkBase="Shared\View" />
+    <Compile Include="..\..\src\shared\View\DrawingRevision.cs" LinkBase="Shared\View" />
     <Compile Include="..\..\src\shared\Drawing\SystemVariableCatalog.cs" LinkBase="Shared\Drawing" />
+    <!-- Toast content pipeline is host-free (no WPF/AutoCAD types) and unit-testable. -->
+    <Compile Include="..\..\src\shared\Views\Toast\ToastContentBuilder.cs" LinkBase="Shared\Views\Toast" />
+    <Compile Include="..\..\src\shared\Views\Toast\ToolActivityClassifier.cs" LinkBase="Shared\Views\Toast" />
+    <Compile Include="..\..\src\shared\Views\Toast\ToolNameFormatter.cs" LinkBase="Shared\Views\Toast" />
+    <Compile Include="..\..\src\shared\Views\Toast\McpToastViewModel.cs" LinkBase="Shared\Views\Toast" />
+    <Compile Include="..\..\src\shared\Security\PathAllowlist.cs" LinkBase="Shared\Security" />
+    <Compile Include="..\..\src\shared\Localization\L.cs" LinkBase="Shared\Localization" />
+    <Compile Include="..\..\src\shared\Config\PluginSettings.cs" LinkBase="Shared\Config" />
+    <Compile Include="..\..\src\shared\Infrastructure\PluginLog.cs" LinkBase="Shared\Infrastructure" />
   </ItemGroup>
   <!-- Exercise the actual escape-hatch handlers against explicit AutoCAD test doubles.
        These tests never load Autodesk assemblies or connect to a running host. -->

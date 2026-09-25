@@ -161,6 +161,8 @@ Use `--read-only` to strip write-capable toolsets (query/view/meta routing remai
 
 `dwg_send_code` is available by default via `meta`; `MCPDISABLECODE` disables C# execution for the session and `MCPENABLECODE` re-enables it. `dwg_run_lisp` remains registered for compatibility but refuses every request at both server and plugin. This build has no isolated LISP executor or approved-script trust mechanism. `--read-only` removes both tools.
 
+Completion toasts are on by default: each finished tool call posts a small card in the AutoCAD window corner with its outcome (counts, filenames, capture thumbnails — click to open the image). Toggle with the `MCPTOAST` command (persisted in `%LOCALAPPDATA%\Bimwright\Dwg\settings.json` as `enableToast`) or set `BIMWRIGHT_ENABLE_TOAST=0` before launch — the env var re-applies at every launch while set. Toasts never steal keyboard focus and hold while the AutoCAD window is minimized or blocked by a dialog.
+
 `dwg_send_code` accepts inline synchronous snippets only: `async`/`await` and `#load` directives are rejected before execution. Keep AutoCAD API calls on the calling thread; do not offload them to `Task.Run` or other threads. Return JSON-safe DTOs; AutoCAD/COM objects are rejected even when nested. LISP inspection is available through `dwg_inspect_lisp`: sources over 2,000,000 characters are reported uninspectable/dangerous, and the 200-finding display cap does not stop severity detection. Regex matching has a timeout; timed-out scans are reported as incomplete/dangerous, never clean.
 
 ---

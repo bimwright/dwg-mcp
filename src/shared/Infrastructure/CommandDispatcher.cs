@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Bimwright.Dwg.Plugin.Handlers;
@@ -87,6 +88,9 @@ namespace Bimwright.Dwg.Plugin
         public string Dispatch(string requestLine)
         {
             string id = null;
+            string cmd = null;
+            JToken parameters = null;
+            var sw = Stopwatch.StartNew();
             try
             {
                 var request = JObject.Parse(requestLine);
@@ -96,20 +100,70 @@ namespace Bimwright.Dwg.Plugin
                 if (!string.Equals(auth, _authToken, StringComparison.Ordinal))
                     return ErrorJson(id, "unauthorized");
 
-                var cmd = (string)request["cmd"];
-                var parameters = request["params"];
+                cmd = (string)request["cmd"];
+                parameters = request["params"];
 
-                var preflight = ValidateCommand(cmd, parameters, out _);
+                var preflight = ValidateCommand(cmd, parameters, out var preflightHandler);
                 if (!preflight.Ok)
+                {
+                    sw.Stop();
+                    NotifyCompleted(cmd, parameters, null, false, preflight.Error,
+                        sw.ElapsedMilliseconds, preflightHandler?.Description);
                     return SerializeResponse(id, cmd, preflight);
+                }
 
                 var result = DocumentInvoker.Invoke(doc => ExecuteCommand(doc, cmd, parameters));
+                sw.Stop();
 
+                string resultJson = null;
+                if (result.Ok)
+                {
+                    try
+                    {
+                        var filtered = McpResponsePrivacy.FilterResult(cmd, result.Result);
+                        if (filtered != null)
+                            resultJson = JsonConvert.SerializeObject(filtered);
+                    }
+                    catch { }
+                }
+
+                NotifyCompleted(cmd, parameters, resultJson, result.Ok, result.Error,
+                    sw.ElapsedMilliseconds, preflightHandler?.Description);
                 return SerializeResponse(id, cmd, result);
             }
             catch (Exception ex)
             {
+                sw.Stop();
+                NotifyCompleted(cmd, parameters, null, false, ex.Message,
+                    sw.ElapsedMilliseconds, null);
                 return ErrorJson(id, ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// Fire-and-forget completion toast. Uses the privacy-filtered result
+        /// (same policy as the wire response) — never raw result data.
+        /// </summary>
+        private static void NotifyCompleted(string cmd, JToken parameters, string resultJson,
+            bool success, string error, long durationMs, string description)
+        {
+            var notifier = App.ToastNotifier;
+            if (notifier == null)
+                return;
+            try
+            {
+                notifier.OnCompleted(
+                    cmd,
+                    parameters?.ToString(Formatting.None),
+                    resultJson,
+                    success,
+                    success ? null : McpResponsePrivacy.SanitizeError(error),
+                    durationMs,
+                    description);
+            }
+            catch (Exception ex)
+            {
+                PluginLog.Debug("McpToastNotifier.OnCompleted failed: " + ex.Message);
             }
         }
 

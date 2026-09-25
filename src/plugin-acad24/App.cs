@@ -1,5 +1,6 @@
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.Runtime;
+using Bimwright.Dwg.Plugin.Views.Toast;
 
 [assembly: ExtensionApplication(typeof(Bimwright.Dwg.Plugin.App))]
 [assembly: CommandClass(typeof(Bimwright.Dwg.Plugin.App))]
@@ -9,6 +10,12 @@ namespace Bimwright.Dwg.Plugin
     public class App : IExtensionApplication
     {
         private static ITransportServer _server;
+        private static bool _toastEnabled;
+        private static bool _wasClientConnected;
+        private static bool _idleHooked;
+
+        /// <summary>Set at startup; CommandDispatcher fires completion toasts through it.</summary>
+        public static McpToastNotifier ToastNotifier { get; private set; }
 
         public void Initialize()
         {
@@ -25,7 +32,15 @@ namespace Bimwright.Dwg.Plugin
 
         public void Terminate()
         {
+            if (_idleHooked)
+            {
+                try { Application.Idle -= OnIdleToast; } catch { }
+                _idleHooked = false;
+            }
             try { _server?.Stop(); } catch { }
+            try { ToastNotifier?.Shutdown(); } catch { }
+            try { DocumentInvoker.Shutdown(); } catch { }
+            try { View.DrawingRevision.Shutdown(); } catch { }
         }
 
         [CommandMethod("MCPSTART", CommandFlags.Session)]
@@ -57,7 +72,22 @@ namespace Bimwright.Dwg.Plugin
             }
             _server.Stop();
             _server = null;
+            ToastNotifier?.DismissAll();
             WriteLine("Bimwright DWG stopped.");
+        }
+
+        [CommandMethod("MCPTOAST", CommandFlags.Session)]
+        public static void McpToast()
+        {
+            _toastEnabled = !_toastEnabled;
+            PluginSettings.SaveEnableToast(_toastEnabled);
+            WriteLine(_toastEnabled
+                ? "Toast notifications enabled (saved)."
+                : "Toast notifications disabled (saved).");
+            if (!string.IsNullOrEmpty(System.Environment.GetEnvironmentVariable(PluginSettings.EnvEnableToast)))
+                WriteLine($"{PluginSettings.EnvEnableToast} is set and re-applies at next launch.");
+            if (!_toastEnabled)
+                ToastNotifier?.DismissAll();
         }
 
         [CommandMethod("MCPENABLECODE", CommandFlags.Session)]
@@ -76,6 +106,8 @@ namespace Bimwright.Dwg.Plugin
 
         private static void StartServerInternal()
         {
+            DocumentInvoker.Initialize();
+            InitializeToast();
             CommandDispatcher.SetSendCodeEnabled(true);
 #if ACAD2025_OR_GREATER
             _server = new PipeTransportServer(PluginTarget.AutoCadYear);
@@ -83,6 +115,57 @@ namespace Bimwright.Dwg.Plugin
             _server = new TcpTransportServer(PluginTarget.AutoCadYear);
 #endif
             _server.Start();
+        }
+
+        private static void InitializeToast()
+        {
+            if (ToastNotifier != null)
+                return;
+
+            _toastEnabled = PluginSettings.LoadToastEnabled();
+            var host = new McpToastHost();
+            ToastNotifier = new McpToastNotifier(host, () => _toastEnabled);
+
+            // Anchor toasts to the AutoCAD window and reuse the host WPF dispatcher
+            // when AutoCAD already runs one (its ribbon is WPF).
+            try
+            {
+                var hwnd = Application.MainWindow != null ? Application.MainWindow.Handle : System.IntPtr.Zero;
+                if (hwnd != System.IntPtr.Zero)
+                    ToastNotifier.SetOwnerHandle(hwnd);
+            }
+            catch { }
+            try
+            {
+                var dispatcher = System.Windows.Application.Current?.Dispatcher
+                    ?? System.Windows.Threading.Dispatcher.CurrentDispatcher;
+                ToastNotifier.SetHostDispatcher(dispatcher);
+            }
+            catch { }
+
+            if (!_idleHooked)
+            {
+                Application.Idle += OnIdleToast;
+                _idleHooked = true;
+            }
+        }
+
+        /// <summary>
+        /// Runs on the AutoCAD main thread: flushes toasts held while the frame was
+        /// minimized/modal, and confirms the first agent attach (and re-attaches).
+        /// </summary>
+        private static void OnIdleToast(object sender, System.EventArgs args)
+        {
+            var notifier = ToastNotifier;
+            if (notifier == null)
+                return;
+
+            notifier.FlushPendingIfUsable();
+
+            var connected = _server != null && _server.IsRunning && _server.IsClientConnected;
+            if (connected && !_wasClientConnected)
+                notifier.OnClientConnected(_server.ConnectionInfo);
+            _wasClientConnected = connected;
         }
 
         private static string DescribeTransport(ITransportServer server)

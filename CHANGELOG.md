@@ -35,6 +35,7 @@
 - `dwg_run_lisp` (`run_lisp`) — compatibility refusal only. Registered via `meta`, denied to ToolBaker and stripped by `--read-only`. With the visual-reading additions, the default registered surface is 41 tools, including this non-executing endpoint.
 - `dwg_inspect_lisp` — static safety scan of `.lsp` files or inline AutoLISP (server-side, no AutoCAD needed; lives in `query` so it survives `--read-only`). Flags process exec, dangerous COM progIds, persistence vectors (`acaddoc.lsp`, registry writes), destructive file ops, staged `(load …)`, and obfuscation; returns `verdict` clean/caution/dangerous + findings.
 - `dwg_inspect_lisp` is analysis only: `clean` means no known pattern matched, never authorization or a malware-free certificate. Static inspection cannot establish arbitrary code safety.
+- **Completion toasts (plugin)** — a WPF card in the AutoCAD window corner reports each finished tool call: category (Query/Modified/Script/Export/Snapshot/Failed), humanized tool name, outcome summary (counts, filenames, drawing info), duration, and a capture thumbnail that opens the image on click. Toasts stack to 4, hold while the AutoCAD frame is minimized or modal-blocked, never steal keyboard focus, and confirm "Agent connected" when a client attaches. On by default; toggle with the `MCPTOAST` command (persisted to `%LOCALAPPDATA%\Bimwright\Dwg\settings.json` as `enableToast`) or `BIMWRIGHT_ENABLE_TOAST=0` — the env var re-applies at every launch while set.
 
 ## 1.0.0 — 2026-08-28
 

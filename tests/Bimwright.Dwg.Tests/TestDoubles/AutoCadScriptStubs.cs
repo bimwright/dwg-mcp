@@ -6,7 +6,13 @@ namespace Autodesk.AutoCAD.ApplicationServices
 {
     public class Document
     {
-        public Autodesk.AutoCAD.DatabaseServices.Database Database = new Autodesk.AutoCAD.DatabaseServices.Database();
+        private Autodesk.AutoCAD.DatabaseServices.Database database = new Autodesk.AutoCAD.DatabaseServices.Database();
+        public Func<Autodesk.AutoCAD.DatabaseServices.Database> DatabaseFactory;
+        public Autodesk.AutoCAD.DatabaseServices.Database Database
+        {
+            get => DatabaseFactory == null ? database : DatabaseFactory();
+            set => database = value;
+        }
         public Autodesk.AutoCAD.EditorInput.Editor Editor = new Autodesk.AutoCAD.EditorInput.Editor();
         public int NativeGetterReads;
         public int MutationCount;
@@ -25,6 +31,6 @@ namespace Autodesk.AutoCAD.ApplicationServices
             => OnSendString(input);
     }
 }
-namespace Autodesk.AutoCAD.DatabaseServices { public class Database { } }
+namespace Autodesk.AutoCAD.DatabaseServices { public partial class Database { } }
 namespace Autodesk.AutoCAD.EditorInput { public class Editor { } }
 namespace Autodesk.AutoCAD.Geometry { public struct Point3d { } }

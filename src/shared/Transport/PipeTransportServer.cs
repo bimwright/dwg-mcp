@@ -39,6 +39,7 @@ namespace Bimwright.Dwg.Plugin
         }
         public DateTime? LastCommandTime { get; private set; }
         public TransportKind Kind => TransportKind.Pipe;
+        public string ConnectionInfo => $"Pipe:{_pipeName}";
 
         public void Start()
         {

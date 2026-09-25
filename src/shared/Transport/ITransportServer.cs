@@ -17,6 +17,8 @@ namespace Bimwright.Dwg.Plugin
         bool IsClientConnected { get; }
         DateTime? LastCommandTime { get; }
         TransportKind Kind { get; }
+        /// <summary>Short human-readable transport descriptor for UI surfaces (toast detail).</summary>
+        string ConnectionInfo { get; }
         void Start();
         void Stop();
     }

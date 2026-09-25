@@ -61,7 +61,7 @@ namespace Bimwright.Dwg.Plugin.View
                 throw new InvalidOperationException("AutoCAD command is active; retry capture after it completes");
 
             var db = doc.Database;
-            var revision = DrawingRevision.For(db);
+            var revision = DrawingRevision.For(doc);
             int activeViewports = 0;
             using (var tx = db.TransactionManager.StartOpenCloseTransaction())
             {

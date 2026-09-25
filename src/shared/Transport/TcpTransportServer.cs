@@ -30,6 +30,7 @@ namespace Bimwright.Dwg.Plugin
         public bool IsClientConnected => _activeClients > 0;
         public DateTime? LastCommandTime { get; private set; }
         public TransportKind Kind => TransportKind.Tcp;
+        public string ConnectionInfo => $"TCP:{Port}";
 
         public void Start()
         {
