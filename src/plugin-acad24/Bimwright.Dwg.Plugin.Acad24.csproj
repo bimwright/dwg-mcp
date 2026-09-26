@@ -4,6 +4,7 @@
     <RootNamespace>Bimwright.Dwg.Plugin</RootNamespace>
     <AssemblyName>Bimwright.Dwg.Plugin.Acad24</AssemblyName>
     <LangVersion>latest</LangVersion>
+    <UseWPF>true</UseWPF>
     <AutoCadVersionYear>2024</AutoCadVersionYear>
     <DefineConstants>$(DefineConstants);ACAD2024</DefineConstants>
     <AutoCad2024Dir Condition="'$(AutoCad2024Dir)' == ''">C:\Program Files\Autodesk\AutoCAD 2024</AutoCad2024Dir>
@@ -30,6 +31,7 @@
       <HintPath>$(AutoCad2024Dir)\acdbmgd.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="AdWindows"><HintPath>$(AutoCad2024Dir)\AdWindows.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="acmgd">
       <HintPath>$(AutoCad2024Dir)\acmgd.dll</HintPath>
       <Private>false</Private>

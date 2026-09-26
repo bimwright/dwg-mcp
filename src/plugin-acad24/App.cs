@@ -1,5 +1,6 @@
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.Runtime;
+using Bimwright.Dwg.Plugin.Views.Toast;
 
 [assembly: ExtensionApplication(typeof(Bimwright.Dwg.Plugin.App))]
 [assembly: CommandClass(typeof(Bimwright.Dwg.Plugin.App))]
@@ -25,6 +26,7 @@ namespace Bimwright.Dwg.Plugin
 
         public void Terminate()
         {
+            try { ToastRuntime.Shutdown(); } catch { }
             try { _server?.Stop(); } catch { }
         }
 
@@ -50,6 +52,7 @@ namespace Bimwright.Dwg.Plugin
         [CommandMethod("MCPSTOP", CommandFlags.Session)]
         public static void McpStop()
         {
+            ToastRuntime.Stop();
             if (_server == null || !_server.IsRunning)
             {
                 WriteLine("Bimwright DWG not running.");
@@ -58,6 +61,13 @@ namespace Bimwright.Dwg.Plugin
             _server.Stop();
             _server = null;
             WriteLine("Bimwright DWG stopped.");
+        }
+
+        [CommandMethod("MCPTOAST", CommandFlags.Session)]
+        public static void McpToast()
+        {
+            try { ToastRuntime.Toggle(); }
+            catch (System.Exception ex) { WriteLine(McpResponsePrivacy.SanitizeError(ex.Message)); }
         }
 
         [CommandMethod("MCPENABLECODE", CommandFlags.Session)]
@@ -77,12 +87,16 @@ namespace Bimwright.Dwg.Plugin
         private static void StartServerInternal()
         {
             CommandDispatcher.SetSendCodeEnabled(true);
+            System.Action<McpToastViewModel> notify = null;
+            try { notify = ToastRuntime.Start(); }
+            catch (System.Exception ex) { WriteLine("Toast unavailable: " + McpResponsePrivacy.SanitizeError(ex.Message)); }
 #if ACAD2025_OR_GREATER
-            _server = new PipeTransportServer(PluginTarget.AutoCadYear);
+            _server = new PipeTransportServer(PluginTarget.AutoCadYear, notify: notify);
 #else
-            _server = new TcpTransportServer(PluginTarget.AutoCadYear);
+            _server = new TcpTransportServer(PluginTarget.AutoCadYear, notify);
 #endif
-            _server.Start();
+            try { _server.Start(); }
+            catch { ToastRuntime.Stop(); throw; }
         }
 
         private static string DescribeTransport(ITransportServer server)

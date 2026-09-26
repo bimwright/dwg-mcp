@@ -6,6 +6,7 @@ namespace Autodesk.AutoCAD.ApplicationServices
 {
     public class Document
     {
+        public string Name = @"C:\private\fixture.dwg";
         public Autodesk.AutoCAD.DatabaseServices.Database Database = new Autodesk.AutoCAD.DatabaseServices.Database();
         public Autodesk.AutoCAD.EditorInput.Editor Editor = new Autodesk.AutoCAD.EditorInput.Editor();
         public int NativeGetterReads;

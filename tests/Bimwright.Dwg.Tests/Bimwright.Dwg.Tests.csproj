@@ -46,5 +46,17 @@
     <Compile Include="..\..\src\shared\Handlers\SendCodeHandler.cs" LinkBase="Shared\Handlers" />
     <Compile Include="..\..\src\shared\Handlers\RunLispHandler.cs" LinkBase="Shared\Handlers" />
     <Compile Include="..\..\src\shared\Infrastructure\IAcadCommand.cs" LinkBase="Shared\Infrastructure" />
+    <Compile Include="..\..\src\shared\Infrastructure\CommandDispatcher.cs" LinkBase="Shared\Infrastructure" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\..\src\shared\Views\Toast\McpToastViewModel.cs" LinkBase="Shared\Toast" />
+    <Compile Include="..\..\src\shared\Views\Toast\ToolActivityClassifier.cs" LinkBase="Shared\Toast" />
+    <Compile Include="..\..\src\shared\Views\Toast\ToolNameFormatter.cs" LinkBase="Shared\Toast" />
+    <Compile Include="..\..\src\shared\Views\Toast\ToastContentBuilder.cs" LinkBase="Shared\Toast" />
+    <Compile Include="..\..\src\shared\Views\Toast\ToastImagePolicy.cs" LinkBase="Shared\Toast" />
+    <Compile Include="..\..\src\shared\Views\Toast\ToastThumbnailLoader.cs" LinkBase="Shared\Toast" />
+    <Compile Include="..\..\src\shared\Views\Toast\ToastPreferences.cs" LinkBase="Shared\Toast" />
+    <Compile Include="..\..\src\shared\Views\Toast\ToastNotificationQueue.cs" LinkBase="Shared\Toast" />
+    <Compile Include="..\..\src\shared\Views\Toast\ToastCompletion.cs" LinkBase="Shared\Toast" />
   </ItemGroup>
 </Project>

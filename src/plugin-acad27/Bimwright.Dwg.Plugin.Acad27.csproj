@@ -4,6 +4,7 @@
     <RootNamespace>Bimwright.Dwg.Plugin</RootNamespace>
     <AssemblyName>Bimwright.Dwg.Plugin.Acad27</AssemblyName>
     <LangVersion>latest</LangVersion>
+    <UseWPF>true</UseWPF>
     <AutoCadVersionYear>2027</AutoCadVersionYear>
     <DefineConstants>$(DefineConstants);ACAD2027;ACAD2025_OR_GREATER;ACAD2026_OR_GREATER;ACAD2027_OR_GREATER</DefineConstants>
     <AutoCad2027Dir Condition="'$(AutoCad2027Dir)' == ''">C:\Program Files\Autodesk\AutoCAD 2027</AutoCad2027Dir>
@@ -28,6 +29,7 @@
       <HintPath>$(AutoCad2027Dir)\acdbmgd.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="AdWindows"><HintPath>$(AutoCad2027Dir)\AdWindows.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="acmgd">
       <HintPath>$(AutoCad2027Dir)\acmgd.dll</HintPath>
       <Private>false</Private>

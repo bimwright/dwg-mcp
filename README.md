@@ -42,6 +42,21 @@ The agent talks MCP. The server talks to the plugin over a local wire: TCP NDJSO
 
 Everything stays on your machine.
 
+### Completion notifications
+
+The AutoCAD plugin shows RVT-style completion cards by default: query, modification,
+failure and capture results, with up to four cards. Hover pauses dismissal; clicking
+a card dismisses it. Capture images in the system temp folder or
+`%LOCALAPPDATA%/Bimwright/Dwg/captures` can show a thumbnail and open on click
+(PNG/JPG/JPEG/BMP, up to 8 MiB). Other output locations receive a text notification.
+
+Toggle notifications using **bimwright → DWG MCP → Toast ON/OFF** or the AutoCAD
+command `MCPTOAST`. The choice is saved in
+`%LOCALAPPDATA%/Bimwright/Dwg/ui-settings.json` (`enableToast`). The host-process
+environment variable `BIMWRIGHT_DWG_ENABLE_TOAST=1|0|true|false` overrides the saved
+value at startup; toggling still works for the current session. `MCPSTOP` dismisses
+pending cards. Server-only calls do not produce AutoCAD notifications.
+
 ---
 
 ## Why It Matters

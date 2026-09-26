@@ -6,20 +6,23 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using Newtonsoft.Json;
+using Bimwright.Dwg.Plugin.Views.Toast;
 
 namespace Bimwright.Dwg.Plugin
 {
     public class TcpTransportServer : ITransportServer
     {
         private readonly string _target;
+        private readonly Action<McpToastViewModel> _notify;
         private TcpListener _listener;
         private Thread _acceptThread;
         private volatile bool _running;
         private int _activeClients;
         private CommandDispatcher _dispatcher;
 
-        public TcpTransportServer(string target = "2024")
+        public TcpTransportServer(string target = "2024", Action<McpToastViewModel> notify = null)
         {
+            _notify = notify;
             _target = string.IsNullOrWhiteSpace(target) ? "2024" : target;
         }
 
@@ -34,7 +37,7 @@ namespace Bimwright.Dwg.Plugin
         public void Start()
         {
             AuthToken = Guid.NewGuid().ToString("N");
-            _dispatcher = new CommandDispatcher(AuthToken);
+            _dispatcher = new CommandDispatcher(AuthToken, _notify);
 
             _listener = new TcpListener(IPAddress.Loopback, 0);
             _listener.Start();

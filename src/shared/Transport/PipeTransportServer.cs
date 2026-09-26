@@ -5,20 +5,23 @@ using System.IO.Pipes;
 using System.Text;
 using System.Threading;
 using Newtonsoft.Json;
+using Bimwright.Dwg.Plugin.Views.Toast;
 
 namespace Bimwright.Dwg.Plugin
 {
     public class PipeTransportServer : ITransportServer
     {
         private readonly string _target;
+        private readonly Action<McpToastViewModel> _notify;
         private readonly string _pipeName;
         private volatile bool _running;
         private Thread _acceptThread;
         private CommandDispatcher _dispatcher;
         private NamedPipeServerStream _activeServer;
 
-        public PipeTransportServer(string target, string pipeName = null)
+        public PipeTransportServer(string target, string pipeName = null, Action<McpToastViewModel> notify = null)
         {
+            _notify = notify;
             _target = string.IsNullOrWhiteSpace(target) ? "2025" : target;
             _pipeName = string.IsNullOrWhiteSpace(pipeName)
                 ? "BimwrightDwg-" + _target + "-" + Process.GetCurrentProcess().Id
@@ -43,7 +46,7 @@ namespace Bimwright.Dwg.Plugin
         public void Start()
         {
             AuthToken = Guid.NewGuid().ToString("N");
-            _dispatcher = new CommandDispatcher(AuthToken);
+            _dispatcher = new CommandDispatcher(AuthToken, _notify);
             WriteDiscoveryFile();
             _running = true;
             _acceptThread = new Thread(AcceptLoop) { IsBackground = true, Name = "BimwrightDwg-PipeAccept" };

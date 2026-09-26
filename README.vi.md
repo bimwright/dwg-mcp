@@ -42,6 +42,20 @@ Agent nói MCP. Server nói với plugin qua local wire: TCP NDJSON cho AutoCAD 
 
 Mọi thứ chạy trên máy bạn.
 
+### Thông báo hoàn tất
+
+Plugin mặc định hiển thị toast theo giao diện RVT: truy vấn, chỉnh sửa, lỗi và ảnh
+capture, tối đa bốn thẻ. Rê chuột lên thẻ để tạm dừng tự đóng; bấm thẻ để đóng.
+Ảnh capture trong thư mục temp hoặc `%LOCALAPPDATA%/Bimwright/Dwg/captures` có
+thumbnail và bấm để mở (PNG/JPG/JPEG/BMP, tối đa 8 MiB). Đường dẫn khác vẫn có
+thông báo bằng chữ.
+
+Bật/tắt tại **bimwright → DWG MCP → Toast ON/OFF** hoặc lệnh AutoCAD `MCPTOAST`.
+Lựa chọn được lưu tại `%LOCALAPPDATA%/Bimwright/Dwg/ui-settings.json`, khóa
+`enableToast`. Biến môi trường của AutoCAD `BIMWRIGHT_DWG_ENABLE_TOAST=1|0|true|false`
+ưu tiên hơn file khi khởi động; vẫn có thể bật/tắt trong phiên hiện tại.
+`MCPSTOP` đóng các thẻ và hủy hàng đợi. Lệnh chỉ chạy ở server không tạo toast AutoCAD.
+
 ---
 
 ## Tại sao quan trọng

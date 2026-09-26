@@ -4,6 +4,7 @@
     <RootNamespace>Bimwright.Dwg.Plugin</RootNamespace>
     <AssemblyName>Bimwright.Dwg.Plugin.Acad23</AssemblyName>
     <LangVersion>latest</LangVersion>
+    <UseWPF>true</UseWPF>
     <AutoCadVersionYear>2023</AutoCadVersionYear>
     <DefineConstants>$(DefineConstants);ACAD2023</DefineConstants>
     <AutoCad2023Dir Condition="'$(AutoCad2023Dir)' == ''">C:\Program Files\Autodesk\AutoCAD 2023</AutoCad2023Dir>
@@ -28,6 +29,7 @@
       <HintPath>$(AutoCad2023Dir)\acdbmgd.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="AdWindows"><HintPath>$(AutoCad2023Dir)\AdWindows.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="acmgd">
       <HintPath>$(AutoCad2023Dir)\acmgd.dll</HintPath>
       <Private>false</Private>

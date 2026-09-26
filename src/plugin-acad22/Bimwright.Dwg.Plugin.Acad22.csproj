@@ -4,6 +4,7 @@
     <RootNamespace>Bimwright.Dwg.Plugin</RootNamespace>
     <AssemblyName>Bimwright.Dwg.Plugin.Acad22</AssemblyName>
     <LangVersion>latest</LangVersion>
+    <UseWPF>true</UseWPF>
     <AutoCadVersionYear>2022</AutoCadVersionYear>
     <DefineConstants>$(DefineConstants);ACAD2022</DefineConstants>
     <AutoCad2022Dir Condition="'$(AutoCad2022Dir)' == ''">C:\Program Files\Autodesk\AutoCAD 2022</AutoCad2022Dir>
@@ -28,6 +29,7 @@
       <HintPath>$(AutoCad2022Dir)\acdbmgd.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="AdWindows"><HintPath>$(AutoCad2022Dir)\AdWindows.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="acmgd">
       <HintPath>$(AutoCad2022Dir)\acmgd.dll</HintPath>
       <Private>false</Private>

@@ -9,7 +9,7 @@ namespace Bimwright.Dwg.Tests
         [Fact]
         public void CommandDispatcherRegistersDimensionCommands()
         {
-            var source = ReadSharedSource("Infrastructure", "CommandDispatcher.cs");
+            var source = ReadSharedSource("Infrastructure", "CommandDispatcher.Registry.cs");
 
             Assert.Contains("\"create_linear_dimension\"", source, StringComparison.Ordinal);
             Assert.Contains("\"create_aligned_dimension\"", source, StringComparison.Ordinal);

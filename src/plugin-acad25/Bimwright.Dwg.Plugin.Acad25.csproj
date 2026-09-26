@@ -4,6 +4,7 @@
     <RootNamespace>Bimwright.Dwg.Plugin</RootNamespace>
     <AssemblyName>Bimwright.Dwg.Plugin.Acad25</AssemblyName>
     <LangVersion>latest</LangVersion>
+    <UseWPF>true</UseWPF>
     <AutoCadVersionYear>2025</AutoCadVersionYear>
     <DefineConstants>$(DefineConstants);ACAD2025;ACAD2025_OR_GREATER</DefineConstants>
     <AutoCad2025Dir Condition="'$(AutoCad2025Dir)' == ''">C:\Program Files\Autodesk\AutoCAD 2025</AutoCad2025Dir>
@@ -28,6 +29,7 @@
       <HintPath>$(AutoCad2025Dir)\acdbmgd.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="AdWindows"><HintPath>$(AutoCad2025Dir)\AdWindows.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="acmgd">
       <HintPath>$(AutoCad2025Dir)\acmgd.dll</HintPath>
       <Private>false</Private>
