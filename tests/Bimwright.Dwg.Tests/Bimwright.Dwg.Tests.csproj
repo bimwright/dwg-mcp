@@ -46,13 +46,14 @@
     <Compile Include="..\..\src\shared\View\DrawingRevision.cs" LinkBase="Shared\View" />
     <Compile Include="..\..\src\shared\Drawing\SystemVariableCatalog.cs" LinkBase="Shared\Drawing" />
     <!-- Toast content pipeline is host-free (no WPF/AutoCAD types) and unit-testable. -->
+    <Compile Include="..\..\src\shared\Views\Toast\ActivityAggregator.cs" LinkBase="Shared\Views\Toast" />
     <Compile Include="..\..\src\shared\Views\Toast\ToastContentBuilder.cs" LinkBase="Shared\Views\Toast" />
-    <Compile Include="..\..\src\shared\Views\Toast\ToolActivityClassifier.cs" LinkBase="Shared\Views\Toast" />
     <Compile Include="..\..\src\shared\Views\Toast\ToolNameFormatter.cs" LinkBase="Shared\Views\Toast" />
     <Compile Include="..\..\src\shared\Views\Toast\McpToastViewModel.cs" LinkBase="Shared\Views\Toast" />
     <Compile Include="..\..\src\shared\Security\PathAllowlist.cs" LinkBase="Shared\Security" />
     <Compile Include="..\..\src\shared\Localization\L.cs" LinkBase="Shared\Localization" />
     <Compile Include="..\..\src\shared\Config\PluginSettings.cs" LinkBase="Shared\Config" />
+    <Compile Include="..\..\src\shared\ToolCatalog\ToolCatalogStore.cs" LinkBase="Shared\ToolCatalog" />
     <Compile Include="..\..\src\shared\Infrastructure\PluginLog.cs" LinkBase="Shared\Infrastructure" />
   </ItemGroup>
   <!-- Exercise the actual escape-hatch handlers against explicit AutoCAD test doubles.

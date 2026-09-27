@@ -16,9 +16,7 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
         public static readonly SolidColorBrush Text = Brush("#1E293B");
         public static readonly SolidColorBrush TextSecondary = Brush("#64748B");
         public static readonly SolidColorBrush CloseIcon = Brush("#64748B");
-        public static readonly SolidColorBrush CloseHover = Brush("#F0F4F8");
         public static readonly SolidColorBrush Primary = Brush("#007ACC");
-        public static readonly SolidColorBrush Success = Brush("#38A169");
         public static readonly SolidColorBrush Error = Brush("#E53E3E");
         public static readonly SolidColorBrush MutedAccent = Brush("#94A3B8");
         // Brand wordmark colours come from the logo: navy "BIM" + green "wright".
@@ -29,29 +27,12 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
         public static readonly SolidColorBrush BrandBimShine = Frozen(Lighten(BrandBim.Color, 0.45));
         public static readonly SolidColorBrush BrandWrightShine = Frozen(Lighten(BrandWright.Color, 0.45));
 
-        public static Brush BuildAccentBrush(McpToastViewModel vm)
+        public static Brush BuildAccentBrush(bool success)
         {
-            Color baseColor;
-            if (!vm.Success)
-                baseColor = ((SolidColorBrush)Error).Color;
-            else if (vm.Kind == ToolActivityKind.Write)
-                baseColor = ((SolidColorBrush)Success).Color;
-            else
-                baseColor = ((SolidColorBrush)Primary).Color;
-
+            var baseColor = success
+                ? ((SolidColorBrush)Primary).Color
+                : ((SolidColorBrush)Error).Color;
             return BuildAccentGradient(baseColor);
-        }
-
-        public static Brush BuildIconBrush(McpToastViewModel vm)
-        {
-            if (!vm.Success)
-                return Error;
-            return vm.Kind == ToolActivityKind.Write ? Success : Primary;
-        }
-
-        public static string GetIconGlyph(McpToastViewModel vm)
-        {
-            return vm.Success ? "" : "";
         }
 
         private static Brush BuildAccentGradient(Color baseColor)

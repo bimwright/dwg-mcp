@@ -1,5 +1,7 @@
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.Runtime;
+using Bimwright.Dwg.Plugin.ToolCatalog;
+using Bimwright.Dwg.Plugin.Views.Settings;
 using Bimwright.Dwg.Plugin.Views.Toast;
 
 [assembly: ExtensionApplication(typeof(Bimwright.Dwg.Plugin.App))]
@@ -21,9 +23,19 @@ namespace Bimwright.Dwg.Plugin
         // within this window; the "agent connected" toast then fires once per
         // burst of activity instead of once per call.
         private static readonly System.TimeSpan ClientPresenceGap = System.TimeSpan.FromSeconds(30);
+        private static SettingsWindow _settings;
 
         /// <summary>Set at startup; CommandDispatcher fires completion toasts through it.</summary>
         public static McpToastNotifier ToastNotifier { get; private set; }
+
+        internal static bool ToastEnabled => _toastEnabled;
+        internal static bool ListenerRunning => _server != null && _server.IsRunning;
+        internal static bool ListenerUsesPipe => _server != null && _server.Kind == TransportKind.Pipe;
+        internal static int? ListenerPort => ListenerRunning ? _server.Port : null;
+
+        internal static bool ClientRecentlyPresent =>
+            _lastClientActivityUtc != System.DateTime.MinValue
+            && System.DateTime.UtcNow - _lastClientActivityUtc < ClientPresenceGap;
 
         public void Initialize()
         {
@@ -46,6 +58,8 @@ namespace Bimwright.Dwg.Plugin
                 _idleHooked = false;
             }
             try { _server?.Stop(); } catch { }
+            try { ToolCatalogStore.Clear(); } catch { }
+            try { CloseSettings(); } catch { }
             try { ToastNotifier?.Shutdown(); } catch { }
             try { DocumentInvoker.Shutdown(); } catch { }
             try { View.DrawingRevision.Shutdown(); } catch { }
@@ -78,24 +92,88 @@ namespace Bimwright.Dwg.Plugin
                 WriteLine("Bimwright DWG not running.");
                 return;
             }
-            _server.Stop();
-            _server = null;
-            ToastNotifier?.DismissAll();
-            WriteLine("Bimwright DWG stopped.");
+            StopListener(closeSettings: true);
         }
 
         [CommandMethod("MCPTOAST", CommandFlags.Session)]
         public static void McpToast()
         {
-            _toastEnabled = !_toastEnabled;
-            PluginSettings.SaveEnableToast(_toastEnabled);
-            WriteLine(_toastEnabled
+            SetToastEnabled(!_toastEnabled);
+        }
+
+        [CommandMethod("MCPSETTINGS", CommandFlags.Session)]
+        public static void McpSettings()
+        {
+            ShowOrFocusSettings();
+        }
+
+        internal static void SetToastEnabled(bool enabled)
+        {
+            _toastEnabled = enabled;
+            var saved = PluginSettings.SaveEnableToast(enabled);
+            WriteLine(enabled
                 ? "Toast notifications enabled (saved)."
                 : "Toast notifications disabled (saved).");
+            if (!saved)
+                WriteLine("Toast preference could not be saved; this session is still using the new state.");
             if (!string.IsNullOrEmpty(System.Environment.GetEnvironmentVariable(PluginSettings.EnvEnableToast)))
                 WriteLine($"{PluginSettings.EnvEnableToast} is set and re-applies at next launch.");
-            if (!_toastEnabled)
-                ToastNotifier?.DismissAll();
+            ToastNotifier?.OnToastEnabledChanged(enabled, saved);
+        }
+
+        internal static void StartListener()
+        {
+            McpStart();
+        }
+
+        internal static void StopListener(bool closeSettings)
+        {
+            if (_server != null && _server.IsRunning)
+            {
+                _server.Stop();
+                _server = null;
+            }
+            ToolCatalogStore.Clear();
+            ToastNotifier?.DismissAll();
+            if (closeSettings)
+                CloseSettings();
+            WriteLine("Bimwright DWG stopped.");
+        }
+
+        internal static void ShowOrFocusSettings()
+        {
+            if (_settings != null)
+            {
+                try { _settings.Activate(); } catch { }
+                return;
+            }
+
+            var window = new SettingsWindow();
+            window.Closed += (_, __) =>
+            {
+                if (ReferenceEquals(_settings, window))
+                    _settings = null;
+            };
+            _settings = window;
+            try
+            {
+                Application.ShowModelessWindow(window);
+            }
+            catch (System.Exception ex)
+            {
+                _settings = null;
+                try { window.Close(); } catch { }
+                WriteLine("Settings could not open: " + ex.Message);
+            }
+        }
+
+        internal static void CloseSettings()
+        {
+            var window = _settings;
+            _settings = null;
+            if (window == null)
+                return;
+            try { window.Close(); } catch { }
         }
 
         [CommandMethod("MCPENABLECODE", CommandFlags.Session)]
@@ -114,6 +192,7 @@ namespace Bimwright.Dwg.Plugin
 
         private static void StartServerInternal()
         {
+            ToolCatalogStore.Clear();
             DocumentInvoker.Initialize();
             InitializeToast();
             CommandDispatcher.SetSendCodeEnabled(true);
@@ -133,6 +212,7 @@ namespace Bimwright.Dwg.Plugin
             _toastEnabled = PluginSettings.LoadToastEnabled();
             var host = new McpToastHost();
             ToastNotifier = new McpToastNotifier(host, () => _toastEnabled);
+            ToastNotifier.SetInstanceInfo("AutoCAD " + PluginTarget.AutoCadYear);
 
             // Anchor toasts to the AutoCAD window and reuse the host WPF dispatcher
             // when AutoCAD already runs one (its ribbon is WPF).
@@ -169,6 +249,7 @@ namespace Bimwright.Dwg.Plugin
             if (notifier == null)
                 return;
 
+            notifier.SetInstanceInfo("AutoCAD " + PluginTarget.AutoCadYear);
             notifier.FlushPendingIfUsable();
 
             var now = System.DateTime.UtcNow;

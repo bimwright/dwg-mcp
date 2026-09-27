@@ -12,15 +12,12 @@ namespace Bimwright.Dwg.Tests
         {
             var vm = ToastContentBuilder.BuildCompleted(
                 toolName: "get_drawing_info",
-                paramsJson: null,
                 resultJson: "{\"drawing_name\":\"plan.dwg\",\"current_layout\":\"Model\",\"current_layer\":\"WALLS\"}",
                 success: true,
                 errorMessage: null,
-                durationMs: 12,
                 toolDescription: null
             );
 
-            Assert.Equal("MCP · Query", vm.CategoryLabel);
             Assert.Equal("plan.dwg", vm.Summary);
             Assert.Contains("Model", vm.Detail);
             Assert.Contains("WALLS", vm.Detail);
@@ -40,15 +37,12 @@ namespace Bimwright.Dwg.Tests
             {
                 var vm = ToastContentBuilder.BuildCompleted(
                     toolName: "capture_view_image",
-                    paramsJson: null,
                     resultJson: $"{{\"output_path\":\"{path.Replace("\\", "\\\\")}\",\"width\":1600,\"height\":900,\"image_format\":\"png\",\"capture_id\":\"abcd1234ef56\"}}",
                     success: true,
                     errorMessage: null,
-                    durationMs: 200,
                     toolDescription: null
                 );
 
-                Assert.Equal("MCP · Snapshot", vm.CategoryLabel);
                 Assert.Contains("toast-test-thumb.png", vm.Summary);
                 Assert.Contains("1600", vm.Summary);
                 Assert.Contains("PNG", vm.Summary);
@@ -68,15 +62,12 @@ namespace Bimwright.Dwg.Tests
         {
             var vm = ToastContentBuilder.BuildCompleted(
                 toolName: "inspect_view_region",
-                paramsJson: null,
                 resultJson: "{\"output_path\":\"<local_path>\"}",
                 success: true,
                 errorMessage: null,
-                durationMs: 100,
                 toolDescription: null
             );
 
-            Assert.Equal("MCP · Snapshot", vm.CategoryLabel);
             Assert.Null(vm.ThumbnailPath);
         }
 
@@ -85,15 +76,12 @@ namespace Bimwright.Dwg.Tests
         {
             var vm = ToastContentBuilder.BuildCompleted(
                 toolName: "capture_view_image",
-                paramsJson: null,
                 resultJson: null,
                 success: false,
                 errorMessage: "output_path is required.",
-                durationMs: 0,
                 toolDescription: "Capture the active drawing."
             );
 
-            Assert.Equal("MCP · Failed", vm.CategoryLabel);
             Assert.Contains("output_path", vm.Summary);
             Assert.Contains("active drawing", vm.Detail);
             Assert.False(vm.Success);
@@ -104,15 +92,12 @@ namespace Bimwright.Dwg.Tests
         {
             var vm = ToastContentBuilder.BuildCompleted(
                 toolName: "capture_view_image",
-                paramsJson: null,
                 resultJson: "{\"output_path\":\"<local_path>\",\"width\":800,\"height\":600}",
                 success: true,
                 errorMessage: null,
-                durationMs: 150,
                 toolDescription: null
             );
 
-            Assert.Equal("MCP · Snapshot", vm.CategoryLabel);
             Assert.Contains("image", vm.Summary);
             Assert.Null(vm.ThumbnailPath);
         }
@@ -122,15 +107,12 @@ namespace Bimwright.Dwg.Tests
         {
             var vm = ToastContentBuilder.BuildCompleted(
                 toolName: "send_code",
-                paramsJson: null,
                 resultJson: "{\"ok\":true,\"result\":\"3 circles created\\nextra\",\"stdout\":\"\",\"error\":null}",
                 success: true,
                 errorMessage: null,
-                durationMs: 10,
                 toolDescription: null
             );
 
-            Assert.Equal("MCP · Script", vm.CategoryLabel);
             Assert.Equal("3 circles created", vm.Summary);
         }
 
@@ -139,15 +121,12 @@ namespace Bimwright.Dwg.Tests
         {
             var vm = ToastContentBuilder.BuildCompleted(
                 toolName: "send_code",
-                paramsJson: null,
                 resultJson: "{\"ok\":false,\"result\":null,\"stdout\":\"\",\"error\":\"compile error: CS1002\"}",
                 success: true,
                 errorMessage: null,
-                durationMs: 10,
                 toolDescription: null
             );
 
-            Assert.Equal("MCP · Script", vm.CategoryLabel);
             Assert.Contains("compile error", vm.Summary);
         }
 
@@ -156,15 +135,12 @@ namespace Bimwright.Dwg.Tests
         {
             var vm = ToastContentBuilder.BuildCompleted(
                 toolName: "translate_and_rewrite",
-                paramsJson: null,
                 resultJson: "{\"results\":[{\"ok\":true},{\"ok\":false},{\"ok\":true}]}",
                 success: true,
                 errorMessage: null,
-                durationMs: 80,
                 toolDescription: null
             );
 
-            Assert.Equal("MCP · Modified", vm.CategoryLabel);
             Assert.Equal("Processed 3 texts", vm.Summary);
             Assert.Contains("1 failed", vm.Detail);
         }
@@ -174,15 +150,12 @@ namespace Bimwright.Dwg.Tests
         {
             var vm = ToastContentBuilder.BuildCompleted(
                 toolName: "update_texts",
-                paramsJson: null,
                 resultJson: "[{\"ok\":true},{\"ok\":true}]",
                 success: true,
                 errorMessage: null,
-                durationMs: 30,
                 toolDescription: null
             );
 
-            Assert.Equal("MCP · Modified", vm.CategoryLabel);
             Assert.Equal("Processed 2 texts", vm.Summary);
         }
 
@@ -191,15 +164,12 @@ namespace Bimwright.Dwg.Tests
         {
             var vm = ToastContentBuilder.BuildCompleted(
                 toolName: "list_layers",
-                paramsJson: null,
                 resultJson: "{\"layers\":[{\"name\":\"0\"},{\"name\":\"WALLS\"}]}",
                 success: true,
                 errorMessage: null,
-                durationMs: 9,
                 toolDescription: null
             );
 
-            Assert.Equal("MCP · Query", vm.CategoryLabel);
             Assert.Equal("Items: 2", vm.Summary);
         }
 
@@ -208,11 +178,9 @@ namespace Bimwright.Dwg.Tests
         {
             var vm = ToastContentBuilder.BuildCompleted(
                 toolName: "count_entities",
-                paramsJson: null,
                 resultJson: "{\"count\":42}",
                 success: true,
                 errorMessage: null,
-                durationMs: 5,
                 toolDescription: null
             );
 
@@ -224,15 +192,12 @@ namespace Bimwright.Dwg.Tests
         {
             var vm = ToastContentBuilder.BuildCompleted(
                 toolName: "export_dxf",
-                paramsJson: null,
                 resultJson: "{\"output_path\":\"<local_path>\"}",
                 success: true,
                 errorMessage: null,
-                durationMs: 400,
                 toolDescription: null
             );
 
-            Assert.Equal("MCP · Export", vm.CategoryLabel);
             Assert.Equal("file", vm.Summary);
             Assert.Null(vm.ThumbnailPath);
         }
@@ -242,15 +207,12 @@ namespace Bimwright.Dwg.Tests
         {
             var vm = ToastContentBuilder.BuildCompleted(
                 toolName: "list_layers",
-                paramsJson: null,
                 resultJson: null,
                 success: true,
                 errorMessage: null,
-                durationMs: 8,
                 toolDescription: null
             );
 
-            Assert.Equal("MCP · Query", vm.CategoryLabel);
             Assert.Equal("Completed successfully", vm.Summary);
             Assert.Equal("List Layers", vm.Detail);
         }
@@ -283,51 +245,6 @@ namespace Bimwright.Dwg.Tests
                     System.IO.File.Delete(path);
                 try { System.IO.Directory.Delete(siblingDir); } catch { }
             }
-        }
-    }
-
-    public class ToolActivityClassifierTests
-    {
-        [Theory]
-        [InlineData("send_code")]
-        [InlineData("run_lisp")]
-        [InlineData("batch_execute")]
-        [InlineData("run_baked_tool")]
-        [InlineData("apply_bake")]
-        [InlineData("create_line")]
-        [InlineData("move_entities")]
-        [InlineData("update_texts")]
-        [InlineData("translate_and_rewrite")]
-        [InlineData("insert_block")]
-        [InlineData("explode_block")]
-        [InlineData("export_dxf")]
-        [InlineData("save_drawing")]
-        [InlineData("purge_drawing")]
-        [InlineData("set_system_variable")]
-        public void Write_commands_classify_as_write(string command)
-        {
-            Assert.Equal(ToolActivityKind.Write, ToolActivityClassifier.Classify(command));
-        }
-
-        [Theory]
-        [InlineData("get_drawing_info")]
-        [InlineData("get_entity_properties")]
-        [InlineData("list_layers")]
-        [InlineData("list_blocks")]
-        [InlineData("query_entities")]
-        [InlineData("count_entities")]
-        [InlineData("select_by_layer")]
-        [InlineData("select_by_type")]
-        [InlineData("zoom_extents")]
-        [InlineData("zoom_window")]
-        [InlineData("capture_view_image")]
-        [InlineData("inspect_view_region")]
-        [InlineData("restore_view")]
-        [InlineData("get_variables")]
-        [InlineData("list_baked_tools")]
-        public void Read_commands_classify_as_read(string command)
-        {
-            Assert.Equal(ToolActivityKind.Read, ToolActivityClassifier.Classify(command));
         }
     }
 
@@ -402,6 +319,25 @@ namespace Bimwright.Dwg.Tests
         public void ParseBool_handles_common_spellings(string raw, bool? expected)
         {
             Assert.Equal(expected, PluginSettings.ParseBool(raw));
+        }
+
+        [Fact]
+        public void SaveToastIdleSeconds_keeps_only_the_allowed_values()
+        {
+            Assert.True(PluginSettings.SaveToastIdleSeconds(30));
+            Assert.Equal(30, PluginSettings.LoadToastIdleSeconds());
+
+            Assert.True(PluginSettings.SaveToastIdleSeconds(15));
+            Assert.Equal(PluginSettings.DefaultToastIdleSeconds, PluginSettings.ReadToastIdleSeconds(PluginSettings.FilePathOverride));
+        }
+
+        [Fact]
+        public void SaveToastIdleSeconds_preserves_enableToast()
+        {
+            PluginSettings.SaveEnableToast(false);
+            PluginSettings.SaveToastIdleSeconds(60);
+            Assert.False(PluginSettings.ReadEnableToast(PluginSettings.FilePathOverride));
+            Assert.Equal(60, PluginSettings.ReadToastIdleSeconds(PluginSettings.FilePathOverride));
         }
     }
 }

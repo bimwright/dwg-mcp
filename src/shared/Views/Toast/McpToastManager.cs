@@ -1,6 +1,4 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Interop;
@@ -8,18 +6,42 @@ using System.Windows.Threading;
 
 namespace Bimwright.Dwg.Plugin.Views.Toast
 {
+    /// <summary>
+    /// Reconciles the WPF toast surface with the pure activity state machine.
+    /// One window slot: the aggregator owns card lifetime.
+    /// </summary>
     internal sealed class McpToastManager
     {
-        private const int MaxToasts = 4;
-        private const double Gap = 8;
         private const double EdgeMargin = 16;
+        private const int TickMilliseconds = 100;
+
         private readonly Dispatcher _dispatcher;
-        private readonly List<McpToastWindow> _active = new List<McpToastWindow>();
+        private readonly ActivityAggregator _aggregator;
+        private readonly Func<bool> _isFrameUsable;
+        private readonly Func<bool> _showBranding;
+        private readonly Func<string> _instanceIdentity;
+        private readonly DispatcherTimer _timer;
+        private McpToastWindow _window;
         private IntPtr _ownerHandle;
 
-        public McpToastManager(Dispatcher dispatcher)
+        public McpToastManager(
+            Dispatcher dispatcher,
+            ActivityAggregator aggregator,
+            Func<bool> isFrameUsable = null,
+            Func<bool> showBranding = null,
+            Func<string> instanceIdentity = null)
         {
-            _dispatcher = dispatcher;
+            _dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
+            _aggregator = aggregator ?? throw new ArgumentNullException(nameof(aggregator));
+            _isFrameUsable = isFrameUsable ?? (() => true);
+            _showBranding = showBranding ?? (() => false);
+            _instanceIdentity = instanceIdentity ?? (() => null);
+
+            _timer = new DispatcherTimer(DispatcherPriority.Background, _dispatcher)
+            {
+                Interval = TimeSpan.FromMilliseconds(TickMilliseconds)
+            };
+            _timer.Tick += OnTimerTick;
         }
 
         public void SetOwnerHandle(IntPtr hwnd)
@@ -28,47 +50,198 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
                 _ownerHandle = hwnd;
         }
 
-        public void Complete(McpToastViewModel vm)
+        public void ApplyShowBranding()
         {
             EnsureDispatcher();
+            _window?.SetShowBranding(_showBranding());
+        }
 
-            EnforceCapBeforeAdd();
-            var window = new McpToastWindow(vm, OnToastClosed);
-            AttachOwner(window);
-            _active.Insert(0, window);
-            // Show may pump close callbacks that animate the active stack.
-            // Give the new window finite coordinates before that can happen.
-            ReflowAll(animate: false);
-            window.Show();
-            window.PlayEnterAnimation();
-            window.StartAutoDismiss();
-            ReflowAll(animate: false);
+        public void Render()
+        {
+            EnsureDispatcher();
+            var render = _aggregator.TakeRender();
+            switch (render.Phase)
+            {
+                case ActivityCardPhase.Visible:
+                    ReconcileVisible(render.Card);
+                    return;
+                case ActivityCardPhase.Closing:
+                    ReconcileClosing(render.Card);
+                    return;
+                default:
+                    ForceCloseWindow();
+                    StopTimerIfNoWindow();
+                    return;
+            }
+        }
+
+        internal void Tick(bool frameUsable)
+        {
+            EnsureDispatcher();
+            if (_window == null)
+                return;
+            if (_aggregator.Tick(frameUsable))
+                Render();
         }
 
         public void DismissAllImmediate()
         {
             EnsureDispatcher();
-
-            var toasts = _active.ToList();
-            _active.Clear();
-            foreach (var toast in toasts)
-                toast.CloseImmediate();
-        }
-
-        private void EnforceCapBeforeAdd()
-        {
-            while (_active.Count >= MaxToasts)
+            _timer.Stop();
+            var window = _window;
+            _window = null;
+            if (window != null)
             {
-                var oldest = _active[_active.Count - 1];
-                _active.RemoveAt(_active.Count - 1);
-                oldest.CloseImmediate();
+                try { window.CloseImmediate(); }
+                catch { }
             }
+            _aggregator.Reset();
+            _aggregator.TakeRender();
         }
 
-        private void OnToastClosed(McpToastWindow toast)
+        public void Dispose()
         {
-            if (_active.Remove(toast))
-                ReflowAll(animate: true);
+            if (_dispatcher.CheckAccess())
+                _timer.Stop();
+        }
+
+        private void ReconcileVisible(ActivitySnapshot card)
+        {
+            if (card == null)
+            {
+                ForceCloseWindow();
+                StopTimerIfNoWindow();
+                return;
+            }
+
+            if (_window != null && _window.CardId == card.CardId)
+            {
+                _window.Update(card);
+                EnsureTimer();
+                return;
+            }
+
+            ForceCloseWindow();
+            CreateWindow(card);
+        }
+
+        private void ReconcileClosing(ActivitySnapshot card)
+        {
+            if (card == null)
+            {
+                StopTimerIfNoWindow();
+                return;
+            }
+
+            if (_window != null && _window.CardId == card.CardId)
+            {
+                _window.BeginClose();
+                EnsureTimer();
+                return;
+            }
+
+            ForceCloseWindow();
+            _aggregator.CardClosed(card.CardId);
+            StopTimerIfNoWindow();
+        }
+
+        private void CreateWindow(ActivitySnapshot card)
+        {
+            var window = new McpToastWindow(
+                card,
+                OnWindowClosed,
+                OnDismissRequested,
+                OnCardClicked,
+                OnPointerEntered,
+                OnPointerLeft,
+                instanceIdentity: _instanceIdentity());
+            _window = window;
+            window.SetShowBranding(_showBranding());
+            AttachOwner(window);
+            PositionWindow(window);
+            window.CapturePointerBaseline();
+            window.Show();
+            window.PlayEnterAnimation();
+            EnsureTimer();
+        }
+
+        private void OnTimerTick(object sender, EventArgs e)
+        {
+            if (_window == null)
+            {
+                _timer.Stop();
+                return;
+            }
+
+            bool frameUsable;
+            try { frameUsable = _isFrameUsable(); }
+            catch { frameUsable = true; }
+            Tick(frameUsable);
+        }
+
+        private void OnWindowClosed(McpToastWindow window, long cardId)
+        {
+            EnsureDispatcher();
+            if (!ReferenceEquals(_window, window) || window.CardId != cardId)
+                return;
+            _window = null;
+            _aggregator.CardClosed(cardId);
+            StopTimerIfNoWindow();
+        }
+
+        private void OnDismissRequested(long cardId)
+        {
+            EnsureDispatcher();
+            if (_window == null || _window.CardId != cardId)
+                return;
+            if (_aggregator.Dismiss(cardId))
+                Render();
+        }
+
+        private void OnCardClicked(long cardId)
+        {
+            EnsureDispatcher();
+            if (_window == null || _window.CardId != cardId)
+                return;
+            if (_aggregator.Dismiss(cardId))
+                Render();
+        }
+
+        private void OnPointerEntered(long cardId)
+        {
+            EnsureDispatcher();
+            if (_window != null && _window.CardId == cardId)
+                _aggregator.PointerEntered(cardId);
+        }
+
+        private void OnPointerLeft(long cardId)
+        {
+            EnsureDispatcher();
+            if (_window != null && _window.CardId == cardId)
+                _aggregator.PointerLeft(cardId);
+        }
+
+        private void ForceCloseWindow()
+        {
+            var window = _window;
+            if (window == null)
+                return;
+            _window = null;
+            try { window.CloseImmediate(); }
+            catch { }
+            StopTimerIfNoWindow();
+        }
+
+        private void EnsureTimer()
+        {
+            if (!_timer.IsEnabled && _window != null)
+                _timer.Start();
+        }
+
+        private void StopTimerIfNoWindow()
+        {
+            if (_window == null)
+                _timer.Stop();
         }
 
         private void AttachOwner(McpToastWindow window)
@@ -76,93 +249,53 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
             var owner = GetValidOwnerHandle();
             if (owner == IntPtr.Zero)
                 return;
-
-            try
-            {
-                new WindowInteropHelper(window).Owner = owner;
-            }
-            catch
-            {
-                // Best-effort — positioning still works without WPF ownership.
-            }
+            try { new WindowInteropHelper(window).Owner = owner; }
+            catch { }
         }
 
-        private void ReflowAll(bool animate)
+        private void PositionWindow(McpToastWindow window)
         {
             var owner = GetValidOwnerHandle();
-            double startTop = EdgeMargin;
-            double startLeft = EdgeMargin;
-
+            double left = EdgeMargin;
+            double top = EdgeMargin;
             if (owner != IntPtr.Zero && GetWindowRect(owner, out var rect))
             {
                 GetOwnerDpiScale(owner, out var dpiX, out var dpiY);
-                startLeft = rect.Left * dpiX + EdgeMargin;
-                startTop = rect.Top * dpiY + EdgeMargin;
+                left = rect.Left * dpiX + EdgeMargin;
+                top = rect.Top * dpiY + EdgeMargin;
             }
-
-            var currentTop = startTop;
-            foreach (var toast in _active)
-            {
-                var height = toast.ActualHeight > 0 ? toast.ActualHeight : 72;
-
-                if (animate)
-                    toast.AnimateToPosition(currentTop, startLeft);
-                else
-                    toast.SetPosition(currentTop, startLeft);
-
-                currentTop += height + Gap;
-            }
+            if (!IsFinite(left)) left = EdgeMargin;
+            if (!IsFinite(top)) top = EdgeMargin;
+            window.SetPosition(top, left);
         }
 
         private IntPtr GetValidOwnerHandle()
         {
             if (_ownerHandle != IntPtr.Zero && IsWindow(_ownerHandle))
                 return _ownerHandle;
-
-            // Prefer keeping last known good owner over Process.MainWindowHandle
-            // (which can point at a splash/dialog). Clear only when truly invalid.
             if (_ownerHandle != IntPtr.Zero && !IsWindow(_ownerHandle))
                 _ownerHandle = IntPtr.Zero;
-
             return _ownerHandle;
         }
 
-        private void GetOwnerDpiScale(IntPtr hwnd, out double dpiX, out double dpiY)
+        private static void GetOwnerDpiScale(IntPtr hwnd, out double dpiX, out double dpiY)
         {
-            // Default: 96 DPI → 1 DIP per physical pixel.
             dpiX = 1.0;
             dpiY = 1.0;
-
             try
             {
-                // Windows 10 1607+: per-monitor DPI for the owner HWND.
                 var dpi = GetDpiForWindow(hwnd);
                 if (dpi > 0)
                 {
                     dpiX = 96.0 / dpi;
                     dpiY = dpiX;
-                    return;
                 }
             }
             catch (EntryPointNotFoundException)
             {
-                // Older OS — fall through to PresentationSource / default.
             }
             catch
             {
-                // Ignore and fall through.
-            }
-
-            var first = _active.FirstOrDefault();
-            if (first == null)
-                return;
-
-            var source = PresentationSource.FromVisual(first);
-            if (source?.CompositionTarget != null)
-            {
-                var transform = source.CompositionTarget.TransformFromDevice;
-                dpiX = transform.M11;
-                dpiY = transform.M22;
             }
         }
 
@@ -171,6 +304,8 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
             if (!_dispatcher.CheckAccess())
                 throw new InvalidOperationException("McpToastManager must run on the toast dispatcher thread.");
         }
+
+        private static bool IsFinite(double value) => !double.IsNaN(value) && !double.IsInfinity(value);
 
         [DllImport("user32.dll")]
         private static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);

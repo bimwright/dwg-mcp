@@ -7,7 +7,7 @@ MCP client (Claude Code / Cursor / OpenCode / ...)
         |  stdio (NDJSON MCP)
         v
 Bimwright.Dwg.Server  (.NET 8 console app, global tool)
-        |  TCP NDJSON + token auth (127.0.0.1)
+        |  TCP (2022-2024) or named pipe (2025-2027), NDJSON + token auth, loopback only
         v
 Bimwright.Dwg.Plugin  (AutoCAD 2022-2027 shells)
         |  Document.LockDocument()
@@ -25,7 +25,8 @@ Plugin writes discovery files on startup:
 
 | AutoCAD | Discovery file | Transport |
 |---------|----------------|-----------|
-| 2022-2027 | `%LOCALAPPDATA%\Bimwright\Dwg\acad-YYYY.json` | TCP in current shells; server also accepts named pipe discovery |
+| 2022-2024 | `%LOCALAPPDATA%\Bimwright\Dwg\acad-YYYY.json` | TCP loopback. The server also accepts named-pipe discovery. |
+| 2025-2027 | `%LOCALAPPDATA%\Bimwright\Dwg\acad-YYYY.json` | Named pipe (`ACAD2025_OR_GREATER`). 2025 and 2026 are not binary-compatible with 2027. |
 | 2024 only | `%LOCALAPPDATA%\Bimwright\portAcad24.txt` | TCP legacy fallback |
 
 The v2 JSON file contains:

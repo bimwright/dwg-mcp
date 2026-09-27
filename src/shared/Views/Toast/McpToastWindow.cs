@@ -1,6 +1,5 @@
 using System;
 using System.Diagnostics;
-using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
@@ -10,53 +9,105 @@ using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Effects;
-using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using Bimwright.Dwg.Plugin.Localization;
+using Bimwright.Dwg.Plugin.Views;
 
 namespace Bimwright.Dwg.Plugin.Views.Toast
 {
     internal sealed class McpToastWindow : Window
     {
-        private const double CardWidth = 340;
-        private const double BrandRestOpacity = 0.3;
+        private const double CardWidth = 300;
         private const double BrandSettleOpacity = 0.8;
+        private const int BrandRevealDelayMs = 100;
+        private const int BrandRevealDurationMs = 500;
+        private const int BrandHideDurationMs = 200;
         private const int GwlExStyle = -20;
         private const long WsExNoActivate = 0x08000000L;
         private const long WsExToolWindow = 0x00000080L;
 
-        private readonly Action<McpToastWindow> _onClosed;
         private readonly TextBlock _iconText;
         private readonly TextBlock _titleText;
-        private readonly TextBlock _categoryText;
-        private readonly TextBlock _summaryText;
-        private readonly TextBlock _detailText;
-        private readonly TextBlock _durationText;
+        private readonly TextBlock _bodyText;
+        private readonly Viewbox _counterRow;
+        private readonly RollingToastNumber _successCount = new RollingToastNumber();
+        private readonly RollingToastNumber _failedCount = new RollingToastNumber();
+        private readonly RollingToastNumber _captureCount = new RollingToastNumber();
+        private readonly TextBlock _successLabel;
+        private readonly TextBlock _failedLabel;
+        private readonly TextBlock _captureLabel;
         private readonly TextBlock _brandText;
         private readonly TextBlock _brandShine;
+        private readonly Grid _brandRow;
+        private readonly Grid _brandCell;
+        private readonly TextBlock _identityText;
+        private readonly string _instanceIdentity;
         private readonly TranslateTransform _brandSweep = new TranslateTransform(-0.75, 0);
         private readonly TranslateTransform _shineSweep = new TranslateTransform(-0.75, 0);
-        private readonly Border _thumbnailHost;
-        private readonly Image _thumbnailImage;
+        private readonly Func<Point> _cursorPosition;
+        private readonly Func<bool> _motionEnabled;
         private readonly Border _root;
         private readonly TranslateTransform _slideTransform;
         private readonly ScaleTransform _scaleTransform;
-        private readonly DispatcherTimer _autoDismissTimer;
-        private bool _isMouseOver;
+        private Border _closeHost;
+        private MouseButtonEventHandler _closeHostMouseUpHandler;
+        private MouseEventHandler _mouseEnterHandler;
+        private MouseEventHandler _mouseMoveHandler;
+        private MouseEventHandler _mouseLeaveHandler;
+        private MouseButtonEventHandler _mouseUpHandler;
+        private DispatcherTimer _brandRevealTimer;
+        private int _brandHideGeneration;
+        private bool _brandPointerOver;
+        private bool _brandPointerMoved;
+        private bool _brandRevealed;
+        private bool _brandHiding;
+        private EventHandler _sourceInitializedHandler;
+        private EventHandler _closedHandler;
         private bool _isClosing;
+        private long _cardId;
+        private Action<McpToastWindow, long> _activityClosed;
+        private Action<long> _activityDismissed;
+        private Action<long> _activityClicked;
+        private Action<long> _activityPointerEntered;
+        private Action<long> _activityPointerLeft;
+        private bool _hasPointerPosition;
+        private int _lastPointerX;
+        private int _lastPointerY;
+        private bool _closedCallbackRaised;
+        private bool _handlersDetached;
+        private bool _showBranding;
+        private ActivitySnapshot _lastSnapshot;
 
-        public McpToastViewModel ViewModel { get; private set; }
+        public long CardId => _cardId;
 
-        public McpToastWindow(McpToastViewModel viewModel, Action<McpToastWindow> onClosed)
+        public McpToastWindow(
+            ActivitySnapshot snapshot,
+            Action<McpToastWindow, long> onClosed,
+            Action<long> onDismiss,
+            Action<long> onClick,
+            Action<long> onPointerEntered,
+            Action<long> onPointerLeft,
+            Func<Point> cursorPosition = null,
+            Func<bool> motionEnabled = null,
+            string instanceIdentity = null)
         {
-            ViewModel = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
-            _onClosed = onClosed;
+            if (snapshot == null) throw new ArgumentNullException(nameof(snapshot));
+            _cardId = snapshot.CardId;
+            _activityClosed = onClosed;
+            _activityDismissed = onDismiss;
+            _activityClicked = onClick;
+            _activityPointerEntered = onPointerEntered;
+            _activityPointerLeft = onPointerLeft;
+            _cursorPosition = cursorPosition ?? ReadCursorPosition;
+            _motionEnabled = motionEnabled ?? (() => SystemParameters.ClientAreaAnimation);
+            _instanceIdentity = string.IsNullOrWhiteSpace(instanceIdentity) ? null : instanceIdentity;
 
             FontFamily = McpToastTheme.UiFont;
-
             WindowStyle = WindowStyle.None;
             AllowsTransparency = true;
             Background = Brushes.Transparent;
             ShowInTaskbar = false;
+            ShowActivated = false;
             Topmost = true;
             ResizeMode = ResizeMode.NoResize;
             SizeToContent = SizeToContent.WidthAndHeight;
@@ -65,7 +116,6 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
 
             _slideTransform = new TranslateTransform(-24, 0);
             _scaleTransform = new ScaleTransform(0.96, 0.96);
-
             var transformGroup = new TransformGroup();
             transformGroup.Children.Add(_scaleTransform);
             transformGroup.Children.Add(_slideTransform);
@@ -76,7 +126,7 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
                 Margin = new Thickness(8),
                 CornerRadius = new CornerRadius(8),
                 Background = McpToastTheme.Background,
-                BorderBrush = McpToastTheme.BuildAccentBrush(viewModel),
+                BorderBrush = McpToastTheme.BuildAccentBrush(!snapshot.HasFailure),
                 BorderThickness = new Thickness(6, 0, 0, 0),
                 RenderTransformOrigin = new Point(0, 0.5),
                 RenderTransform = transformGroup,
@@ -89,25 +139,23 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
                 }
             };
 
-            var content = new Grid { Margin = new Thickness(10, 12, 14, 12) };
-            for (var i = 0; i < 6; i++)
-                content.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            var content = new Grid { Margin = new Thickness(10, 10, 12, 10) };
+            content.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            content.RowDefinitions.Add(new RowDefinition { Height = new GridLength(28) });
+            content.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
             var header = new DockPanel { LastChildFill = true };
-
             _iconText = new TextBlock
             {
-                Text = McpToastTheme.GetIconGlyph(viewModel),
                 FontFamily = McpToastTheme.IconFont,
                 FontSize = 16,
-                Foreground = McpToastTheme.BuildIconBrush(viewModel),
                 Margin = new Thickness(0, 1, 8, 0),
                 VerticalAlignment = VerticalAlignment.Top
             };
             DockPanel.SetDock(_iconText, Dock.Left);
             header.Children.Add(_iconText);
 
-            var closeHost = new Border
+            var closeHost = _closeHost = new Border
             {
                 Width = 22,
                 Height = 22,
@@ -116,120 +164,80 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
                 Cursor = Cursors.Hand,
                 VerticalAlignment = VerticalAlignment.Top
             };
-            var closeGlyph = new TextBlock
+            closeHost.Child = new TextBlock
             {
-                Text = "",
+                Text = "\uE711",
                 FontFamily = McpToastTheme.IconFont,
                 FontSize = 10,
                 Foreground = McpToastTheme.CloseIcon,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center
             };
-            closeHost.Child = closeGlyph;
-            closeHost.MouseEnter += (_, __) => closeHost.Background = McpToastTheme.CloseHover;
-            closeHost.MouseLeave += (_, __) => closeHost.Background = Brushes.Transparent;
-            closeHost.MouseLeftButtonUp += (_, e) =>
+            _closeHostMouseUpHandler = (_, e) =>
             {
                 e.Handled = true;
-                BeginClose();
+                _activityDismissed?.Invoke(_cardId);
             };
+            closeHost.MouseLeftButtonUp += _closeHostMouseUpHandler;
             DockPanel.SetDock(closeHost, Dock.Right);
             header.Children.Add(closeHost);
 
             _titleText = new TextBlock
             {
-                Text = viewModel.Title ?? string.Empty,
                 FontWeight = FontWeights.SemiBold,
                 FontSize = 13,
                 Foreground = McpToastTheme.Text,
-                TextWrapping = TextWrapping.Wrap,
+                TextWrapping = TextWrapping.NoWrap,
+                TextTrimming = TextTrimming.CharacterEllipsis,
                 VerticalAlignment = VerticalAlignment.Center
             };
             header.Children.Add(_titleText);
-
             Grid.SetRow(header, 0);
             content.Children.Add(header);
 
-            _categoryText = new TextBlock
+            var body = new Grid { Margin = new Thickness(24, 5, 0, 0) };
+            var counters = new StackPanel { Orientation = Orientation.Horizontal };
+            _successLabel = AddCounter(counters, _successCount);
+            AddCounterSeparator(counters);
+            _failedLabel = AddCounter(counters, _failedCount);
+            AddCounterSeparator(counters);
+            _captureLabel = AddCounter(counters, _captureCount);
+            _counterRow = new Viewbox
             {
-                Text = viewModel.CategoryLabel ?? string.Empty,
-                FontSize = 10.5,
-                FontWeight = FontWeights.SemiBold,
-                Foreground = McpToastTheme.Primary,
-                Margin = new Thickness(24, 2, 0, 0)
-            };
-            Grid.SetRow(_categoryText, 1);
-            content.Children.Add(_categoryText);
-
-            _summaryText = new TextBlock
-            {
-                Text = viewModel.Summary ?? string.Empty,
-                FontSize = 12.5,
-                FontWeight = FontWeights.Medium,
-                Foreground = McpToastTheme.Text,
-                TextWrapping = TextWrapping.Wrap,
-                Margin = new Thickness(24, 4, 0, 0),
-                MaxHeight = 64,
-                TextTrimming = TextTrimming.CharacterEllipsis
-            };
-            Grid.SetRow(_summaryText, 2);
-            content.Children.Add(_summaryText);
-
-            _detailText = new TextBlock
-            {
-                FontSize = 11.5,
-                Foreground = McpToastTheme.TextSecondary,
-                TextWrapping = TextWrapping.Wrap,
-                Margin = new Thickness(24, 2, 0, 0),
-                MaxHeight = 40,
-                TextTrimming = TextTrimming.CharacterEllipsis
-            };
-            Grid.SetRow(_detailText, 3);
-            content.Children.Add(_detailText);
-
-            _thumbnailImage = new Image
-            {
+                Child = counters,
                 Stretch = Stretch.Uniform,
-                MaxWidth = 300,
-                MaxHeight = 120,
+                StretchDirection = StretchDirection.DownOnly,
                 HorizontalAlignment = HorizontalAlignment.Left
             };
-            _thumbnailHost = new Border
+            body.Children.Add(_counterRow);
+            _bodyText = new TextBlock
             {
-                Margin = new Thickness(24, 8, 0, 0),
-                CornerRadius = new CornerRadius(4),
-                BorderBrush = McpToastTheme.MutedAccent,
-                BorderThickness = new Thickness(1),
-                Background = Brushes.White,
-                Child = _thumbnailImage,
-                Visibility = Visibility.Collapsed
+                FontSize = 12,
+                Foreground = McpToastTheme.Text,
+                TextWrapping = TextWrapping.NoWrap,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                VerticalAlignment = VerticalAlignment.Center
             };
-            Grid.SetRow(_thumbnailHost, 4);
-            content.Children.Add(_thumbnailHost);
+            body.Children.Add(_bodyText);
+            Grid.SetRow(body, 1);
+            content.Children.Add(body);
 
-            var footer = new DockPanel { Margin = new Thickness(24, 6, 0, 0) };
-
+            _brandRow = new Grid { Margin = new Thickness(24, 5, 0, 0) };
             _brandText = new TextBlock
             {
-                // Logo casing and colours. Brightness lives in the OpacityMask: dimmed at
-                // rest, then a lit front wipes left→right once ~1.3 s after the card shows
-                // (WipeBrand) and the wordmark settles at BrandSettleOpacity.
                 FontSize = 10,
                 FontWeight = FontWeights.SemiBold,
                 VerticalAlignment = VerticalAlignment.Center,
                 ToolTip = BrandAssets.ProductTag,
-                OpacityMask = BuildBrandMask(_brandSweep),
+                OpacityMask = BuildBrandRevealMask(_brandSweep),
                 Inlines =
                 {
                     new Run(BrandAssets.WordmarkLeft) { Foreground = McpToastTheme.BrandBim },
                     new Run(BrandAssets.WordmarkRight) { Foreground = McpToastTheme.BrandWright }
                 }
             };
-
             _brandShine = new TextBlock
             {
-                // The wordmark again in lighter tints, masked to a narrow band that sweeps
-                // with the wipe — the wave passes inside the letterforms.
                 FontSize = 10,
                 FontWeight = FontWeights.SemiBold,
                 VerticalAlignment = VerticalAlignment.Center,
@@ -241,72 +249,97 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
                     new Run(BrandAssets.WordmarkRight) { Foreground = McpToastTheme.BrandWrightShine }
                 }
             };
-
-            var brandCell = new Grid { VerticalAlignment = VerticalAlignment.Center };
-            brandCell.Children.Add(_brandText);
-            brandCell.Children.Add(_brandShine);
-            DockPanel.SetDock(brandCell, Dock.Right);
-            footer.Children.Add(brandCell);
-
-            _durationText = new TextBlock
+            _brandCell = new Grid
             {
-                Text = FormatDuration(viewModel),
-                FontSize = 11,
-                Foreground = McpToastTheme.TextSecondary,
-                VerticalAlignment = VerticalAlignment.Center
+                VerticalAlignment = VerticalAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Right
             };
-            footer.Children.Add(_durationText);
-            Grid.SetRow(footer, 5);
-            content.Children.Add(footer);
+            _brandCell.Children.Add(_brandText);
+            _brandCell.Children.Add(_brandShine);
+            _brandRow.Children.Add(_brandCell);
+            _identityText = new TextBlock
+            {
+                Text = _instanceIdentity ?? string.Empty,
+                FontSize = 9,
+                Foreground = McpToastTheme.MutedAccent,
+                VerticalAlignment = VerticalAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Left,
+                TextTrimming = TextTrimming.CharacterEllipsis
+            };
+            _brandRow.Children.Add(_identityText);
+            Grid.SetRow(_brandRow, 2);
+            content.Children.Add(_brandRow);
+            ParkBrandRow();
 
-            ApplyViewModelText(viewModel);
-            ApplyThumbnail(viewModel.ThumbnailPath);
-
+            ApplyActivitySnapshot(snapshot);
             _root.Child = content;
             _root.Cursor = Cursors.Hand;
             Content = _root;
 
-            MouseEnter += (_, __) =>
+            _mouseEnterHandler = (_, __) =>
             {
-                _isMouseOver = true;
-                _autoDismissTimer.Stop();
-                WipeBrand(150);
+                var moved = PointerPositionChanged();
+                if (moved)
+                    _activityPointerEntered?.Invoke(_cardId);
+                _brandPointerOver = true;
+                if (moved)
+                {
+                    _brandPointerMoved = true;
+                    ScheduleBrandReveal();
+                }
             };
-            MouseLeave += (_, __) =>
+            _mouseMoveHandler = (_, __) =>
             {
-                _isMouseOver = false;
-                if (!_isClosing)
-                    _autoDismissTimer.Start();
-            };
-            MouseLeftButtonUp += (_, e) =>
-            {
-                if (e.OriginalSource is Border border && border == closeHost)
+                if (!_brandPointerOver || !PointerPositionChanged())
                     return;
-                HandleToastClick();
+                _brandPointerMoved = true;
+                ScheduleBrandReveal();
             };
-
-            _autoDismissTimer = new DispatcherTimer();
-            _autoDismissTimer.Tick += (_, __) =>
+            _mouseLeaveHandler = (_, __) =>
             {
-                _autoDismissTimer.Stop();
-                BeginClose();
+                if (!PointerPositionChanged())
+                    return;
+                _activityPointerLeft?.Invoke(_cardId);
+                _brandPointerOver = false;
+                _brandPointerMoved = false;
+                HideBrand(immediate: false);
             };
-
-            Loaded += (_, __) =>
+            _mouseUpHandler = (_, e) =>
             {
-                StartAutoDismiss();
+                if (e.OriginalSource is Border activityCloseBorder && activityCloseBorder == _closeHost)
+                    return;
+                if (_isClosing)
+                {
+                    e.Handled = true;
+                    return;
+                }
+                TryOpenLatestImage();
+                _activityClicked?.Invoke(_cardId);
+                e.Handled = true;
             };
+            MouseEnter += _mouseEnterHandler;
+            MouseMove += _mouseMoveHandler;
+            MouseLeave += _mouseLeaveHandler;
+            MouseLeftButtonUp += _mouseUpHandler;
 
-            // Without WS_EX_NOACTIVATE each shown toast can steal keyboard focus
-            // from AutoCAD mid-typing. Clicks are still delivered; only activation is blocked.
-            SourceInitialized += (_, __) => MakeNoActivate();
+            _closedHandler = (_, __) => NotifyClosed();
+            Closed += _closedHandler;
+            _sourceInitializedHandler = (_, __) => MakeNoActivate();
+            SourceInitialized += _sourceInitializedHandler;
         }
 
         public void PlayEnterAnimation()
         {
+            if (!_motionEnabled())
+            {
+                _slideTransform.X = 0;
+                _scaleTransform.ScaleX = _scaleTransform.ScaleY = 1;
+                Opacity = 1;
+                return;
+            }
+
             var duration = TimeSpan.FromMilliseconds(280);
             var ease = new QuadraticEase { EasingMode = EasingMode.EaseOut };
-
             _slideTransform.BeginAnimation(TranslateTransform.XProperty,
                 new DoubleAnimation(-24, 0, duration) { EasingFunction = ease });
             _scaleTransform.BeginAnimation(ScaleTransform.ScaleXProperty,
@@ -314,155 +347,269 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
             _scaleTransform.BeginAnimation(ScaleTransform.ScaleYProperty,
                 new DoubleAnimation(0.96, 1, duration) { EasingFunction = ease });
             BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, duration) { EasingFunction = ease });
-            WipeBrand();
-        }
-
-        public void AnimateToPosition(double top, double left)
-        {
-            var fromTop = Top;
-            var fromLeft = Left;
-            SetPosition(top, left);
-            // An unshown WPF Window defaults to NaN. It has no position to animate from.
-            if (double.IsNaN(fromTop) || double.IsNaN(fromLeft))
-                return;
-
-            var duration = TimeSpan.FromMilliseconds(200);
-            var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
-            BeginAnimation(TopProperty, new DoubleAnimation(fromTop, top, duration) { EasingFunction = ease });
-            BeginAnimation(LeftProperty, new DoubleAnimation(fromLeft, left, duration) { EasingFunction = ease });
         }
 
         public void SetPosition(double top, double left)
         {
-            // A previous animation's held value must not override a direct reflow.
             BeginAnimation(TopProperty, null);
             BeginAnimation(LeftProperty, null);
             Top = top;
             Left = left;
         }
 
-        public void StartAutoDismiss()
+        public void Update(ActivitySnapshot snapshot)
         {
-            _autoDismissTimer.Interval = TimeSpan.FromSeconds(GetAutoDismissSeconds(ViewModel));
-            if (!_isMouseOver)
-                _autoDismissTimer.Start();
+            if (snapshot == null || snapshot.CardId != _cardId)
+                return;
+            ApplyActivitySnapshot(snapshot);
+        }
+
+        public void SetShowBranding(bool show)
+        {
+            if (_showBranding == show || _closedCallbackRaised)
+                return;
+            _showBranding = show;
+            if (_lastSnapshot != null)
+                ApplyActivitySnapshot(_lastSnapshot, preserveSnapshot: true);
+            if (!show)
+            {
+                HideBrand(immediate: true);
+                return;
+            }
+            if (!_brandRevealed)
+                ParkBrandRow();
+            if (_brandPointerOver && _brandPointerMoved)
+                ScheduleBrandReveal();
         }
 
         public void CloseImmediate()
         {
-            if (_isClosing)
+            if (_closedCallbackRaised)
                 return;
             _isClosing = true;
-            _autoDismissTimer.Stop();
-            Close();
-            _onClosed?.Invoke(this);
+            try { Close(); }
+            finally { NotifyClosed(); }
         }
 
-        private void ApplyViewModelText(McpToastViewModel vm)
+        public void BeginClose()
         {
-            _titleText.Text = vm.Title ?? string.Empty;
-            _categoryText.Text = vm.CategoryLabel ?? string.Empty;
-            _categoryText.Visibility = string.IsNullOrWhiteSpace(vm.CategoryLabel)
-                ? Visibility.Collapsed
-                : Visibility.Visible;
-            _summaryText.Text = vm.Summary ?? string.Empty;
-            _detailText.Text = vm.Detail ?? string.Empty;
-            _detailText.Visibility = string.IsNullOrWhiteSpace(vm.Detail)
-                ? Visibility.Collapsed
-                : Visibility.Visible;
-            _durationText.Text = FormatDuration(vm);
+            if (_closedCallbackRaised || _isClosing)
+                return;
+            if (!_motionEnabled())
+            {
+                CloseImmediate();
+                return;
+            }
+            _isClosing = true;
+            var duration = TimeSpan.FromMilliseconds(220);
+            var ease = new QuadraticEase { EasingMode = EasingMode.EaseIn };
+            var fade = new DoubleAnimation(Opacity, 0, duration) { EasingFunction = ease };
+            fade.Completed += (_, __) =>
+            {
+                try { Close(); }
+                finally { NotifyClosed(); }
+            };
+            BeginAnimation(OpacityProperty, fade);
         }
 
-        private void ApplyThumbnail(string path)
+        public void CapturePointerBaseline()
         {
+            var point = _cursorPosition();
+            if (IsCursorPointValid(point))
+            {
+                _hasPointerPosition = true;
+                _lastPointerX = (int)point.X;
+                _lastPointerY = (int)point.Y;
+            }
+        }
+
+        private void ApplyActivitySnapshot(ActivitySnapshot snapshot, bool preserveSnapshot = false)
+        {
+            if (!preserveSnapshot)
+                _lastSnapshot = snapshot;
+
+            _root.BorderBrush = McpToastTheme.BuildAccentBrush(!snapshot.HasFailure);
+            _iconText.Text = snapshot.LatestSuccess ? "\uE73E" : "\uE783";
+            _iconText.Foreground = snapshot.HasFailure ? McpToastTheme.Error : McpToastTheme.Primary;
+
+            if (snapshot.IsStatus)
+            {
+                var status = ResolveStatusText(snapshot);
+                _titleText.Text = status.Title;
+                _counterRow.Visibility = Visibility.Collapsed;
+                _bodyText.Visibility = Visibility.Visible;
+                _bodyText.Text = status.Body;
+                _bodyText.ToolTip = status.Body;
+            }
+            else
+            {
+                _titleText.Text = ActivityTitle(snapshot.Title);
+                _counterRow.Visibility = Visibility.Visible;
+                _bodyText.Visibility = Visibility.Collapsed;
+                _successLabel.Text = LocalizedOrFallback("toast.activity.success", "Success");
+                _failedLabel.Text = LocalizedOrFallback("toast.activity.failed", "Failed");
+                _captureLabel.Text = LocalizedOrFallback("toast.activity.capture", "Capture");
+                var animate = !preserveSnapshot && IsVisible && _motionEnabled();
+                _successCount.SetValue(snapshot.Succeeded, McpToastTheme.Primary, animate);
+                _failedCount.SetValue(snapshot.Failed,
+                    snapshot.Failed > 0 ? McpToastTheme.Error : McpToastTheme.TextSecondary, animate);
+                _captureCount.SetValue(snapshot.Images, McpToastTheme.Primary, animate);
+                _counterRow.ToolTip = snapshot.Body;
+                System.Windows.Automation.AutomationProperties.SetName(_counterRow,
+                    snapshot.Succeeded + " " + _successLabel.Text + " | "
+                    + snapshot.Failed + " " + _failedLabel.Text + " | "
+                    + snapshot.Images + " " + _captureLabel.Text);
+            }
+
+            _titleText.ToolTip = _titleText.Text;
+            _titleText.TextWrapping = TextWrapping.NoWrap;
+            _titleText.TextTrimming = TextTrimming.CharacterEllipsis;
+        }
+
+        private string ActivityTitle(string title)
+        {
+            var hasTitle = !string.IsNullOrWhiteSpace(title);
+            if (!_showBranding)
+                return hasTitle ? title : string.Empty;
+            return hasTitle ? "DWG-MCP - " + title : "DWG-MCP";
+        }
+
+        private bool TryOpenLatestImage()
+        {
+            var path = _lastSnapshot == null ? null : _lastSnapshot.LatestImagePath;
             if (!ToastContentBuilder.IsSafeImagePath(path))
-            {
-                _thumbnailHost.Visibility = Visibility.Collapsed;
-                _thumbnailImage.Source = null;
-                return;
-            }
-
-            var bytes = ToastThumbnailLoader.TryLoadBytes(path, 8 * 1024 * 1024);
-            if (bytes == null)
-            {
-                _thumbnailHost.Visibility = Visibility.Collapsed;
-                _thumbnailImage.Source = null;
-                return;
-            }
-
-            try
-            {
-                using (var stream = new MemoryStream(bytes))
-                {
-                    var bitmap = new BitmapImage();
-                    bitmap.BeginInit();
-                    bitmap.CacheOption = BitmapCacheOption.OnLoad;
-                    bitmap.DecodePixelWidth = 300;
-                    bitmap.StreamSource = stream;
-                    bitmap.EndInit();
-                    bitmap.Freeze();
-                    _thumbnailImage.Source = bitmap;
-                }
-                _thumbnailHost.Visibility = Visibility.Visible;
-            }
-            catch
-            {
-                _thumbnailHost.Visibility = Visibility.Collapsed;
-                _thumbnailImage.Source = null;
-            }
-        }
-
-        private void HandleToastClick()
-        {
-            if (_isClosing)
-            {
-                BeginClose();
-                return;
-            }
-
-            if (ViewModel.Success
-                && string.Equals(ViewModel.CommandName, "capture_view_image", StringComparison.OrdinalIgnoreCase))
-            {
-                TryOpenCapturedImage(ViewModel.ThumbnailPath);
-            }
-
-            BeginClose();
-        }
-
-        private static void TryOpenCapturedImage(string path)
-        {
-            if (!ToastContentBuilder.IsSafeImagePath(path))
-                return;
-
+                return false;
             try
             {
                 Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+                return true;
             }
             catch
             {
-                // Best-effort — dismiss still proceeds.
+                return false;
             }
         }
 
-        /// <summary>Brand reveal: a lit front wipes left→right once while a narrow band of
-        /// lighter letters sweeps through the wordmark in sync, then the wordmark stays lit.
-        /// The pass starts ~1.3 s after the card appears — the delay for a reader's eye to
-        /// land on a fresh toast (delayMs=1300). Replayed quickly on hover.</summary>
-        private void WipeBrand(int delayMs = 1300)
+        private void ScheduleBrandReveal()
         {
-            var dur = TimeSpan.FromMilliseconds(800);
-            var ease = new QuadraticEase { EasingMode = EasingMode.EaseInOut };
-            var wipe = new DoubleAnimation(-0.75, 0.75, dur)
+            if (!_showBranding || !_brandPointerOver || _closedCallbackRaised || _isClosing)
+                return;
+            if (_brandRevealed && !_brandHiding)
+                return;
+            if (_brandHiding)
+                ParkBrandRow();
+            if (!_motionEnabled())
             {
-                BeginTime = TimeSpan.FromMilliseconds(delayMs),
-                EasingFunction = ease
+                ShowBrandSettled();
+                return;
+            }
+            if (_brandRevealTimer != null)
+                return;
+
+            _brandRevealTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(BrandRevealDelayMs) };
+            _brandRevealTimer.Tick += (_, __) =>
+            {
+                CancelBrandRevealTimer();
+                if (!_showBranding || !_brandPointerOver || _closedCallbackRaised || _isClosing)
+                    return;
+                BeginBrandReveal();
             };
-            _brandSweep.BeginAnimation(TranslateTransform.XProperty, wipe);
-            _shineSweep.BeginAnimation(TranslateTransform.XProperty, wipe);   // same timeline, two clocks
+            _brandRevealTimer.Start();
         }
 
-        /// <summary>Dim→full-crest→rest alpha profile sliding across the wordmark.</summary>
-        private static LinearGradientBrush BuildBrandMask(TranslateTransform sweep)
+        private void BeginBrandReveal()
+        {
+            _brandHideGeneration++;
+            _brandHiding = false;
+            _brandCell.BeginAnimation(UIElement.OpacityProperty, null);
+            _brandCell.Opacity = 1;
+            _brandRow.Visibility = Visibility.Visible;
+            _brandRevealed = true;
+            _brandText.OpacityMask = BuildBrandRevealMask(_brandSweep);
+            _brandShine.OpacityMask = BuildShineMask(_shineSweep);
+            StopBrandSweep();
+            _brandSweep.X = _shineSweep.X = -0.75;
+            var wipe = new DoubleAnimation(-0.75, 0.75, TimeSpan.FromMilliseconds(BrandRevealDurationMs))
+            {
+                EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut }
+            };
+            _brandSweep.BeginAnimation(TranslateTransform.XProperty, wipe);
+            _shineSweep.BeginAnimation(TranslateTransform.XProperty, wipe);
+        }
+
+        private void ShowBrandSettled()
+        {
+            _brandHideGeneration++;
+            _brandHiding = false;
+            CancelBrandRevealTimer();
+            StopBrandSweep();
+            _brandCell.BeginAnimation(UIElement.OpacityProperty, null);
+            _brandCell.Opacity = 1;
+            _brandRow.Visibility = Visibility.Visible;
+            _brandRevealed = true;
+            _brandText.OpacityMask = new SolidColorBrush(Dim(BrandSettleOpacity));
+            _brandShine.OpacityMask = Brushes.Transparent;
+        }
+
+        private void HideBrand(bool immediate)
+        {
+            CancelBrandRevealTimer();
+            StopBrandSweep();
+            if (immediate || !_motionEnabled() || !_brandRevealed)
+            {
+                ParkBrandRow();
+                return;
+            }
+
+            _brandHiding = true;
+            var generation = ++_brandHideGeneration;
+            var fade = new DoubleAnimation(_brandCell.Opacity, 0, TimeSpan.FromMilliseconds(BrandHideDurationMs))
+            {
+                EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseIn }
+            };
+            fade.Completed += (_, __) =>
+            {
+                if (generation != _brandHideGeneration)
+                    return;
+                ParkBrandRow();
+            };
+            _brandCell.BeginAnimation(UIElement.OpacityProperty, fade);
+        }
+
+        private bool HasIdentity => !string.IsNullOrEmpty(_instanceIdentity);
+
+        private void ParkBrandRow()
+        {
+            _brandHideGeneration++;
+            _brandHiding = false;
+            _brandRevealed = false;
+            CancelBrandRevealTimer();
+            StopBrandSweep();
+            _brandCell.BeginAnimation(UIElement.OpacityProperty, null);
+            _brandCell.Opacity = 1;
+            _brandSweep.X = _shineSweep.X = -0.75;
+            _brandText.OpacityMask = BuildBrandRevealMask(_brandSweep);
+            _brandShine.OpacityMask = BuildShineMask(_shineSweep);
+            _brandRow.Visibility = HasIdentity
+                ? Visibility.Visible
+                : (_showBranding ? Visibility.Hidden : Visibility.Collapsed);
+        }
+
+        private void CancelBrandRevealTimer()
+        {
+            if (_brandRevealTimer == null)
+                return;
+            _brandRevealTimer.Stop();
+            _brandRevealTimer = null;
+        }
+
+        private void StopBrandSweep()
+        {
+            _brandSweep.BeginAnimation(TranslateTransform.XProperty, null);
+            _shineSweep.BeginAnimation(TranslateTransform.XProperty, null);
+        }
+
+        private static LinearGradientBrush BuildBrandRevealMask(TranslateTransform sweep)
         {
             return new LinearGradientBrush
             {
@@ -472,16 +619,14 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
                 GradientStops =
                 {
                     new GradientStop(Dim(BrandSettleOpacity), 0.00),
-                    new GradientStop(Dim(BrandSettleOpacity), 0.32),
-                    new GradientStop(Dim(1.0), 0.44),
-                    new GradientStop(Dim(BrandRestOpacity), 0.58),
-                    new GradientStop(Dim(BrandRestOpacity), 1.00),
+                    new GradientStop(Dim(BrandSettleOpacity), 0.36),
+                    new GradientStop(Dim(0.0), 0.44),
+                    new GradientStop(Dim(0.0), 0.52),
+                    new GradientStop(Dim(0.0), 1.00),
                 }
             };
         }
 
-        /// <summary>Narrow alpha band peaking on the brand front's crest so the glint
-        /// and the wipe arrive together.</summary>
         private static LinearGradientBrush BuildShineMask(TranslateTransform sweep)
         {
             return new LinearGradientBrush
@@ -505,39 +650,123 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
             return Color.FromArgb((byte)Math.Round(alpha * 255), 0, 0, 0);
         }
 
-        private void BeginClose()
+        private static TextBlock AddCounter(Panel row, RollingToastNumber number)
         {
-            if (_isClosing)
-                return;
-            _isClosing = true;
-            _autoDismissTimer.Stop();
-
-            var duration = TimeSpan.FromMilliseconds(220);
-            var ease = new QuadraticEase { EasingMode = EasingMode.EaseIn };
-            var fade = new DoubleAnimation(Opacity, 0, duration) { EasingFunction = ease };
-            fade.Completed += (_, __) =>
+            row.Children.Add(number);
+            var label = new TextBlock
             {
-                Close();
-                _onClosed?.Invoke(this);
+                FontSize = 12,
+                Foreground = McpToastTheme.Text,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(3, 0, 0, 0)
             };
-            BeginAnimation(OpacityProperty, fade);
+            row.Children.Add(label);
+            return label;
         }
 
-        private static string FormatDuration(McpToastViewModel vm)
+        private static void AddCounterSeparator(Panel row)
         {
-            return vm.DurationMs > 0 ? $"{vm.DurationMs}ms" : string.Empty;
+            row.Children.Add(new TextBlock
+            {
+                Text = "|",
+                FontSize = 12,
+                Foreground = McpToastTheme.MutedAccent,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(8, 0, 6, 0)
+            });
         }
 
-        private static double GetAutoDismissSeconds(McpToastViewModel vm)
+        private static ActivityStatusText ResolveStatusText(ActivitySnapshot snapshot)
         {
-            if (vm.AutoDismissSeconds.HasValue)
-                return vm.AutoDismissSeconds.Value;
-            if (!vm.Success)
-                return 8;
-            if (!string.IsNullOrEmpty(vm.ThumbnailPath))
-                return 9;
-            return vm.Kind == ToolActivityKind.Write ? 6 : 3;
+            if (snapshot != null && snapshot.StatusTextProvider != null)
+            {
+                try
+                {
+                    var localized = snapshot.StatusTextProvider();
+                    if (localized != null)
+                        return new ActivityStatusText(localized.Title ?? string.Empty, localized.Body ?? string.Empty);
+                }
+                catch
+                {
+                }
+            }
+
+            return new ActivityStatusText(
+                snapshot == null ? string.Empty : snapshot.Title ?? string.Empty,
+                snapshot == null ? string.Empty : snapshot.Body ?? string.Empty);
         }
+
+        private static string LocalizedOrFallback(string key, string fallback)
+        {
+            var value = L.T(key);
+            return string.IsNullOrWhiteSpace(value) || string.Equals(value, key, StringComparison.Ordinal)
+                ? fallback
+                : value;
+        }
+
+        private void NotifyClosed()
+        {
+            if (_closedCallbackRaised)
+                return;
+            _closedCallbackRaised = true;
+            var activityClosed = _activityClosed;
+            DetachHandlers();
+            activityClosed?.Invoke(this, _cardId);
+        }
+
+        private void DetachHandlers()
+        {
+            if (_handlersDetached)
+                return;
+            _handlersDetached = true;
+            if (_closeHost != null)
+                _closeHost.MouseLeftButtonUp -= _closeHostMouseUpHandler;
+            MouseEnter -= _mouseEnterHandler;
+            MouseMove -= _mouseMoveHandler;
+            MouseLeave -= _mouseLeaveHandler;
+            MouseLeftButtonUp -= _mouseUpHandler;
+            CancelBrandRevealTimer();
+            _brandHideGeneration++;
+            _brandCell.BeginAnimation(UIElement.OpacityProperty, null);
+            SourceInitialized -= _sourceInitializedHandler;
+            Closed -= _closedHandler;
+            BeginAnimation(OpacityProperty, null);
+            StopBrandSweep();
+            _successCount.StopAnimation();
+            _failedCount.StopAnimation();
+            _captureCount.StopAnimation();
+            _activityClosed = null;
+            _activityDismissed = null;
+            _activityClicked = null;
+            _activityPointerEntered = null;
+            _activityPointerLeft = null;
+        }
+
+        private bool PointerPositionChanged()
+        {
+            var point = _cursorPosition();
+            if (!IsCursorPointValid(point))
+                return true;
+            var x = (int)point.X;
+            var y = (int)point.Y;
+            if (_hasPointerPosition && x == _lastPointerX && y == _lastPointerY)
+                return false;
+            _hasPointerPosition = true;
+            _lastPointerX = x;
+            _lastPointerY = y;
+            return true;
+        }
+
+        private static Point ReadCursorPosition()
+        {
+            return GetCursorPos(out var point)
+                ? new Point(point.X, point.Y)
+                : new Point(double.NaN, double.NaN);
+        }
+
+        private static bool IsCursorPointValid(Point point) =>
+            !double.IsNaN(point.X) && !double.IsInfinity(point.X)
+            && !double.IsNaN(point.Y) && !double.IsInfinity(point.Y);
 
         private void MakeNoActivate()
         {
@@ -552,7 +781,6 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
             }
             catch
             {
-                // Best-effort — toast still works without the style.
             }
         }
 
@@ -561,5 +789,15 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
 
         [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW")]
         private static extern IntPtr SetWindowLongPtr(IntPtr hWnd, int index, IntPtr value);
+
+        [DllImport("user32.dll")]
+        private static extern bool GetCursorPos(out POINT point);
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct POINT
+        {
+            public int X;
+            public int Y;
+        }
     }
 }

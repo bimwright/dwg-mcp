@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using Newtonsoft.Json;
 
 namespace Bimwright.Dwg.Server
@@ -5,6 +7,9 @@ namespace Bimwright.Dwg.Server
     public static class ServerState
     {
         public static DwgMcpConfig Config { get; set; } = new DwgMcpConfig();
+
+        /// <summary>Tool classes registered for this process. The catalog push reads this list.</summary>
+        public static IReadOnlyList<Type> EnabledToolTypes { get; set; } = Array.Empty<Type>();
 
         public static bool IsReadOnly => Config?.ReadOnlyOrDefault ?? false;
 

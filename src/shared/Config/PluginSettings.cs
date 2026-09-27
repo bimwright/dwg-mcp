@@ -14,6 +14,8 @@ namespace Bimwright.Dwg.Plugin
     {
         public const string EnvEnableToast = "BIMWRIGHT_ENABLE_TOAST";
         public const bool DefaultEnableToast = true;
+        public const int DefaultToastIdleSeconds = 20;
+        public static readonly int[] ToastIdleChoices = { 10, 20, 30, 60 };
 
         /// <summary>Test hook: redirect the settings file to a fixture path.</summary>
         internal static string FilePathOverride { get; set; }
@@ -36,8 +38,36 @@ namespace Bimwright.Dwg.Plugin
             return file ?? DefaultEnableToast;
         }
 
+        public static int NormalizeToastIdleSeconds(int seconds)
+        {
+            for (var i = 0; i < ToastIdleChoices.Length; i++)
+            {
+                if (ToastIdleChoices[i] == seconds)
+                    return seconds;
+            }
+            return DefaultToastIdleSeconds;
+        }
+
+        public static int LoadToastIdleSeconds()
+        {
+            var file = ReadToastIdleSeconds(FilePath);
+            return file.HasValue ? NormalizeToastIdleSeconds(file.Value) : DefaultToastIdleSeconds;
+        }
+
         /// <summary>Persist only enableToast into the JSON file, preserving other keys.</summary>
-        public static void SaveEnableToast(bool enabled)
+        public static bool SaveEnableToast(bool enabled)
+        {
+            return TryUpdate(root => root["enableToast"] = enabled, "SaveEnableToast");
+        }
+
+        /// <summary>Persist toastIdleSeconds. Values outside 10/20/30/60 are stored as 20.</summary>
+        public static bool SaveToastIdleSeconds(int seconds)
+        {
+            var normalized = NormalizeToastIdleSeconds(seconds);
+            return TryUpdate(root => root["toastIdleSeconds"] = normalized, "SaveToastIdleSeconds");
+        }
+
+        private static bool TryUpdate(Action<JObject> mutate, string operation)
         {
             var path = FilePath;
             try
@@ -49,16 +79,32 @@ namespace Bimwright.Dwg.Plugin
                     catch { root = null; }
                 }
                 root = root ?? new JObject();
-                root["enableToast"] = enabled;
+                mutate(root);
 
                 var dir = Path.GetDirectoryName(path);
                 if (!string.IsNullOrEmpty(dir))
                     Directory.CreateDirectory(dir);
                 File.WriteAllText(path, root.ToString(Newtonsoft.Json.Formatting.Indented));
+                return true;
             }
             catch (Exception ex)
             {
-                PluginLog.Debug("PluginSettings.SaveEnableToast failed: " + ex.Message);
+                PluginLog.Debug("PluginSettings." + operation + " failed: " + ex.Message);
+                return false;
+            }
+        }
+
+        internal static int? ReadToastIdleSeconds(string path)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+                    return null;
+                return JObject.Parse(File.ReadAllText(path))["toastIdleSeconds"]?.Value<int?>();
+            }
+            catch
+            {
+                return null;
             }
         }
 

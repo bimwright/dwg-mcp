@@ -2,6 +2,7 @@ using System;
 using System.Threading;
 using System.Windows;
 using System.Windows.Threading;
+using Bimwright.Dwg.Plugin;
 
 namespace Bimwright.Dwg.Plugin.Views.Toast
 {
@@ -15,7 +16,47 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
         private IntPtr _ownerHandle;
         private bool _shutdownRequested;
         private bool _usesDedicatedThread;
+        private bool _showBranding;
+        private int _idleSeconds;
+        private volatile string _instanceIdentity;
+        private Func<bool> _frameUsable = () => true;
         private Application _toastApplication;
+
+        public ActivityAggregator Aggregator { get; }
+
+        /// <summary>Session wordmark. Default off. Not written to settings.</summary>
+        public bool ShowBranding => _showBranding;
+
+        public McpToastHost()
+        {
+            _idleSeconds = PluginSettings.LoadToastIdleSeconds();
+            Aggregator = new ActivityAggregator(() => _idleSeconds);
+        }
+
+        public void SetShowBranding(bool show)
+        {
+            _showBranding = show;
+            PostToManager(manager => manager.ApplyShowBranding());
+        }
+
+        public void SetIdleSeconds(int seconds)
+        {
+            _idleSeconds = PluginSettings.NormalizeToastIdleSeconds(seconds);
+        }
+
+        /// <summary>
+        /// Footer label such as "AutoCAD 2024". Read when each card is created.
+        /// </summary>
+        public void SetInstanceIdentity(string identity)
+        {
+            _instanceIdentity = string.IsNullOrWhiteSpace(identity) ? null : identity;
+        }
+
+        public void SetFrameUsableProvider(Func<bool> provider)
+        {
+            if (provider != null)
+                _frameUsable = provider;
+        }
 
         public void SetHostDispatcher(Dispatcher dispatcher)
         {
@@ -46,7 +87,7 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
                 if (hostDispatcher != null)
                 {
                     _dispatcher = hostDispatcher;
-                    _manager = new McpToastManager(_dispatcher);
+                    _manager = CreateManager(_dispatcher);
                     if (_ownerHandle != IntPtr.Zero)
                         _manager.SetOwnerHandle(_ownerHandle);
                     _usesDedicatedThread = false;
@@ -70,7 +111,7 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
                         }
 
                         _dispatcher = Dispatcher.CurrentDispatcher;
-                        _manager = new McpToastManager(_dispatcher);
+                        _manager = CreateManager(_dispatcher);
                         if (_ownerHandle != IntPtr.Zero)
                             _manager.SetOwnerHandle(_ownerHandle);
                     }
@@ -148,7 +189,6 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
             if (_shutdownRequested && !synchronous)
                 return;
 
-            EnsureStarted();
             var dispatcher = _dispatcher;
             var manager = _manager;
             if (dispatcher == null || manager == null || dispatcher.HasShutdownStarted)
@@ -208,6 +248,16 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
             var thread = _thread;
             if (thread != null && thread.IsAlive)
                 thread.Join(TimeSpan.FromSeconds(2));
+        }
+
+        private McpToastManager CreateManager(Dispatcher dispatcher)
+        {
+            return new McpToastManager(
+                dispatcher,
+                Aggregator,
+                () => _frameUsable(),
+                () => _showBranding,
+                () => _instanceIdentity);
         }
 
         private void PostToManager(Action<McpToastManager> action)

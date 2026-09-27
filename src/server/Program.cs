@@ -63,7 +63,9 @@ Call dwg_get_selected_texts before text writeback. Read-only mode also permits v
 
         private static IMcpServerBuilder RegisterToolsets(IMcpServerBuilder mcp, HashSet<string> enabled)
         {
-            foreach (var toolType in ResolveToolTypesForRegistration(enabled, ServerState.IsReadOnly))
+            var toolTypes = new List<Type>(ResolveToolTypesForRegistration(enabled, ServerState.IsReadOnly));
+            ServerState.EnabledToolTypes = toolTypes;
+            foreach (var toolType in toolTypes)
             {
                 mcp = RegisterToolType(mcp, toolType);
             }

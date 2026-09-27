@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Bimwright.Dwg.Plugin.Handlers;
+using Bimwright.Dwg.Plugin.ToolCatalog;
 
 namespace Bimwright.Dwg.Plugin
 {
@@ -90,7 +90,6 @@ namespace Bimwright.Dwg.Plugin
             string id = null;
             string cmd = null;
             JToken parameters = null;
-            var sw = Stopwatch.StartNew();
             try
             {
                 var request = JObject.Parse(requestLine);
@@ -103,17 +102,22 @@ namespace Bimwright.Dwg.Plugin
                 cmd = (string)request["cmd"];
                 parameters = request["params"];
 
+                if (string.Equals(cmd, "set_tool_catalog", StringComparison.Ordinal))
+                {
+                    var catalogError = ToolCatalogStore.AcceptJson(parameters);
+                    if (catalogError != null)
+                        return ErrorJson(id, catalogError);
+                    return SerializeResponse(id, cmd, CommandResult.Success(new { accepted = ToolCatalogStore.Snapshot().Length }));
+                }
+
                 var preflight = ValidateCommand(cmd, parameters, out var preflightHandler);
                 if (!preflight.Ok)
                 {
-                    sw.Stop();
-                    NotifyCompleted(cmd, parameters, null, false, preflight.Error,
-                        sw.ElapsedMilliseconds, preflightHandler?.Description);
+                    NotifyCompleted(cmd, null, false, preflight.Error, preflightHandler?.Description);
                     return SerializeResponse(id, cmd, preflight);
                 }
 
                 var result = DocumentInvoker.Invoke(doc => ExecuteCommand(doc, cmd, parameters));
-                sw.Stop();
 
                 string resultJson = null;
                 if (result.Ok)
@@ -127,15 +131,12 @@ namespace Bimwright.Dwg.Plugin
                     catch { }
                 }
 
-                NotifyCompleted(cmd, parameters, resultJson, result.Ok, result.Error,
-                    sw.ElapsedMilliseconds, preflightHandler?.Description);
+                NotifyCompleted(cmd, resultJson, result.Ok, result.Error, preflightHandler?.Description);
                 return SerializeResponse(id, cmd, result);
             }
             catch (Exception ex)
             {
-                sw.Stop();
-                NotifyCompleted(cmd, parameters, null, false, ex.Message,
-                    sw.ElapsedMilliseconds, null);
+                NotifyCompleted(cmd, null, false, ex.Message, null);
                 return ErrorJson(id, ex.Message);
             }
         }
@@ -144,8 +145,8 @@ namespace Bimwright.Dwg.Plugin
         /// Fire-and-forget completion toast. Uses the privacy-filtered result
         /// (same policy as the wire response) — never raw result data.
         /// </summary>
-        private static void NotifyCompleted(string cmd, JToken parameters, string resultJson,
-            bool success, string error, long durationMs, string description)
+        private static void NotifyCompleted(string cmd, string resultJson,
+            bool success, string error, string description)
         {
             var notifier = App.ToastNotifier;
             if (notifier == null)
@@ -154,11 +155,9 @@ namespace Bimwright.Dwg.Plugin
             {
                 notifier.OnCompleted(
                     cmd,
-                    parameters?.ToString(Formatting.None),
                     resultJson,
                     success,
                     success ? null : McpResponsePrivacy.SanitizeError(error),
-                    durationMs,
                     description);
             }
             catch (Exception ex)
