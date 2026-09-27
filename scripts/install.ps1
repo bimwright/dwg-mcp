@@ -1098,12 +1098,16 @@ try {
         if (-not $WhatIfPreference) {
             $script:installStage = [IO.Path]::GetFullPath((Join-Path ([IO.Path]::GetTempPath()) ('dwgmcp-install-' + [guid]::NewGuid().ToString('N'))))
             New-Item -ItemType Directory -Path $script:installStage | Out-Null
+            $stageContents = Join-Path $script:installStage 'Contents'
+            New-Item -ItemType Directory -Path $stageContents -Force | Out-Null
             foreach ($year in $Years) {
-                $stageYear = Join-Path $script:installStage "Contents\$year"
-                New-Item -ItemType Directory -Path $stageYear -Force | Out-Null
                 if ($bundleSourceDir) {
-                    Copy-Item -LiteralPath (Join-Path $bundleSourceDir "Contents\$year") -Destination $stageYear -Recurse -Force
+                    # Copy into the staged Contents\ root: copying a directory
+                    # onto an existing directory would nest it (2024\2024).
+                    Copy-Item -LiteralPath (Join-Path $bundleSourceDir "Contents\$year") -Destination $stageContents -Recurse -Force
                 } else {
+                    $stageYear = Join-Path $script:installStage "Contents\$year"
+                    New-Item -ItemType Directory -Path $stageYear -Force | Out-Null
                     $binDir = Assert-RepoPayload -RepoRoot (Split-Path -Parent $PSScriptRoot) -Year $year -Configuration $Config
                     # Ship every file except the AutoCAD interop DLLs the host
                     # already provides.
