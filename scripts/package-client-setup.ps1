@@ -9,13 +9,27 @@ param(
     [string]$Config = 'Release',
     [string]$RepoRoot,
     [string]$Version,
-    [string]$OutputDir
+    [string]$OutputDir,
+
+    # Package an uncommitted working tree for a throwaway test build.
+    [switch]$AllowDirty
 )
 
 $ErrorActionPreference = 'Stop'
 
 if (-not $RepoRoot) { $RepoRoot = Split-Path -Parent $PSScriptRoot }
 $RepoRoot = (Resolve-Path $RepoRoot).Path
+
+# A package must match a commit, otherwise testers exercise code nobody can
+# identify. -AllowDirty marks the manifest instead.
+$dirty = $false
+$status = $null
+try { $status = & git -C $RepoRoot status --porcelain 2>$null } catch { $status = $null }
+if ($status) {
+    if (-not $AllowDirty) { throw 'Working tree has uncommitted changes. Commit them so the package matches a commit, or pass -AllowDirty for a throwaway test package.' }
+    $dirty = $true
+    Write-Warning 'Packaging a dirty working tree (-AllowDirty): manifest records dirty=true.'
+}
 if (-not $OutputDir) { $OutputDir = Join-Path $RepoRoot 'build\client-setup' }
 
 if (-not $Version) {
@@ -94,7 +108,9 @@ foreach ($comp in $toRemove) { [void]$manifestXml.ApplicationPackage.RemoveChild
 $manifestXml.Save((Join-Path $bundleStage 'PackageContents.xml'))
 
 Copy-Item (Join-Path $RepoRoot 'scripts\install.ps1') (Join-Path $stageRoot 'install.ps1') -Force
-Copy-Item (Join-Path $RepoRoot 'scripts\uninstall.ps1') (Join-Path $stageRoot 'uninstall.ps1') -Force
+Copy-Item (Join-Path $RepoRoot 'scripts\uninstall-all.ps1') (Join-Path $stageRoot 'uninstall.ps1') -Force
+Copy-Item (Join-Path $RepoRoot 'scripts\uninstall-all.ps1') (Join-Path $stageRoot 'uninstall-all.ps1') -Force
+Copy-Item (Join-Path $RepoRoot 'README.md') (Join-Path $stageRoot 'README.md') -Force
 
 function Get-Rel([string]$Root, [string]$Path) {
     return $Path.Substring($Root.Length).TrimStart('\', '/') -replace '\\', '/'
@@ -116,6 +132,7 @@ $manifest = [ordered]@{
     version = $Version
     generatedAtUtc = (Get-Date).ToUniversalTime().ToString('o')
     commit = $commit
+    dirty = $dirty
     platform = 'win-x64'
     packedAutocadYears = @($packedYears)
     supportedAutocadYears = @(2022, 2023, 2024, 2025, 2026, 2027)

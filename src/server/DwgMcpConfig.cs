@@ -21,6 +21,15 @@ namespace Bimwright.Dwg.Server
         public bool? AllowLanBind { get; set; }
         public string LogLevel { get; set; }
 
+        /// <summary>
+        /// Default config file the installer seeds and the server reads when no
+        /// --config is passed: %LOCALAPPDATA%\Bimwright\Dwg\dwgmcp.config.json.
+        /// </summary>
+        public static string DefaultConfigFilePath =>
+            Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "Bimwright", "Dwg", "dwgmcp.config.json");
+
         [JsonIgnore] public bool ReadOnlyOrDefault => ReadOnly ?? false;
         [JsonIgnore] public bool EnableToolbakerOrDefault => EnableToolbaker ?? true;
         [JsonIgnore] public bool AllowLanBindOrDefault => AllowLanBind ?? false;
@@ -34,7 +43,9 @@ namespace Bimwright.Dwg.Server
             envLookup = envLookup ?? Environment.GetEnvironmentVariable;
 
             var cliConfig = GetOptionValue(args, "--config");
-            var path = string.IsNullOrWhiteSpace(cliConfig) ? configFilePath : cliConfig;
+            var path = !string.IsNullOrWhiteSpace(cliConfig)
+                ? cliConfig
+                : (configFilePath ?? DefaultConfigFilePath);
             var config = LoadJson(path);
 
             ApplyEnv(config, envLookup);

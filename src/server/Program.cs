@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Bimwright.Dwg.Server.Tools;
 using Microsoft.Extensions.DependencyInjection;
@@ -13,6 +14,12 @@ namespace Bimwright.Dwg.Server
     {
         public static async Task Main(string[] args)
         {
+            if (args != null && args.Any(a => a == "--help" || a == "-h"))
+            {
+                PrintHelp();
+                return;
+            }
+
             var config = DwgMcpConfig.Load(args);
             ValidateTarget(config.Target);
             ServerState.Config = config;
@@ -156,6 +163,31 @@ Call dwg_get_selected_texts before text writeback. Read-only mode also permits v
             }
 
             return null;
+        }
+
+        private static void PrintHelp()
+        {
+            Console.WriteLine(
+                "dwg-mcp - MCP stdio gateway for Autodesk AutoCAD 2022-2027.\n" +
+                "\n" +
+                "Usage: dwg-mcp [options]\n" +
+                "\n" +
+                "Options:\n" +
+                "  --target <year>        Pin to AutoCAD 2022|2023|2024|2025|2026|2027.\n" +
+                "  --toolsets <csv>       Toolsets to register (default: query,create,view,meta).\n" +
+                "                         'all' enables the full surface.\n" +
+                "  --read-only            Strip every write/execute tool.\n" +
+                "  --enable-toolbaker / --disable-toolbaker\n" +
+                "  --allow-lan-bind       Parsed but not yet implemented (loopback only).\n" +
+                "  --log-level <level>    trace|debug|information|warning|error.\n" +
+                "  --config <path>        JSON config file. Default:\n" +
+                "                         %LOCALAPPDATA%\\Bimwright\\Dwg\\dwgmcp.config.json\n" +
+                "\n" +
+                "Environment overrides: BIMWRIGHT_DWG_TARGET, BIMWRIGHT_DWG_TOOLSETS,\n" +
+                "BIMWRIGHT_DWG_READ_ONLY, BIMWRIGHT_DWG_ENABLE_TOOLBAKER,\n" +
+                "BIMWRIGHT_DWG_ALLOW_LAN_BIND, BIMWRIGHT_DWG_LOG_LEVEL.\n" +
+                "\n" +
+                "  -h, --help             Show this help and exit.");
         }
 
         private static void WarnIfUnwiredOptions(DwgMcpConfig config)

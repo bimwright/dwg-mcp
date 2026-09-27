@@ -123,21 +123,33 @@ powershell -ExecutionPolicy Bypass -File "$dir\install.ps1" -WhatIf
 powershell -ExecutionPolicy Bypass -File "$dir\install.ps1"
 ```
 
-The installer deploys `%APPDATA%\Autodesk\ApplicationPlugins\Bimwright.Dwg.bundle\` and copies `dwg-mcp.exe` under `%LOCALAPPDATA%\Bimwright\Dwg\server\<version>\`. Restart AutoCAD. Point your MCP client at that `dwg-mcp.exe` path.
+The installer:
+
+- detects installed AutoCAD years (a year counts when its `acad.exe` exists) and installs every packed year that matches; `-Years 2024,2027` forces an explicit list;
+- requires AutoCAD to be closed, and rolls every change back on error;
+- deploys `%APPDATA%\Autodesk\ApplicationPlugins\Bimwright.Dwg.bundle\` (removing stale bundles with the same ProductCode) and the server at the fixed path `%LOCALAPPDATA%\Bimwright\Dwg\server\current\dwg-mcp.exe`;
+- seeds `%LOCALAPPDATA%\Bimwright\Dwg\dwgmcp.config.json` with `"toolsets": ["all"]` on a fresh install — an existing `toolsets` key is kept;
+- wires every detected MCP client by default (`-Client <names>` limits it, `-Client none` skips it); config edits keep JSONC comments and get a `<config>.bak` backup. The entry name is `dwg-mcp`.
+
+Restart AutoCAD, then restart wired MCP clients to load `dwg-mcp`.
+
+**Updating:** close AutoCAD and run the new ZIP's `install.ps1` the same way — no need to uninstall first. The server path stays `server\current\`, so clients only need a restart.
+
+**Uninstall:** `uninstall.ps1` removes the bundle, the server copies, discovery files and caches under `%LOCALAPPDATA%\Bimwright\Dwg\` (settings, config, logs and captures are kept; `-Purge` removes those too). Client config entries are never touched — remove the `dwg-mcp` entry yourself, or run `install.ps1 -Uninstall -Client <names>` first.
 
 Do **not** `dotnet tool install -g Bimwright.Dwg.Server` — that package is not the supported client install.
 
-**Developer (local SDK):** `dotnet build` the year you have, then `pwsh scripts/install.ps1 -Version 2024` from the repo (copies that year’s `bin` output). `NETLOAD` remains available for Debug DLLs.
+**Developer (local SDK):** `dotnet build` the year you have, then `pwsh scripts/install.ps1 -Years 2024` from the repo (copies that year’s `bin` output). `NETLOAD` remains available for Debug DLLs.
 
 ### 3. Wire up your MCP client
 
-Add to your MCP client config (e.g., `.mcp.json`):
+The installer already did this for detected clients (Step `Client :` lines in its summary). To wire by hand, add to your MCP client config (e.g., `.mcp.json`):
 
 ```json
 {
   "mcpServers": {
-    "bimwright-dwg": {
-      "command": "bimwright-dwg",
+    "dwg-mcp": {
+      "command": "C:\\Users\\<user>\\AppData\\Local\\Bimwright\\Dwg\\server\\current\\dwg-mcp.exe",
       "args": []
     }
   }
@@ -149,8 +161,8 @@ Pin a specific AutoCAD instance with a 4-digit target year:
 ```json
 {
   "mcpServers": {
-    "bimwright-dwg": {
-      "command": "bimwright-dwg",
+    "dwg-mcp": {
+      "command": "C:\\Users\\<user>\\AppData\\Local\\Bimwright\\Dwg\\server\\current\\dwg-mcp.exe",
       "args": ["--target", "2024"]
     }
   }
