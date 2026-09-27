@@ -115,8 +115,13 @@ Copy-Item (Join-Path $RepoRoot 'README.md') (Join-Path $stageRoot 'README.md') -
 function Get-Rel([string]$Root, [string]$Path) {
     return $Path.Substring($Root.Length).TrimStart('\', '/') -replace '\\', '/'
 }
+# Stream the hash instead of Get-FileHash: same code path as
+# install.ps1's Assert-SetupManifest, and no module dependency.
 function Get-Sha256Lower([string]$Path) {
-    return ((Get-FileHash -Algorithm SHA256 -Path $Path).Hash).ToLowerInvariant()
+    $stream = [IO.File]::OpenRead($Path)
+    $sha = [Security.Cryptography.SHA256]::Create()
+    try { return [BitConverter]::ToString($sha.ComputeHash($stream)).Replace('-', '').ToLowerInvariant() }
+    finally { $sha.Dispose(); $stream.Dispose() }
 }
 
 $commit = ''
