@@ -1,6 +1,15 @@
 # Changelog
 
-## Unreleased
+## 2.0.1 — 2026-09-28
+
+### Setup
+
+- Installer rewritten for rvt-mcp parity: detects installed AutoCAD 2022–2027 years (a year counts when its `acad.exe` exists), requires AutoCAD closed, stages with per-file rollback on error, sweeps duplicate bundles with the same ProductCode, and blocks on a machine-wide `%ProgramData%` copy.
+- The server installs at the fixed path `%LOCALAPPDATA%\Bimwright\Dwg\server\current\dwg-mcp.exe`, is smoke-checked with `--help`, and the run seeds `%LOCALAPPDATA%\Bimwright\Dwg\dwgmcp.config.json` with `toolsets=["all"]` (an existing `toolsets` key is kept). `-PruneOldServers` removes legacy versioned copies.
+- The installer wires every detected MCP client by default (`-Client <names>` limits it, `-Client none` skips it): minimal JSONC-safe text edits with `<config>.bak` backup, repointing of old versioned server paths, and legacy `bimwright-dwg*` entries reported, never replaced.
+- `uninstall-all.ps1` removes the bundle, the legacy global tool, server copies, discovery files and the spill cache while keeping settings, config, logs and captures; `-Purge` removes those too (`-KeepLogs` keeps logs). Client configs are never touched.
+- `package-client-setup.ps1` refuses a dirty working tree unless `-AllowDirty` (recorded as `dirty` in `manifest.json`), ships `uninstall.ps1`/`uninstall-all.ps1`/`README.md`, and records SHA-256 + bytes for every file.
+- Server: `--help` prints usage and exits; `DwgMcpConfig` defaults to `%LOCALAPPDATA%\Bimwright\Dwg\dwgmcp.config.json` when no `--config` is passed.
 
 ### Visual reading
 
