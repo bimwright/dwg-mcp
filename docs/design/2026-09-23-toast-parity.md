@@ -77,7 +77,7 @@ The ribbon button must reflect the effective state and have a descriptive toolti
 ## Reuse boundaries and expected files
 
 - Copy the RVT visual implementation into `src/shared/Views/Toast/`, recording upstream commit and necessary deltas. Reuse `McpToastWindow`, theme, manager, view model, thumbnail loader and name formatting where applicable.
-- Adapt the notifier/host for AutoCAD; replace RVT application logging hooks. No binary dependency on `rvt-mcp`, KEI or a new family-wide UI package.
+- Adapt the notifier/host for AutoCAD; replace RVT application logging hooks. No binary dependency on `rvt-mcp`, an external design-system assembly or a new family-wide UI package.
 - Add DWG content normalization/classification and safe image-path policy as host-independent logic.
 - Add plugin UI preference handling and ribbon/command integration to the shared plugin source and the common `plugin-acad24/App.cs` used by other shells.
 - Add explicit WPF references/settings across plugin years 2022–2027. The server remains `net8.0` and does not become Windows/WPF-dependent.

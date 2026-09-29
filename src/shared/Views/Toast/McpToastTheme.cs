@@ -5,7 +5,7 @@ using System.Windows.Media;
 namespace Bimwright.Dwg.Plugin.Views.Toast
 {
     /// <summary>
-    /// Light toast palette aligned with KEI DesignTokens (no KEI assembly reference).
+    /// Light toast palette with self-contained color tokens and no external assembly reference.
     /// </summary>
     internal static class McpToastTheme
     {
