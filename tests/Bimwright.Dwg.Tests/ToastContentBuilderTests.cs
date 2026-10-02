@@ -28,7 +28,7 @@ namespace Bimwright.Dwg.Tests
         {
             var capturesDir = System.IO.Path.Combine(
                 System.Environment.GetFolderPath(System.Environment.SpecialFolder.LocalApplicationData),
-                "Bimwright", "Dwg", "captures");
+                "Bimwright", "dwg-mcp", "captures");
             System.IO.Directory.CreateDirectory(capturesDir);
             var path = System.IO.Path.Combine(capturesDir, "toast-test-thumb.png");
             System.IO.File.WriteAllBytes(path, new byte[] { 0x89, 0x50, 0x4E, 0x47 });
@@ -128,6 +128,23 @@ namespace Bimwright.Dwg.Tests
             );
 
             Assert.Contains("compile error", vm.Summary);
+            Assert.False(vm.Success);
+            var activity = new ActivityAggregator();
+            activity.RecordResult(vm.Title, vm.Body, vm.Success, false, true);
+            var card = activity.TakeRender().Card;
+            Assert.Equal(0, card.Succeeded);
+            Assert.Equal(1, card.Failed);
+            Assert.True(card.HasFailure);
+        }
+
+        [Theory]
+        [InlineData("send_code", "{\"ok\":false}")]
+        [InlineData("dwg_send_code", "{\"ok\":false,\"error\":\"\"}")]
+        public void BuildCompleted_script_failure_without_error_still_counts_as_failed(string tool, string result)
+        {
+            var vm = ToastContentBuilder.BuildCompleted(tool, result, true, null, null);
+            Assert.False(vm.Success);
+            Assert.Equal("Tool call failed", vm.Summary);
         }
 
         [Fact]
@@ -230,7 +247,7 @@ namespace Bimwright.Dwg.Tests
         public void IsSafeImagePath_rejects_sibling_of_captures_directory()
         {
             var localAppData = System.Environment.GetFolderPath(System.Environment.SpecialFolder.LocalApplicationData);
-            var siblingDir = System.IO.Path.Combine(localAppData, "Bimwright", "Dwg", "capturesEvil");
+            var siblingDir = System.IO.Path.Combine(localAppData, "Bimwright", "dwg-mcp", "capturesEvil");
             System.IO.Directory.CreateDirectory(siblingDir);
             var path = System.IO.Path.Combine(siblingDir, "evil.png");
             System.IO.File.WriteAllBytes(path, new byte[] { 0x89, 0x50, 0x4E, 0x47 });
@@ -310,6 +327,48 @@ namespace Bimwright.Dwg.Tests
         }
 
         [Theory]
+        [InlineData("off", true, false)]
+        [InlineData(" ON ", false, true)]
+        [InlineData("invalid", false, false)]
+        [InlineData(null, false, false)]
+        public void LoadToastEnabled_uses_DWG_env_before_file(string value, bool fileValue, bool expected)
+        {
+            const string envName = "BIMWRIGHT_DWG_ENABLE_TOAST";
+            var previous = Environment.GetEnvironmentVariable(envName);
+            try
+            {
+                PluginSettings.SaveEnableToast(fileValue);
+                Environment.SetEnvironmentVariable(envName, value);
+                Assert.Equal(expected, PluginSettings.LoadToastEnabled());
+                Assert.Equal(fileValue, PluginSettings.ReadEnableToast(PluginSettings.FilePathOverride));
+            }
+            finally { Environment.SetEnvironmentVariable(envName, previous); }
+        }
+
+        [Fact]
+        public void LoadToastEnabled_ignores_the_unscoped_legacy_env()
+        {
+            const string envName = "BIMWRIGHT_DWG_ENABLE_TOAST";
+            const string legacyName = "BIMWRIGHT_ENABLE_TOAST";
+            var previous = Environment.GetEnvironmentVariable(envName);
+            var previousLegacy = Environment.GetEnvironmentVariable(legacyName);
+            try
+            {
+                Environment.SetEnvironmentVariable(envName, null);
+                Environment.SetEnvironmentVariable(legacyName, "off");
+                Assert.True(PluginSettings.LoadToastEnabled());
+                PluginSettings.SaveEnableToast(false);
+                Environment.SetEnvironmentVariable(legacyName, "on");
+                Assert.False(PluginSettings.LoadToastEnabled());
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable(envName, previous);
+                Environment.SetEnvironmentVariable(legacyName, previousLegacy);
+            }
+        }
+
+        [Theory]
         [InlineData("1", true)]
         [InlineData("0", false)]
         [InlineData("true", true)]
@@ -338,6 +397,47 @@ namespace Bimwright.Dwg.Tests
             PluginSettings.SaveToastIdleSeconds(60);
             Assert.False(PluginSettings.ReadEnableToast(PluginSettings.FilePathOverride));
             Assert.Equal(60, PluginSettings.ReadToastIdleSeconds(PluginSettings.FilePathOverride));
+        }
+
+        [Fact]
+        public void LoadShowBranding_defaults_false_when_nothing_set()
+        {
+            Assert.False(PluginSettings.LoadShowBranding());
+        }
+
+        [Fact]
+        public void SaveShowBranding_round_trips_and_preserves_other_keys()
+        {
+            PluginSettings.SaveEnableToast(false);
+            PluginSettings.SaveToastIdleSeconds(30);
+
+            Assert.True(PluginSettings.SaveShowBranding(true));
+            Assert.True(PluginSettings.LoadShowBranding());
+            Assert.False(PluginSettings.ReadEnableToast(PluginSettings.FilePathOverride));
+            Assert.Equal(30, PluginSettings.ReadToastIdleSeconds(PluginSettings.FilePathOverride));
+
+            Assert.True(PluginSettings.SaveShowBranding(false));
+            Assert.False(PluginSettings.LoadShowBranding());
+        }
+
+        [Theory]
+        [InlineData("{ not json")]
+        [InlineData("[1, 2]")]
+        public void Save_refuses_to_overwrite_a_file_it_cannot_parse(string content)
+        {
+            System.IO.File.WriteAllText(PluginSettings.FilePathOverride, content);
+            Assert.False(PluginSettings.SaveEnableToast(false));
+            Assert.False(PluginSettings.SaveShowBranding(true));
+            Assert.False(PluginSettings.SaveToastIdleSeconds(30));
+            Assert.Equal(content, System.IO.File.ReadAllText(PluginSettings.FilePathOverride));
+        }
+
+        [Fact]
+        public void Save_over_a_blank_file_writes_a_fresh_object()
+        {
+            System.IO.File.WriteAllText(PluginSettings.FilePathOverride, "   ");
+            Assert.True(PluginSettings.SaveShowBranding(true));
+            Assert.True(PluginSettings.LoadShowBranding());
         }
     }
 }

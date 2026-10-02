@@ -24,6 +24,7 @@ namespace Bimwright.Dwg.Plugin.Views.Settings
         private readonly TextBlock _clientText;
         private readonly TextBlock _copiedText;
         private readonly TextBlock _applyNote;
+        private readonly TextBlock _brandingNote;
         private readonly Button _copyPort;
         private readonly Button _listener;
         private readonly Button _apply;
@@ -51,7 +52,7 @@ namespace Bimwright.Dwg.Plugin.Views.Settings
             _savedIdle = PluginSettings.LoadToastIdleSeconds();
             var tabs = new TabControl { Margin = new Thickness(12, 12, 12, 0) };
             tabs.Items.Add(Page(L.T("settings.tab.general"), BuildGeneral(out _transportText, out _clientText, out _copiedText, out _copyPort, out _listener)));
-            tabs.Items.Add(Page(L.T("settings.tab.toast"), BuildToast(out _toastEnabled, out _showBranding, out _idle)));
+            tabs.Items.Add(Page(L.T("settings.tab.toast"), BuildToast(out _toastEnabled, out _showBranding, out _idle, out _brandingNote)));
             tabs.Items.Add(Page(L.T("settings.tab.tools"), BuildTools(out _search, out _toolsStatus, out _tools)));
             tabs.Items.Add(Page(L.T("settings.tab.about"), BuildAbout()));
 
@@ -142,7 +143,14 @@ namespace Bimwright.Dwg.Plugin.Views.Settings
             return panel;
         }
 
-        private UIElement BuildToast(out CheckBox enabled, out CheckBox branding, out ComboBox idle)
+        private void SetShowBranding(bool show)
+        {
+            App.ToastNotifier?.SetShowBranding(show);
+            _brandingNote.Text = PluginSettings.SaveShowBranding(show)
+                ? string.Empty : L.T("toast.status.saveFailed");
+        }
+
+        private UIElement BuildToast(out CheckBox enabled, out CheckBox branding, out ComboBox idle, out TextBlock brandingNote)
         {
             var panel = new StackPanel { Margin = new Thickness(8) };
             enabled = new CheckBox
@@ -161,6 +169,12 @@ namespace Bimwright.Dwg.Plugin.Views.Settings
             };
             panel.Children.Add(branding);
             panel.Children.Add(Help(L.T("settings.toast.brand.help")));
+            brandingNote = new TextBlock
+            {
+                Foreground = McpToastTheme.Error, TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 4, 0, 0)
+            };
+            panel.Children.Add(brandingNote);
             panel.Children.Add(new TextBlock
             {
                 Text = L.T("settings.toast.idle"),
@@ -179,6 +193,9 @@ namespace Bimwright.Dwg.Plugin.Views.Settings
             SelectIdle(idle, _savedIdle);
             panel.Children.Add(idle);
             panel.Children.Add(Help(L.T("settings.toast.idle.help")));
+            panel.Children.Add(new ToastPositionControls(
+                () => App.ToastNotifier?.Position ?? PluginSettings.LoadToastPosition(),
+                value => App.ToastNotifier != null ? App.ToastNotifier.SetPosition(value) : PluginSettings.SaveToastPosition(value)));
             var env = Environment.GetEnvironmentVariable(PluginSettings.EnvEnableToast);
             if (!string.IsNullOrEmpty(env))
             {
@@ -187,8 +204,8 @@ namespace Bimwright.Dwg.Plugin.Views.Settings
 
             enabled.Checked += (_, __) => { if (!_suppressToastEvents) App.SetToastEnabled(true); };
             enabled.Unchecked += (_, __) => { if (!_suppressToastEvents) App.SetToastEnabled(false); };
-            branding.Checked += (_, __) => App.ToastNotifier?.SetShowBranding(true);
-            branding.Unchecked += (_, __) => App.ToastNotifier?.SetShowBranding(false);
+            branding.Checked += (_, __) => SetShowBranding(true);
+            branding.Unchecked += (_, __) => SetShowBranding(false);
             idle.SelectionChanged += (_, __) =>
             {
                 if (_applyNote != null)

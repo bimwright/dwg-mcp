@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+  </PropertyGroup>
+  <!-- Real WPF windows on an STA dispatcher, independent of AutoCAD. -->
+  <ItemGroup>
+    <Compile Include="../../src/shared/Views/Toast/ToastPositionControls.cs" Link="ToastPositionControls.cs" />
+    <Compile Include="../../src/shared/Views/Toast/ActivityAggregator.Dwg.cs" Link="ActivityAggregator.Dwg.cs" />
+    <Compile Include="../../src/shared/Views/Toast/ToastActivityEntry.cs" Link="ToastActivityEntry.cs" />
+    <Compile Include="../../src/shared/Views/Toast/ToastActivityLog.cs" Link="ToastActivityLog.cs" />
+    <Compile Include="../../src/shared/Views/Toast/ToastPlacement.cs" Link="ToastPlacement.cs" />
+    <Compile Include="../../src/shared/Config/ToastPositionOptions.cs" Link="ToastPositionOptions.cs" />
+    <Compile Include="../../src/shared/Config/ToastPositionSettings.cs" Link="ToastPositionSettings.cs" />
+    <Compile Include="../../src/shared/Security/SecretMasker.cs" Link="SecretMasker.cs" />
+    <Compile Include="../../src/shared/Views/Toast/ToastActivityPanel.cs" Link="ToastActivityPanel.cs" />
+    <Compile Include="../../src/shared/Views/Toast/ToastScrollBarStyles.cs" Link="ToastScrollBarStyles.cs" />
+
+    <Compile Include="../../src/shared/Views/Toast/ActivityAggregator.cs" Link="ActivityAggregator.cs" />
+    <Compile Include="../../src/shared/Views/Toast/McpToastWindow.cs" Link="McpToastWindow.cs" />
+    <Compile Include="../../src/shared/Views/Toast/RollingToastNumber.cs" Link="RollingToastNumber.cs" />
+    <Compile Include="../../src/shared/Views/Toast/McpToastManager.cs" Link="McpToastManager.cs" />
+    <Compile Include="../../src/shared/Views/Toast/McpToastHost.cs" Link="McpToastHost.cs" />
+    <Compile Include="../../src/shared/Views/Toast/McpToastNotifier.cs" Link="McpToastNotifier.cs" />
+    <Compile Include="../../src/shared/Config/PluginSettings.cs" Link="PluginSettings.cs" />
+    <Compile Include="../../src/shared/Infrastructure/PluginLog.cs" Link="PluginLog.cs" />
+    <Compile Include="../../src/shared/Views/Toast/McpToastTheme.cs" Link="McpToastTheme.cs" />
+    <Compile Include="../../src/shared/Views/Toast/McpToastViewModel.cs" Link="McpToastViewModel.cs" />
+    <Compile Include="../../src/shared/Views/Toast/ToolActivityClassifier.cs" Link="ToolActivityClassifier.cs" />
+    <Compile Include="../../src/shared/Views/Toast/ActivityHistory.cs" Link="ActivityHistory.cs" />
+    <Compile Include="../../src/shared/Views/HistoryWindow.cs" Link="HistoryWindow.cs" />
+    <Compile Include="../../src/shared/Views/Toast/ToastContentBuilder.cs" Link="ToastContentBuilder.cs" />
+    <Compile Include="../../src/shared/Views/Toast/ToastThumbnailLoader.cs" Link="ToastThumbnailLoader.cs" />
+    <Compile Include="../../src/shared/Views/Toast/ToolNameFormatter.cs" Link="ToolNameFormatter.cs" />
+    <Compile Include="../../src/shared/Security/PathAllowlist.cs" Link="PathAllowlist.cs" />
+    <Compile Include="../../src/shared/Views/BrandAssets.cs" Link="BrandAssets.cs" />
+    <Compile Include="../../src/shared/Localization/L.cs" Link="Localization\L.cs" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+  </ItemGroup>
+</Project>

@@ -1,6 +1,7 @@
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.Runtime;
 using Bimwright.Dwg.Plugin.ToolCatalog;
+using Bimwright.Dwg.Plugin.Views;
 using Bimwright.Dwg.Plugin.Views.Settings;
 using Bimwright.Dwg.Plugin.Views.Toast;
 
@@ -24,6 +25,11 @@ namespace Bimwright.Dwg.Plugin
         // burst of activity instead of once per call.
         private static readonly System.TimeSpan ClientPresenceGap = System.TimeSpan.FromSeconds(30);
         private static SettingsWindow _settings;
+        private static HistoryWindow _history;
+        private static System.Windows.Threading.Dispatcher _uiDispatcher;
+
+        // Card title ("dwg-mcp 2024"): tells cards from parallel gateways and AutoCAD years apart.
+        private const string ToastTitle = Views.BrandAssets.ProductName + " " + PluginTarget.AutoCadYear;
 
         /// <summary>Set at startup; CommandDispatcher fires completion toasts through it.</summary>
         public static McpToastNotifier ToastNotifier { get; private set; }
@@ -60,6 +66,8 @@ namespace Bimwright.Dwg.Plugin
             try { _server?.Stop(); } catch { }
             try { ToolCatalogStore.Clear(); } catch { }
             try { CloseSettings(); } catch { }
+            try { _history?.Close(); } catch { }
+            _history = null;
             try { ToastNotifier?.Shutdown(); } catch { }
             try { DocumentInvoker.Shutdown(); } catch { }
             try { View.DrawingRevision.Shutdown(); } catch { }
@@ -105,6 +113,46 @@ namespace Bimwright.Dwg.Plugin
         public static void McpSettings()
         {
             ShowOrFocusSettings();
+        }
+
+        [CommandMethod("MCPHISTORY", CommandFlags.Session)]
+        public static void McpHistory()
+        {
+            ShowOrFocusHistory();
+        }
+
+        internal static void ShowOrFocusHistory()
+        {
+            var dispatcher = _uiDispatcher;
+            if (dispatcher != null && !dispatcher.CheckAccess())
+            {
+                if (!dispatcher.HasShutdownStarted && !dispatcher.HasShutdownFinished)
+                    dispatcher.BeginInvoke(new System.Action(ShowOrFocusHistory));
+                return;
+            }
+            if (ToastNotifier == null)
+                InitializeToast();
+            if (_history != null)
+            {
+                if (_history.WindowState == System.Windows.WindowState.Minimized)
+                    _history.WindowState = System.Windows.WindowState.Normal;
+                _history.Activate();
+                return;
+            }
+            var window = new HistoryWindow(ToastNotifier.History, ToastTitle);
+            window.Closed += (_, __) =>
+            {
+                if (ReferenceEquals(_history, window))
+                    _history = null;
+            };
+            _history = window;
+            try { Application.ShowModelessWindow(window); }
+            catch (System.Exception ex)
+            {
+                _history = null;
+                try { window.Close(); } catch { }
+                WriteLine("History could not open: " + ex.Message);
+            }
         }
 
         internal static void SetToastEnabled(bool enabled)
@@ -212,7 +260,8 @@ namespace Bimwright.Dwg.Plugin
             _toastEnabled = PluginSettings.LoadToastEnabled();
             var host = new McpToastHost();
             ToastNotifier = new McpToastNotifier(host, () => _toastEnabled);
-            ToastNotifier.SetInstanceInfo("AutoCAD " + PluginTarget.AutoCadYear);
+            ToastNotifier.SetInstanceInfo(ToastTitle);
+            ToastNotifier.SetActivityClickHandler(_ => ShowOrFocusHistory());
 
             // Anchor toasts to the AutoCAD window and reuse the host WPF dispatcher
             // when AutoCAD already runs one (its ribbon is WPF).
@@ -227,6 +276,7 @@ namespace Bimwright.Dwg.Plugin
             {
                 var dispatcher = System.Windows.Application.Current?.Dispatcher
                     ?? System.Windows.Threading.Dispatcher.CurrentDispatcher;
+                _uiDispatcher = dispatcher;
                 ToastNotifier.SetHostDispatcher(dispatcher);
             }
             catch { }
@@ -249,7 +299,7 @@ namespace Bimwright.Dwg.Plugin
             if (notifier == null)
                 return;
 
-            notifier.SetInstanceInfo("AutoCAD " + PluginTarget.AutoCadYear);
+            notifier.SetInstanceInfo(ToastTitle);
             notifier.FlushPendingIfUsable();
 
             var now = System.DateTime.UtcNow;

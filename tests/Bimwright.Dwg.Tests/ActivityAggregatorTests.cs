@@ -18,10 +18,10 @@ namespace Bimwright.Dwg.Tests
         private ActivityAggregator Make() => new ActivityAggregator(() => _idleSeconds, () => _clock.Now);
 
         private static void Ok(ActivityAggregator a, bool image = false, bool usable = true) =>
-            a.RecordResult("Create Line", "Line created", true, image, usable);
+            a.RecordResult("Create Line", "Line created", true, image, usable, image ? "capture.png" : null);
 
         private static void Fail(ActivityAggregator a, bool image = false, bool usable = true) =>
-            a.RecordResult("Create Circle", "No document is open.", false, image, usable);
+            a.RecordResult("Create Circle", "No document is open.", false, image, usable, image ? "capture.png" : null);
 
         private static ActivitySnapshot Visible(ActivityAggregator a)
         {
@@ -49,15 +49,118 @@ namespace Bimwright.Dwg.Tests
             Assert.False(card.LatestSuccess);
         }
 
+        // --- thumbnail hold ---------------------------------------------------
+
         [Fact]
-        public void Latest_image_path_follows_the_latest_result()
+        public void A_capture_stays_for_the_hold_before_a_later_result_clears_it()
         {
             var a = Make();
-            a.RecordResult("Capture", "Saved plan.png", true, true, true, @"C:\captures\plan.png");
-            Assert.Equal(@"C:\captures\plan.png", Visible(a).LatestImagePath);
+            Ok(a, image: true);
+            Assert.Equal("capture.png", Visible(a).ImagePath);
 
-            a.RecordResult("Query", "ok", true, false, true, null);
-            Assert.Null(Visible(a).LatestImagePath);
+            // A newer result without an image keeps the count; the thumbnail waits for the hold.
+            _clock.At(1);
+            Ok(a);
+            var card = Visible(a);
+            Assert.Equal("capture.png", card.ImagePath);
+            Assert.Equal(1, card.Images);
+
+            _clock.At(4.9);
+            Assert.False(a.Tick(true));
+            _clock.At(5);
+            Assert.True(a.Tick(true));
+            card = Visible(a);
+            Assert.Null(card.ImagePath);
+            Assert.Equal(1, card.Images);
+        }
+
+        [Fact]
+        public void After_the_hold_the_newest_result_decides_at_once()
+        {
+            var a = Make();
+            Ok(a, image: true);
+            Visible(a);
+
+            _clock.At(6);
+            Ok(a);
+            Assert.Null(Visible(a).ImagePath);
+
+            // A failed result never surfaces a thumbnail.
+            _clock.At(7);
+            Fail(a, image: true);
+            Assert.Null(Visible(a).ImagePath);
+        }
+
+        [Fact]
+        public void Captures_in_a_row_switch_after_the_hold_to_the_newest_waiting_one()
+        {
+            var a = Make();
+            a.RecordResult("Capture View", "Saved", true, true, true, "first.png");
+            Visible(a);
+            _clock.At(1);
+            a.RecordResult("Capture View", "Saved", true, true, true, "second.png");
+            _clock.At(2);
+            a.RecordResult("Capture View", "Saved", true, true, true, "third.png");
+            var card = Visible(a);
+            Assert.Equal("first.png", card.ImagePath);
+            Assert.Equal(3, card.Images);
+
+            _clock.At(5);
+            Assert.True(a.Tick(true));
+            Assert.Equal("third.png", Visible(a).ImagePath);
+
+            // The capture switched in gets its own full hold.
+            _clock.At(6);
+            Ok(a);
+            _clock.At(9.9);
+            Assert.False(a.Tick(true));
+            Assert.Equal("third.png", Visible(a).ImagePath);
+            _clock.At(10);
+            Assert.True(a.Tick(true));
+            Assert.Null(Visible(a).ImagePath);
+        }
+
+        [Fact]
+        public void Pointer_on_the_card_keeps_the_thumbnail_until_it_leaves()
+        {
+            var a = Make();
+            Ok(a, image: true);
+            var id = Visible(a).CardId;
+            _clock.At(1);
+            Ok(a);
+            Visible(a);
+
+            _clock.At(2);
+            a.PointerEntered(id);
+            _clock.At(30);
+            Assert.False(a.Tick(true));
+            Assert.Equal("capture.png", Visible(a).ImagePath);
+
+            a.PointerLeft(id);
+            Assert.True(a.Tick(true));
+            Assert.Null(Visible(a).ImagePath);
+        }
+
+        [Fact]
+        public void A_parked_capture_gets_a_full_hold_once_shown()
+        {
+            var a = Make();
+            Ok(a, image: true);
+            Visible(a);
+
+            _clock.At(1);
+            Assert.True(a.Tick(false)); // minimized: parked
+            a.TakeRender();
+            _clock.At(60);
+            Assert.True(a.FlushIfUsable(true));
+            Assert.Equal("capture.png", Visible(a).ImagePath);
+
+            _clock.At(61);
+            Ok(a);
+            Assert.Equal("capture.png", Visible(a).ImagePath);
+            _clock.At(65);
+            Assert.True(a.Tick(true));
+            Assert.Null(Visible(a).ImagePath);
         }
 
         [Fact]

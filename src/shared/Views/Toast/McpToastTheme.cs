@@ -17,8 +17,12 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
         public static readonly SolidColorBrush TextSecondary = Brush("#64748B");
         public static readonly SolidColorBrush CloseIcon = Brush("#64748B");
         public static readonly SolidColorBrush Primary = Brush("#007ACC");
+        public static readonly SolidColorBrush Success = Brush("#38A169");
         public static readonly SolidColorBrush Error = Brush("#E53E3E");
+        public static readonly SolidColorBrush ActivityBorder = Brush("#D8DEE8");
         public static readonly SolidColorBrush MutedAccent = Brush("#94A3B8");
+        // Backdrop behind a capture: darker than the card so a white sheet reads as a sheet.
+        public static readonly SolidColorBrush ThumbnailBackground = Brush("#E6EAF0");
         // Brand wordmark colours come from the logo: navy "BIM" + green "wright".
         public static readonly SolidColorBrush BrandBim = Brush("#0C3F76");
         public static readonly SolidColorBrush BrandWright = Brush("#589039");
@@ -27,12 +31,27 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
         public static readonly SolidColorBrush BrandBimShine = Frozen(Lighten(BrandBim.Color, 0.45));
         public static readonly SolidColorBrush BrandWrightShine = Frozen(Lighten(BrandWright.Color, 0.45));
 
-        public static Brush BuildAccentBrush(bool success)
+        public static Brush BuildAccentBrush(McpToastViewModel vm)
         {
-            var baseColor = success
-                ? ((SolidColorBrush)Primary).Color
-                : ((SolidColorBrush)Error).Color;
+            Color baseColor;
+            if (!vm.Success)
+                baseColor = ((SolidColorBrush)Error).Color;
+            else
+                baseColor = ((SolidColorBrush)Primary).Color;
+
             return BuildAccentGradient(baseColor);
+        }
+
+        public static Brush BuildIconBrush(McpToastViewModel vm)
+        {
+            if (!vm.Success)
+                return Error;
+            return Primary;
+        }
+
+        public static string GetIconGlyph(McpToastViewModel vm)
+        {
+            return vm.Success ? "\uE73E" : "\uE783";
         }
 
         private static Brush BuildAccentGradient(Color baseColor)

@@ -17,10 +17,28 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
             string resultJson,
             bool success,
             string errorMessage,
-            string toolDescription)
+            string toolDescription,
+            long durationMs = 0)
         {
+            toolName = ToolActivityClassifier.Normalize(toolName);
             if (string.IsNullOrEmpty(toolName))
                 toolName = "unknown";
+
+            // Older plugins report script failures inside an outer successful
+            // transport envelope. Normalize that outcome before counting/displaying it.
+            if (success && toolName == "send_code")
+            {
+                try
+                {
+                    var script = string.IsNullOrWhiteSpace(resultJson) ? null : JObject.Parse(resultJson);
+                    if (script?.Value<bool?>("ok") == false)
+                    {
+                        success = false;
+                        errorMessage = script.Value<string>("error");
+                    }
+                }
+                catch { }
+            }
 
             var content = success
                 ? BuildSuccessContent(toolName, resultJson)
@@ -28,11 +46,14 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
 
             return new McpToastViewModel
             {
+                CommandName = toolName,
                 Title = ToolNameFormatter.Format(toolName),
                 Summary = content.Summary,
                 Detail = content.Detail,
                 ThumbnailPath = content.ThumbnailPath,
-                Success = success
+                Kind = ToolActivityClassifier.Classify(toolName),
+                Success = success,
+                DurationMs = Math.Max(0, durationMs)
             };
         }
 
@@ -64,7 +85,7 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
 
         private static ToastContent BuildFailureContent(string toolName, string errorMessage, string toolDescription)
         {
-            var summary = Truncate(errorMessage ?? L.T("toast.failed.default"), 120);
+            var summary = Truncate(string.IsNullOrWhiteSpace(errorMessage) ? L.T("toast.failed.default") : errorMessage, 120);
             var detail = !string.IsNullOrWhiteSpace(toolDescription)
                 ? Truncate(toolDescription, 100)
                 : ToolNameFormatter.Format(toolName);
@@ -114,13 +135,6 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
 
         private static ToastContent BuildSendCodeSuccess(JObject result)
         {
-            // dwg send_code reports script failures inside a successful envelope:
-            // ok=false + error for compile/runtime faults.
-            var innerOk = result?.Value<bool?>("ok");
-            var innerError = result?.Value<string>("error");
-            if (innerOk == false && !string.IsNullOrWhiteSpace(innerError))
-                return new ToastContent(Truncate(FirstLine(innerError), 100), L.T("toast.sendCode.detail"));
-
             var text = result?.Value<string>("result");
             var summary = string.IsNullOrWhiteSpace(text) ? L.T("toast.sendCode.finished") : Truncate(FirstLine(text), 100);
             return new ToastContent(summary, L.T("toast.sendCode.detail"));

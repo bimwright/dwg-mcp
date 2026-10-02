@@ -5,16 +5,17 @@ using Newtonsoft.Json.Linq;
 namespace Bimwright.Dwg.Plugin
 {
     /// <summary>
-    /// Plugin-side settings at %LOCALAPPDATA%\Bimwright\Dwg\settings.json.
-    /// Env var overlays the file value at load time, same posture as rvt-mcp:
-    /// the MCPTOAST command writes the file; BIMWRIGHT_ENABLE_TOAST re-wins
+    /// Plugin-side settings at %LOCALAPPDATA%\Bimwright\dwg-mcp\settings.json.
+    /// Env var overlays the file value at load time:
+    /// the MCPTOAST command writes the file; BIMWRIGHT_DWG_ENABLE_TOAST re-wins
     /// at next launch while it is set.
     /// </summary>
-    public static class PluginSettings
+    public static partial class PluginSettings
     {
-        public const string EnvEnableToast = "BIMWRIGHT_ENABLE_TOAST";
+        public const string EnvEnableToast = "BIMWRIGHT_DWG_ENABLE_TOAST";
         public const bool DefaultEnableToast = true;
         public const int DefaultToastIdleSeconds = 20;
+        public const bool DefaultShowBranding = false;
         public static readonly int[] ToastIdleChoices = { 10, 20, 30, 60 };
 
         /// <summary>Test hook: redirect the settings file to a fixture path.</summary>
@@ -23,7 +24,7 @@ namespace Bimwright.Dwg.Plugin
         public static string DefaultFilePath =>
             Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "Bimwright", "Dwg", "settings.json");
+                "Bimwright", "dwg-mcp", "settings.json");
 
         private static string FilePath =>
             string.IsNullOrWhiteSpace(FilePathOverride) ? DefaultFilePath : FilePathOverride;
@@ -54,6 +55,11 @@ namespace Bimwright.Dwg.Plugin
             return file.HasValue ? NormalizeToastIdleSeconds(file.Value) : DefaultToastIdleSeconds;
         }
 
+        public static bool LoadShowBranding()
+        {
+            return ReadShowBranding(FilePath) ?? DefaultShowBranding;
+        }
+
         /// <summary>Persist only enableToast into the JSON file, preserving other keys.</summary>
         public static bool SaveEnableToast(bool enabled)
         {
@@ -67,7 +73,18 @@ namespace Bimwright.Dwg.Plugin
             return TryUpdate(root => root["toastIdleSeconds"] = normalized, "SaveToastIdleSeconds");
         }
 
+        /// <summary>Persist showBranding so the wordmark choice survives an AutoCAD restart.</summary>
+        public static bool SaveShowBranding(bool show)
+        {
+            return TryUpdate(root => root["showBranding"] = show, "SaveShowBranding");
+        }
+
+        private static readonly object WriteGate = new object();
         private static bool TryUpdate(Action<JObject> mutate, string operation)
+        {
+            lock (WriteGate) return TryUpdateLocked(mutate, operation);
+        }
+        private static bool TryUpdateLocked(Action<JObject> mutate, string operation)
         {
             var path = FilePath;
             try
@@ -75,8 +92,18 @@ namespace Bimwright.Dwg.Plugin
                 JObject root = null;
                 if (File.Exists(path))
                 {
-                    try { root = JObject.Parse(File.ReadAllText(path)); }
-                    catch { root = null; }
+                    var text = File.ReadAllText(path);
+                    if (!string.IsNullOrWhiteSpace(text))
+                    {
+                        // Never clobber a file the user wrote but we cannot parse.
+                        try { root = JToken.Parse(text) as JObject; }
+                        catch { root = null; }
+                        if (root == null)
+                        {
+                            PluginLog.Debug("PluginSettings." + operation + " skipped: settings file is not a JSON object.");
+                            return false;
+                        }
+                    }
                 }
                 root = root ?? new JObject();
                 mutate(root);
@@ -84,7 +111,14 @@ namespace Bimwright.Dwg.Plugin
                 var dir = Path.GetDirectoryName(path);
                 if (!string.IsNullOrEmpty(dir))
                     Directory.CreateDirectory(dir);
-                File.WriteAllText(path, root.ToString(Newtonsoft.Json.Formatting.Indented));
+                var temporary = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
+                try
+                {
+                    File.WriteAllText(temporary, root.ToString(Newtonsoft.Json.Formatting.Indented));
+                    if (File.Exists(path)) File.Replace(temporary, path, null);
+                    else File.Move(temporary, path);
+                }
+                finally { if (File.Exists(temporary)) File.Delete(temporary); }
                 return true;
             }
             catch (Exception ex)
@@ -101,6 +135,20 @@ namespace Bimwright.Dwg.Plugin
                 if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
                     return null;
                 return JObject.Parse(File.ReadAllText(path))["toastIdleSeconds"]?.Value<int?>();
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        internal static bool? ReadShowBranding(string path)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+                    return null;
+                return JObject.Parse(File.ReadAllText(path))["showBranding"]?.Value<bool?>();
             }
             catch
             {

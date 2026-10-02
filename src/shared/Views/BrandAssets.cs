@@ -30,5 +30,7 @@ namespace Bimwright.Dwg.Plugin.Views
         public const string Wordmark = "BIMwright";
         /// <summary>Lowercase product tag used in tooltips.</summary>
         public const string ProductTag = "bimwright dwg-mcp";
+        /// <summary>Gateway name in the toast title, followed by the AutoCAD year.</summary>
+        public const string ProductName = "dwg-mcp";
     }
 }

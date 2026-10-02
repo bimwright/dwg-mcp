@@ -29,13 +29,18 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
             _host.SetOwnerHandle(hwnd);
         }
 
+        public ToastPositionOptions Position => _host.Position;
+        public bool SetPosition(ToastPositionOptions value) => _host.SetPosition(value);
         public bool ShowBranding => _host.ShowBranding;
+        public ActivityHistory History => _host.History;
+
+        public void SetActivityClickHandler(Action<long> handler) => _host.SetActivityClickHandler(handler);
 
         public void SetShowBranding(bool show) => _host.SetShowBranding(show);
 
         public void SetIdleSeconds(int seconds) => _host.SetIdleSeconds(seconds);
 
-        /// <summary>Session footer, for example "AutoCAD 2024". Applies to the next card.</summary>
+        /// <summary>Card title, for example "dwg-mcp 2024". Applies to the next card.</summary>
         public void SetInstanceInfo(string info) => _host.SetInstanceIdentity(info);
 
         public void SetHostDispatcher(System.Windows.Threading.Dispatcher dispatcher) =>
@@ -46,20 +51,25 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
             string resultJson,
             bool success,
             string errorMessage,
-            string toolDescription)
+            string toolDescription,
+            long durationMs = 0)
         {
-            if (!_isEnabled())
-                return;
-
             var vm = ToastContentBuilder.BuildCompleted(
                 toolName,
                 resultJson,
                 success,
                 errorMessage,
-                toolDescription);
+                toolDescription,
+                durationMs);
+
+            // History is session UI state, independent of toast visibility and of
+            // persistent call logging. Only the compact, filtered outcome is retained.
+            _host.History.Record(vm);
+            if (!_isEnabled())
+                return;
 
             var imagePath = ToastContentBuilder.IsSafeImagePath(vm.ThumbnailPath) ? vm.ThumbnailPath : null;
-            Record(vm.Title, vm.Body, vm.Success, vm.Success && imagePath != null, imagePath);
+            Record(vm.Title, vm.Body, vm.Success, vm.Success && (vm.CommandName == "capture_view_image" || imagePath != null), imagePath, vm.DurationMs);
         }
 
         /// <summary>One-shot connection confirmation. Does not cover an open activity card.</summary>
@@ -114,9 +124,9 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
             _host.Shutdown();
         }
 
-        private void Record(string title, string body, bool success, bool hasImage, string imagePath)
+        private void Record(string title, string body, bool success, bool hasImage, string imagePath, long? durationMs = null)
         {
-            if (_activity.RecordResult(title, body, success, hasImage, IsOwnerFrameUsable(), imagePath))
+            if (_activity.RecordResult(title, body, success, hasImage, IsOwnerFrameUsable(), imagePath, durationMs))
                 _host.Post(manager => manager.Render());
         }
 

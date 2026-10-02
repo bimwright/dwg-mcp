@@ -16,20 +16,31 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
         private IntPtr _ownerHandle;
         private bool _shutdownRequested;
         private bool _usesDedicatedThread;
-        private bool _showBranding;
-        private int _idleSeconds;
+        private volatile bool _showBranding;
+        private volatile ToastPositionOptions _position = PluginSettings.LoadToastPosition();
+        public ToastPositionOptions Position => _position;
+        public bool SetPosition(ToastPositionOptions value)
+        {
+            _position = value;
+            PostToManager(manager => manager.ApplyPosition());
+            return PluginSettings.SaveToastPosition(value);
+        }
+        private volatile int _idleSeconds;
+        private Action<long> _activityClick = _ => { };
         private volatile string _instanceIdentity;
         private Func<bool> _frameUsable = () => true;
         private Application _toastApplication;
 
         public ActivityAggregator Aggregator { get; }
+        public ActivityHistory History { get; } = new ActivityHistory();
 
-        /// <summary>Session wordmark. Default off. Not written to settings.</summary>
+        /// <summary>Hover wordmark. Default off; loaded from settings.json at startup.</summary>
         public bool ShowBranding => _showBranding;
 
         public McpToastHost()
         {
             _idleSeconds = PluginSettings.LoadToastIdleSeconds();
+            _showBranding = PluginSettings.LoadShowBranding();
             Aggregator = new ActivityAggregator(() => _idleSeconds);
         }
 
@@ -45,7 +56,7 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
         }
 
         /// <summary>
-        /// Footer label such as "AutoCAD 2024". Read when each card is created.
+        /// Card title naming this instance, such as "dwg-mcp 2024". Read when each card is created.
         /// </summary>
         public void SetInstanceIdentity(string identity)
         {
@@ -56,6 +67,11 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
         {
             if (provider != null)
                 _frameUsable = provider;
+        }
+
+        public void SetActivityClickHandler(Action<long> handler)
+        {
+            _activityClick = handler ?? (_ => { });
         }
 
         public void SetHostDispatcher(Dispatcher dispatcher)
@@ -223,6 +239,7 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
         {
             // Close windows before flipping the shutdown flag so DismissAll can still run.
             DismissAll(synchronous: true);
+            _manager?.Dispose();
 
             lock (_lock)
             {
@@ -256,8 +273,11 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
                 dispatcher,
                 Aggregator,
                 () => _frameUsable(),
-                () => _showBranding,
-                () => _instanceIdentity);
+                showBranding: () => _showBranding,
+                instanceIdentity: () => _instanceIdentity,
+                onClick: id => _activityClick(id),
+                positionOptions: () => _position,
+                positionChanged: value => SetPosition(value));
         }
 
         private void PostToManager(Action<McpToastManager> action)

@@ -6,6 +6,13 @@
     <RootNamespace>Bimwright.Dwg.Tests</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="../../src/shared/Views/Toast/ActivityAggregator.Dwg.cs" Link="ActivityAggregator.Dwg.cs" />
+    <Compile Include="../../src/shared/Views/Toast/ToastActivityEntry.cs" Link="ToastActivityEntry.cs" />
+    <Compile Include="../../src/shared/Views/Toast/ToastActivityLog.cs" Link="ToastActivityLog.cs" />
+    <Compile Include="../../src/shared/Views/Toast/ToastPlacement.cs" Link="ToastPlacement.cs" />
+    <Compile Include="../../src/shared/Config/ToastPositionOptions.cs" Link="ToastPositionOptions.cs" />
+    <Compile Include="../../src/shared/Config/ToastPositionSettings.cs" Link="ToastPositionSettings.cs" />
+
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
     <PackageReference Include="xunit" Version="2.6.2" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.5.4" />
@@ -50,6 +57,8 @@
     <Compile Include="..\..\src\shared\Views\Toast\ToastContentBuilder.cs" LinkBase="Shared\Views\Toast" />
     <Compile Include="..\..\src\shared\Views\Toast\ToolNameFormatter.cs" LinkBase="Shared\Views\Toast" />
     <Compile Include="..\..\src\shared\Views\Toast\McpToastViewModel.cs" LinkBase="Shared\Views\Toast" />
+    <Compile Include="..\..\src\shared\Views\Toast\ToolActivityClassifier.cs" LinkBase="Shared\Views\Toast" />
+    <Compile Include="..\..\src\shared\Views\Toast\ActivityHistory.cs" LinkBase="Shared\Views\Toast" />
     <Compile Include="..\..\src\shared\Security\PathAllowlist.cs" LinkBase="Shared\Security" />
     <Compile Include="..\..\src\shared\Localization\L.cs" LinkBase="Shared\Localization" />
     <Compile Include="..\..\src\shared\Config\PluginSettings.cs" LinkBase="Shared\Config" />

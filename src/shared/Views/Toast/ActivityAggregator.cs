@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 
 namespace Bimwright.Dwg.Plugin.Views.Toast
@@ -8,7 +9,8 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
     {
         public ActivitySnapshot(long cardId, bool isStatus, int succeeded, int failed, int images,
             string title, string body, bool latestSuccess, bool hasFailure,
-            Func<ActivityStatusText> statusTextProvider = null, string latestImagePath = null)
+            Func<ActivityStatusText> statusTextProvider = null, string imagePath = null,
+            IReadOnlyList<ToastActivityEntry> recentEntries = null)
         {
             CardId = cardId;
             IsStatus = isStatus;
@@ -20,7 +22,8 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
             LatestSuccess = latestSuccess;
             HasFailure = hasFailure;
             StatusTextProvider = statusTextProvider;
-            LatestImagePath = latestImagePath;
+            ImagePath = imagePath;
+            RecentEntries = ToastActivityLog.Freeze(recentEntries);
         }
 
         /// <summary>Never reused — a window callback carrying an old id is ignored.</summary>
@@ -42,8 +45,12 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
         /// their captured result text.
         /// </summary>
         public Func<ActivityStatusText> StatusTextProvider { get; }
-        /// <summary>Allowlisted image from the latest result, or null.</summary>
-        public string LatestImagePath { get; }
+        /// <summary>Allowlisted capture shown as the card thumbnail, or null. A capture stays for at
+        /// least <see cref="ActivityAggregator.ThumbnailHoldSeconds"/>; after that the newest
+        /// result decides (its own capture, or none).</summary>
+        public string ImagePath { get; }
+        /// <summary>All compact outcomes in this card, oldest first; the preview scrolls to the latest.</summary>
+        public IReadOnlyList<ToastActivityEntry> RecentEntries { get; }
     }
 
     /// <summary>Localized title/body for a status card, resolved at render time.</summary>
@@ -83,9 +90,10 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
     /// render runs return false, so a burst of results costs one render. Only a new result and
     /// a real pointer leave re-arm the deadline — rendering, ticking and status cards never do.
     /// </summary>
-    public sealed class ActivityAggregator
+    public sealed partial class ActivityAggregator
     {
         public const int DefaultIdleSeconds = 20;
+        public const int ThumbnailHoldSeconds = 5;
 
         // Pending: counted while the AutoCAD frame was unusable, shown by FlushIfUsable.
         private enum Phase { None, Pending, Visible, Closing }
@@ -93,6 +101,8 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
         private readonly object _gate = new object();
         private readonly Func<int> _idleSeconds;
         private readonly Func<TimeSpan> _now;
+        private readonly ToastActivityLog _recentEntries = new ToastActivityLog();
+        private readonly Func<DateTimeOffset> _wallClock;
 
         private Phase _phase;
         private long _cardId;
@@ -105,6 +115,11 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
         private string _title;
         private string _body;
         private string _imagePath;
+        private TimeSpan _imageShownAt;
+        // A result that arrived while the current capture was still held: its image, or
+        // null to clear. Only the newest waiting change is kept.
+        private bool _imageChangePending;
+        private string _pendingImagePath;
         private bool _latestSuccess;
         private bool _hasFailure;
         private Func<ActivityStatusText> _statusTextProvider;
@@ -115,8 +130,10 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
         /// <param name="idleSeconds">Read each time the deadline is set, so a changed setting
         /// applies from the next re-arm. Called under the lock — must be cheap.</param>
         /// <param name="now">Monotonic clock; defaults to a Stopwatch.</param>
-        public ActivityAggregator(Func<int> idleSeconds = null, Func<TimeSpan> now = null)
+        public ActivityAggregator(Func<int> idleSeconds = null, Func<TimeSpan> now = null,
+            Func<DateTimeOffset> wallClock = null)
         {
+            _wallClock = wallClock ?? (() => DateTimeOffset.Now);
             _idleSeconds = idleSeconds ?? (() => DefaultIdleSeconds);
             if (now == null)
             {
@@ -131,8 +148,10 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
             get { lock (_gate) return _phase == Phase.Pending; }
         }
 
-        public bool RecordResult(string title, string body, bool success, bool hasImage, bool frameUsable, string imagePath = null)
+        public bool RecordResult(string title, string body, bool success, string imagePath, bool frameUsable,
+            long? durationMs = null)
         {
+            var entry = new ToastActivityEntry(title, body, success, durationMs, _wallClock());
             lock (_gate)
             {
                 var activityOpen = !_isStatus && (_phase == Phase.Visible || _phase == Phase.Pending);
@@ -144,7 +163,7 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
                 if (success)
                 {
                     _succeeded++;
-                    if (hasImage)
+                    if (!string.IsNullOrEmpty(imagePath))
                         _images++;
                 }
                 else
@@ -152,10 +171,10 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
                     _failed++;
                     _hasFailure = true;
                 }
-                _title = title;
-                _body = body;
-                _imagePath = imagePath;
+                _title = entry.Title;
+                _body = entry.Body;
                 _latestSuccess = success;
+                _recentEntries.Add(entry);
 
                 // A result can arrive after the owner became minimized/disabled but
                 // before the manager's next timer tick. Park the visible card now so
@@ -163,6 +182,7 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
                 if (!_isStatus && !frameUsable && _phase == Phase.Visible)
                     _phase = Phase.Pending;
 
+                SetImage(success && !string.IsNullOrEmpty(imagePath) ? imagePath : null);
                 if (_phase == Phase.Visible)
                     Rearm();
                 return RequestRender();
@@ -197,6 +217,7 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
                 if (_phase == Phase.None)
                     return false;
                 _phase = Phase.None;
+                ClearRecentContent();
                 return RequestRender();
             }
         }
@@ -210,6 +231,8 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
                     return false;
                 _phase = Phase.Visible;
                 _hovering = false;
+                if (_imagePath != null)
+                    _imageShownAt = _now();
                 Rearm();
                 return RequestRender();
             }
@@ -218,6 +241,8 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
         /// <summary>
         /// Timer: close an expired card. An activity card on an unusable frame is parked
         /// instead, so a minimized AutoCAD comes back to the full counts, not to nothing.
+        /// Also applies a thumbnail change that waited for the current capture's hold,
+        /// except while the pointer is on the card (it may be heading for the thumbnail).
         /// </summary>
         public bool Tick(bool frameUsable)
         {
@@ -231,30 +256,39 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
                     _hovering = false;
                     return RequestRender();
                 }
-                if (!Expired())
+                if (Expired())
+                {
+                    _phase = Phase.Closing;
+                    return RequestRender();
+                }
+                if (!_imageChangePending || _hovering || _now() < _imageShownAt + ImageHold)
                     return false;
-                _phase = Phase.Closing;
+                ShowImage(_pendingImagePath);
                 return RequestRender();
             }
         }
 
-        public void PointerEntered(long cardId)
+        /// <summary>
+        /// Returns true when the card must be rendered. A hover after the deadline
+        /// closes the card; the caller has to consume that render or the next result sticks.
+        /// </summary>
+        public bool PointerEntered(long cardId)
         {
             lock (_gate)
             {
                 if (!IsLive(cardId))
-                    return;
+                    return false;
 
                 // A late MouseEnter can arrive after the deadline but before the
                 // timer tick. Do not pause an already expired card indefinitely.
                 if (Expired())
                 {
                     _phase = Phase.Closing;
-                    RequestRender();
-                    return;
+                    return RequestRender();
                 }
 
                 _hovering = true;
+                return false;
             }
         }
 
@@ -287,7 +321,10 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
             lock (_gate)
             {
                 if (cardId == _cardId && (_phase == Phase.Visible || _phase == Phase.Closing))
+                {
                     _phase = Phase.None;
+                    ClearRecentContent();
+                }
             }
         }
 
@@ -323,13 +360,23 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
             _succeeded = 0;
             _failed = 0;
             _images = 0;
+            _recentEntries.Clear();
             _title = null;
             _body = null;
             _imagePath = null;
+            _imageChangePending = false;
+            _pendingImagePath = null;
             _latestSuccess = false;
             _hasFailure = false;
             _statusTextProvider = null;
             _hovering = false;
+        }
+
+        private void ClearRecentContent()
+        {
+            _recentEntries.Clear();
+            _title = null;
+            _body = null;
         }
 
         private void Rearm()
@@ -350,6 +397,28 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
 
         private bool Expired() => !_hovering && _now() >= _deadline;
 
+        private static readonly TimeSpan ImageHold = TimeSpan.FromSeconds(ThumbnailHoldSeconds);
+
+        /// <summary>A visible capture younger than the hold is not replaced yet; the change waits for Tick.</summary>
+        private void SetImage(string path)
+        {
+            if (_imagePath != null && _phase == Phase.Visible && _now() < _imageShownAt + ImageHold)
+            {
+                _imageChangePending = true;
+                _pendingImagePath = path;
+                return;
+            }
+            ShowImage(path);
+        }
+
+        private void ShowImage(string path)
+        {
+            _imagePath = path;
+            _imageShownAt = _now();
+            _imageChangePending = false;
+            _pendingImagePath = null;
+        }
+
         private bool IsLive(long cardId) => cardId == _cardId && _phase == Phase.Visible;
 
         private bool RequestRender()
@@ -362,6 +431,6 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
 
         private ActivitySnapshot Snapshot() => new ActivitySnapshot(
             _cardId, _isStatus, _succeeded, _failed, _images, _title, _body, _latestSuccess, _hasFailure,
-            _statusTextProvider, _imagePath);
+            _statusTextProvider, _imagePath, _recentEntries.Snapshot());
     }
 }
