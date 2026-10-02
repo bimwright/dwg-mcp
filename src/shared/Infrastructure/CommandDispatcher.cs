@@ -90,6 +90,7 @@ namespace Bimwright.Dwg.Plugin
             string id = null;
             string cmd = null;
             JToken parameters = null;
+            var elapsed = System.Diagnostics.Stopwatch.StartNew();
             try
             {
                 var request = JObject.Parse(requestLine);
@@ -113,7 +114,7 @@ namespace Bimwright.Dwg.Plugin
                 var preflight = ValidateCommand(cmd, parameters, out var preflightHandler);
                 if (!preflight.Ok)
                 {
-                    NotifyCompleted(cmd, null, false, preflight.Error, preflightHandler?.Description);
+                    NotifyCompleted(cmd, null, false, preflight.Error, preflightHandler?.Description, elapsed.ElapsedMilliseconds);
                     return SerializeResponse(id, cmd, preflight);
                 }
 
@@ -131,12 +132,12 @@ namespace Bimwright.Dwg.Plugin
                     catch { }
                 }
 
-                NotifyCompleted(cmd, resultJson, result.Ok, result.Error, preflightHandler?.Description);
+                NotifyCompleted(cmd, resultJson, result.Ok, result.Error, preflightHandler?.Description, elapsed.ElapsedMilliseconds);
                 return SerializeResponse(id, cmd, result);
             }
             catch (Exception ex)
             {
-                NotifyCompleted(cmd, null, false, ex.Message, null);
+                NotifyCompleted(cmd, null, false, ex.Message, null, elapsed.ElapsedMilliseconds);
                 return ErrorJson(id, ex.Message);
             }
         }
@@ -146,7 +147,7 @@ namespace Bimwright.Dwg.Plugin
         /// (same policy as the wire response) — never raw result data.
         /// </summary>
         private static void NotifyCompleted(string cmd, string resultJson,
-            bool success, string error, string description)
+            bool success, string error, string description, long durationMs)
         {
             var notifier = App.ToastNotifier;
             if (notifier == null)
@@ -158,7 +159,8 @@ namespace Bimwright.Dwg.Plugin
                     resultJson,
                     success,
                     success ? null : McpResponsePrivacy.SanitizeError(error),
-                    description);
+                    description,
+                    durationMs);
             }
             catch (Exception ex)
             {
