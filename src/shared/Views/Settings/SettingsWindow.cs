@@ -369,11 +369,16 @@ namespace Bimwright.Dwg.Plugin.Views.Settings
         {
             var seconds = SelectedIdle();
             var saved = PluginSettings.SaveToastIdleSeconds(seconds);
+            if (!saved)
+            {
+                _applyNote.Text = L.T("settings.toast.idle.saveFailed");
+                return;
+            }
             _savedIdle = PluginSettings.NormalizeToastIdleSeconds(seconds);
             App.ToastNotifier?.SetIdleSeconds(_savedIdle);
             SelectIdle(_idle, _savedIdle);
             _apply.IsEnabled = false;
-            _applyNote.Text = saved ? string.Empty : L.T("toast.status.saveFailed");
+            _applyNote.Text = string.Empty;
         }
 
         private void RevertIdle()

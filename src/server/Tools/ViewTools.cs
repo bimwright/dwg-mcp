@@ -50,7 +50,7 @@ namespace Bimwright.Dwg.Server.Tools
             return ToolGateway.LoggedCall("zoom_to_entity", request, request);
         }
 
-        [McpServerTool(Name = "dwg_capture_view_image", ReadOnly = true), Description(
+        [McpServerTool(Name = "dwg_capture_view_image", ReadOnly = false), Description(
             "Capture the active drawing to a raster image (.png/.jpg/.jpeg/.bmp) using AutoCAD's in-process document preview API. "
             + "No desktop automation, zoom, geometry edits or DWG save. Wait for zoom/commands to complete before capturing. "
             + "If output_path is omitted, saves to %LOCALAPPDATA%\\Bimwright\\Dwg\\captures\\ with an auto-generated name. "
@@ -77,7 +77,7 @@ namespace Bimwright.Dwg.Server.Tools
             return ViewImageResponse.FromJson(await ToolGateway.LoggedCall("capture_view_image", request, request));
         }
 
-        [McpServerTool(Name = "dwg_inspect_view_region", ReadOnly = true), Description(
+        [McpServerTool(Name = "dwg_inspect_view_region", ReadOnly = false), Description(
             "Look closer at a rectangle in a previous capture: zoom in AutoCAD, regenerate, verify the camera and capture a NEW image. "
             + "Changes the visible view and saves a PNG, but does not edit geometry or save the DWG. "
             + "Requires a current source capture in the same unchanged drawing: single model-space viewport, top-down, zero twist, orthographic, no clipping. "
@@ -101,7 +101,7 @@ namespace Bimwright.Dwg.Server.Tools
             return ViewImageResponse.FromJson(await ToolGateway.LoggedCall("inspect_view_region", request, request));
         }
 
-        [McpServerTool(Name = "dwg_restore_view", ReadOnly = true), Description(
+        [McpServerTool(Name = "dwg_restore_view", ReadOnly = false), Description(
             "Return to the camera of a recent supported capture and return a fresh inline image plus JSON. "
             + "Changes the visible view and writes a PNG, not drawing geometry. Requires the same unchanged drawing, layout and single top-down model viewport. "
             + "Use an ancestor capture_id to return to the overview. Returns a new capture_id; use that new ID for subsequent region navigation. "

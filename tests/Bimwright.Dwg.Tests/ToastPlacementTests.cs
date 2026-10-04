@@ -7,11 +7,11 @@ namespace Bimwright.Dwg.Tests
     public sealed class ToastPlacementTests
     {
         [Theory]
-        [InlineData(false, false, 116, 216)]
-        [InlineData(true, false, 768, 216)]
+        [InlineData(false, false, 116, 272)]
+        [InlineData(true, false, 768, 272)]
         [InlineData(false, true, 116, 883)]
         [InlineData(true, true, 768, 883)]
-        public void Four_corners_preserve_owner_relative_margin(bool right, bool bottom, double left, double top)
+        public void Four_corners_clear_the_ribbon_at_the_top_and_preserve_the_bottom_margin(bool right, bool bottom, double left, double top)
         {
             var card = ToastPlacement.Anchor(new ToastBounds(100, 200, 1000, 800), 316, 101, new ToastPositionOptions(right, bottom));
             Assert.Equal(left, card.Left);
@@ -19,11 +19,11 @@ namespace Bimwright.Dwg.Tests
         }
 
         [Fact]
-        public void Default_position_is_the_top_left_margin_used_before_this_setting_existed()
+        public void Default_position_clears_the_title_bar_and_ribbon_tabs_like_RVT()
         {
             var card = ToastPlacement.Anchor(new ToastBounds(0, 0, 1920, 1080), 316, 101, new ToastPositionOptions());
             Assert.Equal(16, card.Left);
-            Assert.Equal(16, card.Top);
+            Assert.Equal(72, card.Top);
         }
 
         [Fact]
@@ -32,7 +32,7 @@ namespace Bimwright.Dwg.Tests
             var options = new ToastPositionOptions(offsetX: 45, offsetY: 60, dragEnabled: true);
             var card = ToastPlacement.Anchor(new ToastBounds(-1920, 0, 1920, 1080), 316, 101, options);
             Assert.Equal(-1859, card.Left);
-            Assert.Equal(76, card.Top);
+            Assert.Equal(132, card.Top);
             Assert.True(options.WithDrag(false).HasOffset);
             // Drag off ignores the offset without discarding it.
             Assert.Equal(-1904, ToastPlacement.Anchor(new ToastBounds(-1920, 0, 1920, 1080), 316, 101, options.WithDrag(false)).Left);

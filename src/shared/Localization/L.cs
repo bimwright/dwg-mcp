@@ -83,6 +83,7 @@ namespace Bimwright.Dwg.Plugin.Localization
             ["settings.toast.brand"] = "Show branding",
             ["settings.toast.brand.help"] = "Appears when you point at the activity card. Applies immediately and is remembered after AutoCAD restarts.",
             ["settings.toast.idle"] = "Idle duration",
+            ["settings.toast.idle.saveFailed"] = "Toast duration could not be saved. The previous duration is still active. Try Apply again.",
             ["settings.toast.idle.help"] = "Hides the card when no new results arrive. Hover to keep it open. Applies from the next activity.",
             ["settings.toast.idle.seconds"] = "{seconds} seconds",
             ["settings.apply"] = "Apply",

@@ -19,7 +19,6 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
             "list_blocks", "get_block_attributes", "get_variables", "inspect_lisp",
             "list_available_targets", "get_current_target", "switch_target",
             "zoom_extents", "zoom_window", "zoom_to_entity",
-            "capture_view_image", "inspect_view_region", "restore_view",
             "list_baked_tools", "list_bake_suggestions", "create_bake_issue_draft"
         };
 

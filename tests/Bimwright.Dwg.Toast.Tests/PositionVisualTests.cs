@@ -103,8 +103,8 @@ internal static class PositionVisualTests
                 Pump(250);
                 Near(window.Top + window.ActualHeight, bottom);
             }
-            options = options.WithCorner(false, false); manager.ApplyPosition(); Pump(300);
-            Near(window.Left, 116); Near(window.Top, 116);
+            options = options.WithCorner(false, false); manager.ApplyPosition(); WaitForPosition(window, 116, 172);
+            Near(window.Left, 116); Near(window.Top, 172);
         }
         finally { manager.DismissAllImmediate(); manager.Dispose(); }
     }
@@ -114,6 +114,9 @@ internal static class PositionVisualTests
         var clicks = 0; var saves = 0; var entered = 0; var left = 0;
         var snapshot = Activity().TakeRender().Card;
         var window = new McpToastWindow(snapshot, null, null, _ => clicks++, _ => entered++, _ => left++, motionEnabled: () => false);
+        var owner = new Window { Width = 360, Height = 260, ShowInTaskbar = false, Title = "Toast drag test owner" };
+        owner.Show(); owner.Activate();
+        window.Owner = owner;
         window.SetPosition(100, 100);
         window.Show(); window.PlayEnterAnimation(); Pump(30);
         try
@@ -155,14 +158,14 @@ internal static class PositionVisualTests
             if (window.IsMouseCaptured || window.IsDragging || window.DragCompleted != null)
                 throw new Exception("Close retained drag state or callbacks.");
         }
-        finally { window.CloseImmediate(); }
+        finally { window.CloseImmediate(); owner.Close(); }
 
         var options = new ToastPositionOptions(dragEnabled: true);
         var activity = Activity();
-        var owner = new ToastBounds(100, 100, 1000, 600);
+        var ownerBounds = new ToastBounds(100, 100, 1000, 600);
         var work = new ToastBounds(0, 0, 1200, 800);
         var manager = new McpToastManager(Dispatcher.CurrentDispatcher, activity, motionEnabled: () => false,
-            positionOptions: () => options, positionChanged: value => { options = value; saves++; }, geometry: () => Tuple.Create(owner, work));
+            positionOptions: () => options, positionChanged: value => { options = value; saves++; }, geometry: () => Tuple.Create(ownerBounds, work));
         manager.Render(); window = Window(manager); Pump(30);
         try
         {
@@ -172,14 +175,14 @@ internal static class PositionVisualTests
             var offsetX = options.OffsetX; var offsetY = options.OffsetY;
             var dragLeft = window.Left; var dragTop = window.Top;
             options = options.WithDrag(false); manager.ApplyPosition(); Pump(20);
-            Near(window.Left, 116); Near(window.Top, 116);
+            Near(window.Left, 116); Near(window.Top, 172);
             if (options.OffsetX != offsetX || options.OffsetY != offsetY) throw new Exception("Disabling drag erased offset.");
             options = options.WithDrag(true); manager.ApplyPosition(); Pump(20);
             Near(window.Left, dragLeft); Near(window.Top, dragTop);
-            owner = new ToastBounds(150, 150, 1000, 600); manager.Tick(true);
+            ownerBounds = new ToastBounds(150, 150, 1000, 600); manager.Tick(true);
             Near(window.Left, dragLeft + 50); Near(window.Top, dragTop + 50);
             options = options.WithOffset(null, null); manager.ApplyPosition(); Pump(20);
-            Near(window.Left, 166); Near(window.Top, 166);
+            Near(window.Left, 166); Near(window.Top, 222);
             options = new ToastPositionOptions(true, true, true, 100000, -100000); manager.ApplyPosition(); Pump(20);
             if (window.Left < 0 || window.Top < 0 || window.Left + window.ActualWidth > work.Right + .5)
                 throw new Exception("Restored out-of-monitor offset was not clamped.");
@@ -217,7 +220,7 @@ internal static class PositionVisualTests
             Hover(window, ref cursor); Pump(235);
             options = new ToastPositionOptions(); manager.ApplyPosition(); Pump(80);
             if (!window.IsPositionAnimating) throw new Exception("Changing corners during expansion cancelled movement.");
-            Pump(600); Near(window.Left, 116); Near(window.Top, 116);
+            Pump(600); Near(window.Left, 116); Near(window.Top, 172);
             options = new ToastPositionOptions(true, true); manager.ApplyPosition(); Pump(350);
             window.BeginClose();
             // Poll for the first animation frame; a fixed short pump can sample before it renders.
@@ -247,6 +250,15 @@ internal static class PositionVisualTests
     private static void Near(double actual, double expected)
     {
         if (Math.Abs(actual - expected) > .7) throw new Exception("Position mismatch: " + actual + " vs " + expected);
+    }
+    private static void WaitForPosition(McpToastWindow window, double left, double top)
+    {
+        for (var i = 0; i < 100; i++)
+        {
+            Pump(20);
+            if (!window.IsPositionAnimating && Math.Abs(window.Left - left) <= .7 && Math.Abs(window.Top - top) <= .7) return;
+        }
+        throw new Exception("Position animation did not settle at the requested corner.");
     }
     private static void Pump(int milliseconds)
     {

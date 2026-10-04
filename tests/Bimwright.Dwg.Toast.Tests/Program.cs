@@ -14,6 +14,11 @@ internal static class Program
     {
         try
         {
+            if (args.Length == 1 && args[0] == "--settings-idle")
+            {
+                SettingsIdleVisualTests.Run();
+                return 0;
+            }
             if (args.Length == 1 && args[0] == "--hover-regression")
             {
                 HoverRegressionTests.Run();
@@ -63,6 +68,7 @@ internal static class Program
             ArrivalVisualTests.Run();
             ToastHistoryTests.Run();
             PositionSettingsVisualTests.Run();
+            SettingsIdleVisualTests.Run();
             CheckSingleActivityCard();
             CheckStatusAndClickLifecycle();
             Console.WriteLine("PASS: single-card activity manager and WPF guards");
@@ -196,7 +202,9 @@ internal static class Program
             var first = Current(manager);
             if (first == null)
                 throw new Exception("The first activity card was not created.");
-            AssertPosition(first, 16, 16);
+            var work = SystemParameters.WorkArea;
+            // Without an owner HWND, the zero-origin fallback is clamped to the actual monitor work area.
+            AssertPosition(first, Math.Max(work.Top, 72), Math.Max(work.Left, 16));
         }
         finally { manager.DismissAllImmediate(); }
         Console.WriteLine("PASS: first placement from unset WPF coordinates via manager");
