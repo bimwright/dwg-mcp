@@ -12,12 +12,13 @@ namespace Bimwright.Dwg.Server.Tools
             "Set the value of a drawing system variable. Rejects variable names not in the write allowlist.")]
         public static Task<string> SetSystemVariable(
             [Description("Name of the system variable to set.")] string name,
-            [Description("New value. Types are coerced automatically depending on the variable.")] JToken value)
+            [Description("New value as a JSON number or string, for example 1, 0.5 or \"Standard\". It is coerced to the variable's type.")] System.Text.Json.JsonElement value)
         {
+            // The MCP SDK binds with System.Text.Json and cannot create a Newtonsoft JToken.
             var request = new JObject
             {
                 ["name"] = name,
-                ["value"] = value
+                ["value"] = JToken.Parse(value.GetRawText())
             };
             return ToolGateway.LoggedCall("set_system_variable", request, request);
         }

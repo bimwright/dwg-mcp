@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.1.0 — Unreleased
+
+### Fixed
+
+- **`dwg_set_system_variable` accepts values again** — the `value` argument was declared as a Newtonsoft `JToken`, which the MCP SDK's System.Text.Json binder cannot create, so every call failed before reaching AutoCAD (since 1.0.0). Its published schema also required an array. `value` now binds any JSON number or string, the schema no longer restricts it to arrays, and the plugin wire format is unchanged.
+
 ## 2.0.1 — 2026-09-28
 
 ### Setup
