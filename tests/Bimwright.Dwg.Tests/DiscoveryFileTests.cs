@@ -103,7 +103,7 @@ namespace Bimwright.Dwg.Tests
             // deleted on every single resolve attempt, permanently breaking pipe
             // discovery.
             using var temp = new TempDiscoveryRoot();
-            var path = Path.Combine(temp.Root, "Dwg", "acad-2025.json");
+            var path = Path.Combine(temp.Root, "dwg-mcp", "acad-2025.json");
             File.WriteAllText(path, @"{
   ""schema_version"": 2,
   ""acad_year"": 2025,
@@ -146,7 +146,7 @@ namespace Bimwright.Dwg.Tests
 
             public TempDiscoveryRoot()
             {
-                Directory.CreateDirectory(Path.Combine(Root, "Dwg"));
+                Directory.CreateDirectory(Path.Combine(Root, "dwg-mcp"));
             }
 
             public string WriteJson(
@@ -171,7 +171,7 @@ namespace Bimwright.Dwg.Tests
                     ProcessName = "acad.exe",
                     StartedAtUtc = DateTime.UtcNow
                 };
-                var path = Path.Combine(Root, "Dwg", "acad-" + target + ".json");
+                var path = Path.Combine(Root, "dwg-mcp", "acad-" + target + ".json");
                 File.WriteAllText(path, JsonConvert.SerializeObject(info));
                 return path;
             }

@@ -10,7 +10,7 @@
   <a href="https://github.com/bimwright/dwg-mcp/actions/workflows/build.yml"><img src="https://github.com/bimwright/dwg-mcp/actions/workflows/build.yml/badge.svg" alt="build" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="license" /></a>
   <a href="#supported-autocad-versions"><img src="https://img.shields.io/badge/AutoCAD-2022--2027-186BFF" alt="AutoCAD 2022-2027" /></a>
-  <a href="#tools"><img src="https://img.shields.io/badge/MCP-41%20default%20%2B%20optional-6C47FF" alt="MCP tools" /></a>
+  <a href="#tools"><img src="https://img.shields.io/badge/MCP-42%20default%20%2B%20optional-6C47FF" alt="MCP tools" /></a>
 </p>
 
 <p align="center">
@@ -127,15 +127,15 @@ The installer:
 
 - detects installed AutoCAD years (a year counts when its `acad.exe` exists) and installs every packed year that matches; `-Years 2024,2027` forces an explicit list;
 - requires AutoCAD to be closed, and rolls every change back on error;
-- deploys `%APPDATA%\Autodesk\ApplicationPlugins\Bimwright.Dwg.bundle\` (removing stale bundles with the same ProductCode) and the server at the fixed path `%LOCALAPPDATA%\Bimwright\Dwg\server\current\dwg-mcp.exe`;
-- seeds `%LOCALAPPDATA%\Bimwright\Dwg\dwgmcp.config.json` with `"toolsets": ["all"]` on a fresh install — an existing `toolsets` key is kept;
+- deploys `%APPDATA%\Autodesk\ApplicationPlugins\Bimwright.Dwg.bundle\` (removing stale bundles with the same ProductCode) and the server at the fixed path `%LOCALAPPDATA%\Bimwright\dwg-mcp\server\current\dwg-mcp.exe`;
+- seeds `%LOCALAPPDATA%\Bimwright\dwg-mcp\dwgmcp.config.json` with `"toolsets": ["all"]` on a fresh install — an existing `toolsets` key is kept;
 - wires every detected MCP client by default (`-Client <names>` limits it, `-Client none` skips it); config edits keep JSONC comments and get a `<config>.bak` backup. The entry name is `dwg-mcp`.
 
 Restart AutoCAD, then restart wired MCP clients to load `dwg-mcp`.
 
 **Updating:** close AutoCAD and run the new ZIP's `install.ps1` the same way — no need to uninstall first. The server path stays `server\current\`, so clients only need a restart.
 
-**Uninstall:** `uninstall.ps1` removes the bundle, the server copies, discovery files and caches under `%LOCALAPPDATA%\Bimwright\Dwg\` (settings, config, logs and captures are kept; `-Purge` removes those too). Client config entries are never touched — remove the `dwg-mcp` entry yourself, or run `install.ps1 -Uninstall -Client <names>` first.
+**Uninstall:** `uninstall.ps1` removes the bundle, the server copies, discovery files and caches under `%LOCALAPPDATA%\Bimwright\dwg-mcp\` (settings, config, logs and captures are kept; `-Purge` removes those too). Client config entries are never touched — remove the `dwg-mcp` entry yourself, or run `install.ps1 -Uninstall -Client <names>` first.
 
 Do **not** `dotnet tool install -g Bimwright.Dwg.Server` — that package is not the supported client install.
 
@@ -149,7 +149,7 @@ The installer already did this for detected clients (Step `Client :` lines in it
 {
   "mcpServers": {
     "dwg-mcp": {
-      "command": "C:\\Users\\<user>\\AppData\\Local\\Bimwright\\Dwg\\server\\current\\dwg-mcp.exe",
+      "command": "C:\\Users\\<user>\\AppData\\Local\\Bimwright\\dwg-mcp\\server\\current\\dwg-mcp.exe",
       "args": []
     }
   }
@@ -162,7 +162,7 @@ Pin a specific AutoCAD instance with a 4-digit target year:
 {
   "mcpServers": {
     "dwg-mcp": {
-      "command": "C:\\Users\\<user>\\AppData\\Local\\Bimwright\\Dwg\\server\\current\\dwg-mcp.exe",
+      "command": "C:\\Users\\<user>\\AppData\\Local\\Bimwright\\dwg-mcp\\server\\current\\dwg-mcp.exe",
       "args": ["--target", "2024"]
     }
   }
@@ -171,17 +171,31 @@ Pin a specific AutoCAD instance with a 4-digit target year:
 
 Use `--read-only` to strip write-capable toolsets (query/view/meta routing remain as configured). Use `--toolsets all` or an explicit list that **includes** the defaults you need (a custom list **replaces** the default set — e.g. `query,modify,meta,view,annotation`). Env: `BIMWRIGHT_DWG_TOOLSETS=…`.
 
-`dwg_send_code` is available by default via `meta`; `MCPDISABLECODE` disables C# execution for the session and `MCPENABLECODE` re-enables it. `dwg_run_lisp` remains registered for compatibility but refuses every request at both server and plugin. This build has no isolated LISP executor or approved-script trust mechanism. `--read-only` removes both tools.
+`dwg_send_code` is available by default via `meta`. Use `--enable-send-code` / `--disable-send-code` (JSON `enableSendCode`; env `BIMWRIGHT_DWG_ENABLE_SEND_CODE`) to control server exposure. Disabled code is also refused inside batches before any command is sent. `MCPDISABLECODE` disables C# execution for the AutoCAD session; `MCPENABLECODE` only re-enables the host gate and cannot override the server setting. `dwg_run_lisp` remains registered for compatibility but refuses every request at both server and plugin. This build has no isolated LISP executor or approved-script trust mechanism. `--read-only` removes both tools.
 
-Activity toasts are on by default. Finished tool calls update one card in the AutoCAD window corner: success, failure and capture counts. The latest result is the counter tooltip. The card's left edge is a vertical gradient, and the footer shows `AutoCAD {year}`. Click the card to open an allowlisted capture from the latest result; the card then closes. The close button only closes the card and stays transparent on hover. The card hides after an idle interval (10, 20, 30 or 60 seconds, default 20) and pauses while the pointer is over it. While AutoCAD is minimized or a modal dialog is open, counts are kept and the card is shown once when the frame is usable again. Toggle with `MCPTOAST` or open `MCPSETTINGS`. `enableToast` and `toastIdleSeconds` are stored in `%LOCALAPPDATA%\Bimwright\Dwg\settings.json`. `BIMWRIGHT_ENABLE_TOAST=0` re-applies at every launch while set. Show branding is off until turned on in Settings and lasts only for the current AutoCAD session. Toasts never steal keyboard focus.
+Call logging is **off by default**. Use `--enable-call-log` / `--disable-call-log` (JSON `enableCallLog`; env `BIMWRIGHT_DWG_ENABLE_CALL_LOG`) to opt in/out. Precedence is JSON → environment → CLI; the last occurrence of each enable/disable pair wins. When off, the server creates/appends no call log or call journal; existing logs are not deleted. When on, `%LOCALAPPDATA%\Bimwright\dwg-mcp\dwg-mcp-calls.jsonl` records redacted parameters and timing/outcome metadata, never results. Code fields, including nested batch code, contain only character length and SHA-256 of the original UTF-8 body; code-related error text is omitted because it may echo source. No code-body cache or body journal is implemented. ToolBaker adaptive usage, diagnostic logs and session-only History are separate from this switch; the plugin has no persistent call-log writer.
+
+Activity toasts are on by default. Finished tool calls update one card in the AutoCAD window corner. The title names the gateway and the AutoCAD year (`dwg-mcp 2024`), the next line names the latest tool, and the Success · Failed · Capture counts spread evenly across the card; the latest result is the counter tooltip. The card's left edge is a vertical gradient. An allowlisted capture shows as a thumbnail in one fixed frame, centred on both axes, and stays at least 5 seconds: a later result without an image clears it only after that, back-to-back captures switch to the newest one every 5 seconds, and the preview does not change while the pointer is on the card. Click the thumbnail to open the image; the card then closes. A click elsewhere on the card opens/focuses History and dismisses it. The close button only closes the card and stays transparent on hover. Counters roll like an odometer, and the thumbnail opens, cross-fades to the next capture and fades out; all motion follows Windows' **Animation effects** setting, and with it off everything changes at once. The card hides after an idle interval (10, 20, 30 or 60 seconds, default 20) and pauses while the pointer is over it. While AutoCAD is minimized or a modal dialog is open, counts are kept and the card is shown once when the frame is usable again. Toggle with `MCPTOAST` or open `MCPSETTINGS`. `enableToast`, `toastIdleSeconds` and `showBranding` are stored in `%LOCALAPPDATA%\Bimwright\dwg-mcp\settings.json`. `BIMWRIGHT_ENABLE_TOAST=0` re-applies at every launch while set. Show branding is off until turned on in Settings and is remembered across AutoCAD restarts. Toasts never steal keyboard focus.
 
 `dwg_send_code` accepts inline synchronous snippets only: `async`/`await` and `#load` directives are rejected before execution. Keep AutoCAD API calls on the calling thread; do not offload them to `Task.Run` or other threads. Return JSON-safe DTOs; AutoCAD/COM objects are rejected even when nested. LISP inspection is available through `dwg_inspect_lisp`: sources over 2,000,000 characters are reported uninspectable/dangerous, and the 200-finding display cap does not stop severity detection. Regex matching has a timeout; timed-out scans are reported as incomplete/dangerous, never clean.
 
 ---
 
+`MCPHISTORY` opens the same modeless History window. It keeps the latest 1,000 compact outcomes of plugin-processed calls in memory, including when toasts are off, with search, Success/Failed and Read/Write filters, duration and selection details. Closing a card does not clear History; **New session** clears its list. History adds no persistent call-log writer and retains no raw inputs, code bodies or JSON results. Server-only tool notifications are not yet included.
+
+## Health runtime and update checks (Unreleased)
+
+`dwg_health()` is offline and read-only. At session start, select the intended target and call `dwg_health(check_updates=true)` once; later routine probes remain offline. It reports host/document state without requiring or locking a drawing, and loaded server/plugin versions, build IDs and alignment. No target preserves gateway identity with `ok:false`, `host_connected:false`. A responding legacy plugin can return `HEALTH_UNSUPPORTED`: connection responsiveness is not verified health or loaded-plugin identity. A busy UI retains plugin identity but marks document state unavailable. Health is excluded from operation toasts and cannot be nested in drawing batches.
+
+`setup_gateway`/`setup_plugin` describe loaded assemblies and their MVID; SHA-256 observes the disk file at identity capture, not loaded memory or publisher trust. The optional GitHub check compares both components against one stable release/tag revision, with a shared five-second budget and bounded metadata. `checked` confirms lookup, not artifact verification. Missing evidence stays `unknown`; equal versions or `update_available=false` do not establish a release build match.
+
+Inspect both `update.components` and the full `update.notification` message, `lookup_reason`, `protected_component_reasons` and `unobserved_components`. `UPDATE_CHECK_UNAVAILABLE` reports external lookup failure, not a runtime fault or installation authorization. `LOCAL_VERSION_AHEAD` is informational: preserve newer components; never downgrade. Only `update_guidance.mode=prepare_update` with `bundle_update_proposal_allowed=true` permits an update proposal, and installation still needs user authorization. Other modes only check/report/review. Health never installs, downloads packages, changes client configs, saves/closes drawings or restarts processes. See [agent guidance](AGENTS.md).
+
+After reconnect, compare fresh `initialize.serverInfo` and the health tool's `_meta["bimwright/dwg-mcp/runtime"]` in `tools/list` with `client_verification` on the same connection, including schema/annotations. The server cannot prove a client cache refresh. Health remains available under `--read-only`; its `openWorldHint` is true only because the optional check reaches GitHub. This feature requires the new gateway and plugin; published v2.0.1 does not include it. Host-free protocol tests and AutoCAD 2024/2027 builds are verified; installed-host acceptance remains pending.
+
 ## Tools
 
-Default startup exposes 41 tools: query (including `dwg_inspect_lisp`), modify, meta (including `dwg_send_code`/`dwg_run_lisp`), view, and default-on `dwg_capture_view_image`. Optional ToolBaker, annotation, block, dimension, export, and drawing toolsets, enabled through `--toolsets`, bring the backed MCP surface to 65 tools. The registered counts include `dwg_run_lisp`, which only returns a refusal; no scan verdict authorizes execution.
+Development startup exposes 42 tools: query (including `dwg_inspect_lisp`), modify, meta (including `dwg_send_code`/`dwg_run_lisp`), view, and default-on `dwg_capture_view_image`. Optional ToolBaker, annotation, block, dimension, export, and drawing toolsets, enabled through `--toolsets`, bring the backed MCP surface to 66 tools. The registered counts include `dwg_run_lisp`, which only returns a refusal; no scan verdict authorizes execution.
 
 General CAD tools operate on the current active document in the selected AutoCAD target. Entity inputs and returned entity IDs use AutoCAD hex handles, such as `7F5AD`, returned by selection, creation, or property tools. Creation, copy, offset, and modify responses identify generated or modified entities by hex handle.
 
@@ -189,6 +203,7 @@ Plan 2 query expansion is model-space only: `dwg_query_entities`, `dwg_count_ent
 
 | Tool | Purpose |
 |------|---------|
+| `dwg_health` | Read-only host/runtime identity probe; optional stable-release check, offline by default |
 | `dwg_get_drawing_info` | Read current drawing name, current layer, current space/layout, and unit scalars |
 | `dwg_get_entity_properties` | Read properties for entities identified by AutoCAD hex handles |
 | `dwg_list_layers` | List layers in the current drawing with color and state flags |
@@ -433,6 +448,8 @@ Open-source tools connecting AI assistants to BIM and CAD applications.
 
 The name **bimwright** combines **BIM** with **wright**, an old word for a maker or builder—as in *shipwright*.
 
+See [how the gateway names are chosen](https://github.com/bimwright/.github/blob/master/profile/README.md#naming).
+
 - [**rvt-mcp**](https://github.com/bimwright/rvt-mcp) — Autodesk® Revit®
 - [**dwg-mcp**](https://github.com/bimwright/dwg-mcp) — Autodesk® AutoCAD®
 - [**nwd-mcp**](https://github.com/bimwright/nwd-mcp) — Autodesk® Navisworks®
@@ -443,7 +460,7 @@ The name **bimwright** combines **BIM** with **wright**, an old word for a maker
 
 ## Disclaimer
 
-AutoCAD and Autodesk are registered trademarks of Autodesk, Inc. bimwright is an independent open-source project and is not affiliated with, sponsored by, or endorsed by Autodesk, Inc.
+Autodesk, AutoCAD, and DWG are trademarks or registered trademarks of Autodesk, Inc., and/or its subsidiaries and/or affiliates. DWG is the native file format for Autodesk AutoCAD software. bimwright is an independent open-source project and is not affiliated with, sponsored by, or endorsed by Autodesk, Inc.
 
 ---
 

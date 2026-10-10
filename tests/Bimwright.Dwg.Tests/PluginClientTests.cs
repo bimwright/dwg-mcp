@@ -139,7 +139,7 @@ namespace Bimwright.Dwg.Tests
 
             public TempDiscoveryRoot()
             {
-                Directory.CreateDirectory(Path.Combine(Root, "Dwg"));
+                Directory.CreateDirectory(Path.Combine(Root, "dwg-mcp"));
             }
 
             public void WriteJson(string target, int port, string token)
@@ -156,7 +156,7 @@ namespace Bimwright.Dwg.Tests
                     Pid = Process.GetCurrentProcess().Id
                 };
                 File.WriteAllText(
-                    Path.Combine(Root, "Dwg", "acad-" + target + ".json"),
+                    Path.Combine(Root, "dwg-mcp", "acad-" + target + ".json"),
                     JsonConvert.SerializeObject(info));
             }
 

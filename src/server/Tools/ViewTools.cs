@@ -10,7 +10,7 @@ namespace Bimwright.Dwg.Server.Tools
     [McpServerToolType]
     public class ViewTools
     {
-        [McpServerTool(Name = "dwg_zoom_extents", ReadOnly = true, Idempotent = true), Description(
+        [McpServerTool(Name = "dwg_zoom_extents", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false), Description(
             "Zoom to the extents of the drawing viewport.")]
         public static Task<string> ZoomExtents()
         {
@@ -18,7 +18,7 @@ namespace Bimwright.Dwg.Server.Tools
             return ToolGateway.LoggedCall("zoom_extents", request, request);
         }
 
-        [McpServerTool(Name = "dwg_zoom_window", ReadOnly = true, Idempotent = true), Description(
+        [McpServerTool(Name = "dwg_zoom_window", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false), Description(
             "Zoom viewport to a window defined by two corner points.")]
         public static Task<string> ZoomWindow(
             [Description("First corner of the zoom window.")] ViewPoint corner1,
@@ -38,7 +38,7 @@ namespace Bimwright.Dwg.Server.Tools
             return ToolGateway.LoggedCall("zoom_window", request, request);
         }
 
-        [McpServerTool(Name = "dwg_zoom_to_entity", ReadOnly = true, Idempotent = true), Description(
+        [McpServerTool(Name = "dwg_zoom_to_entity", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false), Description(
             "Zoom viewport to the extents of a specific drawing entity identified by handle.")]
         public static Task<string> ZoomToEntity(
             [Description("AutoCAD handle of the entity to zoom to.")] string handle)
@@ -50,14 +50,15 @@ namespace Bimwright.Dwg.Server.Tools
             return ToolGateway.LoggedCall("zoom_to_entity", request, request);
         }
 
-        [McpServerTool(Name = "dwg_capture_view_image", ReadOnly = false), Description(
+        [McpServerTool(Name = "dwg_capture_view_image", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false), Description(
             "Capture the active drawing to a raster image (.png/.jpg/.jpeg/.bmp) using AutoCAD's in-process document preview API. "
             + "No desktop automation, zoom, geometry edits or DWG save. Wait for zoom/commands to complete before capturing. "
-            + "If output_path is omitted, saves to %LOCALAPPDATA%\\Bimwright\\Dwg\\captures\\ with an auto-generated name. "
+            + "If output_path is omitted, saves to %LOCALAPPDATA%\\Bimwright\\dwg-mcp\\captures\\ with an auto-generated name. "
             + "Returns inline MCP image content (up to 8 MiB) plus JSON with image path, actual dimensions, SHA-256, timestamp, document fingerprint, layout, viewport and camera. "
             + "Use capture_id with dwg_inspect_view_region when region_navigation.supported is true. "
             + "Camera coordinates describe the active viewport; do not assume one pixel-to-world mapping for tiled views or paper layouts. "
-            + "Persist the response alongside the image when building a reading atlas.")]
+            + "Persist the response alongside the image when building a reading atlas." +
+            " Writes an image file; disabled in read-only mode. Delete a new image to undo file creation. Overwritten image bytes cannot be restored by AutoCAD UNDO; restore a backup.")]
         public static async Task<CallToolResult> CaptureViewImage(
             [Description("Optional absolute output path ending in .png, .jpg, .jpeg, or .bmp. If omitted, an auto-named PNG is written to the captures directory.")] string output_path = null,
             [Description("Requested longer image dimension (default 1600, clamped to 64-8192), using the current viewport aspect ratio. AutoCAD may round the actual dimensions returned.")] int? pixel_size = null,
@@ -77,12 +78,13 @@ namespace Bimwright.Dwg.Server.Tools
             return ViewImageResponse.FromJson(await ToolGateway.LoggedCall("capture_view_image", request, request));
         }
 
-        [McpServerTool(Name = "dwg_inspect_view_region", ReadOnly = false), Description(
+        [McpServerTool(Name = "dwg_inspect_view_region", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false), Description(
             "Look closer at a rectangle in a previous capture: zoom in AutoCAD, regenerate, verify the camera and capture a NEW image. "
             + "Changes the visible view and saves a PNG, but does not edit geometry or save the DWG. "
             + "Requires a current source capture in the same unchanged drawing: single model-space viewport, top-down, zero twist, orthographic, no clipping. "
             + "Returns inline image and JSON with a new capture_id and parent_capture_id. Use the new ID for the next zoom; use dwg_restore_view to go back. "
-            + "History is limited to 64 captures / 30 minutes in the current AutoCAD process. Stale or unsupported sources are refused before zoom.")]
+            + "History is limited to 64 captures / 30 minutes in the current AutoCAD process. Stale or unsupported sources are refused before zoom." +
+            " Writes a new image file; disabled in read-only mode. Restore the prior camera with dwg_restore_view and delete the generated image to undo these effects.")]
         public static async Task<CallToolResult> InspectViewRegion(
             [Description("capture_id returned by the current supported capture.")] string source_capture_id,
             [Description("Rectangle on that exact image: {left,top,right,bottom}, normalized 0..1, origin top-left. Ordered bounds, at least 4 image pixels per axis. Entire region is fitted with 10% surrounding context, preserving aspect ratio.")] ViewImageRegion region,
@@ -101,11 +103,12 @@ namespace Bimwright.Dwg.Server.Tools
             return ViewImageResponse.FromJson(await ToolGateway.LoggedCall("inspect_view_region", request, request));
         }
 
-        [McpServerTool(Name = "dwg_restore_view", ReadOnly = false), Description(
+        [McpServerTool(Name = "dwg_restore_view", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false), Description(
             "Return to the camera of a recent supported capture and return a fresh inline image plus JSON. "
             + "Changes the visible view and writes a PNG, not drawing geometry. Requires the same unchanged drawing, layout and single top-down model viewport. "
             + "Use an ancestor capture_id to return to the overview. Returns a new capture_id; use that new ID for subsequent region navigation. "
-            + "History expires after 30 minutes or 64 captures or host restart.")]
+            + "History expires after 30 minutes or 64 captures or host restart." +
+            " Writes a new image file; disabled in read-only mode. Return to another captured camera and delete the generated image to undo these effects.")]
         public static async Task<CallToolResult> RestoreView(
             [Description("ID of the supported capture whose camera should be restored.")] string source_capture_id,
             [Description("Requested longer image dimension, default 1600; clamped to 64..8192.")] int? pixel_size = null)

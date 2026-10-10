@@ -11,13 +11,16 @@ namespace Bimwright.Dwg.Server.Tools
     [McpServerToolType]
     public class ToolBakerTools
     {
-        [McpServerTool(Name = "dwg_list_baked_tools", ReadOnly = true, Idempotent = true), Description(
-            "List baked DWG tools accepted into the server registry.")]
+        // Test hook: keep database reads inside a fixture, away from the real profile.
+        internal static BakePaths PathsOverride;
+
+        [McpServerTool(Name = "dwg_list_baked_tools", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false), Description(
+            "List baked DWG tools accepted into the server registry." +
+            " Reads the existing database without creating or migrating files; returns an empty list if no bake database exists.")]
         public static Task<string> ListBakedTools()
         {
-            var paths = new BakePaths();
+            var paths = PathsOverride ?? new BakePaths();
             using var db = new BakeDb(paths);
-            db.Migrate();
             var tools = db.ReadRegistryRecords()
                 .Select(record => new
                 {
@@ -32,24 +35,24 @@ namespace Bimwright.Dwg.Server.Tools
             return Task.FromResult(JsonConvert.SerializeObject(new { tools }));
         }
 
-        [McpServerTool(Name = "dwg_list_bake_suggestions", ReadOnly = true, Idempotent = true), Description(
-            "List adaptive ToolBaker suggestions from the server bake database.")]
+        [McpServerTool(Name = "dwg_list_bake_suggestions", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false), Description(
+            "List adaptive ToolBaker suggestions from the server bake database." +
+            " Reads the existing database without creating or migrating files; returns an empty list if no bake database exists.")]
         public static Task<string> ListBakeSuggestions()
         {
-            var paths = new BakePaths();
+            var paths = PathsOverride ?? new BakePaths();
             using var db = new BakeDb(paths);
-            db.Migrate();
             return Task.FromResult(ListBakeSuggestionsHandler.Handle(db));
         }
 
-        [McpServerTool(Name = "dwg_create_bake_issue_draft", ReadOnly = true, Idempotent = true), Description(
-            "Create a GitHub issue draft for a ToolBaker suggestion without submitting it.")]
+        [McpServerTool(Name = "dwg_create_bake_issue_draft", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false), Description(
+            "Create a GitHub issue draft for a ToolBaker suggestion without submitting it." +
+            " Returns title and body in the response only; does not create a file or contact GitHub, and never creates or migrates a database.")]
         public static Task<string> CreateBakeIssueDraft(
             [Description("Suggestion id from dwg_list_bake_suggestions.")] string id)
         {
-            var paths = new BakePaths();
+            var paths = PathsOverride ?? new BakePaths();
             using var db = new BakeDb(paths);
-            db.Migrate();
             var suggestion = db.GetSuggestion(id);
             if (suggestion == null)
             {

@@ -10,6 +10,8 @@ namespace Bimwright.Dwg.Server
         public const string EnvTarget = "BIMWRIGHT_DWG_TARGET";
         public const string EnvToolsets = "BIMWRIGHT_DWG_TOOLSETS";
         public const string EnvReadOnly = "BIMWRIGHT_DWG_READ_ONLY";
+        public const string EnvEnableSendCode = "BIMWRIGHT_DWG_ENABLE_SEND_CODE";
+        public const string EnvEnableCallLog = "BIMWRIGHT_DWG_ENABLE_CALL_LOG";
         public const string EnvEnableToolbaker = "BIMWRIGHT_DWG_ENABLE_TOOLBAKER";
         public const string EnvAllowLanBind = "BIMWRIGHT_DWG_ALLOW_LAN_BIND";
         public const string EnvLogLevel = "BIMWRIGHT_DWG_LOG_LEVEL";
@@ -17,20 +19,24 @@ namespace Bimwright.Dwg.Server
         public string Target { get; set; }
         public List<string> Toolsets { get; set; }
         public bool? ReadOnly { get; set; }
+        public bool? EnableSendCode { get; set; }
+        public bool? EnableCallLog { get; set; }
         public bool? EnableToolbaker { get; set; }
         public bool? AllowLanBind { get; set; }
         public string LogLevel { get; set; }
 
         /// <summary>
         /// Default config file the installer seeds and the server reads when no
-        /// --config is passed: %LOCALAPPDATA%\Bimwright\Dwg\dwgmcp.config.json.
+        /// --config is passed: %LOCALAPPDATA%\Bimwright\dwg-mcp\dwgmcp.config.json.
         /// </summary>
         public static string DefaultConfigFilePath =>
             Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "Bimwright", "Dwg", "dwgmcp.config.json");
+                "Bimwright", "dwg-mcp", "dwgmcp.config.json");
 
         [JsonIgnore] public bool ReadOnlyOrDefault => ReadOnly ?? false;
+        [JsonIgnore] public bool EnableSendCodeOrDefault => EnableSendCode ?? true;
+        [JsonIgnore] public bool EnableCallLogOrDefault => EnableCallLog ?? false;
         [JsonIgnore] public bool EnableToolbakerOrDefault => EnableToolbaker ?? true;
         [JsonIgnore] public bool AllowLanBindOrDefault => AllowLanBind ?? false;
 
@@ -69,6 +75,8 @@ namespace Bimwright.Dwg.Server
             ApplyString(envLookup(EnvTarget), value => config.Target = value);
             ApplyCsv(envLookup(EnvToolsets), value => config.Toolsets = value);
             ApplyBool(envLookup(EnvReadOnly), value => config.ReadOnly = value);
+            ApplyBool(envLookup(EnvEnableSendCode), value => config.EnableSendCode = value);
+            ApplyBool(envLookup(EnvEnableCallLog), value => config.EnableCallLog = value);
             ApplyBool(envLookup(EnvEnableToolbaker), value => config.EnableToolbaker = value);
             ApplyBool(envLookup(EnvAllowLanBind), value => config.AllowLanBind = value);
             ApplyString(envLookup(EnvLogLevel), value => config.LogLevel = value);
@@ -79,6 +87,15 @@ namespace Bimwright.Dwg.Server
             ApplyString(GetOptionValue(args, "--target"), value => config.Target = value);
             ApplyCsv(GetOptionValue(args, "--toolsets"), value => config.Toolsets = value);
             ApplyString(GetOptionValue(args, "--log-level"), value => config.LogLevel = value);
+
+            // Each explicit pair overrides JSON/env; the last CLI occurrence wins.
+            foreach (var arg in args)
+            {
+                if (string.Equals(arg, "--enable-send-code", StringComparison.OrdinalIgnoreCase)) config.EnableSendCode = true;
+                if (string.Equals(arg, "--disable-send-code", StringComparison.OrdinalIgnoreCase)) config.EnableSendCode = false;
+                if (string.Equals(arg, "--enable-call-log", StringComparison.OrdinalIgnoreCase)) config.EnableCallLog = true;
+                if (string.Equals(arg, "--disable-call-log", StringComparison.OrdinalIgnoreCase)) config.EnableCallLog = false;
+            }
 
             if (HasFlag(args, "--read-only"))
             {

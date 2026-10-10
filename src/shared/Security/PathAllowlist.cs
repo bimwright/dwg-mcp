@@ -13,7 +13,7 @@ namespace Bimwright.Dwg.Plugin
             Path.GetFullPath(Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "Bimwright",
-                "Dwg",
+                "dwg-mcp",
                 "captures"));
 
         public static string TempDirectory => Path.GetFullPath(Path.GetTempPath());

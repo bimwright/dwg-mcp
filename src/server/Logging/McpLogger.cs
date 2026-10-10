@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using Bimwright.Dwg.Plugin;
 
 namespace Bimwright.Dwg.Server.Logging
 {
@@ -13,7 +14,6 @@ namespace Bimwright.Dwg.Server.Logging
         {
             Path = path ?? throw new ArgumentNullException(nameof(path));
             _ringLimit = ringLimit <= 0 ? 200 : ringLimit;
-            Directory.CreateDirectory(System.IO.Path.GetDirectoryName(Path) ?? ".");
         }
 
         public string Path { get; }
@@ -21,7 +21,9 @@ namespace Bimwright.Dwg.Server.Logging
 
         public void Append(string message)
         {
-            var line = DateTimeOffset.UtcNow.ToString("o") + " " + (message ?? string.Empty);
+            if (!(ServerState.Config?.EnableCallLogOrDefault ?? false)) return;
+            var line = DateTimeOffset.UtcNow.ToString("o") + " " + ErrorSanitizer.Sanitize(BakeRedactor.RedactSource(message ?? string.Empty));
+            Directory.CreateDirectory(System.IO.Path.GetDirectoryName(Path) ?? ".");
             File.AppendAllText(Path, line + Environment.NewLine);
             _ring.Enqueue(line);
             while (_ring.Count > _ringLimit)

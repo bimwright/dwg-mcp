@@ -24,6 +24,13 @@ namespace Bimwright.Dwg.Plugin
 
         private static void OnIdle(object sender, EventArgs args) => mainThread?.RunPending();
 
+        /// <summary>Health-only main-thread observation; no document lookup requirement or document lock.</summary>
+        internal static T InvokeHostQuery<T>(Func<T> action)
+        {
+            var executor = mainThread ?? throw new InvalidOperationException("AutoCAD main-thread executor is not initialized.");
+            return executor.Invoke(action);
+        }
+
         /// <summary>
         /// Serializes AutoCAD API access, locks the active document, and runs the action.
         /// </summary>

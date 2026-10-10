@@ -113,7 +113,7 @@ namespace Bimwright.Dwg.Plugin
 
         private void WriteDiscoveryFile()
         {
-            Directory.CreateDirectory(Path.Combine(DiscoveryRoot, "Dwg"));
+            Directory.CreateDirectory(Path.Combine(DiscoveryRoot, "dwg-mcp"));
             var info = new
             {
                 schema_version = 2,
@@ -134,7 +134,7 @@ namespace Bimwright.Dwg.Plugin
             try { if (File.Exists(JsonDiscoveryPath)) File.Delete(JsonDiscoveryPath); } catch { }
         }
 
-        private string JsonDiscoveryPath => Path.Combine(DiscoveryRoot, "Dwg", "acad-" + _target + ".json");
+        private string JsonDiscoveryPath => Path.Combine(DiscoveryRoot, "dwg-mcp", "acad-" + _target + ".json");
 
         private static string DiscoveryRoot =>
             Environment.ExpandEnvironmentVariables(@"%LOCALAPPDATA%\Bimwright");

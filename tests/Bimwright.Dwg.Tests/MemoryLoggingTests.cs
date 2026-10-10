@@ -14,7 +14,7 @@ namespace Bimwright.Dwg.Tests
         public void JournalLogger_AppendsJsonlEntries()
         {
             using var temp = new TempDir();
-            var logger = new JournalLogger(temp.Path);
+            var logger = new JournalLogger(temp.Path, enabled: () => true);
 
             logger.Append(new JournalEntry
             {
@@ -51,7 +51,7 @@ namespace Bimwright.Dwg.Tests
         public void McpSessionLog_AppendsEntriesAndSummaryGeneratorCountsThem()
         {
             using var temp = new TempDir();
-            var sessionLog = new McpSessionLog(temp.Path, "s1");
+            var sessionLog = new McpSessionLog(temp.Path, "s1", enabled: () => true);
 
             sessionLog.Append(new McpSessionLogEntry { Tool = "dwg_get_selected_texts", Success = true, DurationMs = 5 });
             sessionLog.Append(new McpSessionLogEntry { Tool = "dwg_update_texts", Success = false, DurationMs = 10 });

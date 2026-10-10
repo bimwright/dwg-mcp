@@ -207,7 +207,7 @@ namespace Bimwright.Dwg.Plugin
 
             var cacheDir = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "Bimwright", "Fonts");
+                "Bimwright", "dwg-mcp", "Fonts");
             var cachePath = Path.Combine(cacheDir, FontFileName);
             if (File.Exists(cachePath))
             {

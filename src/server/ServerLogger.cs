@@ -1,46 +1,49 @@
 using System;
 using System.IO;
-using Newtonsoft.Json;
+using Bimwright.Dwg.Server.Logging;
 
 namespace Bimwright.Dwg.Server
 {
-    internal static class ServerLogger
+    internal sealed class ServerLogger
     {
-        private static readonly string LogPath;
-        private static readonly object Gate = new object();
+        internal static ServerLogger Default { get; } = new ServerLogger(Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Bimwright", "dwg-mcp", "dwg-mcp-calls.jsonl"));
 
-        static ServerLogger()
+        private readonly CallLogWriter _writer;
+
+        internal ServerLogger(string path, Func<bool> enabled = null)
         {
-            var dir = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "Bimwright");
-            Directory.CreateDirectory(dir);
-            LogPath = Path.Combine(dir, "dwg-mcp-calls.jsonl");
+            _writer = new CallLogWriter(path, enabled);
         }
 
-        public static void LogStart(string requestId, string toolName, string paramsJson)
+        public void LogStart(string requestId, string toolName, object parameters)
         {
             try
             {
-                WriteEntry(new
+                _writer.Append(new
                 {
                     timestamp = DateTime.UtcNow.ToString("o"),
                     session_id = "server",
                     request_id = requestId,
                     tool = toolName,
                     phase = "start",
-                    @params = paramsJson
+                    @params = parameters
                 });
             }
-            catch { }
+            catch { } // Diagnostics must not affect tool execution.
         }
 
-        public static void LogFinish(string requestId, string toolName, bool success,
-                                     long durationMs, string errorMsg = null)
+        public void LogFinish(string requestId, string toolName, bool success,
+                              long durationMs, string errorMsg = null)
         {
             try
             {
-                WriteEntry(new
+                // Compiler/runtime errors can echo arbitrary source text, including
+                // non-secret literals. No code-related error body belongs in a log.
+                var codeRelated = SendCodePolicy.IsSendCode(toolName)
+                    || string.Equals(toolName, "batch_execute", StringComparison.OrdinalIgnoreCase);
+                _writer.Append(new
                 {
                     timestamp = DateTime.UtcNow.ToString("o"),
                     session_id = "server",
@@ -49,19 +52,10 @@ namespace Bimwright.Dwg.Server
                     phase = "finish",
                     success,
                     duration_ms = durationMs,
-                    error = errorMsg
+                    error = codeRelated && errorMsg != null ? "<code error omitted>" : errorMsg
                 });
             }
             catch { }
-        }
-
-        private static void WriteEntry(object entry)
-        {
-            var line = JsonConvert.SerializeObject(entry, Formatting.None);
-            lock (Gate)
-            {
-                File.AppendAllText(LogPath, line + "\n");
-            }
         }
     }
 }

@@ -26,7 +26,7 @@ namespace Bimwright.Dwg.Server.Tools
             [Description("C# code to execute")] string code)
             => ToolGateway.LoggedCall("send_code", new { code }, new { code });
 
-        [McpServerTool(Name = "dwg_run_lisp"), Description(
+        [McpServerTool(Name = "dwg_run_lisp", ReadOnly = false, Destructive = false, Idempotent = true, OpenWorld = false), Description(
             "Unavailable: LISP execution is blocked in this build. Retained for compatibility; " +
             "all file/code/command inputs are refused locally without reading files or contacting AutoCAD. " +
             "There is no isolated executor or approved-script trust mechanism. " +

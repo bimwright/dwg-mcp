@@ -10,8 +10,8 @@
       installed AutoCAD 2022-2027 that the package ships (a year counts when
       its acad.exe exists and the package has a Contents\<year> payload)
     - the self-contained MCP server from server/ at the fixed path
-      %LOCALAPPDATA%\Bimwright\Dwg\server\current\dwg-mcp.exe
-    - a default %LOCALAPPDATA%\Bimwright\Dwg\dwgmcp.config.json with
+      %LOCALAPPDATA%\Bimwright\dwg-mcp\server\current\dwg-mcp.exe
+    - a default %LOCALAPPDATA%\Bimwright\dwg-mcp\dwgmcp.config.json with
       toolsets=["all"] (skipped when the file already sets toolsets)
 
   It then wires every detected MCP client (-Client <names> limits this,
@@ -138,7 +138,7 @@ if ($setupVersion -notmatch '^v?\d+\.\d+\.\d+(?:[-+][A-Za-z0-9.-]+)?$' -and $set
 # Fixed path for every version: MCP clients are configured once and an update
 # only replaces the files behind it.
 if (-not $ServerInstallRoot) {
-    $ServerInstallRoot = Join-Path $env:LOCALAPPDATA 'Bimwright\Dwg\server\current'
+    $ServerInstallRoot = Join-Path $env:LOCALAPPDATA 'Bimwright\dwg-mcp\server\current'
 }
 
 # A year counts only when acad.exe exists: registry keys can survive uninstalls.
@@ -273,14 +273,64 @@ function Move-ToRollback([string]$Path) {
     $script:installChanges.Add([pscustomobject]@{Path=$full;Backup=$backup})
 }
 
+# Pre-rename installs kept every per-user file under %LOCALAPPDATA%\Bimwright\Dwg\.
+# The product root is now %LOCALAPPDATA%\Bimwright\dwg-mcp\. The old tree is
+# moved whole - a rename, never a copy - so data stays byte-identical, and its
+# server\current lands exactly on the new server path. The rename is recorded
+# as a Relocate entry so a failed install restores the old folder exactly;
+# Remove-InstallPath never sees these entries, so neither root can be deleted
+# by the transaction.
+function Move-LegacyProductRoot {
+    [CmdletBinding(SupportsShouldProcess = $true)]
+    param([string]$LocalAppData = $env:LOCALAPPDATA)
+    $oldRoot = Join-Path $LocalAppData 'Bimwright\Dwg'
+    $newRoot = Join-Path $LocalAppData 'Bimwright\dwg-mcp'
+    if (-not (Test-Path -LiteralPath $oldRoot -PathType Container)) { return }
+    if (Test-Path -LiteralPath $newRoot) {
+        throw "Both $oldRoot and $newRoot exist. Move or remove one of them manually, then run the installer again - nothing was changed."
+    }
+    $closeHint = 'Close AutoCAD and any MCP clients using dwg-mcp, then run the installer again.'
+    if (-not $PSCmdlet.ShouldProcess("$oldRoot -> $newRoot", 'Relocate legacy dwg-mcp data folder')) {
+        Write-Host ("[migrate] preview move {0} -> {1}" -f $oldRoot, $newRoot)
+        return
+    }
+    $familyParent = Split-Path -Parent $newRoot
+    $createdFamilyParent = -not (Test-Path -LiteralPath $familyParent)
+    New-Item -ItemType Directory -Path $familyParent -Force | Out-Null
+    try {
+        Move-Item -LiteralPath $oldRoot -Destination $newRoot
+    } catch {
+        throw ("Could not move {0} to {1}: {2} {3} Nothing was changed." -f $oldRoot, $newRoot, $_.Exception.Message, $closeHint)
+    }
+    $script:installChanges.Add([pscustomobject]@{Kind='Relocate'; From=$oldRoot; To=$newRoot; CreatedParent=$(if ($createdFamilyParent) { $familyParent } else { $null })})
+    Write-Host ("[migrate] moved {0} -> {1}" -f $oldRoot, $newRoot)
+}
+
 function Undo-InstallChanges {
     $failures = @()
     for ($i = $script:installChanges.Count - 1; $i -ge 0; $i--) {
         $change = $script:installChanges[$i]
         try {
-            Remove-InstallPath $change.Path
-            if ($change.Backup) { Move-Item -LiteralPath $change.Backup -Destination $change.Path }
-        } catch { $failures += "$($change.Path): $_ (backup: $($change.Backup))" }
+            if ($change.PSObject.Properties['Kind'] -and $change.Kind -eq 'Relocate') {
+                if (Test-Path -LiteralPath $change.To) { Move-Item -LiteralPath $change.To -Destination $change.From }
+                # Roll back a family parent we created once it is empty again;
+                # sibling products or pre-existing content keep it alive.
+                if ($change.PSObject.Properties['CreatedParent'] -and $change.CreatedParent -and
+                    (Test-Path -LiteralPath $change.CreatedParent -PathType Container) -and
+                    @(Get-ChildItem -LiteralPath $change.CreatedParent -Force -ErrorAction SilentlyContinue).Count -eq 0) {
+                    Remove-Item -LiteralPath $change.CreatedParent -Recurse -Force
+                }
+            } else {
+                Remove-InstallPath $change.Path
+                if ($change.Backup) { Move-Item -LiteralPath $change.Backup -Destination $change.Path }
+            }
+        } catch {
+            if ($change.PSObject.Properties['Kind'] -and $change.Kind -eq 'Relocate') {
+                $failures += "$($change.To): $_ (restore to $($change.From))"
+            } else {
+                $failures += "$($change.Path): $_ (backup: $($change.Backup))"
+            }
+        }
     }
     if ($failures.Count) { throw ("Rollback incomplete; retain backup files and restore manually:`n" + ($failures -join "`n")) }
 }
@@ -716,7 +766,7 @@ function Set-McpConfigEntry {
     $entryText = if ($Exe) { Get-McpEntryText $EntryKind $Exe } else { $null }
     # Spans the whole JSON string value (quote to quote), so a repoint replaces
     # the full path rather than splicing the new one after the old prefix.
-    $legacyRx = '(?i)(?<=")[^"]*?[Dd]wg(?:\\{2}|\\)+server(?:\\{2}|\\)+(?!current(?:\\{2}|\\)+)[^"\\]+(?:\\{2}|\\)+dwg-mcp\.exe(?=")'
+    $legacyRx = '(?i)(?<=")(?:[^"]*?Bimwright(?:\\{2}|\\)+Dwg(?:\\{2}|\\)+server(?:\\{2}|\\)+[^"\\]+(?:\\{2}|\\)+dwg-mcp\.exe|[^"]*?dwg-mcp(?:\\{2}|\\)+server(?:\\{2}|\\)+(?!current(?:\\{2}|\\)+)[^"\\]+(?:\\{2}|\\)+dwg-mcp\.exe)(?=")'
 
     if (-not (Test-Path -LiteralPath $full)) {
         if ($Remove) { return 'absent' }
@@ -902,6 +952,16 @@ function Test-McpClientDetected($spec) {
 
 # Wire (Mode=Add) or unwire (Mode=Remove) the requested clients.
 # $Clients entries: names, 'auto'/'all' (every detected client), 'none'.
+# Client CLIs print notes such as "No MCP server named ..." to stderr. Under
+# $ErrorActionPreference = 'Stop', Windows PowerShell 5.1 turns any native
+# stderr line into a terminating error, so the best-effort remove on a fresh
+# machine failed the whole wiring. Run them with Continue; lines come back as text.
+function Invoke-ClientCli {
+    param([string]$Cli, [string[]]$Arguments)
+    $ErrorActionPreference = 'Continue'
+    & $Cli @Arguments 2>&1 | ForEach-Object { "$_" }
+}
+
 # Per-client failures are collected, never thrown - a bad client edit must
 # not roll back an otherwise-good install.
 function Invoke-McpClientWiring {
@@ -939,19 +999,19 @@ function Invoke-McpClientWiring {
                         if (-not $PSCmdlet.ShouldProcess($spec.Name, 'wire dwg-mcp via client CLI')) { $report.Add("$($spec.Name): previewed"); continue }
                         switch ($spec.Name) {
                             'claude' {
-                                $null = & claude mcp remove dwg-mcp -s local 2>$null  # drop any project-local shadow
-                                $out = & claude mcp add -s user dwg-mcp -- $Exe 2>&1
-                                $verify = & claude mcp get dwg-mcp 2>&1
+                                $null = Invoke-ClientCli claude @('mcp', 'remove', 'dwg-mcp', '-s', 'local')  # drop any project-local shadow
+                                $out = Invoke-ClientCli claude @('mcp', 'add', '-s', 'user', 'dwg-mcp', '--', $Exe)
+                                $verify = Invoke-ClientCli claude @('mcp', 'get', 'dwg-mcp')
                             }
                             'codex' {
                                 $toml = Join-Path ($(if ($env:CODEX_HOME) { $env:CODEX_HOME } else { Join-Path $env:USERPROFILE '.codex' })) 'config.toml'
                                 $oldArgs = Read-CodexEntryArgs $toml
-                                $out = & codex mcp add dwg-mcp -- $Exe @oldArgs 2>&1
-                                $verify = & codex mcp get dwg-mcp --json 2>&1
+                                $out = Invoke-ClientCli codex (@('mcp', 'add', 'dwg-mcp', '--', $Exe) + @($oldArgs))
+                                $verify = Invoke-ClientCli codex @('mcp', 'get', 'dwg-mcp', '--json')
                             }
                             'grok' {
-                                $out = & grok mcp add dwg-mcp $Exe --transport stdio 2>&1
-                                $verify = & grok mcp list 2>&1
+                                $out = Invoke-ClientCli grok @('mcp', 'add', 'dwg-mcp', $Exe, '--transport', 'stdio')
+                                $verify = Invoke-ClientCli grok @('mcp', 'list')
                             }
                         }
                         # A refused add leaves the old entry in place; `get`
@@ -968,9 +1028,9 @@ function Invoke-McpClientWiring {
                     } else {
                         if (-not $PSCmdlet.ShouldProcess($spec.Name, 'remove dwg-mcp via client CLI')) { $report.Add("$($spec.Name): previewed"); continue }
                         switch ($spec.Name) {
-                            'claude' { $null = & claude mcp remove dwg-mcp -s user 2>&1 }
-                            'codex'  { $null = & codex mcp remove dwg-mcp 2>&1 }
-                            'grok'   { $null = & grok mcp remove dwg-mcp 2>&1 }
+                            'claude' { $null = Invoke-ClientCli claude @('mcp', 'remove', 'dwg-mcp', '-s', 'user') }
+                            'codex'  { $null = Invoke-ClientCli codex @('mcp', 'remove', 'dwg-mcp') }
+                            'grok'   { $null = Invoke-ClientCli grok @('mcp', 'remove', 'dwg-mcp') }
                         }
                         $report.Add("$($spec.Name): removed")
                     }
@@ -1126,6 +1186,9 @@ try {
             # Recheck after staging; a user may have launched AutoCAD meanwhile.
             Assert-AutoCadClosed
         }
+        # Relocate the pre-rename %LOCALAPPDATA%\Bimwright\Dwg\ tree before the
+        # first write under the new product root (server deploy, config seeding).
+        Move-LegacyProductRoot -LocalAppData $env:LOCALAPPDATA
     }
 
     $duplicates = @(Get-DuplicateBundleItems -KeepBundle $bundleTargetRoot)
@@ -1195,7 +1258,7 @@ try {
         } elseif ($serverCommand) {
             $serverCheck = 'skipped (WhatIf)'
         }
-        $configDefault = Set-DefaultToolsetsConfig -ConfigPath (Join-Path $env:LOCALAPPDATA 'Bimwright\Dwg\dwgmcp.config.json')
+        $configDefault = Set-DefaultToolsetsConfig -ConfigPath (Join-Path $env:LOCALAPPDATA 'Bimwright\dwg-mcp\dwgmcp.config.json')
         if (@($Client | Where-Object { $_ -ne 'none' }).Count) {
             if ($serverCommand) {
                 $wiredClients = @(Invoke-McpClientWiring -Clients $Client -Exe $serverCommand -Mode Add)
@@ -1258,11 +1321,11 @@ if (-not $Uninstall) {
     if ($serverCommand) { Write-Host ("Server  : {0} (check: {1})" -f $serverCommand, $serverCheck) }
     else { Write-Host 'Server  : not in this package' }
     switch ($configDefault) {
-        'seeded'    { Write-Host ("Config  : seeded toolsets=all -> {0}\Bimwright\Dwg\dwgmcp.config.json" -f $env:LOCALAPPDATA) }
-        'merged'    { Write-Host ("Config  : added toolsets=all to {0}\Bimwright\Dwg\dwgmcp.config.json" -f $env:LOCALAPPDATA) }
+        'seeded'    { Write-Host ("Config  : seeded toolsets=all -> {0}\Bimwright\dwg-mcp\dwgmcp.config.json" -f $env:LOCALAPPDATA) }
+        'merged'    { Write-Host ("Config  : added toolsets=all to {0}\Bimwright\dwg-mcp\dwgmcp.config.json" -f $env:LOCALAPPDATA) }
         'kept'      { Write-Host 'Config  : kept existing toolsets setting' }
         'skipped'   { Write-Host 'Config  : unreadable config - unchanged' }
-        'previewed' { Write-Host ("Config  : preview seed toolsets=all -> {0}\Bimwright\Dwg\dwgmcp.config.json" -f $env:LOCALAPPDATA) }
+        'previewed' { Write-Host ("Config  : preview seed toolsets=all -> {0}\Bimwright\dwg-mcp\dwgmcp.config.json" -f $env:LOCALAPPDATA) }
     }
 }
 foreach ($w in $wiredClients) { Write-Host ("Client  : {0}" -f $w) }

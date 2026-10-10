@@ -18,7 +18,7 @@ namespace Bimwright.Dwg.Server.Bake
                 throw new ArgumentException("Local application data path is required.", nameof(localApplicationData));
             }
 
-            Root = Path.Combine(localApplicationData, "Bimwright", "Dwg");
+            Root = Path.Combine(localApplicationData, "Bimwright", "dwg-mcp");
             BakedRoot = Path.Combine(Root, "baked");
             UsageJsonl = Path.Combine(BakedRoot, "usage.jsonl");
             BakeDb = Path.Combine(BakedRoot, "bake.db");

@@ -10,7 +10,7 @@ namespace Bimwright.Dwg.Server.Tools
     [McpServerToolType]
     public class QueryTools
     {
-        [McpServerTool(Name = "dwg_get_drawing_info", ReadOnly = true, Idempotent = true), Description(
+        [McpServerTool(Name = "dwg_get_drawing_info", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false), Description(
             "Return small JSON-safe metadata for the current AutoCAD drawing: " +
             "drawing name when available, current layer, current space/layout, " +
             "and database unit scalars.")]
@@ -20,7 +20,7 @@ namespace Bimwright.Dwg.Server.Tools
             return ToolGateway.LoggedCall("get_drawing_info", request, request);
         }
 
-        [McpServerTool(Name = "dwg_get_entity_properties", ReadOnly = true, Idempotent = true), Description(
+        [McpServerTool(Name = "dwg_get_entity_properties", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false), Description(
             "Return properties for AutoCAD entities identified by handle. " +
             "Input handles is a JSON array of hex handles, e.g. [\"7F5AD\"]. " +
             "Returns one result record per handle; bad handles do not abort siblings.")]
@@ -47,7 +47,7 @@ namespace Bimwright.Dwg.Server.Tools
             return ToolGateway.LoggedCall("get_entity_properties", request, request);
         }
 
-        [McpServerTool(Name = "dwg_list_layers", ReadOnly = true, Idempotent = true), Description(
+        [McpServerTool(Name = "dwg_list_layers", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false), Description(
             "List layers in the current AutoCAD drawing with small scalar properties " +
             "such as color index, locked/frozen/off state.")]
         public static Task<string> ListLayers()
@@ -56,7 +56,7 @@ namespace Bimwright.Dwg.Server.Tools
             return ToolGateway.LoggedCall("list_layers", request, request);
         }
 
-        [McpServerTool(Name = "dwg_query_entities", ReadOnly = true, Idempotent = true), Description(
+        [McpServerTool(Name = "dwg_query_entities", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false), Description(
             "Query model-space AutoCAD entities with optional filters for entity type, layer, and ACI color index. " +
             "Returns count and entity property records; limit is clamped by the plugin.")]
         public static Task<string> QueryEntities(
@@ -71,7 +71,7 @@ namespace Bimwright.Dwg.Server.Tools
             return ToolGateway.LoggedCall("query_entities", request, request);
         }
 
-        [McpServerTool(Name = "dwg_count_entities", ReadOnly = true, Idempotent = true), Description(
+        [McpServerTool(Name = "dwg_count_entities", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false), Description(
             "Count model-space AutoCAD entities matching optional entity type, layer, and ACI color index filters.")]
         public static Task<string> CountEntities(
             [Description("Optional entity type filter such as Line, Circle, Polyline, DBText, MText, BlockReference, Hatch, Arc, or Ellipse. Case-insensitive.")] string entity_type = null,
@@ -82,7 +82,7 @@ namespace Bimwright.Dwg.Server.Tools
             return ToolGateway.LoggedCall("count_entities", request, request);
         }
 
-        [McpServerTool(Name = "dwg_select_by_layer", ReadOnly = true, Idempotent = true), Description(
+        [McpServerTool(Name = "dwg_select_by_layer", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false), Description(
             "Return handles for model-space entities on a required layer, with optional type/color filters. " +
             "This does not change AutoCAD pickfirst selection.")]
         public static Task<string> SelectByLayer(
@@ -95,7 +95,7 @@ namespace Bimwright.Dwg.Server.Tools
             return ToolGateway.LoggedCall("select_by_layer", request, request);
         }
 
-        [McpServerTool(Name = "dwg_select_by_type", ReadOnly = true, Idempotent = true), Description(
+        [McpServerTool(Name = "dwg_select_by_type", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false), Description(
             "Return handles for model-space entities of a required type, with optional layer/color filters. " +
             "This does not change AutoCAD pickfirst selection.")]
         public static Task<string> SelectByType(
@@ -108,7 +108,7 @@ namespace Bimwright.Dwg.Server.Tools
             return ToolGateway.LoggedCall("select_by_type", request, request);
         }
 
-        [McpServerTool(Name = "dwg_get_selected_texts", ReadOnly = true, Idempotent = true), Description(
+        [McpServerTool(Name = "dwg_get_selected_texts", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false), Description(
             "Read and cluster text entities currently selected in AutoCAD. " +
             "Returns pre-clustered groups with combined text in reading order. " +
             "Each cluster has id, text, entity_count, in_block (bool) and " +
@@ -124,7 +124,7 @@ namespace Bimwright.Dwg.Server.Tools
             return ToolGateway.LoggedCall("get_selected_texts", request, request);
         }
 
-        [McpServerTool(Name = "dwg_inspect_lisp", ReadOnly = true, Idempotent = true), Description(
+        [McpServerTool(Name = "dwg_inspect_lisp", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false), Description(
             "Statically inspect AutoLISP for known suspicious patterns without executing it — " +
             "downloaded .lsp files can embed malware (process exec via startapp/shell, " +
             "COM automation like WScript.Shell/XMLHTTP, persistence via acad.lsp/acaddoc.lsp " +

@@ -13,11 +13,14 @@ namespace Bimwright.Dwg.Server
 
         public static bool IsReadOnly => Config?.ReadOnlyOrDefault ?? false;
 
+        internal static string ReadOnlyMessage(string toolName)
+            => $"Tool '{toolName}' is disabled by read-only mode (--read-only / BIMWRIGHT_DWG_READ_ONLY); document and file changes are blocked.";
+
         public static string ReadOnlyError(string toolName)
             => JsonConvert.SerializeObject(new
             {
                 ok = false,
-                error = $"Tool '{toolName}' is disabled because BIMWRIGHT_DWG_READ_ONLY is enabled."
+                error = ReadOnlyMessage(toolName)
             });
     }
 }

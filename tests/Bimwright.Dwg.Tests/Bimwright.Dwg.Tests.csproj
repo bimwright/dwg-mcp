@@ -31,6 +31,7 @@
     <Compile Include="..\..\src\shared\Rewriting\FinalTextScalePolicy.cs" LinkBase="Shared\Rewriting" />
     <Compile Include="..\..\src\shared\Rewriting\TextMetrics.cs" LinkBase="Shared\Rewriting" />
     <Compile Include="..\..\src\shared\Unicode\UnicodeScaleHeuristics.cs" LinkBase="Shared\Unicode" />
+    <Compile Include="..\..\src\shared\Infrastructure\HealthSnapshot.cs" LinkBase="Shared\Infrastructure" />
     <Compile Include="..\..\src\shared\Infrastructure\CommandResult.cs" LinkBase="Shared\Infrastructure" />
     <Compile Include="..\..\src\shared\Infrastructure\ClusterStateStore.cs" LinkBase="Shared\Infrastructure" />
     <Compile Include="..\..\src\shared\Infrastructure\DwgApiExecutor.cs" LinkBase="Shared\Infrastructure" />

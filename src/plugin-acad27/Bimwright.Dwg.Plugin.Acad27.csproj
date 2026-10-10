@@ -3,6 +3,8 @@
     <TargetFramework>net10.0-windows</TargetFramework>
     <RootNamespace>Bimwright.Dwg.Plugin</RootNamespace>
     <AssemblyName>Bimwright.Dwg.Plugin.Acad27</AssemblyName>
+    <Version>2.1.0</Version>
+    <IncludeSourceRevisionInInformationalVersion>true</IncludeSourceRevisionInInformationalVersion>
     <LangVersion>latest</LangVersion>
     <AutoCadVersionYear>2027</AutoCadVersionYear>
     <DefineConstants>$(DefineConstants);ACAD2027;ACAD2025_OR_GREATER;ACAD2026_OR_GREATER;ACAD2027_OR_GREATER</DefineConstants>

@@ -9,8 +9,9 @@ namespace Bimwright.Dwg.Server.Tools
     [McpServerToolType]
     public class DimensionTools
     {
-        [McpServerTool(Name = "dwg_create_linear_dimension"), Description(
-            "Create a linear dimension. start, end, and dimension_line_point are JSON point objects.")]
+        [McpServerTool(Name = "dwg_create_linear_dimension", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false), Description(
+            "Create a linear dimension. start, end, and dimension_line_point are JSON point objects." +
+            " Changes the current drawing; use AutoCAD UNDO immediately to reverse drawing edits before saving. Disabled in read-only mode.")]
         public static Task<string> CreateLinearDimension(
             [Description("JSON point object, e.g. {\"x\":0,\"y\":0,\"z\":0}.")] string start,
             [Description("JSON point object, e.g. {\"x\":1000,\"y\":0,\"z\":0}.")] string end,
@@ -43,8 +44,9 @@ namespace Bimwright.Dwg.Server.Tools
             return ToolGateway.LoggedCall("create_linear_dimension", request, request);
         }
 
-        [McpServerTool(Name = "dwg_create_aligned_dimension"), Description(
-            "Create an aligned dimension. start, end, and dimension_line_point are JSON point objects.")]
+        [McpServerTool(Name = "dwg_create_aligned_dimension", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false), Description(
+            "Create an aligned dimension. start, end, and dimension_line_point are JSON point objects." +
+            " Changes the current drawing; use AutoCAD UNDO immediately to reverse drawing edits before saving. Disabled in read-only mode.")]
         public static Task<string> CreateAlignedDimension(
             [Description("JSON point object, e.g. {\"x\":0,\"y\":0,\"z\":0}.")] string start,
             [Description("JSON point object, e.g. {\"x\":1000,\"y\":500,\"z\":0}.")] string end,
@@ -75,8 +77,9 @@ namespace Bimwright.Dwg.Server.Tools
             return ToolGateway.LoggedCall("create_aligned_dimension", request, request);
         }
 
-        [McpServerTool(Name = "dwg_create_radial_dimension"), Description(
-            "Create a radial dimension for an existing entity. dimension_line_point is a JSON point object.")]
+        [McpServerTool(Name = "dwg_create_radial_dimension", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false), Description(
+            "Create a radial dimension for an existing entity. dimension_line_point is a JSON point object." +
+            " Changes the current drawing; use AutoCAD UNDO immediately to reverse drawing edits before saving. Disabled in read-only mode.")]
         public static Task<string> CreateRadialDimension(
             [Description("AutoCAD handle of the circle or arc entity to dimension.")] string entity_handle,
             [Description("JSON point object for the dimension line location.")] string dimension_line_point,
@@ -97,8 +100,9 @@ namespace Bimwright.Dwg.Server.Tools
             return ToolGateway.LoggedCall("create_radial_dimension", request, request);
         }
 
-        [McpServerTool(Name = "dwg_create_diameter_dimension"), Description(
-            "Create a diameter dimension for an existing entity. dimension_line_point is a JSON point object.")]
+        [McpServerTool(Name = "dwg_create_diameter_dimension", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false), Description(
+            "Create a diameter dimension for an existing entity. dimension_line_point is a JSON point object." +
+            " Changes the current drawing; use AutoCAD UNDO immediately to reverse drawing edits before saving. Disabled in read-only mode.")]
         public static Task<string> CreateDiameterDimension(
             [Description("AutoCAD handle of the circle or arc entity to dimension.")] string entity_handle,
             [Description("JSON point object for the dimension line location.")] string dimension_line_point,

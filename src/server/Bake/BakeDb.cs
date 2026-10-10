@@ -98,7 +98,8 @@ INSERT OR IGNORE INTO registry(
 
         public IReadOnlyList<BakedToolRecord> ReadRegistryRecords()
         {
-            using var connection = OpenConnection();
+            if (!File.Exists(_dbPath)) return Array.Empty<BakedToolRecord>();
+            using var connection = OpenConnection(readOnly: true);
             using var command = connection.CreateCommand();
             command.CommandText = "SELECT * FROM registry ORDER BY name";
             using var reader = command.ExecuteReader();
@@ -112,7 +113,8 @@ INSERT OR IGNORE INTO registry(
 
         public BakedToolRecord GetRegistryRecord(string name)
         {
-            using var connection = OpenConnection();
+            if (!File.Exists(_dbPath)) return null;
+            using var connection = OpenConnection(readOnly: true);
             using var command = connection.CreateCommand();
             command.CommandText = "SELECT * FROM registry WHERE name = $name";
             command.Parameters.AddWithValue("$name", name ?? string.Empty);
@@ -152,7 +154,8 @@ ON CONFLICT(id) DO UPDATE SET
 
         public IReadOnlyList<BakeSuggestionRecord> ListSuggestions()
         {
-            using var connection = OpenConnection();
+            if (!File.Exists(_dbPath)) return Array.Empty<BakeSuggestionRecord>();
+            using var connection = OpenConnection(readOnly: true);
             using var command = connection.CreateCommand();
             command.CommandText = "SELECT * FROM suggestions ORDER BY created_at DESC, id";
             using var reader = command.ExecuteReader();
@@ -166,7 +169,8 @@ ON CONFLICT(id) DO UPDATE SET
 
         public BakeSuggestionRecord GetSuggestion(string id)
         {
-            using var connection = OpenConnection();
+            if (!File.Exists(_dbPath)) return null;
+            using var connection = OpenConnection(readOnly: true);
             using var command = connection.CreateCommand();
             command.CommandText = "SELECT * FROM suggestions WHERE id = $id";
             command.Parameters.AddWithValue("$id", id ?? string.Empty);
@@ -202,9 +206,14 @@ VALUES($timestamp, $session_id, $tool, $params_hash, $ok, $duration_ms)";
             command.ExecuteNonQuery();
         }
 
-        private SqliteConnection OpenConnection()
+        private SqliteConnection OpenConnection(bool readOnly = false)
         {
-            var connection = new SqliteConnection("Data Source=" + _dbPath);
+            var connection = new SqliteConnection(new SqliteConnectionStringBuilder
+            {
+                DataSource = _dbPath,
+                Mode = readOnly ? SqliteOpenMode.ReadOnly : SqliteOpenMode.ReadWriteCreate,
+                Pooling = !readOnly
+            }.ToString());
             connection.Open();
             return connection;
         }

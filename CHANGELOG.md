@@ -2,6 +2,39 @@
 
 ## 2.1.0 — Unreleased
 
+### Health runtime and release checks
+
+- Add one read-only `dwg_health` tool to query (including read-only mode): host/document state without requiring or locking a drawing, plus loaded server/plugin version/build/alignment. No target preserves gateway identity; legacy plugins remain explicitly unverified. A busy UI retains identity while marking document state unavailable. Authentication precedes health dispatch; health bypasses drawing locks, operation toasts and drawing batches.
+- Optional `check_updates=true` compares both components with one official stable release/tag revision using a shared five-second budget and bounded metadata; routine calls remain offline. State-specific notifications distinguish new releases, revision review, missing identity, failed external lookup and newer local versions. Preserve protected components and obtain unobserved identities separately. Only a permitted `prepare_update` proposal contains installation steps and needs authorization; health never downloads packages, installs, edits client configs, saves/closes drawings or restarts processes.
+- Full informational version in initialize, per-process health tool metadata in tools/list, and `client_verification` support same-connection reconnect checks. Loaded assembly/MVID and capture-time disk SHA-256 have separate evidence limits; neither alignment nor revision equality proves artifact bytes, compatibility or publisher trust. The server cannot verify client cache refresh.
+- Development tool counts become 42 default / 66 all-enabled / 22 all-enabled read-only. Existing tools keep their parameters; health combines version/update checking in one endpoint. Add host-free protocol/runtime/release regression tests and agent/README guidance. AutoCAD 2024 and 2027 plugin builds verified; installed-host health acceptance is pending.
+
+### Runtime settings and privacy
+
+- Add `--enable-send-code` / `--disable-send-code` (default enabled) and `--enable-call-log` / `--disable-call-log` (default disabled), with JSON/env overrides and JSON → env → CLI precedence. Read-only still removes send_code; the server gate also refuses code-containing batches before dispatch and cannot be overridden by `MCPENABLECODE`.
+- Call-log and legacy call-journal writers no longer create directories/files while disabled. Opted-in logs redact before persistence; code fields contain only length + UTF-8 SHA-256, including nested batch inputs. Code-related error text is omitted to avoid source echoes. Existing logs are preserved; no body cache/journal is added. ToolBaker adaptive usage and diagnostic logs are separate.
+- Correct the CLI help's default toolset list (`query,modify,meta,view`) and document the paired switches in all README languages.
+
+### Toast
+
+- **History click-through** — clicking the card body opens/focuses a modeless History window and dismisses the card, like rvt-mcp. `MCPHISTORY` opens the same window. Search, Success/Failed and Read/Write filters, duration and a compact detail panel cover plugin-processed calls even when toasts are off. History keeps only the latest 1,000 outcomes in memory; no raw inputs/code bodies/JSON results or persistent history files are added.
+- **Script failures count as Failed** — an inner `send_code` result with `ok:false` no longer increments Success merely because the transport envelope succeeded. The card, red failure accent and History agree.
+- **Branding save feedback** — a failed settings save is shown under the branding switch while the chosen value remains active in the current session.
+- **Server version identity** — the MCP initialize version is derived from the server assembly rather than a separate hard-coded version.
+
+- **Toast card layout** — synced with rvt-mcp. The title names the gateway and AutoCAD year (`dwg-mcp 2024`), replacing the footer label and the `DWG-MCP -` prefix. The next line names the latest tool, and the Success · Failed · Capture counts spread evenly across the card, each number sized and aligned with its label.
+- **Capture thumbnail** — the latest capture shows on the card in one fixed frame with the image centred on both axes, so the card keeps its size between captures of different shapes. It stays at least 5 seconds: a later result without an image clears it only after that, and back-to-back captures switch to the newest one every 5 seconds. The preview does not change while the pointer is on the card. Click the thumbnail to open the image (the card then closes); a click elsewhere on the card opens History and dismisses it.
+- **Toast motion** — counters roll like an odometer: only the digits that change move, a new value continues the roll instead of restarting it, and a number that gains a digit widens gradually. The thumbnail frame opens with the card growing around it, cross-fades to the next capture, and fades out before the card closes up. All of it follows Windows' animation setting: with **Animation effects** off, everything changes at once.
+- **Plugin version stamping** — all six AutoCAD plugin shells carry `<Version>`, so the add-in DLLs report the release version instead of `1.0.0` and server/add-in pairing checks can match them (rvt-mcp / ipt-mcp parity).
+- **Installer wires Claude Code on Windows PowerShell 5.1** — client CLI calls (`claude`, `codex`, `grok`) no longer run under `$ErrorActionPreference = 'Stop'`, so a harmless stderr line such as `No MCP server named "dwg-mcp" in local scope` on a fresh machine no longer fails the wiring (it was reported as `claude: failed` while the install exited 0).
+- **Settings file is never clobbered** — if `settings.json` has content that is not a JSON object, saving a toast setting now leaves the file untouched and returns failure instead of replacing it with a fresh object (rvt-mcp / ipt-mcp parity).
+- **Show branding persists** — the Settings choice is saved as `showBranding` in `%LOCALAPPDATA%\Bimwright\dwg-mcp\settings.json` and restored at the next AutoCAD launch (rvt-mcp parity). It was session-only before.
+- **WPF toast regression harness** — `tests/Bimwright.Dwg.Toast.Tests` runs the production toast window and manager on a real WPF dispatcher without AutoCAD (`dotnet run --project tests/Bimwright.Dwg.Toast.Tests`; `-- --demo` opens an interactive preview). It covers the card layout, odometer rolling, thumbnail centring, open / cross-fade / close, hover branding and the manager lifecycle.
+
+### Setup
+
+- **Data folder moved to `%LOCALAPPDATA%\Bimwright\dwg-mcp\`** — all per-user state (config, discovery, logs, captures, ToolBaker data, fonts cache) and the server (`server\current\dwg-mcp.exe`) now live under the shared bimwright family root. The installer moves an existing `%LOCALAPPDATA%\Bimwright\Dwg\` once, byte-identical (AutoCAD and MCP clients using dwg-mcp must be closed), repoints known client entries to the new `server\current` path, restores the old folder if the install fails, and stops when both folders exist. Server and add-ins must come from the same release.
+
 ### Fixed
 
 - **`dwg_set_system_variable` accepts values again** — the `value` argument was declared as a Newtonsoft `JToken`, which the MCP SDK's System.Text.Json binder cannot create, so every call failed before reaching AutoCAD (since 1.0.0). Its published schema also required an array. `value` now binds any JSON number or string, the schema no longer restricts it to arrays, and the plugin wire format is unchanged.

@@ -9,9 +9,10 @@ namespace Bimwright.Dwg.Server.Tools
     [McpServerToolType]
     public class AnnotationTools
     {
-        [McpServerTool(Name = "dwg_create_text"), Description(
+        [McpServerTool(Name = "dwg_create_text", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false), Description(
             "Create single-line text in the current AutoCAD space. position is a JSON point object " +
-            "with numeric x, y, and optional z fields.")]
+            "with numeric x, y, and optional z fields." +
+            " Changes the current drawing; use AutoCAD UNDO immediately to reverse drawing edits before saving. Disabled in read-only mode.")]
         public static Task<string> CreateText(
             [Description("Text content to create.")] string text,
             [Description("JSON point object, e.g. {\"x\":0,\"y\":0,\"z\":0}.")] string position,
@@ -38,9 +39,10 @@ namespace Bimwright.Dwg.Server.Tools
             return ToolGateway.LoggedCall("create_text", request, request);
         }
 
-        [McpServerTool(Name = "dwg_create_mtext"), Description(
+        [McpServerTool(Name = "dwg_create_mtext", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false), Description(
             "Create multi-line text in the current AutoCAD space. location is a JSON point object " +
-            "with numeric x, y, and optional z fields.")]
+            "with numeric x, y, and optional z fields." +
+            " Changes the current drawing; use AutoCAD UNDO immediately to reverse drawing edits before saving. Disabled in read-only mode.")]
         public static Task<string> CreateMText(
             [Description("MText content to create.")] string text,
             [Description("JSON point object, e.g. {\"x\":0,\"y\":0,\"z\":0}.")] string location,
@@ -69,9 +71,10 @@ namespace Bimwright.Dwg.Server.Tools
             return ToolGateway.LoggedCall("create_mtext", request, request);
         }
 
-        [McpServerTool(Name = "dwg_create_leader"), Description(
+        [McpServerTool(Name = "dwg_create_leader", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false), Description(
             "Create a leader annotation. points is a JSON array of point objects with numeric x, y, " +
-            "and optional z fields.")]
+            "and optional z fields." +
+            " Changes the current drawing; use AutoCAD UNDO immediately to reverse drawing edits before saving. Disabled in read-only mode.")]
         public static Task<string> CreateLeader(
             [Description("JSON point array, e.g. [{\"x\":0,\"y\":0},{\"x\":10,\"y\":5}].")] string points,
             [Description("Optional leader text.")] string text = null,
@@ -94,9 +97,10 @@ namespace Bimwright.Dwg.Server.Tools
             return ToolGateway.LoggedCall("create_leader", request, request);
         }
 
-        [McpServerTool(Name = "dwg_create_table"), Description(
+        [McpServerTool(Name = "dwg_create_table", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false), Description(
             "Create a table in the current AutoCAD space. insertion_point is a JSON point object, " +
-            "and cells is a JSON array of row arrays.")]
+            "and cells is a JSON array of row arrays." +
+            " Changes the current drawing; use AutoCAD UNDO immediately to reverse drawing edits before saving. Disabled in read-only mode.")]
         public static Task<string> CreateTable(
             [Description("JSON point object, e.g. {\"x\":0,\"y\":0,\"z\":0}.")] string insertion_point,
             [Description("Number of table rows.")] int rows,

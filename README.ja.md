@@ -10,7 +10,7 @@
   <a href="https://github.com/bimwright/dwg-mcp/actions/workflows/build.yml"><img src="https://github.com/bimwright/dwg-mcp/actions/workflows/build.yml/badge.svg" alt="build" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="license" /></a>
   <a href="#サポート対象autocadバージョン"><img src="https://img.shields.io/badge/AutoCAD-2022--2027-186BFF" alt="AutoCAD 2022-2027" /></a>
-  <a href="#ツール"><img src="https://img.shields.io/badge/MCP-41%20default%20%2B%20optional-6C47FF" alt="MCP tools" /></a>
+  <a href="#ツール"><img src="https://img.shields.io/badge/MCP-42%20default%20%2B%20optional-6C47FF" alt="MCP tools" /></a>
 </p>
 
 <p align="center">
@@ -146,15 +146,35 @@ MCP クライアント設定（例: `.mcp.json`）に追加:
 
 `--read-only` で書き込み toolset を外します。`--toolsets all`、または必要な既定を**含めた**明示リストを使ってください（カスタムリストは既定セットを**置き換え**ます。例: `query,modify,meta,view,annotation`）。環境変数: `BIMWRIGHT_DWG_TOOLSETS=…`。
 
-`dwg_send_code` は `meta` でデフォルト登録され、`MCPDISABLECODE` / `MCPENABLECODE` で C# 実行を切り替えます。`dwg_run_lisp` は互換性のため登録を維持しますが、サーバーとプラグインの両方ですべての要求を拒否します。このビルドには LISP の隔離実行環境やスクリプトの信頼を確立する仕組みがありません。`--read-only` は両ツールを除外します。
+`dwg_send_code` は `meta` でデフォルト登録されます。`--enable-send-code` / `--disable-send-code` でサーバー側を切り替えます（JSON `enableSendCode`、環境変数 `BIMWRIGHT_DWG_ENABLE_SEND_CODE`）。無効な場合、C# を含むバッチは送信前に全体を拒否します。`MCPDISABLECODE` / `MCPENABLECODE` は AutoCAD セッション側だけを切り替え、サーバーの無効設定を上書きしません。`dwg_run_lisp` は互換性のため登録を維持しますが、サーバーとプラグインの両方ですべての要求を拒否します。このビルドには LISP の隔離実行環境やスクリプトの信頼を確立する仕組みがありません。`--read-only` は両ツールを除外します。
 
 `dwg_send_code` はインラインの同期スニペットのみを受け付け、`async`/`await` と `#load` ディレクティブは実行前に拒否します。AutoCAD API は呼び出し元スレッドで使い、`Task.Run` や別スレッドへ移さないでください。戻り値は JSON DTO に限定し、ネストした AutoCAD/COM オブジェクトも拒否します。`dwg_inspect_lisp` は静的解析に利用できます。2,000,000 文字を超えるソースは完全検査不能として危険判定になり、200 件の表示上限に達しても危険度の検出は続きます。正規表現にはタイムアウトがあり、時間切れの検査は不完全かつ危険と報告し、`clean` は返しません。
 
 ---
 
+コールログは**デフォルト無効**です。`--enable-call-log` / `--disable-call-log`（JSON `enableCallLog`、環境変数 `BIMWRIGHT_DWG_ENABLE_CALL_LOG`）で切り替えます。優先順位は JSON → 環境変数 → CLI、同じペアでは最後のフラグが優先されます。無効時はコールログ・ジャーナルを作成・追記せず、既存ログも削除しません。有効時の `%LOCALAPPDATA%\Bimwright\dwg-mcp\dwg-mcp-calls.jsonl` はマスク済みパラメーターと時間・成否メタデータのみを記録し、応答は記録しません。入れ子バッチを含む code フィールドは文字数と元の UTF-8 本文の SHA-256 のみ、ソースを含み得るコード関連エラー本文は省略します。コード本文キャッシュ・本文ジャーナルは未実装です。ToolBaker の適応的使用記録、診断ログ、メモリ内 History は別機能で、プラグインには永続コールログ writer がありません。
+
+## アクティビティ通知と History
+
+通知は既定で有効です。キーボードフォーカスを奪わない1枚のカードに `dwg-mcp <年>`、最新ツール名、**Success · Failed · Capture** を表示します。数字はオドメーター式に動き、画像は固定フレームの中央に表示され、最低5秒保持してクロスフェードします。Windows の **Animation effects** が無効なら即時更新します。ホバー中は閉じず、アイドル時間は10/20/30/60秒（既定20秒）。AutoCAD が最小化中またはモーダル状態ならカウントを保持して後で表示します。`MCPTOAST` で切り替え、`MCPSETTINGS` で設定します。Branding は既定で無効、ホバー時のみ表示し、再起動後も設定を保持します。保存失敗を表示してもセッション内の選択は有効です。
+
+カード本体をクリックすると **History** を開く／フォーカスしてカードを閉じます。×は閉じるだけ、サムネイルは許可された画像を開いてカードを閉じます。`MCPHISTORY` も同じモデルレスウィンドウを開きます。プラグイン処理済み呼び出しの最新1,000件の簡潔な結果をメモリに保持し、通知が無効でも検索、Success/Failed・Read/Write フィルター、実行時間、選択詳細を利用できます。カードを閉じても履歴は残り、**New session** で消去します。永続ログを追加せず、生の入力、コード本文、JSON 結果は保持しません。サーバーのみのツール通知はまだ含みません。設定キー `enableToast`、`toastIdleSeconds`、`showBranding` は `%LOCALAPPDATA%\Bimwright\dwg-mcp\settings.json` に保存します。
+
+---
+
+## Health と更新確認（Unreleased）
+
+`dwg_health()` は既定でオフライン・読み取り専用です。セッション開始時に対象を選び、`dwg_health(check_updates=true)` を一度実行します。図面を要求・ロックせず、host/document 状態とロード済み server/plugin の version/build/alignment を返します。接続先がなくても gateway identity を保持します。旧 plugin の `HEALTH_UNSUPPORTED` や不足した identity は未確認であり、破損とはみなしません。UI がビジーでも plugin identity は保持されます。操作 toast や drawing batch の対象外です。
+
+GitHub 確認は同じ stable release/tag に両 component を照合し、共有 5 秒・metadata サイズ制限を使います。`checked` は lookup の成功だけを示し、artifact の信頼性を証明しません。disk SHA-256 は capture 時点の観測で、ロード済み memory の証明ではありません。欠けた根拠は `unknown` のままです。
+
+両 `update.components`、notification 全文、`lookup_reason`、`protected_component_reasons`、`unobserved_components` を確認します。`UPDATE_CHECK_UNAVAILABLE` は外部 lookup の失敗であり runtime 障害ではありません。`LOCAL_VERSION_AHEAD` は情報通知で、downgrade しません。`prepare_update` と `bundle_update_proposal_allowed=true` の場合だけ更新提案を行い、インストールには承認が必要です。health は package の取得・インストール、client config の変更、図面の save/close、process restart を行いません。
+
+reconnect 後、同じ接続の新しい initialize と `tools/list` の `_meta["bimwright/dwg-mcp/runtime"]`・schema・annotations を `client_verification` と比較します。server 自体は client cache refresh を証明できません。read-only でも利用可能で、GitHub option のため `openWorldHint=true` です。[agent guide](AGENTS.md)。公開 v2.0.1 には未収録です。host-free protocol と plugin 2024/2027 build は検証済みですが、実ホスト受入は未完了です。
+
 ## ツール
 
-デフォルト起動では41のツール（クエリ（`dwg_inspect_lisp` 含む）、変更、メタ（`dwg_send_code`/`dwg_run_lisp` 含む）、ビュー、およびデフォルト有効の `dwg_capture_view_image`）が公開されます。オプショナルのToolBaker、注釈、ブロック、寸法、エクスポート、作図ツールセットは `--toolsets` で有効にでき、MCPサーフェス全体は65ツールになります。 登録数には拒否のみを返す `dwg_run_lisp` が含まれます。スキャン判定は実行を許可しません。
+development のデフォルト起動では42のツール（クエリ（`dwg_inspect_lisp` 含む）、変更、メタ（`dwg_send_code`/`dwg_run_lisp` 含む）、ビュー、およびデフォルト有効の `dwg_capture_view_image`）が公開されます。オプショナルのToolBaker、注釈、ブロック、寸法、エクスポート、作図ツールセットは `--toolsets` で有効にでき、MCPサーフェス全体は66ツールになります。 登録数には拒否のみを返す `dwg_run_lisp` が含まれます。スキャン判定は実行を許可しません。
 
 一般的なCADツールは、選択されたAutoCADターゲットの現在アクティブなドキュメントに対して動作します。エンティティ入力と返されるエンティティIDは、`7F5AD` のようなAutoCAD 16進ハンドルを使用します。作成、コピー、オフセット、および変更の応答は、生成または変更されたエンティティを16進ハンドルで識別します。
 
@@ -162,6 +182,7 @@ Plan 2 のクエリ拡張はモデル空間のみです。`dwg_query_entities`�
 
 | ツール | 目的 |
 |------|---------|
+| `dwg_health` | host/runtime identity と任意の stable release 確認。既定はオフライン・読み取り専用 |
 | `dwg_get_drawing_info` | 現在の図面名、現在の画層、現在のスペース/レイアウト、単位スカラーを読み取る |
 | `dwg_get_entity_properties` | AutoCAD 16進ハンドルで識別されるエンティティのプロパティを読み取る |
 | `dwg_list_layers` | 現在の図面の画層を色と状態フラグとともに一覧表示 |

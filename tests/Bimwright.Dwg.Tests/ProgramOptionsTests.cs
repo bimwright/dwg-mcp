@@ -10,10 +10,20 @@ namespace Bimwright.Dwg.Tests
     public class ProgramOptionsTests
     {
         [Fact]
+        public void ServerInfoVersion_tracks_the_server_assembly()
+        {
+            var options = new ModelContextProtocol.Server.McpServerOptions();
+            typeof(Program).GetMethod("ConfigureMcpServerOptions", BindingFlags.NonPublic | BindingFlags.Static)
+                .Invoke(null, new object[] { options });
+            Assert.Equal("dwg-mcp", options.ServerInfo.Name);
+            Assert.Equal(typeof(Program).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>().InformationalVersion, options.ServerInfo.Version);
+        }
+
+        [Fact]
         public void SendCodeRidesMetaToolsetOnDefaultSurface()
         {
-            // dwg_send_code is always-on like revit_send_code_to_revit: no
-            // --enable-send-code flag exists; meta (a default toolset) carries it.
+            // send_code remains enabled by default; meta carries it unless the
+            // server switch or read-only mode removes it.
             Assert.Contains("meta", ToolsetFilter.Resolve(new DwgMcpConfig()));
             Assert.True(HasMcpToolAttribute(typeof(CodeTools).GetMethod("SendCode")));
         }

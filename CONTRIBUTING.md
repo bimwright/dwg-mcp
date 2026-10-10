@@ -7,6 +7,7 @@ Contributions are welcome. This document covers the basics.
 1. Fork the repo and clone your fork.
 2. Build: `dotnet build src/Bimwright.Dwg.sln -c Debug`
 3. Run tests: `dotnet test tests/Bimwright.Dwg.Tests/Bimwright.Dwg.Tests.csproj`
+4. Toast window and animation changes: run the WPF harness on Windows, `dotnet run --project tests/Bimwright.Dwg.Toast.Tests` (see its [README](tests/Bimwright.Dwg.Toast.Tests/README.md)). It needs no AutoCAD.
 
 ## Plugin Development
 

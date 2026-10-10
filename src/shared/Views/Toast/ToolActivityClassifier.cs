@@ -14,7 +14,7 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
     {
         private static readonly HashSet<string> ReadCommands = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
-            "get_drawing_info", "get_entity_properties", "get_selected_texts",
+            "health", "get_drawing_info", "get_entity_properties", "get_selected_texts",
             "list_layers", "query_entities", "count_entities", "select_by_layer", "select_by_type",
             "list_blocks", "get_block_attributes", "get_variables", "inspect_lisp",
             "list_available_targets", "get_current_target", "switch_target",

@@ -10,7 +10,7 @@ namespace Bimwright.Dwg.Server.Tools
     [McpServerToolType]
     public class MetaTools
     {
-        [McpServerTool(Name = "dwg_list_available_targets", ReadOnly = true, Idempotent = true), Description(
+        [McpServerTool(Name = "dwg_list_available_targets", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false), Description(
             "List running AutoCAD targets discovered through acad-YYYY.json and legacy AutoCAD 2024 discovery files. " +
             "Versions are 4-digit AutoCAD years 2022 through 2027.")]
         public static Task<string> ListAvailableTargets()
@@ -31,15 +31,16 @@ namespace Bimwright.Dwg.Server.Tools
             return Ok(new { targets });
         }
 
-        [McpServerTool(Name = "dwg_get_current_target", ReadOnly = true, Idempotent = true), Description(
+        [McpServerTool(Name = "dwg_get_current_target", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false), Description(
             "Return the currently pinned AutoCAD target. If unset, dwg-mcp auto-selects the newest discovered target.")]
         public static Task<string> GetCurrentTarget()
         {
             return Ok(new { target = ServerState.Config?.Target });
         }
 
-        [McpServerTool(Name = "dwg_switch_target"), Description(
-            "Pin subsequent dwg-mcp calls to an AutoCAD target year. Use 2022, 2023, 2024, 2025, 2026, or 2027; legacy R-codes are rejected.")]
+        [McpServerTool(Name = "dwg_switch_target", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false), Description(
+            "Pin subsequent dwg-mcp calls to an AutoCAD target year. Use 2022, 2023, 2024, 2025, 2026, or 2027; legacy R-codes are rejected." +
+            " Changes only the in-memory routing choice; no drawing or file changes. Call again with the previous target to restore routing.")]
         public static Task<string> SwitchTarget(
             [Description("4-digit AutoCAD target year: 2022, 2023, 2024, 2025, 2026, or 2027.")] string target)
         {

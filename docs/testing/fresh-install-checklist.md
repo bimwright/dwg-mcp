@@ -39,7 +39,7 @@ pwsh scripts\install.ps1 -Version 2024 -SourceDir src\plugin-acad24\bin\Release\
 
 - Restart AutoCAD and confirm the command line reports that Bimwright DWG is listening.
 - If auto-start fails, run `MCPSTART`.
-- Confirm discovery exists at `%LOCALAPPDATA%\Bimwright\Dwg\acad-2024.json`.
+- Confirm discovery exists at `%LOCALAPPDATA%\Bimwright\dwg-mcp\acad-2024.json`.
 - For AutoCAD 2024 only, confirm legacy `%LOCALAPPDATA%\Bimwright\portAcad24.txt` exists.
 
 ## MCP Smoke
@@ -83,7 +83,7 @@ bimwright-dwg --target 2024 --toolsets query,modify,meta,toolbaker
 
 - Confirm `dwg_list_baked_tools` returns the server-owned SQLite registry contents.
 - Confirm `dwg_create_bake_issue_draft` returns a draft body and does not submit anything.
-- Accepting a suggestion must call plugin `apply_bake` first; the server should persist to `%LOCALAPPDATA%\Bimwright\Dwg\baked\bake.db` only after plugin validation succeeds.
+- Accepting a suggestion must call plugin `apply_bake` first; the server should persist to `%LOCALAPPDATA%\Bimwright\dwg-mcp\baked\bake.db` only after plugin validation succeeds.
 - Confirm accepted baked source is redacted before persistence and usage events are written to the `usage_events` table.
 - `dwg_run_baked_tool` should fail for unknown names and should run only tools present in the server registry.
 

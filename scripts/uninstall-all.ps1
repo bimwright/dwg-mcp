@@ -1,7 +1,8 @@
 <#
 .SYNOPSIS
   Remove dwg-mcp from this machine (AutoCAD plugin bundle + server + discovery files).
-  Personal data under %LOCALAPPDATA%\Bimwright\Dwg is kept unless -Purge.
+  Personal data under %LOCALAPPDATA%\Bimwright\dwg-mcp is kept unless -Purge.
+  A leftover legacy %LOCALAPPDATA%\Bimwright\Dwg folder gets the same treatment.
   MCP client configs are never read or changed.
 
 .DESCRIPTION
@@ -12,11 +13,15 @@
     3. MCP client configs are not touched: remove the 'dwg-mcp' entry from each
        client you configured yourself (see README.md).
     4. Server copies, discovery files (acad-YYYY.json) and the spill cache in
-       %LOCALAPPDATA%\Bimwright\Dwg\. A server copy that an MCP client is still
-       running is kept whole and reported; close that client and run again.
+       %LOCALAPPDATA%\Bimwright\dwg-mcp\ (and a leftover legacy
+       %LOCALAPPDATA%\Bimwright\Dwg\, if one still exists). A server copy that
+       an MCP client is still running is kept whole and reported; close that
+       client and run again.
        Everything else there - settings.json, dwgmcp.config.json, ToolBaker
        data (bake.db + sidecars), logs, captures and anything unrecognized -
        is kept. -Purge deletes the whole folder; -Purge -KeepLogs keeps logs.
+       The shared %LOCALAPPDATA%\Bimwright\ parent and other product folders
+       under it are never removed.
 
   Each step is independently skippable if the target does not exist. Failure mid-step
   does not abort the chain; exit code 1 is returned at the end if any step failed.
@@ -30,12 +35,12 @@
 .PARAMETER KeepLogs
   Only matters with -Purge (without it, logs are kept anyway). Preserves:
   - any `logs\` subdirectory (recursively)
-  - any loose `*.log` / `*.jsonl` files at the root of %LOCALAPPDATA%\Bimwright\Dwg\
+  - any loose `*.log` / `*.jsonl` files at the root of %LOCALAPPDATA%\Bimwright\dwg-mcp\
 
 .PARAMETER Purge
-  Delete the whole %LOCALAPPDATA%\Bimwright\Dwg\ tree during step 4, including
-  settings, config, ToolBaker data, captures and logs. Combine with -KeepLogs
-  to still keep logs.
+  Delete the whole %LOCALAPPDATA%\Bimwright\dwg-mcp\ tree during step 4 (and a
+  leftover %LOCALAPPDATA%\Bimwright\Dwg\ tree), including settings, config,
+  ToolBaker data, captures and logs. Combine with -KeepLogs to still keep logs.
 
 .EXAMPLE
   pwsh scripts/uninstall-all.ps1 -WhatIf
@@ -229,9 +234,9 @@ function Invoke-Step4-Discovery {
 }
 
 # --- Main ---
-$step4Plan = 'Step4: %LOCALAPPDATA%\Bimwright\Dwg\ server copies (kept while an MCP client still runs them), discovery files and spill cache (settings, config, ToolBaker data, logs and captures are kept)'
+$step4Plan = 'Step4: %LOCALAPPDATA%\Bimwright\dwg-mcp\ server copies (kept while an MCP client still runs them), discovery files and spill cache (settings, config, ToolBaker data, logs and captures are kept); a leftover %LOCALAPPDATA%\Bimwright\Dwg\ gets the same sweep'
 if ($Purge) {
-    $step4Plan = 'Step4 (-Purge): PERMANENTLY delete %LOCALAPPDATA%\Bimwright\Dwg\ including settings, config, ToolBaker data, captures and logs'
+    $step4Plan = 'Step4 (-Purge): PERMANENTLY delete %LOCALAPPDATA%\Bimwright\dwg-mcp\ (and a leftover %LOCALAPPDATA%\Bimwright\Dwg\) including settings, config, ToolBaker data, captures and logs; the Bimwright parent and sibling products are never touched'
     if ($KeepLogs) { $step4Plan += ' (logs kept)' }
 }
 $planned = @(
@@ -249,6 +254,8 @@ if (-not (Confirm-Sweep $planned)) {
 try {
     Invoke-Step1-Plugin
     Invoke-Step2-DotnetTool
+    Invoke-Step4-Discovery -Root (Join-Path $env:LOCALAPPDATA 'Bimwright\dwg-mcp')
+    # A leftover pre-rename %LOCALAPPDATA%\Bimwright\Dwg\ gets the same Keep/Purge sweep.
     Invoke-Step4-Discovery -Root (Join-Path $env:LOCALAPPDATA 'Bimwright\Dwg')
 } catch {
     Write-Warning ("[main] unexpected error - summary follows. Error: {0}" -f $_.Exception.Message)

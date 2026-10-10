@@ -1,23 +1,22 @@
 using System;
 using System.IO;
-using Newtonsoft.Json;
+using Bimwright.Dwg.Server.Logging;
 
 namespace Bimwright.Dwg.Server.Memory
 {
     public sealed class JournalLogger
     {
-        private readonly string _path;
+        private readonly CallLogWriter _writer;
 
-        public JournalLogger(string root)
+        public JournalLogger(string root, Func<bool> enabled = null)
         {
             if (string.IsNullOrWhiteSpace(root)) throw new ArgumentException("Journal root is required.", nameof(root));
-            Directory.CreateDirectory(root);
-            _path = Path.Combine(root, "journal.jsonl");
+            _writer = new CallLogWriter(Path.Combine(root, "journal.jsonl"), enabled);
         }
 
         public void Append(JournalEntry entry)
         {
-            File.AppendAllText(_path, JsonConvert.SerializeObject(entry ?? new JournalEntry(), Formatting.None) + Environment.NewLine);
+            _writer.Append(entry ?? new JournalEntry());
         }
     }
 }

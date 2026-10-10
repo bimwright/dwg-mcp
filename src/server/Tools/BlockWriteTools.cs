@@ -9,8 +9,9 @@ namespace Bimwright.Dwg.Server.Tools
     [McpServerToolType]
     public class BlockWriteTools
     {
-        [McpServerTool(Name = "dwg_insert_block"), Description(
-            "Insert a block reference. insertion_point is a JSON point object. Optional attributes is a JSON object.")]
+        [McpServerTool(Name = "dwg_insert_block", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false), Description(
+            "Insert a block reference. insertion_point is a JSON point object. Optional attributes is a JSON object." +
+            " Changes the current drawing; use AutoCAD UNDO immediately to reverse drawing edits before saving. Disabled in read-only mode.")]
         public static Task<string> InsertBlock(
             [Description("Block definition name to insert.")] string block_name,
             [Description("JSON point object, e.g. {\"x\":0,\"y\":0,\"z\":0}.")] string insertion_point,
@@ -45,8 +46,9 @@ namespace Bimwright.Dwg.Server.Tools
             return ToolGateway.LoggedCall("insert_block", request, request);
         }
 
-        [McpServerTool(Name = "dwg_set_block_attributes"), Description(
-            "Set attribute values on a block reference identified by handle. attributes is a JSON object.")]
+        [McpServerTool(Name = "dwg_set_block_attributes", ReadOnly = false, Destructive = false, Idempotent = true, OpenWorld = false), Description(
+            "Set attribute values on a block reference identified by handle. attributes is a JSON object." +
+            " Changes the current drawing; use AutoCAD UNDO immediately to reverse drawing edits before saving. Disabled in read-only mode.")]
         public static Task<string> SetBlockAttributes(
             [Description("AutoCAD handle of the block reference.")] string handle,
             [Description("JSON object of attribute tag/value pairs.")] string attributes,
@@ -67,8 +69,9 @@ namespace Bimwright.Dwg.Server.Tools
             return ToolGateway.LoggedCall("set_block_attributes", request, request);
         }
 
-        [McpServerTool(Name = "dwg_explode_block"), Description(
-            "Explode a block reference identified by handle.")]
+        [McpServerTool(Name = "dwg_explode_block", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false), Description(
+            "Explode a block reference identified by handle." +
+            " Changes the current drawing; use AutoCAD UNDO immediately to reverse drawing edits before saving. Disabled in read-only mode.")]
         public static Task<string> ExplodeBlock(
             [Description("AutoCAD handle of the block reference.")] string handle)
         {

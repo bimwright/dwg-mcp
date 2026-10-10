@@ -11,6 +11,7 @@ namespace Bimwright.Dwg.Plugin
     {
         private readonly Dictionary<string, IAcadCommand> _commands;
         private readonly string _authToken;
+        private readonly JObject _healthIdentity;
 
         public static bool SendCodeEnabled { get; private set; }
 
@@ -22,6 +23,8 @@ namespace Bimwright.Dwg.Plugin
         public CommandDispatcher(string authToken)
         {
             _authToken = authToken;
+            _healthIdentity = RuntimeIdentity.Capture(typeof(CommandDispatcher).Assembly, "plugin",
+                int.Parse(PluginTarget.AutoCadYear, System.Globalization.CultureInfo.InvariantCulture));
             _commands = new Dictionary<string, IAcadCommand>
             {
                 { "get_drawing_info",        new GetDrawingInfoHandler() },
@@ -109,6 +112,15 @@ namespace Bimwright.Dwg.Plugin
                     if (catalogError != null)
                         return ErrorJson(id, catalogError);
                     return SerializeResponse(id, cmd, CommandResult.Success(new { accepted = ToolCatalogStore.Snapshot().Length }));
+                }
+
+                // Authenticate first; health is independent of drawing locks and activity toasts.
+                if (string.Equals(cmd, "health", StringComparison.Ordinal))
+                {
+                    if (parameters != null && parameters.Type != JTokenType.Null
+                        && (parameters is not JObject healthParams || healthParams.Count != 0))
+                        return ErrorJson(id, "health does not accept plugin-side parameters");
+                    return SerializeResponse(id, cmd, HealthHandler.Read(_healthIdentity));
                 }
 
                 var preflight = ValidateCommand(cmd, parameters, out var preflightHandler);

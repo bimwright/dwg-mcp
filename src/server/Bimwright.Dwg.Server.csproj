@@ -14,7 +14,8 @@
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>bimwright-dwg</ToolCommandName>
     <PackageId>Bimwright.Dwg.Server</PackageId>
-    <Version>2.0.1</Version>
+    <Version>2.1.0</Version>
+    <IncludeSourceRevisionInInformationalVersion>true</IncludeSourceRevisionInInformationalVersion>
     <Authors>Khoa Le</Authors>
     <Description>MCP gateway for AutoCAD 2022-2027 DWG workflows: text reading, translation rewriting, target routing, optional ToolBaker, and opt-in code execution.</Description>
     <PackageProjectUrl>https://github.com/bimwright/dwg-mcp</PackageProjectUrl>
@@ -39,6 +40,7 @@
 
   <ItemGroup>
     <Compile Include="..\shared\ToolBaker\*.cs" LinkBase="Shared\ToolBaker" />
+    <Compile Include="..\shared\Infrastructure\RuntimeIdentity.cs" LinkBase="Shared\Infrastructure" />
     <Compile Include="..\shared\Security\SecretMasker.cs" LinkBase="Shared\Security" />
     <Compile Include="..\shared\Security\ErrorSanitizer.cs" LinkBase="Shared\Security" />
     <Compile Include="..\shared\Security\BakeRedactor.cs" LinkBase="Shared\Security" />

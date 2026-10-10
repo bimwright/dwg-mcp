@@ -10,7 +10,7 @@
   <a href="https://github.com/bimwright/dwg-mcp/actions/workflows/build.yml"><img src="https://github.com/bimwright/dwg-mcp/actions/workflows/build.yml/badge.svg" alt="build" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="license" /></a>
   <a href="#支持的-autocad-版本"><img src="https://img.shields.io/badge/AutoCAD-2022--2027-186BFF" alt="AutoCAD 2022-2027" /></a>
-  <a href="#tools"><img src="https://img.shields.io/badge/MCP-41%20default%20%2B%20optional-6C47FF" alt="MCP tools" /></a>
+  <a href="#tools"><img src="https://img.shields.io/badge/MCP-42%20default%20%2B%20optional-6C47FF" alt="MCP tools" /></a>
 </p>
 
 <p align="center">
@@ -146,15 +146,35 @@ AI agent 让“把选中的文字全部翻译成越南语”这类意图可以�
 
 使用 `--read-only` 去掉可写 toolset。使用 `--toolsets all`，或显式列表且**包含**你需要的默认项（自定义列表会**替换**默认集合，例如 `query,modify,meta,view,annotation`）。环境变量：`BIMWRIGHT_DWG_TOOLSETS=…`。
 
-`dwg_send_code` 通过 `meta` 默认注册；`MCPDISABLECODE` / `MCPENABLECODE` 控制当前会话中的 C# 执行。`dwg_run_lisp` 保留注册以兼容旧客户端，但 server 和 plugin 均拒绝所有请求。此版本没有 LISP 隔离执行环境或脚本信任机制。`--read-only` 会移除这两个工具。
+`dwg_send_code` 通过 `meta` 默认注册。用 `--enable-send-code` / `--disable-send-code` 控制 server（JSON `enableSendCode`；环境变量 `BIMWRIGHT_DWG_ENABLE_SEND_CODE`）。禁用时，含 C# 的批处理会在发送任何命令前整体拒绝。`MCPDISABLECODE` / `MCPENABLECODE` 只控制 AutoCAD 会话侧，不能覆盖 server 的禁用设置。`dwg_run_lisp` 保留注册以兼容旧客户端，但 server 和 plugin 均拒绝所有请求。此版本没有 LISP 隔离执行环境或脚本信任机制。`--read-only` 会移除这两个工具。
 
 `dwg_send_code` 仅接受内联同步片段，执行前拒绝 `async`/`await` 和 `#load` 指令。AutoCAD API 必须留在调用线程，不要移至 `Task.Run` 或其他线程。只返回 JSON DTO，嵌套的 AutoCAD/COM 对象也会被拒绝。`dwg_inspect_lisp` 仍可用于静态分析；超过 2,000,000 字符的源码因无法完整检查而被标记为危险，200 条 findings 的显示上限不会停止危险级别检测。正则匹配设有超时；超时扫描会报告检查不完整并标记为危险，不会返回 `clean`。
 
 ---
 
+调用日志**默认关闭**。用 `--enable-call-log` / `--disable-call-log`（JSON `enableCallLog`；环境变量 `BIMWRIGHT_DWG_ENABLE_CALL_LOG`）切换。优先级为 JSON → 环境变量 → CLI；同一开关对中最后出现的 flag 生效。关闭时不创建或追加调用日志、调用 journal，也不删除旧日志。开启时，`%LOCALAPPDATA%\Bimwright\dwg-mcp\dwg-mcp-calls.jsonl` 仅记录脱敏参数及耗时/成败元数据，不记录响应。code 字段（包括嵌套 batch）仅含字符长度和原始 UTF-8 body 的 SHA-256；可能回显 source 的代码相关错误正文被省略。尚未实现代码 body cache 或 body journal。ToolBaker adaptive usage、诊断日志和内存 History 是独立功能；plugin 没有持久化调用日志 writer。
+
+## 活动通知与 History
+
+通知默认开启，使用不抢占键盘焦点的单张卡片，显示 `dwg-mcp <年份>`、最新工具名称和 **Success · Failed · Capture** 计数。数字按里程表方式滚动；图像在固定框内居中，至少保留5秒，以 cross-fade 切换。关闭 Windows **Animation effects** 后即时更新。悬停暂停关闭；空闲时间可选10/20/30/60秒（默认20秒）。AutoCAD 最小化或有模态窗口时保留计数，恢复可用后显示。`MCPTOAST` 切换通知，`MCPSETTINGS` 设置通知及品牌标识。Branding 默认关闭，仅悬停时显示，重启后保留选择；保存失败会提示，但本次会话的选择仍生效。
+
+点击卡片主体打开／聚焦 **History** 并关闭卡片；×只关闭；点击缩略图打开 allowlist 允许的图像并关闭卡片。`MCPHISTORY` 打开同一非模态窗口。History 在内存中保留插件处理调用的最近1,000条简短结果，通知关闭时仍记录；支持搜索、Success/Failed 和 Read/Write 筛选、耗时及选中行详情。关闭卡片不清空历史，**New session** 清空列表。不新增持久日志，不保留原始输入、代码正文或 JSON 结果。尚不包含仅在服务器执行的工具通知。`enableToast`、`toastIdleSeconds`、`showBranding` 保存于 `%LOCALAPPDATA%\Bimwright\dwg-mcp\settings.json`。
+
+---
+
+## Health 与更新检查（Unreleased）
+
+`dwg_health()` 默认离线、只读。每次会话先选择目标，再调用一次 `dwg_health(check_updates=true)`；后续常规探测保持离线。它不要求或锁定图纸，返回 host/document 状态及已加载 server/plugin 的 version/build/alignment。无目标时仍保留 gateway identity。旧插件的 `HEALTH_UNSUPPORTED` 或缺失 identity 表示未验证，不表示损坏；UI 忙时仍保留 plugin identity。health 不触发操作 toast，也不在 drawing batch 中运行。
+
+GitHub 检查将两个 component 与同一 stable release/tag 比较，共享 5 秒预算且限制 metadata 大小。`checked` 只表示 lookup 成功，不证明 artifact 可信。SHA-256 只是 capture 时磁盘文件的观察，不证明已加载 memory。缺失证据仍为 `unknown`；版本相同或 `update_available=false` 不证明 release build 一致。
+
+检查两个 `update.components`、完整通知、`lookup_reason`、`protected_component_reasons` 和 `unobserved_components`。`UPDATE_CHECK_UNAVAILABLE` 是外部 lookup 失败，不是 runtime 故障或安装授权请求；`LOCAL_VERSION_AHEAD` 仅是信息，不得降级。只有 `prepare_update` 且 `bundle_update_proposal_allowed=true` 才能提出更新，安装仍需授权。health 不下载 package、安装、修改 client config、保存/关闭图纸或重启进程。
+
+reconnect 后，在同一连接上将新的 initialize 与 `tools/list` 的 `_meta["bimwright/dwg-mcp/runtime"]`、schema、annotations 对照 `client_verification`；server 无法证明 client cache 已刷新。read-only 下仍可用，因 GitHub 选项而设置 `openWorldHint=true`。参见 [agent guide](AGENTS.md)。已发布 v2.0.1 不包含此功能。host-free protocol 和 2024/2027 plugin build 已验证，实际 AutoCAD 验收待完成。
+
 ## Tools
 
-默认启动暴露 41 个工具：query（含 `dwg_inspect_lisp`）、modify、meta（含 `dwg_send_code`/`dwg_run_lisp`）、view 和默认启用的 `dwg_capture_view_image`。可选 ToolBaker、annotation、block、dimension、export 和 drawing 工具集，通过 `--toolsets` 启用，把后端可用的 MCP surface 扩充到 65 个工具。 注册数量包含仅返回拒绝的 `dwg_run_lisp`；任何扫描判定都不授权执行。
+development 默认启动暴露 42 个工具：query（含 `dwg_inspect_lisp`）、modify、meta（含 `dwg_send_code`/`dwg_run_lisp`）、view 和默认启用的 `dwg_capture_view_image`。可选 ToolBaker、annotation、block、dimension、export 和 drawing 工具集，通过 `--toolsets` 启用，把后端可用的 MCP surface 扩充到 66 个工具。 注册数量包含仅返回拒绝的 `dwg_run_lisp`；任何扫描判定都不授权执行。
 
 通用 CAD 工具作用于所选 AutoCAD 目标中的当前活动文档。实体输入与返回的实体 ID 使用 AutoCAD 十六进制 handle，例如 `7F5AD`，由选择、创建或属性工具返回。创建、复制、偏移和修改操作的响应会用十六进制 handle 标识所生成或修改的实体。
 
@@ -162,6 +182,7 @@ Plan 2 的查询扩展仅限模型空间：`dwg_query_entities`、`dwg_count_ent
 
 | 工具 | 用途 |
 |------|------|
+| `dwg_health` | host/runtime identity 与可选 stable release 检查；默认离线、只读 |
 | `dwg_get_drawing_info` | 读取当前图纸名称、当前图层、当前空间/布局，以及单位标量 |
 | `dwg_get_entity_properties` | 读取由 AutoCAD 十六进制 handle 标识的实体属性 |
 | `dwg_list_layers` | 列出当前图纸中的图层及其颜色和状态标志 |

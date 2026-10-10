@@ -8,6 +8,28 @@ on:
   workflow_dispatch:
 
 jobs:
+  installer:
+    name: installer-${{ matrix.shell }}
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shell: [powershell, pwsh]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run installer regression tests
+        shell: ${{ matrix.shell }}
+        run: ./tests/installer/relocate.Tests.ps1 -ResultPath installer-tests.json
+
+      - name: Upload installer test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: installer-tests-${{ matrix.shell }}
+          path: installer-tests.json
+          if-no-files-found: warn
+
   server:
     name: server
     runs-on: ubuntu-latest

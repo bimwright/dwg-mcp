@@ -10,14 +10,15 @@ namespace Bimwright.Dwg.Server.Tools
     [McpServerToolType]
     public class ModifyTools
     {
-        [McpServerTool(Name = "dwg_update_texts"), Description(
+        [McpServerTool(Name = "dwg_update_texts", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false), Description(
             "Write new text to AutoCAD entities identified by handle. " +
             "Input is a JSON array of {handle, new_text} objects. " +
             "Returns per-item {handle, ok, error} - failures do not abort siblings. " +
             "Handles are hex strings as returned by dwg_get_selected_texts. " +
             "All items are written in a single transaction so one Ctrl+Z undoes the batch. " +
             "If applyUnicodeStyle=true, the same call also reassigns successfully updated " +
-            "entities to the Unicode text style.")]
+            "entities to the Unicode text style." +
+            " Changes the current drawing; use AutoCAD UNDO immediately to reverse drawing edits before saving. Disabled in read-only mode.")]
         public static Task<string> UpdateTexts(
             [Description("JSON array: [{\"handle\":\"2A4F\",\"new_text\":\"...\"}]")] string items,
             [Description("When true, apply the Unicode text style to successfully updated entities in the same tool call.")] bool applyUnicodeStyle = false)
@@ -27,9 +28,10 @@ namespace Bimwright.Dwg.Server.Tools
             return ToolGateway.LoggedCall("update_texts", request, request);
         }
 
-        [McpServerTool(Name = "dwg_create_layer"), Description(
+        [McpServerTool(Name = "dwg_create_layer", ReadOnly = false, Destructive = false, Idempotent = true, OpenWorld = false), Description(
             "Ensure an AutoCAD layer exists. If the layer already exists, its existing " +
-            "color and state are left unchanged and the response reports created=false.")]
+            "color and state are left unchanged and the response reports created=false." +
+            " Changes the current drawing; use AutoCAD UNDO immediately to reverse drawing edits before saving. Disabled in read-only mode.")]
         public static Task<string> CreateLayer(
             [Description("Layer name to ensure.")] string name,
             [Description("Optional ACI color index used only when creating a missing layer. Valid range: 1-256. Default: 7.")] int? color_index = null)
@@ -46,10 +48,11 @@ namespace Bimwright.Dwg.Server.Tools
             return ToolGateway.LoggedCall("create_layer", request, request);
         }
 
-        [McpServerTool(Name = "dwg_create_line"), Description(
+        [McpServerTool(Name = "dwg_create_line", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false), Description(
             "Create a Line in the current AutoCAD space. start and end are JSON point " +
             "objects with numeric x, y, and optional z fields. Optional layer is ensured " +
-            "before assignment; optional color_index sets the entity ACI color.")]
+            "before assignment; optional color_index sets the entity ACI color." +
+            " Changes the current drawing; use AutoCAD UNDO immediately to reverse drawing edits before saving. Disabled in read-only mode.")]
         public static Task<string> CreateLine(
             [Description("JSON point object, e.g. {\"x\":0,\"y\":0,\"z\":0}.")] string start,
             [Description("JSON point object, e.g. {\"x\":1000,\"y\":0,\"z\":0}.")] string end,
@@ -83,9 +86,10 @@ namespace Bimwright.Dwg.Server.Tools
             return ToolGateway.LoggedCall("create_line", request, request);
         }
 
-        [McpServerTool(Name = "dwg_create_circle"), Description(
+        [McpServerTool(Name = "dwg_create_circle", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false), Description(
             "Create a Circle in the current AutoCAD space. center is a JSON point object " +
-            "with numeric x, y, and optional z fields. radius must be positive and finite.")]
+            "with numeric x, y, and optional z fields. radius must be positive and finite." +
+            " Changes the current drawing; use AutoCAD UNDO immediately to reverse drawing edits before saving. Disabled in read-only mode.")]
         public static Task<string> CreateCircle(
             [Description("JSON point object, e.g. {\"x\":0,\"y\":0,\"z\":0}.")] string center,
             [Description("Circle radius. Must be positive and finite.")] double radius,
@@ -114,10 +118,11 @@ namespace Bimwright.Dwg.Server.Tools
             return ToolGateway.LoggedCall("create_circle", request, request);
         }
 
-        [McpServerTool(Name = "dwg_create_point"), Description(
+        [McpServerTool(Name = "dwg_create_point", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false), Description(
             "Create a Point in the current AutoCAD space. point is a JSON point object " +
             "with numeric x, y, and optional z fields. Optional layer is ensured before " +
-            "assignment; optional color_index sets the entity ACI color.")]
+            "assignment; optional color_index sets the entity ACI color." +
+            " Changes the current drawing; use AutoCAD UNDO immediately to reverse drawing edits before saving. Disabled in read-only mode.")]
         public static Task<string> CreatePoint(
             [Description("JSON point object, e.g. {\"x\":0,\"y\":0,\"z\":0}.")] string point,
             [Description("Optional target layer name. If supplied, the layer is ensured using color_index or default 7.")] string layer = null,
@@ -144,10 +149,11 @@ namespace Bimwright.Dwg.Server.Tools
             return ToolGateway.LoggedCall("create_point", request, request);
         }
 
-        [McpServerTool(Name = "dwg_create_polyline"), Description(
+        [McpServerTool(Name = "dwg_create_polyline", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false), Description(
             "Create a 2D Polyline in the current AutoCAD space. points is a JSON array " +
             "of point objects with numeric x, y, and optional z fields. At least two " +
-            "points are required.")]
+            "points are required." +
+            " Changes the current drawing; use AutoCAD UNDO immediately to reverse drawing edits before saving. Disabled in read-only mode.")]
         public static Task<string> CreatePolyline(
             [Description("JSON point array, e.g. [{\"x\":0,\"y\":0},{\"x\":1000,\"y\":0}].")] string points,
             [Description("When true, close the polyline.")] bool closed = false,
@@ -176,9 +182,10 @@ namespace Bimwright.Dwg.Server.Tools
             return ToolGateway.LoggedCall("create_polyline", request, request);
         }
 
-        [McpServerTool(Name = "dwg_create_rectangle"), Description(
+        [McpServerTool(Name = "dwg_create_rectangle", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false), Description(
             "Create a Rectangle as a closed Polyline in the current AutoCAD space. " +
-            "corner1 and corner2 are JSON point objects with numeric x, y, and optional z fields.")]
+            "corner1 and corner2 are JSON point objects with numeric x, y, and optional z fields." +
+            " Changes the current drawing; use AutoCAD UNDO immediately to reverse drawing edits before saving. Disabled in read-only mode.")]
         public static Task<string> CreateRectangle(
             [Description("JSON point object, e.g. {\"x\":0,\"y\":0,\"z\":0}.")] string corner1,
             [Description("JSON point object, e.g. {\"x\":1000,\"y\":500,\"z\":0}.")] string corner2,
@@ -212,9 +219,10 @@ namespace Bimwright.Dwg.Server.Tools
             return ToolGateway.LoggedCall("create_rectangle", request, request);
         }
 
-        [McpServerTool(Name = "dwg_create_arc"), Description(
+        [McpServerTool(Name = "dwg_create_arc", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false), Description(
             "Create an Arc in the current AutoCAD space. center is a JSON point object. " +
-            "radius must be positive and finite. start_angle and end_angle are degrees.")]
+            "radius must be positive and finite. start_angle and end_angle are degrees." +
+            " Changes the current drawing; use AutoCAD UNDO immediately to reverse drawing edits before saving. Disabled in read-only mode.")]
         public static Task<string> CreateArc(
             [Description("JSON point object, e.g. {\"x\":0,\"y\":0,\"z\":0}.")] string center,
             [Description("Arc radius. Must be positive and finite.")] double radius,
@@ -247,9 +255,10 @@ namespace Bimwright.Dwg.Server.Tools
             return ToolGateway.LoggedCall("create_arc", request, request);
         }
 
-        [McpServerTool(Name = "dwg_create_ellipse"), Description(
+        [McpServerTool(Name = "dwg_create_ellipse", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false), Description(
             "Create an Ellipse in the current AutoCAD space. center is a JSON point object. " +
-            "major_radius and minor_radius must be positive and finite. rotation is degrees.")]
+            "major_radius and minor_radius must be positive and finite. rotation is degrees." +
+            " Changes the current drawing; use AutoCAD UNDO immediately to reverse drawing edits before saving. Disabled in read-only mode.")]
         public static Task<string> CreateEllipse(
             [Description("JSON point object, e.g. {\"x\":0,\"y\":0,\"z\":0}.")] string center,
             [Description("Major radius. Must be positive and finite.")] double major_radius,
@@ -282,10 +291,11 @@ namespace Bimwright.Dwg.Server.Tools
             return ToolGateway.LoggedCall("create_ellipse", request, request);
         }
 
-        [McpServerTool(Name = "dwg_change_layer"), Description(
+        [McpServerTool(Name = "dwg_change_layer", ReadOnly = false, Destructive = false, Idempotent = true, OpenWorld = false), Description(
             "Move entities identified by handle to an existing layer. If create_layer=true, " +
             "the layer is ensured first using color_index or default 7. Returns one result " +
-            "record per handle; bad handles do not abort siblings.")]
+            "record per handle; bad handles do not abort siblings." +
+            " Changes the current drawing; use AutoCAD UNDO immediately to reverse drawing edits before saving. Disabled in read-only mode.")]
         public static Task<string> ChangeLayer(
             [Description("JSON array of AutoCAD handles, e.g. [\"7F5AD\",\"2A4F\"].")] string handles,
             [Description("Target layer name. Must exist unless create_layer=true.")] string layer,
@@ -321,10 +331,11 @@ namespace Bimwright.Dwg.Server.Tools
             return ToolGateway.LoggedCall("change_layer", request, request);
         }
 
-        [McpServerTool(Name = "dwg_change_color"), Description(
+        [McpServerTool(Name = "dwg_change_color", ReadOnly = false, Destructive = false, Idempotent = true, OpenWorld = false), Description(
             "Apply an AutoCAD ACI color index to entities identified by handle. handles is a JSON array " +
             "of AutoCAD handle strings. color_index is validated by AutoCAD-side handling as ACI range 1-256. " +
-            "Returns per-item {handle, ok, error}; bad handles do not abort siblings.")]
+            "Returns per-item {handle, ok, error}; bad handles do not abort siblings." +
+            " Changes the current drawing; use AutoCAD UNDO immediately to reverse drawing edits before saving. Disabled in read-only mode.")]
         public static Task<string> ChangeColor(
             [Description("JSON array of AutoCAD handles, e.g. [\"7F5AD\",\"2A4F\"].")] string handles,
             [Description("ACI color index to apply. Valid range: 1-256.")] int color_index)
@@ -343,10 +354,11 @@ namespace Bimwright.Dwg.Server.Tools
             return ToolGateway.LoggedCall("change_color", request, request);
         }
 
-        [McpServerTool(Name = "dwg_move_entities"), Description(
+        [McpServerTool(Name = "dwg_move_entities", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false), Description(
             "Move entities identified by handle by a displacement vector. handles is a JSON array " +
             "of AutoCAD handle strings. vector is a JSON point object with numeric x, y, and optional z fields. " +
-            "Returns per-item {handle, ok, error}; bad handles do not abort siblings.")]
+            "Returns per-item {handle, ok, error}; bad handles do not abort siblings." +
+            " Changes the current drawing; use AutoCAD UNDO immediately to reverse drawing edits before saving. Disabled in read-only mode.")]
         public static Task<string> MoveEntities(
             [Description("JSON array of AutoCAD handles, e.g. [\"7F5AD\",\"2A4F\"].")] string handles,
             [Description("JSON vector object, e.g. {\"x\":100,\"y\":0,\"z\":0}.")] string vector)
@@ -370,10 +382,11 @@ namespace Bimwright.Dwg.Server.Tools
             return ToolGateway.LoggedCall("move_entities", request, request);
         }
 
-        [McpServerTool(Name = "dwg_rotate_entities"), Description(
+        [McpServerTool(Name = "dwg_rotate_entities", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false), Description(
             "Rotate entities identified by handle around basePoint on the Z axis. handles is a JSON array " +
             "of AutoCAD handle strings. basePoint is a JSON point object, and angleDegrees is in degrees. " +
-            "Returns per-item {handle, ok, error}; bad handles do not abort siblings.")]
+            "Returns per-item {handle, ok, error}; bad handles do not abort siblings." +
+            " Changes the current drawing; use AutoCAD UNDO immediately to reverse drawing edits before saving. Disabled in read-only mode.")]
         public static Task<string> RotateEntities(
             [Description("JSON array of AutoCAD handles, e.g. [\"7F5AD\",\"2A4F\"].")] string handles,
             [Description("JSON base point object, e.g. {\"x\":0,\"y\":0,\"z\":0}.")] string basePoint,
@@ -399,10 +412,11 @@ namespace Bimwright.Dwg.Server.Tools
             return ToolGateway.LoggedCall("rotate_entities", request, request);
         }
 
-        [McpServerTool(Name = "dwg_scale_entities"), Description(
+        [McpServerTool(Name = "dwg_scale_entities", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false), Description(
             "Scale entities identified by handle around basePoint. handles is a JSON array " +
             "of AutoCAD handle strings. basePoint is a JSON point object. scale must be finite, positive, " +
-            "and less than or equal to 1000. Returns per-item {handle, ok, error}; bad handles do not abort siblings.")]
+            "and less than or equal to 1000. Returns per-item {handle, ok, error}; bad handles do not abort siblings." +
+            " Changes the current drawing; use AutoCAD UNDO immediately to reverse drawing edits before saving. Disabled in read-only mode.")]
         public static Task<string> ScaleEntities(
             [Description("JSON array of AutoCAD handles, e.g. [\"7F5AD\",\"2A4F\"].")] string handles,
             [Description("JSON base point object, e.g. {\"x\":0,\"y\":0,\"z\":0}.")] string basePoint,
@@ -428,10 +442,11 @@ namespace Bimwright.Dwg.Server.Tools
             return ToolGateway.LoggedCall("scale_entities", request, request);
         }
 
-        [McpServerTool(Name = "dwg_copy_entities"), Description(
+        [McpServerTool(Name = "dwg_copy_entities", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false), Description(
             "Copy entities identified by handle by a displacement vector. handles is a JSON array " +
             "of AutoCAD handle strings. vector is a JSON point object with numeric x, y, and optional z fields. " +
-            "Returns per-item {handle, ok, new_handle, error}; bad handles do not abort siblings.")]
+            "Returns per-item {handle, ok, new_handle, error}; bad handles do not abort siblings." +
+            " Changes the current drawing; use AutoCAD UNDO immediately to reverse drawing edits before saving. Disabled in read-only mode.")]
         public static Task<string> CopyEntities(
             [Description("JSON array of AutoCAD handles, e.g. [\"7F5AD\",\"2A4F\"].")] string handles,
             [Description("JSON vector object, e.g. {\"x\":100,\"y\":0,\"z\":0}.")] string vector)
@@ -455,9 +470,10 @@ namespace Bimwright.Dwg.Server.Tools
             return ToolGateway.LoggedCall("copy_entities", request, request);
         }
 
-        [McpServerTool(Name = "dwg_erase_entities"), Description(
+        [McpServerTool(Name = "dwg_erase_entities", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false), Description(
             "Erase entities identified by handle. handles is a JSON array of AutoCAD handle strings. " +
-            "Returns per-item {handle, ok, error}; bad handles do not abort siblings.")]
+            "Returns per-item {handle, ok, error}; bad handles do not abort siblings." +
+            " Changes the current drawing; use AutoCAD UNDO immediately to reverse drawing edits before saving. Disabled in read-only mode.")]
         public static Task<string> EraseEntities(
             [Description("JSON array of AutoCAD handles, e.g. [\"7F5AD\",\"2A4F\"].")] string handles)
         {
@@ -474,10 +490,11 @@ namespace Bimwright.Dwg.Server.Tools
             return ToolGateway.LoggedCall("erase_entities", request, request);
         }
 
-        [McpServerTool(Name = "dwg_offset_entities"), Description(
+        [McpServerTool(Name = "dwg_offset_entities", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false), Description(
             "Offset curve entities identified by handle by distance. handles is a JSON array of AutoCAD handle strings. " +
             "Only Curve entities are supported. Returns per-item {handle, ok, created_handles, error}; bad handles " +
-            "and unsupported entities do not abort siblings.")]
+            "and unsupported entities do not abort siblings." +
+            " Changes the current drawing; use AutoCAD UNDO immediately to reverse drawing edits before saving. Disabled in read-only mode.")]
         public static Task<string> OffsetEntities(
             [Description("JSON array of AutoCAD handles, e.g. [\"7F5AD\",\"2A4F\"].")] string handles,
             [Description("Offset distance. Must be finite and non-zero.")] double distance)
@@ -496,7 +513,7 @@ namespace Bimwright.Dwg.Server.Tools
             return ToolGateway.LoggedCall("offset_entities", request, request);
         }
 
-        [McpServerTool(Name = "dwg_translate_and_rewrite"), Description(
+        [McpServerTool(Name = "dwg_translate_and_rewrite", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false), Description(
             "PREFERRED translation tool. Writes translated text back to AutoCAD. " +
             "Input is a JSON array of {id, new_text, render_mode?, width_policy?} where id matches a cluster " +
             "from dwg_get_selected_texts. The tool handles everything automatically: " +
@@ -509,7 +526,8 @@ namespace Bimwright.Dwg.Server.Tools
             "'action' field: update | collapse | rewrite_in_block | style_only. " +
             "Workflow: dwg_get_selected_texts -> translate each cluster -> dwg_translate_and_rewrite. " +
             "Use dwg_collapse_and_rewrite (low-level) only for expert control or " +
-            "replaying call-log scenarios.")]
+            "replaying call-log scenarios." +
+            " Changes the current drawing; use AutoCAD UNDO immediately to reverse drawing edits before saving. Disabled in read-only mode.")]
         public static Task<string> TranslateAndRewrite(
             [Description("JSON array: [{\"id\":0,\"new_text\":\"translated text\",\"render_mode\":\"mtext\",\"width_policy\":\"preserve\"}]")] string translations,
             [Description("Optional per-request final text-height multiplier. Default 0.80; clamped to [0.5, 0.9]. Values outside the range snap to the nearest bound; 0 or NaN fall back to default.")] double finalScale = 0.80)
@@ -519,7 +537,7 @@ namespace Bimwright.Dwg.Server.Tools
             return ToolGateway.LoggedCall("translate_and_rewrite", request, request);
         }
 
-        [McpServerTool(Name = "dwg_apply_unicode_style"), Description(
+        [McpServerTool(Name = "dwg_apply_unicode_style", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false), Description(
             "Ensure the 'Bimwright_Unicode' text style exists (using Open Sans Condensed Light font, " +
             "using the bundled font or a checksum-validated fallback download) and reassign " +
             "target entities to it. Height normalization is smart and idempotent: SHX " +
@@ -529,7 +547,8 @@ namespace Bimwright.Dwg.Server.Tools
             "entities are used; otherwise falls back to the current pickfirst selection. " +
             "MUST be called after translating text to Vietnamese or any non-ASCII language on " +
             "drawings that use SHX fonts lacking the required glyphs (otherwise text " +
-            "renders as '?').")]
+            "renders as '?')." +
+            " Changes the current drawing; use AutoCAD UNDO immediately to reverse drawing edits before saving. Disabled in read-only mode.")]
         public static Task<string> ApplyUnicodeStyle(
             [Description("Optional JSON array of target handles, e.g. [\"7F5AD\",\"2A4F\"]. Omit or pass \"\" to use the current pickfirst selection.")] string handles = "")
         {
@@ -549,7 +568,7 @@ namespace Bimwright.Dwg.Server.Tools
             return ToolGateway.LoggedCall("apply_unicode_style", logInput, pluginParams);
         }
 
-        [McpServerTool(Name = "dwg_collapse_and_rewrite"), Description(
+        [McpServerTool(Name = "dwg_collapse_and_rewrite", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false), Description(
             "LOW-LEVEL rewrite primitive. PREFER translate_and_rewrite for the " +
             "standard translation workflow - this tool exists for expert control, " +
             "regression replay from mcp-calls.jsonl, and future non-translation " +
@@ -565,7 +584,8 @@ namespace Bimwright.Dwg.Server.Tools
             "transaction (one failure does not roll back siblings). Response " +
             "per cluster includes an 'action' field: update | collapse | " +
             "rewrite_in_block. If applyUnicodeStyle=true, the same call reassigns " +
-            "surviving entities to the Unicode text style and scales height.")]
+            "surviving entities to the Unicode text style and scales height." +
+            " Changes the current drawing; use AutoCAD UNDO immediately to reverse drawing edits before saving. Disabled in read-only mode.")]
         public static Task<string> CollapseAndRewrite(
             [Description("JSON: {\"clusters\":[{\"anchor_handle\":\"...\",\"new_text\":\"...\",\"delete_handles\":[\"...\"],\"convert_to_mtext\":true,\"mtext_width\":0}]}")] string clusters,
             [Description("When true, apply the Unicode text style to surviving entities in the same tool call.")] bool applyUnicodeStyle = false,

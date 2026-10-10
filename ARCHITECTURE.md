@@ -25,8 +25,8 @@ Plugin writes discovery files on startup:
 
 | AutoCAD | Discovery file | Transport |
 |---------|----------------|-----------|
-| 2022-2024 | `%LOCALAPPDATA%\Bimwright\Dwg\acad-YYYY.json` | TCP loopback. The server also accepts named-pipe discovery. |
-| 2025-2027 | `%LOCALAPPDATA%\Bimwright\Dwg\acad-YYYY.json` | Named pipe (`ACAD2025_OR_GREATER`). 2025 and 2026 are not binary-compatible with 2027. |
+| 2022-2024 | `%LOCALAPPDATA%\Bimwright\dwg-mcp\acad-YYYY.json` | TCP loopback. The server also accepts named-pipe discovery. |
+| 2025-2027 | `%LOCALAPPDATA%\Bimwright\dwg-mcp\acad-YYYY.json` | Named pipe (`ACAD2025_OR_GREATER`). 2025 and 2026 are not binary-compatible with 2027. |
 | 2024 only | `%LOCALAPPDATA%\Bimwright\portAcad24.txt` | TCP legacy fallback |
 
 The v2 JSON file contains:
@@ -46,7 +46,7 @@ The v2 JSON file contains:
 }
 ```
 
-Server reads v2 files from `%LOCALAPPDATA%\Bimwright\Dwg\`, verifies the PID is alive, removes invalid stale files, and auto-selects the newest discovered target unless `--target`, `BIMWRIGHT_DWG_TARGET`, or `dwg_switch_target` pins a year. Target values are always 4-digit years: `2022` through `2027`. The reader still accepts the transitional `target`/`version` string fields for compatibility with earlier refactor builds.
+Server reads v2 files from `%LOCALAPPDATA%\Bimwright\dwg-mcp\`, verifies the PID is alive, removes invalid stale files, and auto-selects the newest discovered target unless `--target`, `BIMWRIGHT_DWG_TARGET`, or `dwg_switch_target` pins a year. Target values are always 4-digit years: `2022` through `2027`. The reader still accepts the transitional `target`/`version` string fields for compatibility with earlier refactor builds.
 
 ## Auth protocol
 
@@ -206,7 +206,7 @@ In a scratch DWG:
 
 ## ToolBaker
 
-ToolBaker storage is server-owned SQLite at `%LOCALAPPDATA%\Bimwright\Dwg\baked\bake.db`. Accepting a suggestion sends the internal `apply_bake` command to the plugin for policy validation and schema smoke-test. The server redacts baked source before persistence and records usage events in the `usage_events` table for pattern detection.
+ToolBaker storage is server-owned SQLite at `%LOCALAPPDATA%\Bimwright\dwg-mcp\baked\bake.db`. Accepting a suggestion sends the internal `apply_bake` command to the plugin for policy validation and schema smoke-test. The server redacts baked source before persistence and records usage events in the `usage_events` table for pattern detection.
 
 At runtime, `dwg_run_baked_tool` reads the accepted record from SQLite and sends that record to the plugin. The plugin does not own a separate registry file. V1 baked tools are declarative preset or macro records that dispatch existing `IAcadCommand` handlers; future generated-source paths must pass `BakeCompilerPolicy` before they can be enabled.
 

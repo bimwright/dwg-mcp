@@ -106,7 +106,7 @@ namespace Bimwright.Dwg.Plugin
         {
             var root = DiscoveryRoot;
             Directory.CreateDirectory(root);
-            Directory.CreateDirectory(Path.Combine(root, "Dwg"));
+            Directory.CreateDirectory(Path.Combine(root, "dwg-mcp"));
 
             if (_target == "2024")
             {
@@ -138,7 +138,7 @@ namespace Bimwright.Dwg.Plugin
             }
         }
 
-        private string JsonDiscoveryPath => Path.Combine(DiscoveryRoot, "Dwg", "acad-" + _target + ".json");
+        private string JsonDiscoveryPath => Path.Combine(DiscoveryRoot, "dwg-mcp", "acad-" + _target + ".json");
 
         private static string DiscoveryRoot =>
             Environment.ExpandEnvironmentVariables(@"%LOCALAPPDATA%\Bimwright");

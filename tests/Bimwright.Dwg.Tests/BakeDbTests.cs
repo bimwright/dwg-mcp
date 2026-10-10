@@ -17,7 +17,7 @@ namespace Bimwright.Dwg.Tests
 
             var paths = new BakePaths(temp.Path);
 
-            Assert.EndsWith(Path.Combine("Bimwright", "Dwg", "baked", "bake.db"), paths.BakeDb);
+            Assert.EndsWith(Path.Combine("Bimwright", "dwg-mcp", "baked", "bake.db"), paths.BakeDb);
         }
 
         [Fact]

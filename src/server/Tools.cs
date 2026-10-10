@@ -15,30 +15,52 @@ namespace Bimwright.Dwg.Server
         private static int _catalogAttempts;
         private const int MaxCatalogAttempts = 3;
 
+        // Tests assign this to record the wire call without opening a socket.
+        internal static Func<string, object, Task<McpResponse>> SendOverride;
+
         internal static async Task<string> LoggedCall(string toolName, object inputParams, object pluginParams)
         {
+            if (ReadOnlyPolicy.IsBlocked(toolName, ServerState.Config))
+                return JsonConvert.SerializeObject(new McpResponse { Ok = false, Error = ServerState.ReadOnlyMessage(toolName) });
+
+            if (SendCodePolicy.IsBlocked(toolName, pluginParams, ServerState.Config))
+                return JsonConvert.SerializeObject(new McpResponse { Ok = false, Error = SendCodePolicy.Refusal });
+
+            var sendOverride = SendOverride;
+            if (sendOverride != null)
+                return JsonConvert.SerializeObject(await sendOverride(toolName, pluginParams));
+
             var requestId = Guid.NewGuid().ToString("N");
             var sw = Stopwatch.StartNew();
-            string paramsJson = SafeSerialize(inputParams);
-            ServerLogger.LogStart(requestId, toolName, paramsJson);
+            ServerLogger.Default.LogStart(requestId, toolName, inputParams);
             try
             {
                 await EnsureCatalogAsync();
                 var resp = await Client.SendAsync(toolName, pluginParams, requestId);
                 sw.Stop();
-                ServerLogger.LogFinish(requestId, toolName, resp.Ok, sw.ElapsedMilliseconds, resp.Error);
+                ServerLogger.Default.LogFinish(requestId, toolName, resp.Ok, sw.ElapsedMilliseconds, resp.Error);
                 return JsonConvert.SerializeObject(resp);
             }
             catch (Exception ex)
             {
                 sw.Stop();
-                ServerLogger.LogFinish(requestId, toolName, false, sw.ElapsedMilliseconds, ex.Message);
+                ServerLogger.Default.LogFinish(requestId, toolName, false, sw.ElapsedMilliseconds, ex.Message);
                 throw;
             }
         }
 
         internal static async Task<McpResponse> SendRaw(string toolName, object pluginParams, string requestId = null)
         {
+            if (ReadOnlyPolicy.IsBlocked(toolName, ServerState.Config))
+                return new McpResponse { Ok = false, Error = ServerState.ReadOnlyMessage(toolName) };
+
+            if (SendCodePolicy.IsBlocked(toolName, pluginParams, ServerState.Config))
+                return new McpResponse { Ok = false, Error = SendCodePolicy.Refusal };
+
+            var sendOverride = SendOverride;
+            if (sendOverride != null)
+                return await sendOverride(toolName, pluginParams);
+
             await EnsureCatalogAsync();
             return await Client.SendAsync(toolName, pluginParams, requestId);
         }
@@ -77,15 +99,16 @@ namespace Bimwright.Dwg.Server
             var pushed = false;
             try
             {
-                var payload = ToolCatalogBuilder.Build(ServerState.EnabledToolTypes);
+                var payload = ToolCatalogBuilder.Build(ServerState.EnabledToolTypes,
+                    ServerState.Config?.EnableSendCodeOrDefault ?? true, ServerState.IsReadOnly);
                 var response = await Client.SendAsync("set_tool_catalog", payload);
                 pushed = response != null && response.Ok;
                 if (!pushed)
-                    ServerLogger.LogFinish("catalog", "set_tool_catalog", false, 0, response?.Error);
+                    ServerLogger.Default.LogFinish("catalog", "set_tool_catalog", false, 0, response?.Error);
             }
             catch (Exception ex)
             {
-                ServerLogger.LogFinish("catalog", "set_tool_catalog", false, 0, ex.Message);
+                ServerLogger.Default.LogFinish("catalog", "set_tool_catalog", false, 0, ex.Message);
             }
 
             lock (CatalogGate)
@@ -108,10 +131,5 @@ namespace Bimwright.Dwg.Server
             }
         }
 
-        private static string SafeSerialize(object o)
-        {
-            try { return JsonConvert.SerializeObject(o); }
-            catch { return "<unserializable>"; }
-        }
     }
 }

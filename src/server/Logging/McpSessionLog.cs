@@ -1,24 +1,24 @@
 using System;
-using System.IO;
-using Newtonsoft.Json;
 
 namespace Bimwright.Dwg.Server.Logging
 {
     public sealed class McpSessionLog
     {
-        public McpSessionLog(string root, string sessionId)
+        private readonly CallLogWriter _writer;
+
+        public McpSessionLog(string root, string sessionId, Func<bool> enabled = null)
         {
             if (string.IsNullOrWhiteSpace(root)) throw new ArgumentException("Session log root is required.", nameof(root));
             sessionId = string.IsNullOrWhiteSpace(sessionId) ? Guid.NewGuid().ToString("N") : sessionId;
-            Directory.CreateDirectory(root);
             Path = System.IO.Path.Combine(root, sessionId + ".jsonl");
+            _writer = new CallLogWriter(Path, enabled);
         }
 
         public string Path { get; }
 
         public void Append(McpSessionLogEntry entry)
         {
-            File.AppendAllText(Path, JsonConvert.SerializeObject(entry ?? new McpSessionLogEntry(), Formatting.None) + Environment.NewLine);
+            _writer.Append(entry ?? new McpSessionLogEntry());
         }
     }
 }

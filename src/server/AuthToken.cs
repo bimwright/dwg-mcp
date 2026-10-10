@@ -261,7 +261,7 @@ namespace Bimwright.Dwg.Server
         }
 
         private static string JsonDiscoveryDir(string root)
-            => Path.Combine(root, "Dwg");
+            => Path.Combine(root, "dwg-mcp");
 
         private static string LegacyDiscoveryPath(string root)
             => Path.Combine(root, "portAcad24.txt");

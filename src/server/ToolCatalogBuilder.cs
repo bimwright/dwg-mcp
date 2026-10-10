@@ -15,7 +15,7 @@ namespace Bimwright.Dwg.Server
     {
         public const int TimeoutSeconds = 30;
 
-        public static JObject Build(IEnumerable<Type> toolTypes)
+        public static JObject Build(IEnumerable<Type> toolTypes, bool enableSendCode = true, bool readOnly = false)
         {
             var tools = new List<JObject>();
             if (toolTypes != null)
@@ -24,10 +24,10 @@ namespace Bimwright.Dwg.Server
                 {
                     if (type == null)
                         continue;
-                    foreach (var method in type.GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly))
+                    foreach (var method in SendCodePolicy.ExposedMethods(type, enableSendCode))
                     {
                         var tool = method.GetCustomAttribute<McpServerToolAttribute>();
-                        if (tool == null || string.IsNullOrWhiteSpace(tool.Name))
+                        if (tool == null || string.IsNullOrWhiteSpace(tool.Name) || (readOnly && !tool.ReadOnly))
                             continue;
                         var description = method.GetCustomAttribute<DescriptionAttribute>();
                         tools.Add(new JObject

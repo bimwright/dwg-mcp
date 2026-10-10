@@ -57,6 +57,7 @@ namespace Bimwright.Dwg.Tests
                 "dwg_get_entity_properties",
                 "dwg_get_selected_texts",
                 "dwg_get_variables",
+                "dwg_health",
                 "dwg_insert_block",
                 "dwg_inspect_lisp",
                 "dwg_inspect_view_region",
@@ -233,6 +234,7 @@ namespace Bimwright.Dwg.Tests
             {
                 "BatchTools",
                 "CodeTools",
+                "HealthTools",
                 "MetaTools",
                 "ModifyTools",
                 "QueryTools",
@@ -245,6 +247,7 @@ namespace Bimwright.Dwg.Tests
                 readOnly: true);
             Assert.Equal(new[]
             {
+                "HealthTools",
                 "MetaTools",
                 "QueryTools",
                 "ViewTools"
@@ -311,7 +314,7 @@ namespace Bimwright.Dwg.Tests
 
         private static string[] GetMcpToolNames(Type type)
         {
-            return type.GetMethods(BindingFlags.Public | BindingFlags.Static)
+            return type.GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static)
                 .Select(method => method.GetCustomAttributes().FirstOrDefault(a => a.GetType().Name == "McpServerToolAttribute"))
                 .Where(attr => attr != null)
                 .Select(attr => (string)attr.GetType().GetProperty("Name")?.GetValue(attr))

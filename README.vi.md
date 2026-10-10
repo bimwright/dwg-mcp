@@ -10,7 +10,7 @@
   <a href="https://github.com/bimwright/dwg-mcp/actions/workflows/build.yml"><img src="https://github.com/bimwright/dwg-mcp/actions/workflows/build.yml/badge.svg" alt="build" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="license" /></a>
   <a href="#phiên-bản-autocad-hỗ-trợ"><img src="https://img.shields.io/badge/AutoCAD-2022--2027-186BFF" alt="AutoCAD 2022-2027" /></a>
-  <a href="#công-cụ"><img src="https://img.shields.io/badge/MCP-41%20default%20%2B%20optional-6C47FF" alt="MCP tools" /></a>
+  <a href="#công-cụ"><img src="https://img.shields.io/badge/MCP-42%20default%20%2B%20optional-6C47FF" alt="MCP tools" /></a>
 </p>
 
 <p align="center">
@@ -129,7 +129,7 @@ Không `dotnet tool install -g Bimwright.Dwg.Server`.
 }
 ```
 
-`dwg_send_code` có sẵn qua `meta`; `MCPDISABLECODE` tắt C# trong session và `MCPENABLECODE` bật lại. `dwg_run_lisp` giữ tên để tương thích nhưng từ chối mọi yêu cầu ở cả server và plugin. Bản này chưa có môi trường cách ly LISP hoặc cơ chế xác lập script tin cậy. `--read-only` gỡ cả hai tool.
+`dwg_send_code` mặc định có sẵn qua `meta`. `--enable-send-code` / `--disable-send-code` điều khiển server (JSON `enableSendCode`; env `BIMWRIGHT_DWG_ENABLE_SEND_CODE`). Khi tắt, batch chứa C# cũng bị từ chối trước khi gửi bất kỳ lệnh nào. `MCPDISABLECODE` tắt C# trong session AutoCAD; `MCPENABLECODE` chỉ bật lại phía host, không ghi đè công tắc server. `dwg_run_lisp` giữ tên để tương thích nhưng từ chối mọi yêu cầu ở cả server và plugin. Bản này chưa có môi trường cách ly LISP hoặc cơ chế xác lập script tin cậy. `--read-only` gỡ cả hai tool.
 
 `dwg_send_code` chỉ nhận snippet đồng bộ được gửi trực tiếp: `async`/`await` và directive `#load` bị chặn trước thực thi. Giữ AutoCAD API trên luồng gọi; không chuyển sang `Task.Run` hoặc luồng khác. Chỉ trả DTO JSON; object AutoCAD/COM bị từ chối kể cả khi lồng nhau. `dwg_inspect_lisp` vẫn phân tích tĩnh: nguồn quá 2.000.000 ký tự bị đánh dấu không thể kiểm tra đầy đủ/nguy hiểm; giới hạn hiển thị 200 findings không làm mất phát hiện mức nguy hiểm. Regex có timeout; scan hết thời gian được báo chưa đầy đủ/nguy hiểm, không trả `clean`.
 
@@ -150,9 +150,29 @@ Dùng `--read-only` để gỡ toolset write-capable. Dùng `--toolsets all` ho�
 
 ---
 
+Call log **mặc định tắt**. Dùng `--enable-call-log` / `--disable-call-log` (JSON `enableCallLog`; env `BIMWRIGHT_DWG_ENABLE_CALL_LOG`). Thứ tự ưu tiên: JSON → env → CLI; flag bật/tắt xuất hiện cuối thắng. Khi tắt, server không tạo/ghi thêm call log hoặc call journal và không xoá log cũ. Khi bật, `%LOCALAPPDATA%\Bimwright\dwg-mcp\dwg-mcp-calls.jsonl` chỉ ghi tham số đã redact và metadata thời lượng/kết quả, không ghi response. Trường code, kể cả trong batch lồng nhau, chỉ lưu độ dài ký tự và SHA-256 của body UTF-8 gốc; bỏ nội dung lỗi liên quan code vì có thể chứa source. Chưa triển khai cache body hoặc body journal. ToolBaker adaptive usage, diagnostic log và History trong RAM độc lập với công tắc này; plugin không có writer call log bền vững.
+
+## Toast hoạt động và History
+
+Toast mặc định bật, dùng một thẻ không lấy focus bàn phím: tiêu đề `dwg-mcp <năm>`, dòng tool mới nhất và bộ đếm **Success · Failed · Capture**. Bộ đếm cuộn kiểu odometer; ảnh nằm giữa khung cố định, giữ ít nhất 5 giây và chuyển ảnh bằng cross-fade. Tắt **Animation effects** trong Windows để cập nhật ngay không animation. Hover giữ thẻ mở; thời gian idle là 10/20/30/60 giây (mặc định 20). AutoCAD thu nhỏ hoặc modal thì giữ số đếm và hiện lại khi có thể. `MCPTOAST` bật/tắt; `MCPSETTINGS` chỉnh toast và branding. Branding mặc định tắt, chỉ hiện khi hover và lưu qua lần khởi động; lỗi lưu được báo nhưng lựa chọn vẫn có hiệu lực trong phiên.
+
+Bấm thân thẻ mở/focus **History** rồi đóng thẻ; × chỉ đóng; bấm thumbnail mở ảnh qua allowlist rồi đóng thẻ. `MCPHISTORY` mở cùng cửa sổ modeless. History giữ 1.000 kết quả gọn gần nhất của lệnh qua plugin trong RAM, kể cả khi toast tắt; hỗ trợ tìm kiếm, lọc Success/Failed và Read/Write, thời lượng và chi tiết khi chọn dòng. Đóng thẻ không xoá History; **New session** xoá danh sách. History không thêm file call log và không giữ raw input, body code hay JSON kết quả. Tool chỉ chạy ở server chưa có trong History. `enableToast`, `toastIdleSeconds`, `showBranding` lưu tại `%LOCALAPPDATA%\Bimwright\dwg-mcp\settings.json`.
+
+---
+
+## Health runtime và kiểm tra cập nhật (Unreleased)
+
+`dwg_health()` mặc định offline, read-only. Đầu phiên, chọn đúng target rồi gọi `dwg_health(check_updates=true)` một lần; các probe thường về sau vẫn offline. Tool báo trạng thái host/drawing, version/build server và plugin đang nạp, cùng alignment; không cần hoặc lock drawing. Không có target vẫn giữ identity gateway với `ok:false`, `host_connected:false`. Plugin cũ trả `HEALTH_UNSUPPORTED` chỉ chứng minh có phản hồi, chưa xác minh được health/identity. UI bận giữ identity plugin nhưng document state chưa quan sát được. Health không lên toast và không chạy trong drawing batch.
+
+SHA-256 chỉ quan sát file trên disk lúc capture, không chứng minh memory đã reload hay publisher đáng tin. Check GitHub so riêng hai component với một stable release/tag revision, tổng ngân sách mạng 5 giây và metadata có giới hạn. `checked` chỉ xác nhận lookup; thiếu bằng chứng vẫn `unknown`, version bằng nhau hoặc `update_available=false` không chứng minh trùng build release.
+
+Đọc cả `update.components`, thông báo đầy đủ, `lookup_reason`, `protected_component_reasons` và `unobserved_components`. `UPDATE_CHECK_UNAVAILABLE` là lookup bên ngoài thất bại, không phải lỗi runtime hay lý do xin phép cài; `LOCAL_VERSION_AHEAD` chỉ thông báo bản local mới hơn, không downgrade. Chỉ mode `prepare_update` cùng `bundle_update_proposal_allowed=true` cho phép đề xuất update, và vẫn cần quyền cài đặt. Các mode khác chỉ check/report/review. Health không tự cài, tải package, sửa config client, save/close drawing hay restart process. Xem [hướng dẫn agent](AGENTS.md).
+
+Sau reconnect, đối chiếu initialize và `tools/list` mới trên cùng connection với `client_verification`, gồm `_meta["bimwright/dwg-mcp/runtime"]`, schema và annotations. Server không thể tự chứng minh client đã refresh cache. Health vẫn có trong read-only; `openWorldHint=true` vì tùy chọn GitHub. Đây là source Unreleased, chưa có trong v2.0.1 đã phát hành. Đã kiểm tra giao thức host-free và build plugin 2024/2027; nghiệm thu trên AutoCAD đang chạy còn pending.
+
 ## Công cụ
 
-Mặc định server expose 41 tool: query (gồm `dwg_inspect_lisp`), modify, meta (gồm `dwg_send_code`/`dwg_run_lisp`), view, và `dwg_capture_view_image` mặc định bật. Các toolset tùy chọn ToolBaker, annotation, block, dimension, export, và drawing được kích hoạt qua `--toolsets`, nâng tổng diện tích bề mặt MCP lên 65 tool. Số tool đăng ký có tính `dwg_run_lisp`, hiện chỉ trả từ chối; không verdict nào cấp quyền thực thi.
+Bản development mặc định expose 42 tool: query (gồm `dwg_inspect_lisp`), modify, meta (gồm `dwg_send_code`/`dwg_run_lisp`), view, và `dwg_capture_view_image` mặc định bật. Các toolset tùy chọn ToolBaker, annotation, block, dimension, export, và drawing được kích hoạt qua `--toolsets`, nâng tổng diện tích bề mặt MCP lên 66 tool. Số tool đăng ký có tính `dwg_run_lisp`, hiện chỉ trả từ chối; không verdict nào cấp quyền thực thi.
 
 CAD tool chạy trên active document hiện tại của AutoCAD target đang chọn. Entity input và entity id trả về dùng AutoCAD hex handle, ví dụ `7F5AD`, do tool selection, creation, hoặc properties trả về. Creation, copy, offset, và modify response identify entity tạo/sửa bằng hex handle.
 
@@ -160,6 +180,7 @@ Plan 2 query expansion chỉ quét model space: `dwg_query_entities`, `dwg_count
 
 | Tool | Mục đích |
 |------|----------|
+| `dwg_health` | Probe health/identity server-plugin; tùy chọn check stable release, mặc định offline/read-only |
 | `dwg_get_drawing_info` | Đọc tên drawing, current layer, current space/layout, và unit scalar |
 | `dwg_get_entity_properties` | Đọc property của entity theo AutoCAD hex handle |
 | `dwg_list_layers` | Liệt kê layer trong drawing hiện tại kèm color và state flag |
@@ -400,6 +421,8 @@ Các công cụ mã nguồn mở kết nối trợ lý AI với ứng dụng BIM
 
 Tên **bimwright** ghép **BIM** với **wright**, một từ tiếng Anh cổ chỉ người thợ chế tạo hoặc xây dựng — như trong *shipwright* (thợ đóng tàu).
 
+Xem [cách đặt tên các gateway](https://github.com/bimwright/.github/blob/master/profile/README.vi.md#cách-đặt-tên).
+
 - [**rvt-mcp**](https://github.com/bimwright/rvt-mcp) — Autodesk® Revit®
 - [**dwg-mcp**](https://github.com/bimwright/dwg-mcp) — Autodesk® AutoCAD®
 - [**nwd-mcp**](https://github.com/bimwright/nwd-mcp) — Autodesk® Navisworks®
@@ -410,7 +433,7 @@ Tên **bimwright** ghép **BIM** với **wright**, một từ tiếng Anh cổ c
 
 ## Tuyên bố miễn trừ
 
-AutoCAD và Autodesk là thương hiệu đã đăng ký của Autodesk, Inc. bimwright là dự án open-source độc lập, không liên kết, không được tài trợ và không được bảo chứng bởi Autodesk, Inc.
+Autodesk, AutoCAD và DWG là nhãn hiệu hoặc nhãn hiệu đã đăng ký của Autodesk, Inc. và/hoặc các công ty con, công ty liên kết. DWG là định dạng tệp gốc của phần mềm Autodesk AutoCAD. bimwright là dự án mã nguồn mở độc lập, không liên kết, không được tài trợ hay chứng thực bởi Autodesk, Inc.
 
 ---
 
