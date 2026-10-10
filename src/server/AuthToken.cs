@@ -11,8 +11,16 @@ namespace Bimwright.Dwg.Server
     {
         public static readonly string[] AllVersions = { "2022", "2023", "2024", "2025", "2026", "2027" };
 
-        public static string DefaultRoot =>
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Bimwright");
+        public static string DefaultRoot
+        {
+            get
+            {
+                var localAppData = Environment.GetEnvironmentVariable("LOCALAPPDATA");
+                if (string.IsNullOrWhiteSpace(localAppData))
+                    localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+                return Path.Combine(localAppData, "Bimwright");
+            }
+        }
 
         public static IReadOnlyList<DiscoveryInfo> ListAvailable(string root = null)
         {
