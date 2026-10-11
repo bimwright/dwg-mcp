@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -23,6 +24,16 @@ namespace Bimwright.Dwg.Tests
         [InlineData("--toolsets all", 66, true, true)]
         [InlineData("--toolsets all --disable-send-code", 65, false, true)]
         [InlineData("--toolsets all --read-only --enable-send-code", 22, false, false)]
+        [InlineData("--toolsets all --disable-toolbaker", 60, true, true)]
+        [InlineData("--toolsets query", 10, false, false)]
+        [InlineData("--toolsets meta", 6, true, true)]
+        [InlineData("--toolsets code", 2, true, true)]
+        [InlineData("--toolsets meta,code", 6, true, true)]
+        [InlineData("--toolsets meta --disable-send-code", 5, false, true)]
+        [InlineData("--toolsets code --disable-send-code", 1, false, true)]
+        [InlineData("--toolsets view --read-only", 3, false, false)]
+        [InlineData("--toolsets block --read-only", 2, false, false)]
+        [InlineData("--toolsets drawing --read-only", 1, false, false)]
         public async Task Tools_list_honors_switches_over_stdio(string flags, int count, bool code, bool lisp)
         {
             var root = Path.Combine(Path.GetTempPath(), "dwg-stdio-" + Guid.NewGuid().ToString("N"));
@@ -63,6 +74,14 @@ namespace Bimwright.Dwg.Tests
                 Assert.Equal(count, names.Length);
                 Assert.Equal(code, names.Contains("dwg_send_code"));
                 Assert.Equal(lisp, names.Contains("dwg_run_lisp"));
+                var config = DwgMcpConfig.Load(flags.Split(' ', StringSplitOptions.RemoveEmptyEntries),
+                    Path.Combine(root, "absent-config.json"), _ => null);
+                var typeResolver = typeof(Program).GetMethod("ResolveToolTypesForRegistration", BindingFlags.NonPublic | BindingFlags.Static);
+                var selectedTypes = (IEnumerable<Type>)typeResolver.Invoke(null,
+                    new object[] { ToolsetFilter.Resolve(config), config.ReadOnlyOrDefault });
+                var pluginCatalog = ToolCatalogBuilder.Build(selectedTypes, config.EnableSendCodeOrDefault, config.ReadOnlyOrDefault);
+                Assert.Equal(pluginCatalog["tools"].Select(tool => tool.Value<string>("name")).OrderBy(name => name),
+                    names.OrderBy(name => name));
                 foreach (var tool in (JArray)listed["result"]["tools"])
                 {
                     if (tool.Value<string>("name") == "dwg_send_code")
@@ -77,12 +96,12 @@ namespace Bimwright.Dwg.Tests
                 }
                 if (flags.Contains("--read-only"))
                 {
-                    var config = DwgMcpConfig.Load(flags.Split(' ', StringSplitOptions.RemoveEmptyEntries),
+                    var unfilteredConfig = DwgMcpConfig.Load(flags.Split(' ', StringSplitOptions.RemoveEmptyEntries),
                         Path.Combine(root, "absent-config.json"), _ => null);
-                    config.ReadOnly = false;
+                    unfilteredConfig.ReadOnly = false;
                     var resolver = typeof(Program).GetMethod("ResolveToolTypesForRegistration", BindingFlags.NonPublic | BindingFlags.Static);
                     var allTypes = (System.Collections.Generic.IEnumerable<Type>)resolver.Invoke(null,
-                        new object[] { ToolsetFilter.Resolve(config), false });
+                        new object[] { ToolsetFilter.Resolve(unfilteredConfig), false });
                     var readNames = allTypes.SelectMany(type => type.GetMethods())
                         .Select(method => method.GetCustomAttribute<McpServerToolAttribute>())
                         .Where(tool => tool != null && tool.ReadOnly).Select(tool => tool.Name).OrderBy(name => name).ToArray();
@@ -99,7 +118,7 @@ namespace Bimwright.Dwg.Tests
                         Assert.True(refused["error"] != null || refused["result"]?.Value<bool?>("isError") == true);
                     }
                 }
-                if (!code && lisp)
+                if (!code && lisp && names.Contains("dwg_batch_execute"))
                 {
                     var blocked = await Request(process, 3, "tools/call", new
                     {

@@ -1,0 +1,26 @@
+namespace Bimwright.Dwg.Server
+{
+    internal static class ServerInstructions
+    {
+        internal const string Text =
+@"dwg-mcp - MCP gateway for Autodesk AutoCAD DWG drawings. Use for current drawing metadata, layers, entity properties, simple line/circle creation, selected AutoCAD text, DBText, MText, SHX/Unicode style repair, Vietnamese translation writeback, clustered note cleanup, and DWG text rewriting.
+
+AutoCAD routing: versions are 4-digit years 2022..2027. If multiple AutoCAD instances run, use dwg_list_available_targets then dwg_switch_target, or start the server with --target 2022|2023|2024|2025|2026|2027.
+
+At session start select the intended target, then call dwg_health(check_updates=true) once. Routine health probes stay offline; not_checked/unknown never means up to date. Health reports host/document state and loaded server/plugin identities without requiring or locking a drawing. No target preserves gateway identity; an unsupported old plugin needs runtime observation, not a corruption warning.
+Read both update.components and the full update.notification message, lookup_reason, protected_components/protected_component_reasons and unobserved_components. Follow agent_action. UPDATE_CHECK_UNAVAILABLE describes external lookup failure, not a local runtime fault or installation authorization. LOCAL_VERSION_AHEAD is informational: preserve newer components and never downgrade. Missing release revision evidence stops the update workflow, not otherwise healthy AutoCAD work. Only update_guidance.mode=prepare_update with bundle_update_proposal_allowed=true permits a release ZIP proposal and needs installation authorization; reuse existing permission. Other modes contain check/report/review only. Health never downloads packages, installs, changes client configs, saves/closes drawings or restarts processes. Never automatically replace development builds. Compare fresh initialize and tools/list runtime metadata/schema/annotations on the same reconnect with client_verification; the server cannot observe client cache refresh. Matching source revisions do not verify artifact bytes, compatibility or publisher trust.
+
+Tools use prefix dwg_:
+- query: dwg_health;  dwg_get_drawing_info, dwg_list_layers, and dwg_get_entity_properties read the current active document; dwg_get_selected_texts reads current AutoCAD pickfirst text selection and returns clustered text groups; dwg_inspect_lisp statically scans .lsp files or inline AutoLISP for known suspicious patterns (verdict clean/caution/dangerous). No verdict certifies safety or authorizes execution.
+- modify: dwg_create_layer, dwg_create_line, dwg_create_circle, dwg_change_layer, dwg_update_texts, dwg_translate_and_rewrite, dwg_apply_unicode_style, dwg_collapse_and_rewrite write drawing/text/style changes.
+- meta: dwg_batch_execute, dwg_list_available_targets, dwg_get_current_target, dwg_switch_target, dwg_send_code, dwg_run_lisp.
+- view: Start visual reading with dwg_capture_view_image (inline image plus JSON). If region_navigation.supported, choose a normalized top-left-origin rectangle on that image and call dwg_inspect_view_region with its capture_id. Inspect the new image before deciding the next region. Keep ancestor capture IDs and use dwg_restore_view to return to an overview. Use each newly returned ID for further navigation. Do not interpret a failed image_delivery as a failed zoom: take a smaller fresh capture. Region navigation is limited to one top-down, unrotated, orthographic model-space viewport. Verify inferred labels/dimensions against CAD text and entity data. Do not claim unseen regions have been reviewed.
+- optional toolbaker, when enabled: dwg_list_baked_tools, dwg_run_baked_tool, dwg_list_bake_suggestions, dwg_accept_bake_suggestion, dwg_dismiss_bake_suggestion, dwg_create_bake_issue_draft.
+- dwg_send_code is on by default; --disable-send-code removes it and blocks batch dispatch. --read-only also removes it. The AutoCAD MCPDISABLECODE command disables it for the session (MCPENABLECODE re-enables only the host gate, not the server setting).
+- dwg_run_lisp is a compatibility refusal: all execution is blocked at server and plugin until an enforceable isolation/trust policy exists. MCPENABLECODE does not unblock LISP. Do not bypass refusal through send_code, batch, ToolBaker, or reformatted payloads. send_code remains full-trust C#, not a sandbox or machine-wide malware protection.
+
+General CAD tools operate on the current AutoCAD active document. Entity arguments use AutoCAD hex handles returned by selection, creation, or property tools.
+Call dwg_get_selected_texts before text writeback. Read-only mode permits queries, selection and standalone view zoom, but no drawing edits or file output. Capture, region inspection and view restore write image files and are unavailable in read-only mode.";
+
+    }
+}
