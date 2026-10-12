@@ -21,7 +21,16 @@ namespace Bimwright.Dwg.Server.Tools
             "JSON-safe DTO value in the result field; AutoCAD/COM objects, including nested objects, are rejected. " +
             "Only inline synchronous snippets are supported: async/await and #load directives are rejected before execution. " +
             "Do not move AutoCAD API calls to Task.Run or other threads. Use System.Console.WriteLine for stdout output. " +
-            "Execution has cooperative 30s cancellation.")]
+            "Execution has cooperative 30s cancellation. " +
+            "An active drawing is required: when none is open the host returns 'no active document' before executing code; " +
+            "doc, db and ed are supplied from that active drawing. " +
+            "Put database writes in one using transaction from db.TransactionManager.StartTransaction(), and Commit only after validation succeeds. " +
+            "Return host warnings and handled errors in your DTO. AutoCAD UNDO can reverse drawing edits; " +
+            "filesystem writes are outside it, and the gateway does not roll back earlier committed transactions after a later script error. " +
+            "Default namespaces: System, System.Collections.Generic, System.Linq, Autodesk.AutoCAD.ApplicationServices, " +
+            "Autodesk.AutoCAD.DatabaseServices, Autodesk.AutoCAD.EditorInput, Autodesk.AutoCAD.Geometry. " +
+            "result/stdout are returned inline; output above the current 10 MiB plugin limit is truncated, with no full-output spill file. " +
+            "Keep results small and never repeat a drawing mutation just to recover output.")]
         public static Task<string> SendCode(
             [Description("C# code to execute")] string code)
             => ToolGateway.LoggedCall("send_code", new { code }, new { code });

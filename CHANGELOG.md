@@ -5,6 +5,12 @@
 ### CI
 
 - Fix installer matrix shell selection by resolving it through job defaults; Windows PowerShell and PowerShell 7 remain separate jobs.
+- Add a public-tree CI check with positive/negative path fixtures. Move internal release checklists and WPF harness notes out of the public product tree.
+
+### Documentation
+
+- Document exact read-only permission rules in all four README languages and check them against tool annotations. Correct capture/navigation tools that write image files being described as available in read-only mode.
+- Add the security policy and agent install-guide markers. Expand send-code guidance with active-document requirements, transaction/undo limits, default namespaces and the current output truncation limitation.
 
 ### Health runtime and release checks
 

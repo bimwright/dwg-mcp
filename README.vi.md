@@ -223,7 +223,7 @@ Plan 2 query expansion chỉ quét model space: `dwg_query_entities`, `dwg_count
 | `dwg_inspect_view_region` | Chọn vùng 0–1 trên ảnh nguồn; zoom, regenerate và trả ảnh mới trực tiếp qua MCP, có liên kết ảnh cha |
 | `dwg_restore_view` | Quay lại camera của ảnh trước và nhận ảnh chụp mới |
 
-Đọc bản vẽ: chụp → xem ảnh → chọn vùng → `dwg_inspect_view_region` → xem chi tiết. Giữ ID ảnh cha và dùng `dwg_restore_view` để quay lại tổng thể. Lịch sử giữ tối đa 64 ảnh / 30 phút trong tiến trình AutoCAD. Bản đầu hỗ trợ một viewport model space, nhìn từ trên xuống, không xoay, trực giao; từ chối nguồn cũ hoặc view ngoài phạm vi. Capture trả thêm image block MCP (tối đa 8 MiB) cạnh JSON hiện có. Các tool thay đổi camera và ghi ảnh, kể cả `--read-only`; không sửa geometry hay lưu DWG. Kiểm chứng trên host đã cài vẫn pending. Xem [quy trình, tương thích và nghiệm thu](docs/design/2026-09-24-visual-reading-loop.md).
+Đọc bản vẽ: chụp → xem ảnh → chọn vùng → `dwg_inspect_view_region` → xem chi tiết. Giữ ID ảnh cha và dùng `dwg_restore_view` để quay lại tổng thể. Lịch sử giữ tối đa 64 ảnh / 30 phút trong tiến trình AutoCAD. Bản đầu hỗ trợ một viewport model space, nhìn từ trên xuống, không xoay, trực giao; từ chối nguồn cũ hoặc view ngoài phạm vi. Capture trả thêm image block MCP (tối đa 8 MiB) cạnh JSON hiện có. Các tool thay đổi camera và ghi ảnh, và không dùng được trong `--read-only`; không sửa geometry hay lưu DWG. Kiểm chứng trên host đã cài vẫn pending. Xem quy trình mô tả ở trên.
 
 ToolBaker là toolset tùy chọn:
 
@@ -292,10 +292,10 @@ Theo mặc định, chỉ có các toolset `query`, `modify`, `meta`, và `view`
 
 - **Hành vi Read-Only (`--read-only`)**: Khi chế độ read-only được kích hoạt, tất cả các toolset có khả năng chỉnh sửa (`modify`, `code`, `annotation`, `dimension`, `export`, và `drawing` write tools) sẽ bị vô hiệu hóa hoàn toàn.
 - **Phân tách Toolset Block**: Toolset `block` được phân tách thành các công cụ read-only và write-capable. Nếu `--read-only` được bật, các công cụ `dwg_list_blocks` và `dwg_get_block_attributes` vẫn hoạt động bình thường để kiểm tra thông tin, nhưng các công cụ chỉnh sửa (`dwg_insert_block`, `dwg_set_block_attributes`, `dwg_explode_block`) sẽ bị loại bỏ.
-- **View và Read-Only**: Toolset `view` vẫn đăng ký trong read-only (zoom và `dwg_capture_view_image`). Capture mang cờ read-only ở schema MCP nhưng vẫn ghi file ảnh theo path policy — cẩn thận path khi dùng `--read-only`.
+- **View và Read-Only**: Read-only giữ các tool zoom thay đổi UI tạm thời. `dwg_capture_view_image`, `dwg_inspect_view_region` và `dwg_restore_view` tạo file ảnh nên bị loại.
 - **Drawing Operations và Read-Only**: Toolset `drawing` giữ lại `dwg_get_variables` ở chế độ read-only, nhưng loại bỏ `dwg_set_system_variable`, `dwg_save_drawing`, và `dwg_purge_drawing`.
 - **Hoãn hỗ trợ Angular Dimension**: Kích thước góc (angular dimensions) tạm thời bị hoãn và chưa được thực hiện.
-- **Chụp view trong AutoCAD**: `dwg_capture_view_image` dùng API `Document.CapturePreviewImage`, không cần điều khiển desktop và không lưu DWG. Tool từ chối khi có lệnh đang chạy hoặc bản vẽ/camera thay đổi trong lúc chụp. `expected_document_fingerprint` tùy chọn giúp ràng buộc lần chụp sau với bản vẽ của lần trước. Agent cần lưu metadata trả về cạnh ảnh khi lập atlas; tool chỉ ghi file ảnh. Kích thước thực có thể lệch nhẹ do AutoCAD làm tròn. Camera mô tả viewport active, chưa phải phép chiếu pixel → WCS chung cho nhiều viewport hoặc paper layout. Xem [contract và kiểm chứng](docs/design/2026-09-23-native-view-capture.md).
+- **Chụp view trong AutoCAD**: `dwg_capture_view_image` dùng API `Document.CapturePreviewImage`, không cần điều khiển desktop và không lưu DWG. Tool từ chối khi có lệnh đang chạy hoặc bản vẽ/camera thay đổi trong lúc chụp. `expected_document_fingerprint` tùy chọn giúp ràng buộc lần chụp sau với bản vẽ của lần trước. Agent cần lưu metadata trả về cạnh ảnh khi lập atlas; tool chỉ ghi file ảnh. Kích thước thực có thể lệch nhẹ do AutoCAD làm tròn. Camera mô tả viewport active, chưa phải phép chiếu pixel → WCS chung cho nhiều viewport hoặc paper layout. Xem quy trình mô tả ở trên.
 - **Tạm hoãn các công cụ xuất khác**: `dwg_export_pdf` và `dwg_export_image` vẫn tạm hoãn; chụp viewport không thiết lập hay kiểm chứng cấu hình in.
 
 ### Checklist smoke thủ công
@@ -442,3 +442,36 @@ Autodesk, AutoCAD và DWG là nhãn hiệu hoặc nhãn hiệu đã đăng ký c
 [Apache License 2.0](LICENSE)
 
 Thông báo bên thứ ba: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
+
+## Quyền và chế độ tự động
+
+Mọi tool trừ `dwg_send_code` khai báo đủ cờ read-only, destructive, idempotent và open-world. Chế độ full có 66 tool; `--toolsets all --read-only` expose 22 tool đọc bên dưới. Zoom có thể đổi trạng thái UI tạm thời. Capture, inspect region và restore tạo file ảnh nên bị loại trong read-only. `dwg_health` là tool đọc; tùy chọn kiểm tra cập nhật có thể gọi GitHub.
+
+Chỉ cấp quyền bằng rule chính xác cho tool bạn muốn dùng. Tránh wildcard `mcp__dwg-mcp__*` vì nó cấp cả quyền sửa bản vẽ/file và thực thi mã. `dwg_send_code` không có annotations và không nằm trong allowlist đọc này; quyền cho phép lâu dài phải là lựa chọn rõ ràng trong MCP client.
+
+<!-- read-only-allowlist:start -->
+```text
+mcp__dwg-mcp__dwg_count_entities
+mcp__dwg-mcp__dwg_create_bake_issue_draft
+mcp__dwg-mcp__dwg_get_block_attributes
+mcp__dwg-mcp__dwg_get_current_target
+mcp__dwg-mcp__dwg_get_drawing_info
+mcp__dwg-mcp__dwg_get_entity_properties
+mcp__dwg-mcp__dwg_get_selected_texts
+mcp__dwg-mcp__dwg_get_variables
+mcp__dwg-mcp__dwg_health
+mcp__dwg-mcp__dwg_inspect_lisp
+mcp__dwg-mcp__dwg_list_available_targets
+mcp__dwg-mcp__dwg_list_bake_suggestions
+mcp__dwg-mcp__dwg_list_baked_tools
+mcp__dwg-mcp__dwg_list_blocks
+mcp__dwg-mcp__dwg_list_layers
+mcp__dwg-mcp__dwg_query_entities
+mcp__dwg-mcp__dwg_select_by_layer
+mcp__dwg-mcp__dwg_select_by_type
+mcp__dwg-mcp__dwg_switch_target
+mcp__dwg-mcp__dwg_zoom_extents
+mcp__dwg-mcp__dwg_zoom_to_entity
+mcp__dwg-mcp__dwg_zoom_window
+```
+<!-- read-only-allowlist:end -->

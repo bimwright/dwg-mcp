@@ -8,6 +8,18 @@ on:
   workflow_dispatch:
 
 jobs:
+  public-tree:
+    name: public-tree
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test public-tree boundaries
+        shell: pwsh
+        run: ./tests/ci/public-tree.Tests.ps1
+      - name: Check public tree
+        shell: pwsh
+        run: ./scripts/check-public-tree.ps1
+
   installer:
     name: installer-${{ matrix.shell }}
     runs-on: windows-latest

@@ -225,7 +225,7 @@ Plan 2 的查询扩展仅限模型空间：`dwg_query_entities`、`dwg_count_ent
 | `dwg_inspect_view_region` | 在源图像上指定归一化矩形，缩放并重新生成，返回新图像及父图像ID |
 | `dwg_restore_view` | 返回先前截图的相机位置并获取新图像 |
 
-读图流程：截图 → 查看图像 → 选择区域 → `dwg_inspect_view_region` → 查看细节。保留父图像ID，通过 `dwg_restore_view` 返回总览。历史记录在当前AutoCAD进程中最多保留64张、30分钟。首版区域导航仅支持模型空间中的单个视口、俯视正投影、无视图旋转；拒绝过期来源和不支持的视图。响应在原有JSON旁增加MCP图像块（最多8 MiB）。即使使用 `--read-only`，这些工具也会改变相机并保存图片，但不会编辑几何或保存DWG。已安装主机的运行验收仍待完成。参见[流程、兼容性及验收](docs/design/2026-09-24-visual-reading-loop.md)。
+读图流程：截图 → 查看图像 → 选择区域 → `dwg_inspect_view_region` → 查看细节。保留父图像ID，通过 `dwg_restore_view` 返回总览。历史记录在当前AutoCAD进程中最多保留64张、30分钟。首版区域导航仅支持模型空间中的单个视口、俯视正投影、无视图旋转；拒绝过期来源和不支持的视图。响应在原有JSON旁增加MCP图像块（最多8 MiB）。这些工具会改变相机并保存图片，因此在 `--read-only` 下不可用；不会编辑几何或保存DWG。已安装主机的运行验收仍待完成。参见上述工作流程。
 
 启用 `toolbaker` 工具集时会暴露可选 ToolBaker 工具：
 
@@ -296,10 +296,10 @@ Plan 2 的查询扩展仅限模型空间：`dwg_query_entities`、`dwg_count_ent
 
 - **只读模式（`--read-only`）**：当只读模式生效时，所有可写的工具集（`modify`、`code`、`annotation`、`dimension`、`export` 和 `drawing` 的写入工具）都会被完全禁用。
 - **Block 工具集拆分**：`block` 工具集拆分为只读和可写两部分。若 `--read-only` 生效，`dwg_list_blocks` 和 `dwg_get_block_attributes` 仍然可用（安全的只读检查），但变更/创建类工具（`dwg_insert_block`、`dwg_set_block_attributes`、`dwg_explode_block`）会被剔除。
-- **View 与只读**：只读模式下仍注册完整 `view` toolset（含 zoom 与 `dwg_capture_view_image`）。Capture 在 MCP schema 上标记为 read-only，但仍会按路径策略写图片文件——在 `--read-only` 下请注意输出路径。
+- **View 与只读**：只读模式保留临时缩放工具。`dwg_capture_view_image`、`dwg_inspect_view_region` 和 `dwg_restore_view` 会创建图片文件，因此被移除。
 - **绘图操作与只读**：`drawing` 工具集在只读模式下保留 `dwg_get_variables`，但剔除 `dwg_set_system_variable`、`dwg_save_drawing` 和 `dwg_purge_drawing`。
 - **延迟的角度标注**：注意当前仅支持线性、对齐、半径和直径标注类型。角度标注已被推迟，尚未实现。
-- **原生视口捕获**：`dwg_capture_view_image` 使用 AutoCAD 的 `Document.CapturePreviewImage` API，无桌面自动化、不保存 DWG。命令进行中或捕获期间文档/相机变化会被拒绝。可选 `expected_document_fingerprint` 可将后续捕获绑定到先前结果。构建阅读图集时请把返回的元数据与图像一起保存；工具本身只写入图像。实际输出尺寸可能与请求值略有差异。相机元数据描述活动视口，并非平铺视图或图纸布局的通用像素-世界映射。参见[捕获契约与验证](docs/design/2026-09-23-native-view-capture.md)。
+- **原生视口捕获**：`dwg_capture_view_image` 使用 AutoCAD 的 `Document.CapturePreviewImage` API，无桌面自动化、不保存 DWG。命令进行中或捕获期间文档/相机变化会被拒绝。可选 `expected_document_fingerprint` 可将后续捕获绑定到先前结果。构建阅读图集时请把返回的元数据与图像一起保存；工具本身只写入图像。实际输出尺寸可能与请求值略有差异。相机元数据描述活动视口，并非平铺视图或图纸布局的通用像素-世界映射。参见上述工作流程。
 - **延迟的文件导出工具**：`dwg_export_pdf` 和 `dwg_export_image` 仍为延迟状态；视口捕获不配置也不校验打印输出。
 
 ### 手动冒烟检查清单
@@ -448,3 +448,36 @@ AutoCAD 和 Autodesk 是 Autodesk, Inc. 的注册商标。bimwright 是一个独
 [Apache License 2.0](LICENSE)
 
 第三方声明：[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
+
+## 权限与自动模式
+
+除 `dwg_send_code` 外，每个工具都显式声明 read-only、destructive、idempotent 和 open-world 标记。完整模式有 66 个工具；`--toolsets all --read-only` 提供下列 22 个只读工具。缩放可能改变临时界面状态。截图、区域查看和视图恢复会创建图片文件，因此只读模式会移除这些工具。`dwg_health` 为只读工具，显式更新检查可以访问 GitHub。
+
+仅为需要的工具设置精确权限规则。避免 `mcp__dwg-mcp__*` 通配规则，因为它也允许修改图纸、写文件和执行代码。`dwg_send_code` 没有 annotations，且不在此只读列表中；持久允许执行它必须由用户在 MCP 客户端中明确选择。
+
+<!-- read-only-allowlist:start -->
+```text
+mcp__dwg-mcp__dwg_count_entities
+mcp__dwg-mcp__dwg_create_bake_issue_draft
+mcp__dwg-mcp__dwg_get_block_attributes
+mcp__dwg-mcp__dwg_get_current_target
+mcp__dwg-mcp__dwg_get_drawing_info
+mcp__dwg-mcp__dwg_get_entity_properties
+mcp__dwg-mcp__dwg_get_selected_texts
+mcp__dwg-mcp__dwg_get_variables
+mcp__dwg-mcp__dwg_health
+mcp__dwg-mcp__dwg_inspect_lisp
+mcp__dwg-mcp__dwg_list_available_targets
+mcp__dwg-mcp__dwg_list_bake_suggestions
+mcp__dwg-mcp__dwg_list_baked_tools
+mcp__dwg-mcp__dwg_list_blocks
+mcp__dwg-mcp__dwg_list_layers
+mcp__dwg-mcp__dwg_query_entities
+mcp__dwg-mcp__dwg_select_by_layer
+mcp__dwg-mcp__dwg_select_by_type
+mcp__dwg-mcp__dwg_switch_target
+mcp__dwg-mcp__dwg_zoom_extents
+mcp__dwg-mcp__dwg_zoom_to_entity
+mcp__dwg-mcp__dwg_zoom_window
+```
+<!-- read-only-allowlist:end -->

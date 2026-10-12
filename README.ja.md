@@ -225,7 +225,7 @@ Plan 2 のクエリ拡張はモデル空間のみです。`dwg_query_entities`�
 | `dwg_inspect_view_region` | キャプチャ上の正規化矩形を指定し、ズーム・再生成後の新しい画像と親画像IDを返す |
 | `dwg_restore_view` | 以前のキャプチャのカメラへ戻り、新しい画像を取得する |
 
-図面の読み取り: キャプチャ → 画像を確認 → 領域を選択 → `dwg_inspect_view_region` → 詳細を確認。全体へ戻るには親IDを保存して `dwg_restore_view` を使用します。履歴はAutoCADプロセス内で最大64件・30分です。初期対応はモデル空間の単一ビューポート、真上からの正投影、回転なしに限定されます。古い画像や非対応ビューは拒否されます。応答には既存JSONに加えてMCP画像ブロック（最大8 MiB）が含まれます。`--read-only`でもカメラの変更と画像保存を行いますが、図形編集やDWG保存は行いません。インストール済みホストでの受入検証は未完了です。[仕様・互換性・検証](docs/design/2026-09-24-visual-reading-loop.md)を参照。
+図面の読み取り: キャプチャ → 画像を確認 → 領域を選択 → `dwg_inspect_view_region` → 詳細を確認。全体へ戻るには親IDを保存して `dwg_restore_view` を使用します。履歴はAutoCADプロセス内で最大64件・30分です。初期対応はモデル空間の単一ビューポート、真上からの正投影、回転なしに限定されます。古い画像や非対応ビューは拒否されます。応答には既存JSONに加えてMCP画像ブロック（最大8 MiB）が含まれます。カメラの変更と画像保存を行うため `--read-only` では利用できませんが、図形編集やDWG保存は行いません。インストール済みホストでの受入検証は未完了です。上記のワークフローを参照。
 
 オプショナルのToolBakerツールは、`toolbaker` ツールセットが有効な場合に公開されます:
 
@@ -294,10 +294,10 @@ Plan 2 のクエリ拡張はモデル空間のみです。`dwg_query_entities`�
 
 - **読み取り専用モード（`--read-only`）**: 読み取り専用モードがアクティブな場合、書き込み可能なすべてのツールセット（`modify`、`code`、`annotation`、`dimension`、`export`、`drawing` の書き込みツール）は完全に無効化されます。
 - **ブロックツールセットの分割**: `block` ツールセットは読み取り専用ツールと書き込み可能ツールに分割されます。`--read-only` がアクティブな場合、`dwg_list_blocks` と `dwg_get_block_attributes` は引き続き使用可能ですが（安全な読み取り検査）、変更/作成ツール（`dwg_insert_block`、`dwg_set_block_attributes`、`dwg_explode_block`）は削除されます。
-- **ビューと読み取り専用**: 読み取り専用でも `view` ツールセットは登録されたままです（ズームと `dwg_capture_view_image`）。Capture は MCP スキーマ上 read-only ですが、パスポリシーに従い画像ファイルを書き込みます — `--read-only` でも出力パスに注意。
+- **ビューと読み取り専用**: 読み取り専用では一時的なズーム操作のみ残ります。`dwg_capture_view_image`、`dwg_inspect_view_region`、`dwg_restore_view` は画像ファイルを作成するため除外されます。
 - **作図操作と読み取り専用**: `drawing` ツールセットは、読み取り専用モードで `dwg_get_variables` を維持しますが、`dwg_set_system_variable`、`dwg_save_drawing`、`dwg_purge_drawing` は削除されます。
 - **延期された角度寸法**: 現在サポートされているのは linear、平行、半径、直径寸法タイプのみです。角度寸法は延期されており、まだ実装されていません。
-- **ネイティブビューキャプチャ**: `dwg_capture_view_image` は AutoCAD の `Document.CapturePreviewImage` API を使用し、デスクトップ自動化や DWG 保存を行いません。コマンド実行中やキャプチャ中の図面/カメラ変更は拒否されます。オプションの `expected_document_fingerprint` で後続キャプチャを既存結果にバインド可能。読み取りアトラス用に返されたメタデータは画像と共に保存してください。ツールが書き込むのは画像のみです。実際の出力サイズは要求値とわずかに異なる場合があり、カメラメタデータはアクティブビューポートを示します（タイルドビューやペーパーレイアウトの汎用ピクセル/ワールド変換ではありません）。[キャプチャ契約と検証](docs/design/2026-09-23-native-view-capture.md) を参照。
+- **ネイティブビューキャプチャ**: `dwg_capture_view_image` は AutoCAD の `Document.CapturePreviewImage` API を使用し、デスクトップ自動化や DWG 保存を行いません。コマンド実行中やキャプチャ中の図面/カメラ変更は拒否されます。オプションの `expected_document_fingerprint` で後続キャプチャを既存結果にバインド可能。読み取りアトラス用に返されたメタデータは画像と共に保存してください。ツールが書き込むのは画像のみです。実際の出力サイズは要求値とわずかに異なる場合があり、カメラメタデータはアクティブビューポートを示します（タイルドビューやペーパーレイアウトの汎用ピクセル/ワールド変換ではありません）。上記のワークフロー を参照。
 - **延期されたファイルエクスポートツール**: `dwg_export_pdf` と `dwg_export_image` は延期されたままです。ビューポートキャプチャはプロットの設定・検証を行いません。
 
 ### 手動スモークチェックリスト
@@ -446,3 +446,36 @@ AutoCAD および Autodesk は Autodesk, Inc. の登録商標です。bimwright 
 [Apache License 2.0](LICENSE)
 
 サードパーティ通知: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
+
+## 権限と自動モード
+
+`dwg_send_code` 以外の各ツールは read-only、destructive、idempotent、open-world の各属性を明示します。通常の全ツールモードは66ツール、`--toolsets all --read-only` は以下の22読み取り専用ツールです。ズームは一時的なUI状態を変更できます。キャプチャ、領域検査、ビュー復元は画像ファイルを作成するため、読み取り専用モードから除外されます。`dwg_health` は読み取り専用ですが、明示的な更新チェックではGitHubに接続できます。
+
+許可するツールだけに正確なルールを設定してください。`mcp__dwg-mcp__*` のワイルドカードは図面編集、ファイル書き込み、コード実行も許可するため避けてください。`dwg_send_code` は annotations を持たず、この読み取り専用リストには含まれません。継続的な実行許可はMCPクライアントで明示的に選択してください。
+
+<!-- read-only-allowlist:start -->
+```text
+mcp__dwg-mcp__dwg_count_entities
+mcp__dwg-mcp__dwg_create_bake_issue_draft
+mcp__dwg-mcp__dwg_get_block_attributes
+mcp__dwg-mcp__dwg_get_current_target
+mcp__dwg-mcp__dwg_get_drawing_info
+mcp__dwg-mcp__dwg_get_entity_properties
+mcp__dwg-mcp__dwg_get_selected_texts
+mcp__dwg-mcp__dwg_get_variables
+mcp__dwg-mcp__dwg_health
+mcp__dwg-mcp__dwg_inspect_lisp
+mcp__dwg-mcp__dwg_list_available_targets
+mcp__dwg-mcp__dwg_list_bake_suggestions
+mcp__dwg-mcp__dwg_list_baked_tools
+mcp__dwg-mcp__dwg_list_blocks
+mcp__dwg-mcp__dwg_list_layers
+mcp__dwg-mcp__dwg_query_entities
+mcp__dwg-mcp__dwg_select_by_layer
+mcp__dwg-mcp__dwg_select_by_type
+mcp__dwg-mcp__dwg_switch_target
+mcp__dwg-mcp__dwg_zoom_extents
+mcp__dwg-mcp__dwg_zoom_to_entity
+mcp__dwg-mcp__dwg_zoom_window
+```
+<!-- read-only-allowlist:end -->

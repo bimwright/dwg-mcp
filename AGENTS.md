@@ -1,3 +1,6 @@
+<!-- agents-install-guide -->
+<!-- mcp-name: io.github.bimwright/dwg-mcp -->
+
 # AGENTS.md — dwg-mcp health and update contract
 
 These instructions apply to the development health feature; published v2.0.1 does not expose `dwg_health`.

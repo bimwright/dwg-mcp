@@ -246,7 +246,7 @@ Plan 2 query expansion is model-space only: `dwg_query_entities`, `dwg_count_ent
 | `dwg_inspect_view_region` | Choose a normalized rectangle on a capture; zoom, regenerate and return a fresh inline image with parent linkage |
 | `dwg_restore_view` | Return to an earlier capture's camera and obtain a fresh inline image |
 
-Visual reading: capture → inspect the image → choose a region → `dwg_inspect_view_region` → inspect again. Keep ancestor IDs and use `dwg_restore_view` to return to the overview. Source history lasts 30 minutes / 64 captures in one AutoCAD process. Region navigation initially supports one top-down, unrotated, orthographic model-space viewport; unsupported or stale sources are refused. Capture responses now include an MCP image block (8 MiB limit) alongside the existing JSON text. These tools change the visible camera and save images, including under `--read-only`; they do not edit geometry or save DWG. Installed-host acceptance is pending. See [workflow, compatibility and acceptance](docs/design/2026-09-24-visual-reading-loop.md).
+Visual reading: capture → inspect the image → choose a region → `dwg_inspect_view_region` → inspect again. Keep ancestor IDs and use `dwg_restore_view` to return to the overview. Source history lasts 30 minutes / 64 captures in one AutoCAD process. Region navigation initially supports one top-down, unrotated, orthographic model-space viewport; unsupported or stale sources are refused. Capture responses now include an MCP image block (8 MiB limit) alongside the existing JSON text. These tools change the visible camera and save images, and are unavailable under `--read-only`; they do not edit geometry or save DWG. Installed-host acceptance is pending. See the workflow described above.
 
 Optional ToolBaker tools are exposed when the `toolbaker` toolset is enabled:
 
@@ -315,10 +315,10 @@ By default, only `query`, `modify`, `meta`, and `view` toolsets are enabled. You
 
 - **Read-Only Mode (`--read-only`)**: When read-only mode is active, all write-capable toolsets (`modify`, `code`, `annotation`, `dimension`, `export`, and `drawing` write tools) are completely disabled.
 - **Block Toolset Split**: The `block` toolset is split into read-only and write-capable tools. If `--read-only` is active, `dwg_list_blocks` and `dwg_get_block_attributes` are still available (safe read inspection), but the mutation/creation tools (`dwg_insert_block`, `dwg_set_block_attributes`, `dwg_explode_block`) are stripped.
-- **View and Read-Only**: The `view` toolset stays registered in read-only mode (zoom tools and `dwg_capture_view_image`). Capture is marked read-only at the MCP schema level but still writes an image file under the path policy — treat paths carefully under `--read-only`.
+- **View and Read-Only**: Read-only retains transient zoom tools. `dwg_capture_view_image`, `dwg_inspect_view_region` and `dwg_restore_view` write image files and are excluded.
 - **Drawing Operations and Read-Only**: The `drawing` toolset retains `dwg_get_variables` in read-only mode, but strips `dwg_set_system_variable`, `dwg_save_drawing`, and `dwg_purge_drawing`.
 - **Deferred Angular Dimensions**: Note that only linear, aligned, radial, and diametric dimension types are currently supported. Angular dimensions are deferred and not yet implemented.
-- **Native View Capture**: `dwg_capture_view_image` uses AutoCAD's `Document.CapturePreviewImage` API, with no desktop automation or DWG save. It rejects an active command or a document/camera change during capture. Optional `expected_document_fingerprint` binds a subsequent capture to a prior result. Save the returned metadata alongside the image for a reading atlas; the tool itself writes only the image. Native output dimensions may differ slightly from the requested size. Camera metadata describes the active viewport, not a universal pixel-to-world mapping for tiled views or paper layouts. See [capture contract and validation](docs/design/2026-09-23-native-view-capture.md).
+- **Native View Capture**: `dwg_capture_view_image` uses AutoCAD's `Document.CapturePreviewImage` API, with no desktop automation or DWG save. It rejects an active command or a document/camera change during capture. Optional `expected_document_fingerprint` binds a subsequent capture to a prior result. Save the returned metadata alongside the image for a reading atlas; the tool itself writes only the image. Native output dimensions may differ slightly from the requested size. Camera metadata describes the active viewport, not a universal pixel-to-world mapping for tiled views or paper layouts. See the workflow described above.
 - **Deferred File Export Tools**: `dwg_export_pdf` and `dwg_export_image` remain deferred; viewport capture does not configure or validate plotting.
 
 ### Manual smoke checklist
@@ -469,3 +469,36 @@ Autodesk, AutoCAD, and DWG are trademarks or registered trademarks of Autodesk, 
 [Apache License 2.0](LICENSE)
 
 Third-party notices: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
+
+## Permissions & auto mode
+
+Every tool except `dwg_send_code` declares read-only, destructive, idempotent and open-world hints. Full mode has 66 tools; `--toolsets all --read-only` exposes the 22 read-only tools below. Zoom can change transient UI state. Capture, region inspection and restore create image files and are excluded from read-only mode. `dwg_health` is read-only; its explicit update check can contact GitHub.
+
+Use exact rules for the tools you intend to allow. Avoid `mcp__dwg-mcp__*`: it also permits drawing/file writes and code execution. `dwg_send_code` has no annotations and is deliberately absent from this read-only allowlist; any persistent approval for it must be an explicit choice in your MCP client.
+
+<!-- read-only-allowlist:start -->
+```text
+mcp__dwg-mcp__dwg_count_entities
+mcp__dwg-mcp__dwg_create_bake_issue_draft
+mcp__dwg-mcp__dwg_get_block_attributes
+mcp__dwg-mcp__dwg_get_current_target
+mcp__dwg-mcp__dwg_get_drawing_info
+mcp__dwg-mcp__dwg_get_entity_properties
+mcp__dwg-mcp__dwg_get_selected_texts
+mcp__dwg-mcp__dwg_get_variables
+mcp__dwg-mcp__dwg_health
+mcp__dwg-mcp__dwg_inspect_lisp
+mcp__dwg-mcp__dwg_list_available_targets
+mcp__dwg-mcp__dwg_list_bake_suggestions
+mcp__dwg-mcp__dwg_list_baked_tools
+mcp__dwg-mcp__dwg_list_blocks
+mcp__dwg-mcp__dwg_list_layers
+mcp__dwg-mcp__dwg_query_entities
+mcp__dwg-mcp__dwg_select_by_layer
+mcp__dwg-mcp__dwg_select_by_type
+mcp__dwg-mcp__dwg_switch_target
+mcp__dwg-mcp__dwg_zoom_extents
+mcp__dwg-mcp__dwg_zoom_to_entity
+mcp__dwg-mcp__dwg_zoom_window
+```
+<!-- read-only-allowlist:end -->

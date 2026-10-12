@@ -87,14 +87,15 @@ namespace Bimwright.Dwg.Tests
         [Fact]
         public void Redaction_happens_before_persistence_for_structured_and_embedded_secrets()
         {
+            const string passwordFixture = "not-a-pattern-secret";
             var json = CallLogPrivacy.Serialize(new
             {
-                password = "not-a-pattern-secret",
+                password = passwordFixture,
                 access_token = "token-value",
                 nested = new { apiKey = "key-value", text = "password=inline-value", path = @"C:\Users\Private User\drawing.dwg" },
                 code = "return \"raw-body-marker\";"
             });
-            Assert.DoesNotContain("not-a-pattern-secret", json);
+            Assert.DoesNotContain(passwordFixture, json);
             Assert.DoesNotContain("token-value", json);
             Assert.DoesNotContain("key-value", json);
             Assert.DoesNotContain("inline-value", json);
