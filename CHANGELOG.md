@@ -1,6 +1,10 @@
 # Changelog
 
-## 2.1.0 — Unreleased
+## 2.1.1 — Unreleased
+
+### CI
+
+- Fix installer matrix shell selection by resolving it through job defaults; Windows PowerShell and PowerShell 7 remain separate jobs.
 
 ### Health runtime and release checks
 

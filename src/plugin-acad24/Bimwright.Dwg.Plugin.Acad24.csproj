@@ -3,7 +3,7 @@
     <TargetFramework>net48</TargetFramework>
     <RootNamespace>Bimwright.Dwg.Plugin</RootNamespace>
     <AssemblyName>Bimwright.Dwg.Plugin.Acad24</AssemblyName>
-    <Version>2.1.0</Version>
+    <Version>2.1.1</Version>
     <IncludeSourceRevisionInInformationalVersion>true</IncludeSourceRevisionInInformationalVersion>
     <LangVersion>latest</LangVersion>
     <AutoCadVersionYear>2024</AutoCadVersionYear>
