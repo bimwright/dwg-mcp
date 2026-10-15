@@ -45,6 +45,7 @@ namespace Bimwright.Dwg.Plugin
 
         public void Initialize()
         {
+            DiagnosticLog.MaintainLegacyLogs();
             try
             {
                 StartServerInternal();

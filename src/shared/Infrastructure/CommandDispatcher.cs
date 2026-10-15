@@ -11,6 +11,7 @@ namespace Bimwright.Dwg.Plugin
     {
         private readonly Dictionary<string, IAcadCommand> _commands;
         private readonly string _authToken;
+        private readonly Func<bool> _isAccepting;
         private readonly JObject _healthIdentity;
 
         public static bool SendCodeEnabled { get; private set; }
@@ -20,9 +21,10 @@ namespace Bimwright.Dwg.Plugin
             SendCodeEnabled = enabled;
         }
 
-        public CommandDispatcher(string authToken)
+        public CommandDispatcher(string authToken, Func<bool> isAccepting = null)
         {
             _authToken = authToken;
+            _isAccepting = isAccepting;
             _healthIdentity = RuntimeIdentity.Capture(typeof(CommandDispatcher).Assembly, "plugin",
                 int.Parse(PluginTarget.AutoCadYear, System.Globalization.CultureInfo.InvariantCulture));
             _commands = new Dictionary<string, IAcadCommand>
@@ -92,6 +94,8 @@ namespace Bimwright.Dwg.Plugin
 
         public string Dispatch(string requestLine)
         {
+            if (_isAccepting != null && !_isAccepting())
+                return ErrorJson(null, "DWG listener stopped; command was not started.");
             string id = null;
             string cmd = null;
             JToken parameters = null;
@@ -133,8 +137,8 @@ namespace Bimwright.Dwg.Plugin
                 }
 
                 var result = preflightHandler is IAcadSessionCommand sessionCommand
-                    ? DocumentInvoker.InvokeSession(() => sessionCommand.ExecuteSession(parameters))
-                    : DocumentInvoker.Invoke(doc => ExecuteCommand(doc, cmd, parameters));
+                    ? DocumentInvoker.InvokeSession(() => sessionCommand.ExecuteSession(parameters), _isAccepting)
+                    : DocumentInvoker.Invoke(doc => ExecuteCommand(doc, cmd, parameters), _isAccepting);
 
                 string resultJson = null;
                 if (result.Ok)

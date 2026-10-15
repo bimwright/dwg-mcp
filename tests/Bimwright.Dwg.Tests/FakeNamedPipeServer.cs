@@ -72,17 +72,21 @@ namespace Bimwright.Dwg.Tests
                     return;
                 }
 
-                using (pipe)
-                using (var reader = new StreamReader(pipe, new UTF8Encoding(false), true, -1, leaveOpen: true))
-                using (var writer = new StreamWriter(pipe, new UTF8Encoding(false), -1, leaveOpen: true) { AutoFlush = true })
+                try
                 {
-                    string line;
-                    while ((line = await reader.ReadLineAsync()) != null)
+                    using (pipe)
+                    using (var reader = new StreamReader(pipe, new UTF8Encoding(false), true, -1, leaveOpen: true))
+                    using (var writer = new StreamWriter(pipe, new UTF8Encoding(false), -1, leaveOpen: true) { AutoFlush = true })
                     {
-                        var reply = _responder(line);
-                        await writer.WriteLineAsync(reply);
+                        string line;
+                        while ((line = await reader.ReadLineAsync()) != null)
+                        {
+                            var reply = _responder(line);
+                            await writer.WriteLineAsync(reply);
+                        }
                     }
                 }
+                catch (IOException) { /* A per-call peer may close before StreamWriter.Dispose flushes. */ }
 
                 _listeningPipe = null;
 

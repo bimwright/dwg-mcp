@@ -32,20 +32,25 @@ namespace Bimwright.Dwg.Plugin
         }
 
         /// <summary>Standalone session operations share the CAD queue, but do not require or lock a document.</summary>
-        internal static T InvokeSession<T>(Func<T> action)
+        internal static T InvokeSession<T>(Func<T> action, Func<bool> isAccepting = null)
         {
             var executor = mainThread ?? throw new InvalidOperationException("AutoCAD main-thread executor is not initialized.");
-            return DwgApiExecutor.Invoke(() => executor.Invoke(action));
+            return DwgApiExecutor.Invoke(() => executor.Invoke(() =>
+            {
+                EnsureAccepting(isAccepting);
+                return action();
+            }));
         }
 
         /// <summary>
         /// Serializes AutoCAD API access, locks the active document, and runs the action.
         /// </summary>
-        public static T Invoke<T>(Func<Document, T> action)
+        public static T Invoke<T>(Func<Document, T> action, Func<bool> isAccepting = null)
         {
             var executor = mainThread ?? throw new InvalidOperationException("AutoCAD main-thread executor is not initialized.");
             return DwgApiExecutor.Invoke(() => executor.Invoke(() =>
             {
+                EnsureAccepting(isAccepting);
                 var doc = Application.DocumentManager.MdiActiveDocument
                     ?? throw new InvalidOperationException(DrawingSessionContract.NoActiveDocument);
                 using (doc.LockDocument())
@@ -53,6 +58,12 @@ namespace Bimwright.Dwg.Plugin
                     return action(doc);
                 }
             }));
+        }
+
+        private static void EnsureAccepting(Func<bool> isAccepting)
+        {
+            if (isAccepting != null && !isAccepting())
+                throw new InvalidOperationException("DWG listener stopped; command was not started.");
         }
     }
 }

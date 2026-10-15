@@ -9,6 +9,12 @@
 - Keep recent available in gateway read-only mode; exclude/refuse open even when file `read_only=true`. Refuse session commands during batch preflight before earlier drawing mutations; document/baked contexts cannot execute them. No-document errors now guide agents to recent → choose → open.
 - Current development counts are 44 default / 68 all-enabled / 23 all-enabled read-only. Add production-handler tests with explicit Autodesk doubles, MRU/path/timeout regressions and stdio discovery/permission checks. Installed-host Start-page/native-dialog acceptance remains pending. See [drawing session tools](README.md#drawing-session-tools).
 
+### Bounded logs and transport lifecycle
+
+- Call-log segments rotate before the next UTF-8 record would exceed 5 MiB; each generated group keeps at most 100 MiB for 30 days, and startup applies retention even when recording is off. Diagnostics use a bounded background writer (10 MiB active file plus one backup) with repeated messages summarized. Maintenance only touches known generated logs.
+- Local transport limits: requests up to 16 MiB, responses up to 32 MiB, eight concurrent gateway calls, eight TCP clients and 16 queued AutoCAD API requests. Idle/incomplete input and blocked writes have 30-second deadlines, separate from host execution and the `dwg_open_drawing` wait.
+- Stop closes the endpoint and connected clients and skips queued work that has not started; the pipe endpoint is reserved before readiness is published, and a failed Start rolls back. A running operation can still complete after a timeout or disconnect, so inspect the outcome before retrying a write. See [README](README.md).
+
 ### CI
 
 - Fix installer matrix shell selection by resolving it through job defaults; Windows PowerShell and PowerShell 7 remain separate jobs.

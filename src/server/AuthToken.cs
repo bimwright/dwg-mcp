@@ -34,12 +34,15 @@ namespace Bimwright.Dwg.Server
                 return infos;
             }
 
-            foreach (var path in Directory.GetFiles(dir, "acad-*.json"))
+            foreach (var year in AllVersions)
             {
-                if (TryReadJson(path, out var info))
+                var path = Path.Combine(dir, "acad-" + year + ".json");
+                // Read the six supported names under the publisher's lock. Directory
+                // enumeration can transiently miss a name during atomic replacement.
+                try { Bimwright.Dwg.Plugin.TransportDiscovery.RunLocked(path, () =>
                 {
-                    infos.Add(info);
-                }
+                    if (File.Exists(path) && TryReadJson(path, out var info)) infos.Add(info);
+                }); } catch (IOException) { } catch (TimeoutException) { }
             }
 
             return infos
@@ -111,25 +114,35 @@ namespace Bimwright.Dwg.Server
             var dir = JsonDiscoveryDir(root);
             if (Directory.Exists(dir))
             {
-                foreach (var path in Directory.GetFiles(dir, "acad-*.json"))
+                foreach (var year in AllVersions)
                 {
-                    if (!TryReadJson(path, out _))
+                    var path = Path.Combine(dir, "acad-" + year + ".json");
+                    // Publication and invalid-descriptor cleanup share ownership coordination.
+                    // A transient read/parse failure never deletes a potentially live descriptor.
+                    try { Bimwright.Dwg.Plugin.TransportDiscovery.RunLocked(path, () =>
                     {
-                        TryDelete(path);
-                    }
+                        if (!TryReadJson(path, out _, out var transient) && !transient) TryDelete(path);
+                    }); } catch (IOException) { } catch (TimeoutException) { }
                 }
             }
 
             var legacy = LegacyDiscoveryPath(root);
-            if (File.Exists(legacy) && !TryReadLegacy(legacy, out _))
+            if (File.Exists(legacy))
             {
-                TryDelete(legacy);
+                try { Bimwright.Dwg.Plugin.TransportDiscovery.RunLocked(Path.Combine(dir, "acad-2024.json"), () =>
+                {
+                    if (!TryReadLegacy(legacy, out _, out var transient) && !transient) TryDelete(legacy);
+                }); } catch (IOException) { } catch (TimeoutException) { }
             }
         }
 
         private static bool TryReadJson(string path, out DiscoveryInfo info)
+            => TryReadJson(path, out info, out _);
+
+        private static bool TryReadJson(string path, out DiscoveryInfo info, out bool transient)
         {
             info = null;
+            transient = false;
             try
             {
                 var raw = File.ReadAllText(path);
@@ -176,6 +189,9 @@ namespace Bimwright.Dwg.Server
                 info = parsed;
                 return true;
             }
+            catch (IOException) { transient = true; return false; }
+            catch (UnauthorizedAccessException) { transient = true; return false; }
+            catch (JsonException) { transient = true; return false; }
             catch
             {
                 return false;
@@ -188,8 +204,12 @@ namespace Bimwright.Dwg.Server
         }
 
         private static bool TryReadLegacy(string path, out DiscoveryInfo info)
+            => TryReadLegacy(path, out info, out _);
+
+        private static bool TryReadLegacy(string path, out DiscoveryInfo info, out bool transient)
         {
             info = null;
+            transient = false;
             try
             {
                 if (!File.Exists(path))
@@ -225,6 +245,9 @@ namespace Bimwright.Dwg.Server
                 };
                 return true;
             }
+            catch (IOException) { transient = true; return false; }
+            catch (UnauthorizedAccessException) { transient = true; return false; }
+            catch (FormatException) { transient = true; return false; }
             catch
             {
                 return false;

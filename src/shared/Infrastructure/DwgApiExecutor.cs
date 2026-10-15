@@ -1,4 +1,5 @@
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Bimwright.Dwg.Plugin
@@ -7,6 +8,8 @@ namespace Bimwright.Dwg.Plugin
     {
         private static readonly object Gate = new object();
         private static Task _tail = Task.CompletedTask;
+        internal const int MaxPendingRequests = 16;
+        private static int _pendingRequests;
 
         public static T Invoke<T>(Func<T> work)
         {
@@ -30,6 +33,11 @@ namespace Bimwright.Dwg.Plugin
                 throw new ArgumentNullException(nameof(work));
             }
 
+            if (Interlocked.Increment(ref _pendingRequests) > MaxPendingRequests)
+            {
+                Interlocked.Decrement(ref _pendingRequests);
+                return Task.FromException<T>(new InvalidOperationException("AutoCAD request queue is full; command was not started."));
+            }
             var completion = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
             lock (Gate)
             {
@@ -63,6 +71,7 @@ namespace Bimwright.Dwg.Plugin
             {
                 completion.SetException(ex);
             }
+            finally { Interlocked.Decrement(ref _pendingRequests); }
         }
     }
 }

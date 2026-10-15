@@ -2,40 +2,36 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Pipes;
-using System.Text;
 using System.Threading;
-using Newtonsoft.Json;
 
 namespace Bimwright.Dwg.Plugin
 {
     public class PipeTransportServer : ITransportServer
     {
-        private readonly string _target;
-        private readonly string _pipeName;
+        private readonly string _target, _pipeName;
+        private readonly object _gate = new object();
         private volatile bool _running;
+        private bool _started, _stopped;
         private Thread _acceptThread;
         private CommandDispatcher _dispatcher;
         private NamedPipeServerStream _activeServer;
+        private TransportDiscovery _discovery;
 
         public PipeTransportServer(string target, string pipeName = null)
         {
             _target = string.IsNullOrWhiteSpace(target) ? "2025" : target;
             _pipeName = string.IsNullOrWhiteSpace(pipeName)
-                ? "BimwrightDwg-" + _target + "-" + Process.GetCurrentProcess().Id
-                : pipeName;
+                ? "BimwrightDwg-" + _target + "-" + Process.GetCurrentProcess().Id : pipeName;
         }
 
         public int? Port => null;
         public string PipeName => _pipeName;
         public string AuthToken { get; private set; }
         public bool IsRunning => _running;
+        internal bool IsAcceptThreadAlive => _acceptThread?.IsAlive ?? false;
         public bool IsClientConnected
         {
-            get
-            {
-                try { return _activeServer?.IsConnected ?? false; }
-                catch { return false; }
-            }
+            get { lock (_gate) { try { return _activeServer?.IsConnected ?? false; } catch { return false; } } }
         }
         public DateTime? LastCommandTime { get; private set; }
         public TransportKind Kind => TransportKind.Pipe;
@@ -43,100 +39,108 @@ namespace Bimwright.Dwg.Plugin
 
         public void Start()
         {
-            AuthToken = Guid.NewGuid().ToString("N");
-            _dispatcher = new CommandDispatcher(AuthToken);
-            WriteDiscoveryFile();
-            _running = true;
-            _acceptThread = new Thread(AcceptLoop) { IsBackground = true, Name = "BimwrightDwg-PipeAccept" };
-            _acceptThread.Start();
+            lock (_gate)
+            {
+                if (_started || _stopped) throw new InvalidOperationException("Create a new DWG transport for each listener lifetime.");
+                _started = true;
+                AuthToken = Guid.NewGuid().ToString("N");
+                _dispatcher = new CommandDispatcher(AuthToken, () => _running);
+                _discovery = new TransportDiscovery(_target, AuthToken);
+                try
+                {
+                    _activeServer = CreatePipe(); // Reserve synchronously before advertising readiness.
+                    _discovery.Publish("pipe", null, _pipeName);
+                    _running = true;
+                    _acceptThread = new Thread(AcceptLoop) { IsBackground = true, Name = "BimwrightDwg-PipeAccept" };
+                    _acceptThread.Start();
+                }
+                catch
+                {
+                    _running = false; _stopped = true;
+                    try { _activeServer?.Dispose(); } catch { }
+                    _activeServer = null;
+                    try { _discovery.Close(); } catch { }
+                    throw;
+                }
+            }
         }
 
         public void Stop()
         {
-            _running = false;
-            try { _activeServer?.Dispose(); } catch { }
-            DeleteDiscoveryFile();
+            Thread thread;
+            lock (_gate)
+            {
+                _running = false; _stopped = true;
+                try { _activeServer?.Dispose(); } catch { }
+                _activeServer = null;
+                thread = _acceptThread;
+            }
+            try { _discovery?.Close(); } catch { }
+            // Dispatch may be waiting for this UI thread; never join a running CAD operation.
+            if (thread != null && thread != Thread.CurrentThread) thread.Join(250);
         }
+
+        private NamedPipeServerStream CreatePipe() => new NamedPipeServerStream(
+            _pipeName, PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
 
         private void AcceptLoop()
         {
-            while (_running)
+            try
             {
-                try
+                while (_running)
                 {
-                    using (var pipe = new NamedPipeServerStream(
-                        _pipeName,
-                        PipeDirection.InOut,
-                        1,
-                        PipeTransmissionMode.Byte,
-                        PipeOptions.Asynchronous))
+                    NamedPipeServerStream pipe;
+                    lock (_gate)
                     {
-                        _activeServer = pipe;
-                        pipe.WaitForConnection();
+                        if (!_running) return;
+                        pipe = _activeServer ?? (_activeServer = CreatePipe());
+                    }
+                    try
+                    {
+                        // Asynchronous wait/read are aborted by closing the actual stream in Stop.
+                        pipe.WaitForConnectionAsync().GetAwaiter().GetResult();
                         HandleClient(pipe);
                     }
-                    _activeServer = null;
-                }
-                catch
-                {
-                    _activeServer = null;
-                    if (!_running)
+                    catch (IOException) { }
+                    catch (ObjectDisposedException) { }
+                    catch (OperationCanceledException) { }
+                    finally
                     {
-                        return;
+                        pipe.Dispose();
+                        lock (_gate) { if (ReferenceEquals(_activeServer, pipe)) _activeServer = null; }
                     }
                 }
+            }
+            catch (Exception ex)
+            {
+                PluginLog.Debug("Pipe listener stopped: " + ex.Message);
+            }
+            finally
+            {
+                _running = false;
+                try { _discovery.Close(); } catch { }
             }
         }
 
         private void HandleClient(Stream stream)
         {
-            using (var reader = new StreamReader(stream, new UTF8Encoding(false)))
-            using (var writer = new StreamWriter(stream, new UTF8Encoding(false)) { AutoFlush = true })
+            var reader = new TransportFraming.BoundedLineReader(stream);
+            while (_running)
             {
                 string line;
-                while (_running && (line = reader.ReadLine()) != null)
-                {
-                    LastCommandTime = DateTime.UtcNow;
-                    string responseJson;
-                    try
-                    {
-                        responseJson = _dispatcher.Dispatch(line);
-                    }
-                    catch (Exception ex)
-                    {
-                        responseJson = CommandDispatcher.ErrorJson(null, $"dispatch error: {ex.Message}");
-                    }
-                    writer.WriteLine(responseJson);
-                }
+                try { line = TransportFraming.ReadAsync(reader, TransportFraming.RequestBytes, TransportFraming.InputTimeout).GetAwaiter().GetResult(); }
+                catch (TimeoutException) { return; }
+                catch (InvalidDataException) { return; }
+                if (line == null) return;
+                lock (_gate) { if (!_running) return; LastCommandTime = DateTime.UtcNow; }
+                string response;
+                try { response = _dispatcher.Dispatch(line); }
+                catch (Exception ex) { response = CommandDispatcher.ErrorJson(null, "dispatch error: " + ex.Message); }
+                if (!_running) return;
+                try { TransportFraming.WriteAsync(stream, response, TransportFraming.ResponseBytes, TransportFraming.WriteTimeout).GetAwaiter().GetResult(); }
+                catch (TimeoutException) { return; }
+                catch (InvalidDataException) { return; }
             }
         }
-
-        private void WriteDiscoveryFile()
-        {
-            Directory.CreateDirectory(Path.Combine(DiscoveryRoot, "dwg-mcp"));
-            var info = new
-            {
-                schema_version = 2,
-                acad_year = int.Parse(_target),
-                transport = "pipe",
-                port = (int?)null,
-                pipe_name = _pipeName,
-                auth_token = AuthToken,
-                pid = Process.GetCurrentProcess().Id,
-                process_name = Process.GetCurrentProcess().ProcessName,
-                started_at_utc = DateTime.UtcNow
-            };
-            File.WriteAllText(JsonDiscoveryPath, JsonConvert.SerializeObject(info, Formatting.Indented));
-        }
-
-        private void DeleteDiscoveryFile()
-        {
-            try { if (File.Exists(JsonDiscoveryPath)) File.Delete(JsonDiscoveryPath); } catch { }
-        }
-
-        private string JsonDiscoveryPath => Path.Combine(DiscoveryRoot, "dwg-mcp", "acad-" + _target + ".json");
-
-        private static string DiscoveryRoot =>
-            Environment.ExpandEnvironmentVariables(@"%LOCALAPPDATA%\Bimwright");
     }
 }

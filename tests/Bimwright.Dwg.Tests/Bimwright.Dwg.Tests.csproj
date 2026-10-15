@@ -66,6 +66,9 @@
     <Compile Include="..\..\src\shared\Config\PluginSettings.cs" LinkBase="Shared\Config" />
     <Compile Include="..\..\src\shared\ToolCatalog\ToolCatalogStore.cs" LinkBase="Shared\ToolCatalog" />
     <Compile Include="..\..\src\shared\Infrastructure\PluginLog.cs" LinkBase="Shared\Infrastructure" />
+    <Compile Include="..\..\src\shared\Transport\ITransportServer.cs" LinkBase="Shared\Transport" />
+    <Compile Include="..\..\src\shared\Transport\PipeTransportServer.cs" LinkBase="Shared\Transport" />
+    <Compile Include="..\..\src\shared\Transport\TcpTransportServer.cs" LinkBase="Shared\Transport" />
   </ItemGroup>
   <!-- Exercise the actual escape-hatch handlers against explicit AutoCAD test doubles.
        These tests never load Autodesk assemblies or connect to a running host. -->

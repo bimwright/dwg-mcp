@@ -3,6 +3,7 @@ using System.IO;
 using System.IO.Pipes;
 using System.Net.Sockets;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -14,6 +15,7 @@ namespace Bimwright.Dwg.Server
     {
         private readonly Func<DiscoveryInfo> _discoveryProvider;
         private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(30);
+        private static readonly SemaphoreSlim Calls = new SemaphoreSlim(TransportFraming.MaxConnections);
 
         public PluginClient(Func<DiscoveryInfo> discoveryProvider)
         {
@@ -34,26 +36,26 @@ namespace Bimwright.Dwg.Server
                 readTimeout = TimeSpan.FromSeconds(DrawingSessionContract.ReadTimeoutSeconds(cmd, token));
             }
             catch (Exception ex) { return Error(requestId, ex.Message); }
-            var discovery = _discoveryProvider();
-            var request = new McpRequest
-            {
-                Id = string.IsNullOrWhiteSpace(requestId) ? Guid.NewGuid().ToString("N") : requestId,
-                Cmd = cmd,
-                Params = parameters,
-                Auth = discovery.Token
-            };
-            var json = JsonConvert.SerializeObject(request);
-
+            if (!Calls.Wait(0)) return Error(requestId, "plugin connection limit reached; command was not sent.");
+            requestId = string.IsNullOrWhiteSpace(requestId) ? Guid.NewGuid().ToString("N") : requestId;
             try
             {
-                return string.Equals(discovery.Transport, "pipe", StringComparison.OrdinalIgnoreCase)
-                    ? await SendPipeAsync(discovery, request.Id, json, readTimeout, cmd)
-                    : await SendTcpAsync(discovery, request.Id, json, readTimeout, cmd);
+                // Discovery failures propagate so callers can report NO_TARGET.
+                var discovery = _discoveryProvider();
+                var request = new McpRequest { Id = requestId, Cmd = cmd, Params = parameters, Auth = discovery.Token };
+                var json = JsonConvert.SerializeObject(request);
+                try
+                {
+                    return string.Equals(discovery.Transport, "pipe", StringComparison.OrdinalIgnoreCase)
+                        ? await SendPipeAsync(discovery, request.Id, json, readTimeout, cmd)
+                        : await SendTcpAsync(discovery, request.Id, json, readTimeout, cmd);
+                }
+                catch (Exception ex)
+                {
+                    return Error(requestId, $"plugin communication error: {ex.Message}");
+                }
             }
-            catch (Exception ex)
-            {
-                return Error(request.Id, $"plugin communication error: {ex.Message}");
-            }
+            finally { Calls.Release(); }
         }
 
         private static async Task<McpResponse> SendTcpAsync(DiscoveryInfo discovery, string requestId, string json, TimeSpan readTimeout, string command)
@@ -81,27 +83,26 @@ namespace Bimwright.Dwg.Server
                 return Error(requestId, "plugin pipe connect timeout");
             await connectTask;
 
+
             return await SendStreamAsync(pipe, requestId, json, readTimeout, command);
         }
 
-        private static async Task<McpResponse> SendStreamAsync(Stream stream, string requestId, string json, TimeSpan readTimeout, string command)
+        internal static async Task<McpResponse> SendStreamAsync(Stream stream, string requestId, string json, TimeSpan readTimeout, string command)
         {
-            // Do not let the writer/reader dispose the underlying transport stream.
-            // Both wrap the same NamedPipeClientStream/NetworkStream; disposing it
-            // twice throws "Cannot access a closed pipe" on the second Dispose and
-            // masks an otherwise-successful response.
-            var utf8 = new UTF8Encoding(false);
-            using var writer = new StreamWriter(stream, utf8, -1, leaveOpen: true) { AutoFlush = true };
-            using var reader = new StreamReader(stream, utf8, true, -1, leaveOpen: true);
-
-            await writer.WriteLineAsync(json);
-            var readTask = reader.ReadLineAsync();
-            if (await Task.WhenAny(readTask, Task.Delay(readTimeout)) != readTask)
+            // The socket/pipe owner disposes once. Deadline cancellation closes the actual
+            // transport to release outstanding IO; it never retries a possibly delivered mutation.
+            await TransportFraming.WriteAsync(stream, json, TransportFraming.RequestBytes, TransportFraming.WriteTimeout);
+            string line;
+            try
+            {
+                line = await TransportFraming.ReadAsync(new TransportFraming.BoundedLineReader(stream), TransportFraming.ResponseBytes, readTimeout);
+            }
+            catch (TimeoutException)
+            {
                 return Error(requestId, command == "open_drawing"
                     ? "plugin read timeout; opening may still be running in AutoCAD. A timeout does not cancel host work. Inspect AutoCAD state/native dialogs before retrying dwg_open_drawing."
-                    : "plugin read timeout");
-
-            var line = await readTask;
+                    : "plugin read timeout; host work may still be running. Inspect its outcome before retrying writes.");
+            }
             if (line == null) return Error(requestId, "plugin closed connection");
             return JsonConvert.DeserializeObject<McpResponse>(line);
         }

@@ -21,6 +21,7 @@ namespace Bimwright.Dwg.Server
             var config = DwgMcpConfig.Load(args);
             ValidateTarget(config.Target);
             ServerState.Config = config;
+            Bimwright.Dwg.Plugin.DiagnosticLog.MaintainLegacyLogs();
             WarnIfUnwiredOptions(config);
             var enabled = ToolsetFilter.Resolve(config);
             _ = GatewayRuntime.Identity; // Capture loaded gateway identity before initialize/tools/list.

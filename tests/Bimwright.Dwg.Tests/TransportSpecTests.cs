@@ -45,11 +45,12 @@ namespace Bimwright.Dwg.Tests
         {
             var tcp = ReadRepoFile("src", "shared", "Transport", "TcpTransportServer.cs");
             var pipe = ReadRepoFile("src", "shared", "Transport", "PipeTransportServer.cs");
+            var descriptor = ReadRepoFile("src", "shared", "Transport", "TransportDiscovery.cs");
 
-            Assert.Contains("acad_year", tcp);
-            Assert.Contains("pipe_name = (string)null", tcp);
-            Assert.Contains("acad_year", pipe);
-            Assert.Contains("pipe_name = _pipeName", pipe);
+            Assert.Contains("acad_year", descriptor);
+            Assert.Contains("pipe_name = pipeName", descriptor);
+            Assert.Contains("Publish(\"tcp\", Port, null)", tcp);
+            Assert.Contains("Publish(\"pipe\", null, _pipeName)", pipe);
         }
 
         private static string ReadProject(string folder, string suffix)

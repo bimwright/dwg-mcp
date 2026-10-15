@@ -1,5 +1,5 @@
 using System;
-using System.IO;
+using Bimwright.Dwg.Plugin;
 
 namespace Bimwright.Dwg.Server.Logging
 {
@@ -24,8 +24,7 @@ namespace Bimwright.Dwg.Server.Logging
                 if (!_enabled()) return;
                 // Redact before filesystem access; no side effects when disabled.
                 var line = CallLogPrivacy.Serialize(entry);
-                Directory.CreateDirectory(System.IO.Path.GetDirectoryName(Path) ?? ".");
-                File.AppendAllText(Path, line + Environment.NewLine);
+                BoundedLogFile.Append(Path, line);
             }
         }
     }

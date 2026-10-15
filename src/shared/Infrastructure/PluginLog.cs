@@ -1,26 +1,14 @@
-using System;
-using System.IO;
-
 namespace Bimwright.Dwg.Plugin
 {
     /// <summary>
-    /// Timestamped append-only debug log under %LOCALAPPDATA%\Bimwright\dwg-mcp\debug.log.
-    /// Never throws — logging must not break the plugin.
+    /// Bounded background diagnostics. Never touches disk on the AutoCAD caller.
     /// </summary>
     internal static class PluginLog
     {
         internal static void Debug(string message)
         {
-            try
-            {
-                var dir = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                    "Bimwright", "dwg-mcp");
-                Directory.CreateDirectory(dir);
-                File.AppendAllText(Path.Combine(dir, "debug.log"),
-                    $"[{DateTime.Now:HH:mm:ss.fff}] {message}{Environment.NewLine}");
-            }
-            catch { }
+            try { DiagnosticLog.Write("Plugin", message, PluginTarget.AutoCadYear); }
+            catch { } // A diagnostics startup failure must not break AutoCAD callers.
         }
     }
 }
