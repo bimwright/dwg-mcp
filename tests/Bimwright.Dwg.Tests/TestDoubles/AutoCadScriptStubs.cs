@@ -4,7 +4,7 @@ using System;
 
 namespace Autodesk.AutoCAD.ApplicationServices
 {
-    public class Document
+    public partial class Document
     {
         private Autodesk.AutoCAD.DatabaseServices.Database database = new Autodesk.AutoCAD.DatabaseServices.Database();
         public Func<Autodesk.AutoCAD.DatabaseServices.Database> DatabaseFactory;

@@ -31,6 +31,13 @@ namespace Bimwright.Dwg.Plugin
             return executor.Invoke(action);
         }
 
+        /// <summary>Standalone session operations share the CAD queue, but do not require or lock a document.</summary>
+        internal static T InvokeSession<T>(Func<T> action)
+        {
+            var executor = mainThread ?? throw new InvalidOperationException("AutoCAD main-thread executor is not initialized.");
+            return DwgApiExecutor.Invoke(() => executor.Invoke(action));
+        }
+
         /// <summary>
         /// Serializes AutoCAD API access, locks the active document, and runs the action.
         /// </summary>
@@ -40,7 +47,7 @@ namespace Bimwright.Dwg.Plugin
             return DwgApiExecutor.Invoke(() => executor.Invoke(() =>
             {
                 var doc = Application.DocumentManager.MdiActiveDocument
-                    ?? throw new InvalidOperationException("no active document");
+                    ?? throw new InvalidOperationException(DrawingSessionContract.NoActiveDocument);
                 using (doc.LockDocument())
                 {
                     return action(doc);

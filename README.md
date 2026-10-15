@@ -10,7 +10,7 @@
   <a href="https://github.com/bimwright/dwg-mcp/actions/workflows/build.yml"><img src="https://github.com/bimwright/dwg-mcp/actions/workflows/build.yml/badge.svg" alt="build" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="license" /></a>
   <a href="#supported-autocad-versions"><img src="https://img.shields.io/badge/AutoCAD-2022--2027-186BFF" alt="AutoCAD 2022-2027" /></a>
-  <a href="#tools"><img src="https://img.shields.io/badge/MCP-42%20default%20%2B%20optional-6C47FF" alt="MCP tools" /></a>
+  <a href="#tools"><img src="https://img.shields.io/badge/MCP-44%20default%20%2B%20optional-6C47FF" alt="MCP tools" /></a>
 </p>
 
 <p align="center">
@@ -195,7 +195,9 @@ After reconnect, compare fresh `initialize.serverInfo` and the health tool's `_m
 
 ## Tools
 
-Development startup exposes 42 tools: query (including `dwg_inspect_lisp`), modify, meta (including `dwg_send_code`/`dwg_run_lisp`), view, and default-on `dwg_capture_view_image`. Optional ToolBaker, annotation, block, dimension, export, and drawing toolsets, enabled through `--toolsets`, bring the backed MCP surface to 66 tools. The registered counts include `dwg_run_lisp`, which only returns a refusal; no scan verdict authorizes execution.
+Development startup exposes 44 tools: query (including `dwg_inspect_lisp`), modify, meta (including `dwg_send_code`/`dwg_run_lisp`), view, and default-on `dwg_capture_view_image`. Optional ToolBaker, annotation, block, dimension, export, and drawing toolsets, enabled through `--toolsets`, bring the backed MCP surface to 68 tools. The registered counts include `dwg_run_lisp`, which only returns a refusal; no scan verdict authorizes execution.
+
+With no drawing open, use `dwg_list_recent_drawings` → user chooses → `dwg_open_drawing(path)`. Both are standalone `meta` tools; recent is available under `--read-only`, open is not (even with file `read_only=true`). Native dialogs may require the user; timeouts do not cancel an Open already running. See [drawing session tools](#drawing-session-tools) for parameters, API references and verification limits.
 
 General CAD tools operate on the current active document in the selected AutoCAD target. Entity inputs and returned entity IDs use AutoCAD hex handles, such as `7F5AD`, returned by selection, creation, or property tools. Creation, copy, offset, and modify responses identify generated or modified entities by hex handle.
 
@@ -235,6 +237,8 @@ Plan 2 query expansion is model-space only: `dwg_query_entities`, `dwg_count_ent
 | `dwg_list_available_targets` | List running AutoCAD targets discovered from v2 JSON and legacy 2024 discovery files |
 | `dwg_get_current_target` | Show the pinned target year, if any |
 | `dwg_switch_target` | Pin this server process to AutoCAD `2022` through `2027` |
+| `dwg_list_recent_drawings` | List up to 50 recent DWGs for the connected AutoCAD, with optional filename filter; works with no drawing open |
+| `dwg_open_drawing` | Open an absolute DWG path, optionally read-only; reuse an open drawing, never save or close drawings; default wait 600s |
 | `dwg_batch_execute` | Run multiple internal wire commands as a logical batch |
 | `dwg_send_code` | Execute a C# snippet against the AutoCAD .NET API (globals `doc`/`db`/`ed`, `return` value + captured stdout, cooperative 30s cancellation; `MCPDISABLECODE`/`MCPENABLECODE` toggle per session) |
 | `dwg_run_lisp` | Compatibility endpoint only: all `file`/`code`/`command` inputs are refused with `lisp_execution_blocked`. No file read, plugin dispatch or execution from this tool. Use `dwg_inspect_lisp` for analysis only. |
@@ -301,6 +305,46 @@ Optional Drawing tools are exposed when the `drawing` toolset is enabled:
 | `dwg_set_system_variable` | Set the value of a drawing system variable |
 | `dwg_save_drawing` | Save the current drawing to a file (requires confirm=true) |
 | `dwg_purge_drawing` | Purge unused named objects (blocks, layers, styles) (supports dry_run=true, actual purge requires confirm=true) |
+
+### Drawing session tools
+
+The default `meta` toolset supports recent → user chooses → open, even on AutoCAD's Start page with no active drawing. AutoCAD and the updated add-in must already be running; these tools do not launch AutoCAD.
+
+`dwg_list_recent_drawings`:
+
+```json
+{"name":"Plant","max_items":20}
+```
+
+Both arguments are optional: `name` is a case-insensitive **filename** substring, and `max_items` is 1–50 (default 50). Filtering happens before the limit. Only absolute `.dwg` entries are returned, numerically ordered by MRU `FileN` index, with duplicate paths removed. Each entry contains `index`, `path`, `name`, `exists`, and `pinned`. Missing files remain visible with `exists=false`.
+
+The plugin reads `Recent File List` under the connected product's HKCU root reported by `HostApplicationServices.Current.UserRegistryProductRootKey`; it never guesses a release code or uses another installed year's list. The result includes `acad_year`, `source`, `registry_found`, `count`, and an instruction to ask the user which path to open. A missing registry key returns an empty list with `registry_found=false`; unreadable registry data returns an error. This registry layout was observed locally, but is **not a documented managed MRU API contract**. Registry contents may lag the UI; this is not a filesystem search.
+
+`dwg_open_drawing`:
+
+```json
+{
+  "path":"D:\\Models\\Plant.dwg",
+  "activate":true,
+  "read_only":false,
+  "timeout_seconds":600
+}
+```
+
+- `path`: required absolute drive or ordinary UNC path on the **AutoCAD machine**, not the MCP client. Relative/device paths, URLs, DXF and templates are refused. Existence/access are checked by the host process.
+- `activate`: default `true`, makes it active. `false` requires an existing active drawing and restores it after opening; this is a UI document, not a viewless background database.
+- `read_only`: default `false`, requests writable file access; `true` requests read-only access. An already-open drawing is reused, but an access-mode mismatch is refused without changing or closing it.
+- `timeout_seconds`: integer 1–900, default 600. Changes only this command's gateway response wait; connections and other commands retain their 30-second budgets. Set the client's tool deadline above this budget plus transport grace.
+
+Returns `opened`, `was_already_open`, `title`, `path`, actual `read_only`, `activated`, and `active_document`. The tool does not call Save, SaveAs, Close, audit or recovery, and does not overwrite drawing bytes. Existing drawings, including unsaved changes, remain open. Opening an older DWG does not persist converted bytes unless subsequently saved.
+
+Open runs on AutoCAD's main thread in application context without a document lock. It requires multi-document mode (`SDI=0`) and refuses while a drawing command is in progress; it does not change SDI or cancel user commands. Native dialogs (locked files, references, format/password problems) remain user-handled. A timeout **does not cancel** an Open already running: inspect AutoCAD/native dialogs before retrying, rather than assuming the file remained closed.
+
+Both tools must be standalone calls, not drawing batches or baked drawing workflows. A batch containing either is rejected before earlier items execute. Ordinary CAD tools still require an active document and now guide agents to this workflow when none is open. With an explicitly supplied path and instruction to open it, discovery can be skipped. Gateway `--read-only` permits recent but excludes/refuses open, even with file `read_only=true`: file access mode is not permission to change the document session.
+
+Autodesk API references: [Open(DocumentCollection, string, bool)](https://help.autodesk.com/cloudhelp/2024/ENU/OARX-ManagedRefGuide/files/OARX-ManagedRefGuide-Autodesk_AutoCAD_ApplicationServices_DocumentCollectionExtension_Open_this_DocumentCollection_string__MarshalAsUnmanagedType_U1__bool.html), [MdiActiveDocument](https://help.autodesk.com/cloudhelp/2024/ENU/OARX-ManagedRefGuide/files/OARX-ManagedRefGuide-Autodesk_AutoCAD_ApplicationServices_DocumentCollection_MdiActiveDocument.html), [IsApplicationContext](https://help.autodesk.com/cloudhelp/2024/ENU/OARX-ManagedRefGuide/files/OARX-ManagedRefGuide-Autodesk_AutoCAD_ApplicationServices_DocumentCollection_IsApplicationContext.html), [UserRegistryProductRootKey](https://help.autodesk.com/cloudhelp/2024/ENU/OARX-ManagedRefGuide/files/OARX-ManagedRefGuide-Autodesk_AutoCAD_DatabaseServices_HostApplicationServices_UserRegistryProductRootKey.html), [Document.IsReadOnly](https://help.autodesk.com/cloudhelp/2024/ENU/OARX-ManagedRefGuide/files/OARX-ManagedRefGuide-Autodesk_AutoCAD_ApplicationServices_Document_IsReadOnly.html).
+
+Production-handler tests use explicit Autodesk doubles; stdio discovery/permission and TCP/pipe deadline tests are host-free. Compilation against installed Autodesk assemblies is separate evidence from live-host behavior. Start-page opening, native dialogs and UI recent-list freshness still require installed-host acceptance; tests do not claim those were exercised in AutoCAD.
 
 ### Output Path Policy
 All export operations are strictly guarded by a path policy that enforces:
@@ -472,7 +516,7 @@ Third-party notices: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
 
 ## Permissions & auto mode
 
-Every tool except `dwg_send_code` declares read-only, destructive, idempotent and open-world hints. Full mode has 66 tools; `--toolsets all --read-only` exposes the 22 read-only tools below. Zoom can change transient UI state. Capture, region inspection and restore create image files and are excluded from read-only mode. `dwg_health` is read-only; its explicit update check can contact GitHub.
+Every tool except `dwg_send_code` declares read-only, destructive, idempotent and open-world hints. Full mode has 68 tools; `--toolsets all --read-only` exposes the 23 read-only tools below. Zoom can change transient UI state. Capture, region inspection and restore create image files and are excluded from read-only mode. `dwg_health` is read-only; its explicit update check can contact GitHub.
 
 Use exact rules for the tools you intend to allow. Avoid `mcp__dwg-mcp__*`: it also permits drawing/file writes and code execution. `dwg_send_code` has no annotations and is deliberately absent from this read-only allowlist; any persistent approval for it must be an explicit choice in your MCP client.
 
@@ -493,6 +537,7 @@ mcp__dwg-mcp__dwg_list_bake_suggestions
 mcp__dwg-mcp__dwg_list_baked_tools
 mcp__dwg-mcp__dwg_list_blocks
 mcp__dwg-mcp__dwg_list_layers
+mcp__dwg-mcp__dwg_list_recent_drawings
 mcp__dwg-mcp__dwg_query_entities
 mcp__dwg-mcp__dwg_select_by_layer
 mcp__dwg-mcp__dwg_select_by_type

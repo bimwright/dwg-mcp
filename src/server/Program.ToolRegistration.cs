@@ -15,7 +15,7 @@ namespace Bimwright.Dwg.Server
             (new[] { "query" }, typeof(QueryTools), false, static mcp => mcp.WithTools<QueryTools>()),
             (new[] { "query" }, typeof(HealthTools), false, RegisterHealthToolsWithRuntimeMeta),
             (new[] { "modify" }, typeof(ModifyTools), true, static mcp => mcp.WithTools<ModifyTools>()),
-            (new[] { "meta" }, typeof(MetaTools), false, static mcp => mcp.WithTools<MetaTools>()),
+            (new[] { "meta" }, typeof(MetaTools), false, RegisterMetaToolsWithReadOnlyPolicy),
             (new[] { "meta" }, typeof(BatchTools), true, static mcp => mcp.WithTools<BatchTools>()),
             (new[] { "toolbaker" }, typeof(ToolBakerTools), false, static mcp => mcp.WithTools<ToolBakerTools>()),
             (new[] { "toolbaker" }, typeof(ToolBakerWriteTools), true, static mcp => mcp.WithTools<ToolBakerWriteTools>()),
@@ -78,6 +78,9 @@ namespace Bimwright.Dwg.Server
         private static IMcpServerBuilder RegisterCodeToolsWithSendCodePolicy(IMcpServerBuilder mcp)
             => mcp.WithTools(SendCodePolicy.ExposedMethods(typeof(CodeTools),
                 ServerState.Config?.EnableSendCodeOrDefault ?? true)
+                .Select(method => McpServerTool.Create(method)));
+        private static IMcpServerBuilder RegisterMetaToolsWithReadOnlyPolicy(IMcpServerBuilder mcp)
+            => mcp.WithTools(ReadOnlyPolicy.ExposedMethods(typeof(MetaTools), ServerState.IsReadOnly)
                 .Select(method => McpServerTool.Create(method)));
         private static IMcpServerBuilder RegisterViewToolsWithReadOnlyPolicy(IMcpServerBuilder mcp)
             => mcp.WithTools(ReadOnlyPolicy.ExposedMethods(typeof(ViewTools), ServerState.IsReadOnly)

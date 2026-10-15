@@ -41,6 +41,7 @@
   <ItemGroup>
     <Compile Include="..\shared\ToolBaker\*.cs" LinkBase="Shared\ToolBaker" />
     <Compile Include="..\shared\Infrastructure\RuntimeIdentity.cs" LinkBase="Shared\Infrastructure" />
+    <Compile Include="..\shared\Drawing\DrawingSessionContract.cs" LinkBase="Shared\Drawing" />
     <Compile Include="..\shared\Security\SecretMasker.cs" LinkBase="Shared\Security" />
     <Compile Include="..\shared\Security\ErrorSanitizer.cs" LinkBase="Shared\Security" />
     <Compile Include="..\shared\Security\BakeRedactor.cs" LinkBase="Shared\Security" />

@@ -22,7 +22,7 @@ namespace Bimwright.Dwg.Server.Tools
             "Only inline synchronous snippets are supported: async/await and #load directives are rejected before execution. " +
             "Do not move AutoCAD API calls to Task.Run or other threads. Use System.Console.WriteLine for stdout output. " +
             "Execution has cooperative 30s cancellation. " +
-            "An active drawing is required: when none is open the host returns 'no active document' before executing code; " +
+            "An active drawing is required: when none is open, use dwg_list_recent_drawings and dwg_open_drawing first; the host refuses before executing code. " +
             "doc, db and ed are supplied from that active drawing. " +
             "Put database writes in one using transaction from db.TransactionManager.StartTransaction(), and Commit only after validation succeeds. " +
             "Return host warnings and handled errors in your DTO. AutoCAD UNDO can reverse drawing edits; " +

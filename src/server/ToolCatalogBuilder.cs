@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Reflection;
 using ModelContextProtocol.Server;
+using Bimwright.Dwg.Plugin;
 using Newtonsoft.Json.Linq;
 
 namespace Bimwright.Dwg.Server
@@ -35,7 +36,7 @@ namespace Bimwright.Dwg.Server
                             ["name"] = tool.Name,
                             ["description"] = description == null ? string.Empty : description.Description ?? string.Empty,
                             ["source"] = "built-in",
-                            ["timeout_seconds"] = TimeoutSeconds
+                            ["timeout_seconds"] = tool.Name == "dwg_open_drawing" ? DrawingSessionContract.OpenTimeoutSeconds : TimeoutSeconds
                         });
                     }
                 }

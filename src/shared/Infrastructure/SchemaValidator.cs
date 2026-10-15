@@ -150,6 +150,16 @@ namespace Bimwright.Dwg.Plugin
 
     public static class CommandSchemas
     {
+        public static readonly CommandSchema ListRecentDrawings = CommandSchema.Object(
+            SchemaProperty.Optional("name", JTokenType.String),
+            SchemaProperty.Optional("max_items", JTokenType.Integer));
+
+        public static readonly CommandSchema OpenDrawing = CommandSchema.Object(
+            SchemaProperty.RequiredNonEmptyString("path"),
+            SchemaProperty.Optional("activate", JTokenType.Boolean),
+            SchemaProperty.Optional("read_only", JTokenType.Boolean),
+            SchemaProperty.Optional("timeout_seconds", JTokenType.Integer));
+
         public static readonly CommandSchema GetDrawingInfo = CommandSchema.Empty;
 
         public static readonly CommandSchema GetEntityProperties = CommandSchema.Object(

@@ -2,6 +2,13 @@
 
 ## 2.1.1 — Unreleased
 
+### Drawing session tools
+
+- Add `dwg_list_recent_drawings` and `dwg_open_drawing` on default `meta`, usable without an active drawing. Recent reads the connected product's HKCU MRU list using the Autodesk-reported registry root, returns up to 50 DWGs with existence/pinned metadata, and supports a case-insensitive filename filter before the limit. Ask the user to choose before opening.
+- Open uses `DocumentCollectionExtension.Open` on the main thread in application context without a document lock. Requires an absolute drive/UNC DWG path and idle multi-document mode; optionally requests file read-only access and preserves the previous active drawing. Reuses already-open drawings, refuses access-mode mismatches, and never calls Save/Close or overwrites files. Native dialogs remain user-handled; response wait defaults to 600 seconds (1–900), and a timeout does not cancel running host work.
+- Keep recent available in gateway read-only mode; exclude/refuse open even when file `read_only=true`. Refuse session commands during batch preflight before earlier drawing mutations; document/baked contexts cannot execute them. No-document errors now guide agents to recent → choose → open.
+- Current development counts are 44 default / 68 all-enabled / 23 all-enabled read-only. Add production-handler tests with explicit Autodesk doubles, MRU/path/timeout regressions and stdio discovery/permission checks. Installed-host Start-page/native-dialog acceptance remains pending. See [drawing session tools](README.md#drawing-session-tools).
+
 ### CI
 
 - Fix installer matrix shell selection by resolving it through job defaults; Windows PowerShell and PowerShell 7 remain separate jobs.

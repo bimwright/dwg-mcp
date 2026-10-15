@@ -6,6 +6,7 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
 using Bimwright.Dwg.Server;
 using ModelContextProtocol.Server;
 using Newtonsoft.Json;
@@ -18,18 +19,18 @@ namespace Bimwright.Dwg.Tests
     public class RuntimeSwitchProtocolTests
     {
         [Theory]
-        [InlineData("", 42, true, true)]
-        [InlineData("--disable-send-code", 41, false, true)]
-        [InlineData("--read-only --enable-send-code", 16, false, false)]
-        [InlineData("--toolsets all", 66, true, true)]
-        [InlineData("--toolsets all --disable-send-code", 65, false, true)]
-        [InlineData("--toolsets all --read-only --enable-send-code", 22, false, false)]
-        [InlineData("--toolsets all --disable-toolbaker", 60, true, true)]
+        [InlineData("", 44, true, true)]
+        [InlineData("--disable-send-code", 43, false, true)]
+        [InlineData("--read-only --enable-send-code", 17, false, false)]
+        [InlineData("--toolsets all", 68, true, true)]
+        [InlineData("--toolsets all --disable-send-code", 67, false, true)]
+        [InlineData("--toolsets all --read-only --enable-send-code", 23, false, false)]
+        [InlineData("--toolsets all --disable-toolbaker", 62, true, true)]
         [InlineData("--toolsets query", 10, false, false)]
-        [InlineData("--toolsets meta", 6, true, true)]
+        [InlineData("--toolsets meta", 8, true, true)]
         [InlineData("--toolsets code", 2, true, true)]
-        [InlineData("--toolsets meta,code", 6, true, true)]
-        [InlineData("--toolsets meta --disable-send-code", 5, false, true)]
+        [InlineData("--toolsets meta,code", 8, true, true)]
+        [InlineData("--toolsets meta --disable-send-code", 7, false, true)]
         [InlineData("--toolsets code --disable-send-code", 1, false, true)]
         [InlineData("--toolsets view --read-only", 3, false, false)]
         [InlineData("--toolsets block --read-only", 2, false, false)]
@@ -76,12 +77,25 @@ namespace Bimwright.Dwg.Tests
                 Assert.Equal(lisp, names.Contains("dwg_run_lisp"));
                 var config = DwgMcpConfig.Load(flags.Split(' ', StringSplitOptions.RemoveEmptyEntries),
                     Path.Combine(root, "absent-config.json"), _ => null);
-                var typeResolver = typeof(Program).GetMethod("ResolveToolTypesForRegistration", BindingFlags.NonPublic | BindingFlags.Static);
-                var selectedTypes = (IEnumerable<Type>)typeResolver.Invoke(null,
-                    new object[] { ToolsetFilter.Resolve(config), config.ReadOnlyOrDefault });
-                var pluginCatalog = ToolCatalogBuilder.Build(selectedTypes, config.EnableSendCodeOrDefault, config.ReadOnlyOrDefault);
-                Assert.Equal(pluginCatalog["tools"].Select(tool => tool.Value<string>("name")).OrderBy(name => name),
-                    names.OrderBy(name => name));
+                var previousConfig = ServerState.Config;
+                ServerState.Config = config;
+                try
+                {
+                    // The plugin catalog is the list RegisterToolsets stored, not a second resolver pass.
+                    var services = new ServiceCollection();
+                    var register = typeof(Program).GetMethod("RegisterToolsets", BindingFlags.NonPublic | BindingFlags.Static);
+                    Assert.NotNull(register);
+                    register.Invoke(null, new object[] { services.AddMcpServer(), ToolsetFilter.Resolve(config) });
+                    var pluginCatalog = ToolCatalogBuilder.Build(
+                        ServerState.EnabledToolTypes, config.EnableSendCodeOrDefault, config.ReadOnlyOrDefault);
+                    Assert.Equal(pluginCatalog["tools"].Select(tool => tool.Value<string>("name")).OrderBy(name => name),
+                        names.OrderBy(name => name));
+                }
+                finally
+                {
+                    ServerState.EnabledToolTypes = Array.Empty<Type>();
+                    ServerState.Config = previousConfig;
+                }
                 foreach (var tool in (JArray)listed["result"]["tools"])
                 {
                     if (tool.Value<string>("name") == "dwg_send_code")
@@ -108,7 +122,7 @@ namespace Bimwright.Dwg.Tests
                     Assert.Equal(readNames, names.OrderBy(name => name).ToArray());
                     Assert.All((JArray)listed["result"]["tools"], tool => Assert.True(tool["annotations"].Value<bool>("readOnlyHint")));
                     foreach (var blockedTool in new[] { "dwg_capture_view_image", "dwg_inspect_view_region", "dwg_restore_view",
-                        "dwg_batch_execute", "dwg_run_baked_tool", "dwg_send_code" })
+                        "dwg_batch_execute", "dwg_run_baked_tool", "dwg_send_code", "dwg_open_drawing" })
                     {
                         await process.StandardInput.WriteLineAsync(JsonConvert.SerializeObject(new
                         { jsonrpc = "2.0", id = 10, method = "tools/call", @params = new { name = blockedTool, arguments = new { } } }));

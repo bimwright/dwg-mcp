@@ -10,7 +10,7 @@
   <a href="https://github.com/bimwright/dwg-mcp/actions/workflows/build.yml"><img src="https://github.com/bimwright/dwg-mcp/actions/workflows/build.yml/badge.svg" alt="build" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="license" /></a>
   <a href="#サポート対象autocadバージョン"><img src="https://img.shields.io/badge/AutoCAD-2022--2027-186BFF" alt="AutoCAD 2022-2027" /></a>
-  <a href="#ツール"><img src="https://img.shields.io/badge/MCP-42%20default%20%2B%20optional-6C47FF" alt="MCP tools" /></a>
+  <a href="#ツール"><img src="https://img.shields.io/badge/MCP-44%20default%20%2B%20optional-6C47FF" alt="MCP tools" /></a>
 </p>
 
 <p align="center">
@@ -174,7 +174,7 @@ reconnect 後、同じ接続の新しい initialize と `tools/list` の `_meta[
 
 ## ツール
 
-development のデフォルト起動では42のツール（クエリ（`dwg_inspect_lisp` 含む）、変更、メタ（`dwg_send_code`/`dwg_run_lisp` 含む）、ビュー、およびデフォルト有効の `dwg_capture_view_image`）が公開されます。オプショナルのToolBaker、注釈、ブロック、寸法、エクスポート、作図ツールセットは `--toolsets` で有効にでき、MCPサーフェス全体は66ツールになります。 登録数には拒否のみを返す `dwg_run_lisp` が含まれます。スキャン判定は実行を許可しません。
+development のデフォルト起動では44のツール（クエリ（`dwg_inspect_lisp` 含む）、変更、メタ（`dwg_send_code`/`dwg_run_lisp` 含む）、ビュー、およびデフォルト有効の `dwg_capture_view_image`）が公開されます。オプショナルのToolBaker、注釈、ブロック、寸法、エクスポート、作図ツールセットは `--toolsets` で有効にでき、MCPサーフェス全体は68ツールになります。 登録数には拒否のみを返す `dwg_run_lisp` が含まれます。スキャン判定は実行を許可しません。
 
 一般的なCADツールは、選択されたAutoCADターゲットの現在アクティブなドキュメントに対して動作します。エンティティ入力と返されるエンティティIDは、`7F5AD` のようなAutoCAD 16進ハンドルを使用します。作成、コピー、オフセット、および変更の応答は、生成または変更されたエンティティを16進ハンドルで識別します。
 
@@ -214,6 +214,8 @@ Plan 2 のクエリ拡張はモデル空間のみです。`dwg_query_entities`�
 | `dwg_list_available_targets` | v2 JSONおよびレガシー2024検出ファイルから検出された実行中のAutoCADターゲットを一覧表示 |
 | `dwg_get_current_target` | 固定されているターゲット年（あれば）を表示 |
 | `dwg_switch_target` | このサーバープロセスをAutoCAD `2022`〜`2027` に固定 |
+| `dwg_list_recent_drawings` | 接続中の AutoCAD の最近の DWG を最大50件取得、名前で絞り込み可能；図面不要 |
+| `dwg_open_drawing` | 絶対パスの DWG を開く、読み取り専用を指定可能；既存図面を再利用し保存・閉じる操作なし；既定600秒（[詳細](README.md#drawing-session-tools)） |
 | `dwg_batch_execute` | 複数の内部ワイヤーコマンドを論理バッチとして実行 |
 | `dwg_send_code` | AutoCAD .NET API でC#スニペットを実行（globals `doc`/`db`/`ed`、`return` 値 + stdout キャプチャ、30秒の協調キャンセル。`MCPDISABLECODE`/`MCPENABLECODE` でセッション単位に切替） |
 | `dwg_run_lisp` | 互換性用エンドポイント。すべての `file`/`code`/`command` を `lisp_execution_blocked` で拒否します。ファイル読込、プラグインへの送信、実行は行いません。静的解析には `dwg_inspect_lisp` を使用してください。 |
@@ -449,7 +451,7 @@ AutoCAD および Autodesk は Autodesk, Inc. の登録商標です。bimwright 
 
 ## 権限と自動モード
 
-`dwg_send_code` 以外の各ツールは read-only、destructive、idempotent、open-world の各属性を明示します。通常の全ツールモードは66ツール、`--toolsets all --read-only` は以下の22読み取り専用ツールです。ズームは一時的なUI状態を変更できます。キャプチャ、領域検査、ビュー復元は画像ファイルを作成するため、読み取り専用モードから除外されます。`dwg_health` は読み取り専用ですが、明示的な更新チェックではGitHubに接続できます。
+`dwg_send_code` 以外の各ツールは read-only、destructive、idempotent、open-world の各属性を明示します。通常の全ツールモードは68ツール、`--toolsets all --read-only` は以下の23読み取り専用ツールです。ズームは一時的なUI状態を変更できます。キャプチャ、領域検査、ビュー復元は画像ファイルを作成するため、読み取り専用モードから除外されます。`dwg_health` は読み取り専用ですが、明示的な更新チェックではGitHubに接続できます。
 
 許可するツールだけに正確なルールを設定してください。`mcp__dwg-mcp__*` のワイルドカードは図面編集、ファイル書き込み、コード実行も許可するため避けてください。`dwg_send_code` は annotations を持たず、この読み取り専用リストには含まれません。継続的な実行許可はMCPクライアントで明示的に選択してください。
 
@@ -470,6 +472,7 @@ mcp__dwg-mcp__dwg_list_bake_suggestions
 mcp__dwg-mcp__dwg_list_baked_tools
 mcp__dwg-mcp__dwg_list_blocks
 mcp__dwg-mcp__dwg_list_layers
+mcp__dwg-mcp__dwg_list_recent_drawings
 mcp__dwg-mcp__dwg_query_entities
 mcp__dwg-mcp__dwg_select_by_layer
 mcp__dwg-mcp__dwg_select_by_type

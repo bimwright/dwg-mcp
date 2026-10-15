@@ -53,14 +53,14 @@ namespace Autodesk.AutoCAD.ApplicationServices
 {
     public class DocumentCollectionEventArgs : EventArgs { public Document Document { get; set; } }
     public delegate void DocumentCollectionEventHandler(object sender, DocumentCollectionEventArgs args);
-    public class DocumentCollection
+    public partial class DocumentCollection
     {
         public event DocumentCollectionEventHandler DocumentToBeDestroyed;
         public int Subscribers => DocumentToBeDestroyed?.GetInvocationList().Length ?? 0;
         public void Destroy(Document document) => DocumentToBeDestroyed?.Invoke(this, new DocumentCollectionEventArgs { Document = document });
     }
-    public static class Application
+    public static partial class Application
     {
-        public static DocumentCollection DocumentManager { get; } = new DocumentCollection();
+        public static DocumentCollection DocumentManager { get; set; } = new DocumentCollection();
     }
 }

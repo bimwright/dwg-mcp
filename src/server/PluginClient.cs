@@ -5,6 +5,8 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using Bimwright.Dwg.Plugin;
 
 namespace Bimwright.Dwg.Server
 {
@@ -25,6 +27,13 @@ namespace Bimwright.Dwg.Server
 
         public async Task<McpResponse> SendAsync(string cmd, object parameters, string requestId = null)
         {
+            TimeSpan readTimeout;
+            try
+            {
+                var token = cmd != "open_drawing" || parameters == null ? null : parameters as JToken ?? JToken.FromObject(parameters);
+                readTimeout = TimeSpan.FromSeconds(DrawingSessionContract.ReadTimeoutSeconds(cmd, token));
+            }
+            catch (Exception ex) { return Error(requestId, ex.Message); }
             var discovery = _discoveryProvider();
             var request = new McpRequest
             {
@@ -38,8 +47,8 @@ namespace Bimwright.Dwg.Server
             try
             {
                 return string.Equals(discovery.Transport, "pipe", StringComparison.OrdinalIgnoreCase)
-                    ? await SendPipeAsync(discovery, request.Id, json)
-                    : await SendTcpAsync(discovery, request.Id, json);
+                    ? await SendPipeAsync(discovery, request.Id, json, readTimeout, cmd)
+                    : await SendTcpAsync(discovery, request.Id, json, readTimeout, cmd);
             }
             catch (Exception ex)
             {
@@ -47,7 +56,7 @@ namespace Bimwright.Dwg.Server
             }
         }
 
-        private static async Task<McpResponse> SendTcpAsync(DiscoveryInfo discovery, string requestId, string json)
+        private static async Task<McpResponse> SendTcpAsync(DiscoveryInfo discovery, string requestId, string json, TimeSpan readTimeout, string command)
         {
             using var tcp = new TcpClient();
             var host = string.IsNullOrWhiteSpace(discovery.Host) ? "127.0.0.1" : discovery.Host;
@@ -57,10 +66,10 @@ namespace Bimwright.Dwg.Server
             await connectTask;
 
             using var stream = tcp.GetStream();
-            return await SendStreamAsync(stream, requestId, json);
+            return await SendStreamAsync(stream, requestId, json, readTimeout, command);
         }
 
-        private static async Task<McpResponse> SendPipeAsync(DiscoveryInfo discovery, string requestId, string json)
+        private static async Task<McpResponse> SendPipeAsync(DiscoveryInfo discovery, string requestId, string json, TimeSpan readTimeout, string command)
         {
             using var pipe = new NamedPipeClientStream(
                 ".",
@@ -72,10 +81,10 @@ namespace Bimwright.Dwg.Server
                 return Error(requestId, "plugin pipe connect timeout");
             await connectTask;
 
-            return await SendStreamAsync(pipe, requestId, json);
+            return await SendStreamAsync(pipe, requestId, json, readTimeout, command);
         }
 
-        private static async Task<McpResponse> SendStreamAsync(Stream stream, string requestId, string json)
+        private static async Task<McpResponse> SendStreamAsync(Stream stream, string requestId, string json, TimeSpan readTimeout, string command)
         {
             // Do not let the writer/reader dispose the underlying transport stream.
             // Both wrap the same NamedPipeClientStream/NetworkStream; disposing it
@@ -87,8 +96,10 @@ namespace Bimwright.Dwg.Server
 
             await writer.WriteLineAsync(json);
             var readTask = reader.ReadLineAsync();
-            if (await Task.WhenAny(readTask, Task.Delay(Timeout)) != readTask)
-                return Error(requestId, "plugin read timeout");
+            if (await Task.WhenAny(readTask, Task.Delay(readTimeout)) != readTask)
+                return Error(requestId, command == "open_drawing"
+                    ? "plugin read timeout; opening may still be running in AutoCAD. A timeout does not cancel host work. Inspect AutoCAD state/native dialogs before retrying dwg_open_drawing."
+                    : "plugin read timeout");
 
             var line = await readTask;
             if (line == null) return Error(requestId, "plugin closed connection");

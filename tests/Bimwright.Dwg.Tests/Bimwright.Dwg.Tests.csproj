@@ -53,6 +53,7 @@
     <Compile Include="..\..\src\shared\View\ViewReadingWorkflow.cs" LinkBase="Shared\View" />
     <Compile Include="..\..\src\shared\View\DrawingRevision.cs" LinkBase="Shared\View" />
     <Compile Include="..\..\src\shared\Drawing\SystemVariableCatalog.cs" LinkBase="Shared\Drawing" />
+    <Compile Include="..\..\src\shared\Drawing\RecentDrawingList.cs" LinkBase="Shared\Drawing" />
     <!-- Toast content pipeline is host-free (no WPF/AutoCAD types) and unit-testable. -->
     <Compile Include="..\..\src\shared\Views\Toast\ActivityAggregator.cs" LinkBase="Shared\Views\Toast" />
     <Compile Include="..\..\src\shared\Views\Toast\ToastContentBuilder.cs" LinkBase="Shared\Views\Toast" />
@@ -72,5 +73,9 @@
     <Compile Include="..\..\src\shared\Handlers\SendCodeHandler.cs" LinkBase="Shared\Handlers" />
     <Compile Include="..\..\src\shared\Handlers\RunLispHandler.cs" LinkBase="Shared\Handlers" />
     <Compile Include="..\..\src\shared\Infrastructure\IAcadCommand.cs" LinkBase="Shared\Infrastructure" />
+    <Compile Include="..\..\src\shared\Infrastructure\IAcadSessionCommand.cs" LinkBase="Shared\Infrastructure" />
+    <Compile Include="..\..\src\shared\Infrastructure\DocumentInvoker.cs" LinkBase="Shared\Infrastructure" />
+    <Compile Include="..\..\src\shared\Infrastructure\PluginTarget.cs" LinkBase="Shared\Infrastructure" />
+    <Compile Include="..\..\src\shared\Handlers\Drawing\SessionDrawingHandlers.cs" LinkBase="Shared\Handlers\Drawing" />
   </ItemGroup>
 </Project>

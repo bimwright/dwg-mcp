@@ -80,6 +80,8 @@ namespace Bimwright.Dwg.Plugin
                 { "export_dxf",              new ExportDxfHandler() },
                 { "get_variables",           new GetVariablesHandler() },
                 { "set_system_variable",     new SetSystemVariableHandler() },
+                { "list_recent_drawings",    new ListRecentDrawingsHandler() },
+                { "open_drawing",            new OpenDrawingHandler() },
                 { "save_drawing",            new SaveDrawingHandler() },
                 { "purge_drawing",           new PurgeDrawingHandler() },
             };
@@ -130,7 +132,9 @@ namespace Bimwright.Dwg.Plugin
                     return SerializeResponse(id, cmd, preflight);
                 }
 
-                var result = DocumentInvoker.Invoke(doc => ExecuteCommand(doc, cmd, parameters));
+                var result = preflightHandler is IAcadSessionCommand sessionCommand
+                    ? DocumentInvoker.InvokeSession(() => sessionCommand.ExecuteSession(parameters))
+                    : DocumentInvoker.Invoke(doc => ExecuteCommand(doc, cmd, parameters));
 
                 string resultJson = null;
                 if (result.Ok)

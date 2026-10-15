@@ -1,0 +1,56 @@
+// Explicit host doubles for the actual session handlers and DocumentInvoker.
+// No Autodesk assemblies, host UI, drawing mutation, or registry writes.
+using System;
+using System.Collections;
+using System.Collections.Generic;
+
+namespace Autodesk.AutoCAD.ApplicationServices
+{
+    public partial class Document
+    {
+        public string Name { get; set; }
+        public bool IsReadOnly { get; set; }
+        public string CommandInProgress { get; set; } = "";
+        public int LockCount { get; private set; }
+        public IDisposable LockDocument() { LockCount++; return new TestLock(); }
+        private sealed class TestLock : IDisposable { public void Dispose() { } }
+    }
+
+    public partial class DocumentCollection : IEnumerable
+    {
+        public List<Document> Documents { get; } = new List<Document>();
+        public Document MdiActiveDocument { get; set; }
+        public bool IsApplicationContext { get; set; } = true;
+        public int OpenCalls { get; set; }
+        public Func<string, bool, Document> OnOpen { get; set; }
+        public IEnumerator GetEnumerator() => Documents.GetEnumerator();
+    }
+
+    public static class DocumentCollectionExtension
+    {
+        public static Document Open(this DocumentCollection collection, string path, bool forReadOnly)
+        {
+            collection.OpenCalls++;
+            var opened = collection.OnOpen == null ? new Document { Name = path, IsReadOnly = forReadOnly } : collection.OnOpen(path, forReadOnly);
+            if (opened != null) { collection.Documents.Add(opened); collection.MdiActiveDocument = opened; }
+            return opened;
+        }
+    }
+
+    public static partial class Application
+    {
+        public static int Sdi { get; set; }
+        public static object GetSystemVariable(string name) => name == "SDI" ? Sdi : throw new NotSupportedException(name);
+        public static event EventHandler Idle;
+        public static void RaiseIdle() => Idle?.Invoke(null, EventArgs.Empty);
+    }
+}
+
+namespace Autodesk.AutoCAD.DatabaseServices
+{
+    public class HostApplicationServices
+    {
+        public static HostApplicationServices Current { get; set; } = new HostApplicationServices();
+        public string UserRegistryProductRootKey { get; set; } = @"Software\Bimwright\NonexistentSessionTestRoot";
+    }
+}
