@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using Bimwright.Dwg.Plugin;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
 namespace Bimwright.Dwg.Server
@@ -104,8 +105,14 @@ namespace Bimwright.Dwg.Server
                     throw new InvalidOperationException("TARGET_CHANGED: another switch completed during verification; this switch was not applied. " + Recovery());
                 CheckSwitch(candidate, selector, rebind);
                 if (verify && candidate.ExpectedDocumentId != null && stamp?.Value<string>("document_id") != candidate.ExpectedDocumentId)
-                    throw new InvalidOperationException("DOCUMENT_CHANGED: verification found a different drawing. Previous binding was preserved. " +
-                        "Review the active drawing, then provide its expected_document_id or rebind=true to confirm it.");
+                {
+                    var observed = stamp?.Value<string>("document_id");
+                    throw new InvalidOperationException("DOCUMENT_CHANGED: verification of " + Identity(candidate) + " expected document_id=" +
+                        JsonConvert.SerializeObject(candidate.ExpectedDocumentId) + " but observed document_id=" + JsonConvert.SerializeObject(observed) +
+                        ". Previous binding was preserved. Inspect the observed drawing before confirming a different lifetime. " +
+                        (observed == null ? "Make the intended drawing active, then call " + SwitchCommand(ExplicitSelector(candidate, selector), candidate.ExpectedDocumentId, rebind) + "."
+                            : "If it is intended, call " + SwitchCommand(ExplicitSelector(candidate, selector), observed, rebind) + "; rebind=true also requires that review."));
+                }
                 candidate.Confirmed = verify;
                 candidate.DocumentId = verify ? stamp?.Value<string>("document_id") : null;
                 candidate.DocumentTitle = verify ? stamp?.Value<string>("document_title") : null;
@@ -121,21 +128,64 @@ namespace Bimwright.Dwg.Server
         {
             var actualStart = processStart(candidate.Discovery.Pid);
             if (actualStart == null || actualStart != candidate.Discovery.ProcessStartUtc)
-                throw new InvalidOperationException("TARGET_CHANGED: selected process changed; this switch was not applied. " + Recovery());
+                throw new InvalidOperationException("TARGET_CHANGED: selected process changed for requested selector " + JsonConvert.SerializeObject(selector ?? "auto") +
+                    "; this switch was not applied. " + RecoveryFor(candidate, false));
             if (bound == null || SameInstance(bound, candidate)) return;
+            var currentLive = !lost && bound.Discovery.Pid > 0 && bound.Discovery.ProcessStartUtc != null
+                && processStart(bound.Discovery.Pid) == bound.Discovery.ProcessStartUtc;
             if (selector == null || !(selector.StartsWith("pid:", StringComparison.Ordinal) || selector.StartsWith("id:", StringComparison.Ordinal)))
-                throw new InvalidOperationException("TARGET_REBIND_REQUIRED: changing an existing binding requires an explicit pid:<PID> or id:<target_id>; a year or automatic selection cannot move it.");
-            if (!rebind && !lost && bound.Confirmed && processStart(bound.Discovery.Pid) == bound.Discovery.ProcessStartUtc)
-                throw new InvalidOperationException("TARGET_REBIND_REQUIRED: the current instance is still live and confirmed. Review it and pass rebind=true only if you intend to leave it.");
+                throw new InvalidOperationException("TARGET_REBIND_REQUIRED: a year or automatic selection cannot move an existing binding. " +
+                    (currentLive ? "Current binding: " : "Historical binding identity: ") + Identity(bound) +
+                    ". Requested selector " + JsonConvert.SerializeObject(selector ?? "auto") + " resolved to " + Identity(candidate) +
+                    ". Inspect that intended instance, then select it explicitly with " + SwitchCommand(ExplicitSelector(candidate, selector), rebind: true) + ".");
+            if (!rebind && currentLive && bound.Confirmed)
+                throw new InvalidOperationException("TARGET_REBIND_REQUIRED: the current instance is still live and confirmed: " + Identity(bound) +
+                    ". Requested candidate: " + Identity(candidate) + ". Inspect that candidate and, only if you intend to leave the current binding, call " +
+                    SwitchCommand(ExplicitSelector(candidate, selector), rebind: true) + ".");
         }
 
         private static bool SameInstance(TargetCall first, TargetCall second)
             => first != null && first.Discovery.Pid == second.Discovery.Pid
                 && first.Discovery.ProcessStartUtc == second.Discovery.ProcessStartUtc;
 
-        internal static string Recovery() => ServerState.IsReadOnly
-            ? "Call dwg_list_available_targets, then restart this read-only gateway with --read-only --target pid:<PID> or id:<target_id>."
-            : "Call dwg_list_available_targets, then dwg_switch_target with the intended pid:<PID> or id:<target_id> to verify the instance and active drawing before writes.";
+        internal string Recovery(TargetCall rejected = null)
+        {
+            lock (gate)
+            {
+                // A refusal from an older call must not discredit or redirect a newer binding.
+                var rejectedCurrent = rejected != null && rejected.Generation == generation && SameInstance(bound, rejected);
+                var trusted = bound != null && !lost && !rejectedCurrent && bound.Discovery.Pid > 0
+                    && bound.Discovery.ProcessStartUtc != null && processStart(bound.Discovery.Pid) == bound.Discovery.ProcessStartUtc;
+                return RecoveryFor(bound, trusted);
+            }
+        }
+
+        private static string RecoveryFor(TargetCall call, bool trusted)
+        {
+            if (!trusted)
+                return "Historical binding identity: " + Identity(call) + ". Inspect the intended instance; do not reuse this PID without checking its process start. " +
+                    (ServerState.IsReadOnly
+                        ? "Call dwg_list_available_targets, then restart this read-only gateway with --read-only --target pid:<PID> or id:<target_id> for the reviewed live instance."
+                        : "Call dwg_list_available_targets, then dwg_switch_target with the reviewed live pid:<PID> or id:<target_id> to verify the instance and active drawing before writes.");
+            return "Current binding: " + Identity(call) + ". Inspect that instance and drawing; if the process identity still matches, " +
+                (ServerState.IsReadOnly
+                    ? "restart this read-only gateway with --read-only --target " + ExplicitSelector(call, null) + "."
+                    : "call " + SwitchCommand(ExplicitSelector(call, null), call.DocumentId ?? call.ExpectedDocumentId) + " before writes.")
+                + " If it no longer matches, call dwg_list_available_targets.";
+        }
+
+        private static string Identity(TargetCall call) => call == null ? "none"
+            : "pid:" + call.Discovery.Pid + ", process_start_utc=" + (call.Discovery.ProcessStartUtc?.ToString("O") ?? "unknown")
+                + ", document_id=" + JsonConvert.SerializeObject(call.DocumentId) + ", expected_document_id=" + JsonConvert.SerializeObject(call.ExpectedDocumentId);
+
+        private static string ExplicitSelector(TargetCall call, string selector)
+            => selector != null && (selector.StartsWith("pid:", StringComparison.Ordinal) || selector.StartsWith("id:", StringComparison.Ordinal))
+                ? selector : "pid:" + call.Discovery.Pid;
+
+        private static string SwitchCommand(string selector, string expectedDocumentId = null, bool rebind = false)
+            => "dwg_switch_target(target=" + JsonConvert.SerializeObject(selector) + ", verify=true"
+                + (expectedDocumentId == null ? "" : ", expected_document_id=" + JsonConvert.SerializeObject(expectedDocumentId))
+                + (rebind ? ", rebind=true" : "") + ")";
 
         internal JObject Snapshot()
         {

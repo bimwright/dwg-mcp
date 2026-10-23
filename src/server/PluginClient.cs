@@ -84,7 +84,7 @@ namespace Bimwright.Dwg.Server
                     if (ServerState.IsReadOnly && response?.Ok == false
                         && (response.Error?.StartsWith("TARGET_LOST:", StringComparison.Ordinal) == true
                             || response.Error?.StartsWith("TARGET_CHANGED:", StringComparison.Ordinal) == true))
-                        response.Error += " " + TargetBinding.Recovery();
+                        response.Error += " " + _binding.Recovery(call);
                     return response;
                 }
                 catch (InvalidOperationException ex) when (ex.Message.StartsWith("TARGET_", StringComparison.Ordinal)

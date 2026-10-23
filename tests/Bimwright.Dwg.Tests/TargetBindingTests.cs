@@ -8,6 +8,7 @@ using Xunit;
 
 namespace Bimwright.Dwg.Tests
 {
+    [Collection("Script handlers")]
     public class TargetBindingTests
     {
         private static readonly DateTime Start = new DateTime(2026, 10, 18, 1, 0, 0, DateTimeKind.Utc);
@@ -126,6 +127,10 @@ namespace Bimwright.Dwg.Tests
             var result = await client.SendBoundAsync("send_code", new { }, "pending", pending);
             Assert.False(result.Ok);
             Assert.StartsWith("TARGET_CHANGED:", result.Error);
+            Assert.Contains("Current binding: pid:200", result.Error);
+            Assert.Contains("document_id=\"doc-200\"", result.Error);
+            Assert.Contains("target=\"pid:200\"", result.Error);
+            Assert.DoesNotContain("pid:100", result.Error);
             Assert.Equal(1, first.Requests); // Health only: the stale command never arrived.
             Assert.Equal(1, second.Requests);
         }
@@ -234,6 +239,9 @@ namespace Bimwright.Dwg.Tests
             selected = second.Info;
             var error = await Assert.ThrowsAsync<InvalidOperationException>(() => client.SwitchTargetAsync(selector, rebind: rebind));
             Assert.Contains("TARGET_REBIND_REQUIRED", error.Message);
+            Assert.Contains("Current binding: pid:100", error.Message);
+            Assert.Contains("document_id=\"doc-100\"", error.Message);
+            Assert.Contains("target=\"pid:200\", verify=true, rebind=true", error.Message);
             Assert.True(JToken.DeepEquals(before, client.CurrentTarget));
             Assert.Equal(0, second.Requests); // Refuse before the candidate's health probe.
         }
@@ -250,6 +258,9 @@ namespace Bimwright.Dwg.Tests
             var before = client.CurrentTarget;
             var error = await Assert.ThrowsAsync<InvalidOperationException>(() => client.SwitchTargetAsync(selector));
             Assert.Contains("TARGET_REBIND_REQUIRED", error.Message);
+            Assert.Contains("pid:100", error.Message);
+            Assert.Contains("document_id=\"doc-100\"", error.Message);
+            Assert.Contains("target=\"" + selector + "\", verify=true, rebind=true", error.Message);
             Assert.True(JToken.DeepEquals(before, client.CurrentTarget));
             Assert.Equal(0, second.Requests);
             await client.SwitchTargetAsync(selector, rebind: true);
@@ -334,10 +345,55 @@ namespace Bimwright.Dwg.Tests
             host.DocumentId = "reopened-same-path-new-lifetime";
             var error = await Assert.ThrowsAsync<InvalidOperationException>(() => client.SwitchTargetAsync("pid:100"));
             Assert.Contains("DOCUMENT_CHANGED", error.Message);
+            Assert.Contains("pid:100", error.Message);
+            Assert.Contains("expected document_id=\"doc-100\"", error.Message);
+            Assert.Contains("observed document_id=\"reopened-same-path-new-lifetime\"", error.Message);
+            Assert.Contains("target=\"pid:100\", verify=true, expected_document_id=\"reopened-same-path-new-lifetime\"", error.Message);
+            Assert.Contains("Inspect the observed drawing before confirming", error.Message);
             Assert.True(JToken.DeepEquals(before, client.CurrentTarget));
             await client.SwitchTargetAsync("pid:100", expectedDocumentId: rebind ? null : host.DocumentId, rebind: rebind);
             Assert.Equal(host.DocumentId, client.CurrentTarget.Value<string>("document_id"));
             Assert.True(client.CurrentTarget.Value<bool>("selection_confirmed"));
+        }
+
+        [Fact]
+        public async Task Document_mismatch_recovery_escapes_identities_in_retry_command()
+        {
+            using var host = new Host(100) { DocumentId = "pinned\"old" };
+            var client = Client(host);
+            await client.SwitchTargetAsync("pid:100");
+            var before = client.CurrentTarget;
+            host.DocumentId = "draw\"ing\\path\nlifetime";
+            var error = await Assert.ThrowsAsync<InvalidOperationException>(() => client.SwitchTargetAsync("pid:100"));
+            Assert.StartsWith("DOCUMENT_CHANGED:", error.Message);
+            Assert.Contains("expected document_id=\"pinned\\\"old\"", error.Message);
+            Assert.Contains("observed document_id=\"draw\\\"ing\\\\path\\nlifetime\"", error.Message);
+            Assert.Contains("target=\"pid:100\", verify=true, expected_document_id=\"draw\\\"ing\\\\path\\nlifetime\"", error.Message);
+            Assert.DoesNotContain(host.DocumentId, error.Message);
+            Assert.True(JToken.DeepEquals(before, client.CurrentTarget));
+            Assert.Equal(2, host.Requests); // Verification only; no confirmation or write was accepted.
+        }
+
+        [Fact]
+        public async Task Cross_instance_document_mismatch_retry_preserves_explicit_rebind_consent()
+        {
+            using var first = new Host(100);
+            using var second = new Host(200);
+            var client = Client(first, second);
+            await client.SwitchTargetAsync("pid:100");
+            var before = client.CurrentTarget;
+            var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                client.SwitchTargetAsync("pid:200", expectedDocumentId: "reviewed-other-drawing", rebind: true));
+            Assert.StartsWith("DOCUMENT_CHANGED:", error.Message);
+            Assert.Contains("dwg_switch_target(target=\"pid:200\", verify=true, expected_document_id=\"doc-200\", rebind=true)", error.Message);
+            Assert.Contains("Inspect the observed drawing before confirming", error.Message);
+            Assert.True(JToken.DeepEquals(before, client.CurrentTarget));
+            await client.SwitchTargetAsync("pid:200", expectedDocumentId: "doc-200", rebind: true);
+            Assert.Equal(200, client.CurrentTarget.Value<int>("pid"));
+            Assert.Equal("doc-200", client.CurrentTarget.Value<string>("document_id"));
+            Assert.True(client.CurrentTarget.Value<bool>("selection_confirmed"));
+            Assert.Equal(1, first.Requests);
+            Assert.Equal(2, second.Requests); // Only the failed and successful verification probes.
         }
 
         [Fact]
@@ -455,6 +511,152 @@ namespace Bimwright.Dwg.Tests
             Assert.Null(client.CurrentTarget.Value<string>("expected_document_id"));
         }
 
+        [Theory]
+        [InlineData(false, false)]
+        [InlineData(false, true)]
+        [InlineData(true, false)]
+        [InlineData(true, true)]
+        public async Task Recovery_identifies_lost_or_reused_pin_as_historical_without_a_concrete_retry(bool readOnly, bool reuse)
+        {
+            var previous = ServerState.Config;
+            try
+            {
+                ServerState.Config = new DwgMcpConfig { ReadOnly = readOnly };
+                using var host = new Host(100);
+                DateTime? actualStart = Start;
+                var client = new PluginClient(() => host.Info, _ => host.Info, _ => actualStart);
+                await client.SwitchTargetAsync("pid:100");
+                actualStart = reuse ? Start.AddMinutes(1) : null;
+                var error = await Assert.ThrowsAsync<InvalidOperationException>(() => client.SendAsync("health", new { }));
+                Assert.StartsWith(reuse ? "TARGET_CHANGED:" : "TARGET_LOST:", error.Message);
+                Assert.Contains("Historical binding identity: pid:100", error.Message);
+                Assert.Contains("process_start_utc=" + Start.ToString("O"), error.Message);
+                Assert.Contains("document_id=\"doc-100\"", error.Message);
+                Assert.Contains("do not reuse this PID without checking its process start", error.Message);
+                Assert.Contains("dwg_list_available_targets", error.Message);
+                Assert.DoesNotContain("--target pid:100", error.Message);
+                Assert.DoesNotContain("target=\"pid:100\"", error.Message);
+                if (readOnly) Assert.DoesNotContain("dwg_switch_target", error.Message);
+                Assert.Equal(1, host.Requests);
+            }
+            finally { ServerState.Config = previous; }
+        }
+
+        [Fact]
+        public async Task Read_only_recovery_uses_current_live_identity_for_stale_call_and_keeps_list_fallback()
+        {
+            var previous = ServerState.Config;
+            try
+            {
+                ServerState.Config = new DwgMcpConfig { ReadOnly = true };
+                using var first = new Host(100);
+                using var second = new Host(200);
+                var client = Client(first, second);
+                await client.SwitchTargetAsync("pid:100");
+                var pending = client.Capture("health");
+                await client.SwitchTargetAsync("pid:200", rebind: true);
+                var result = await client.SendBoundAsync("health", new { }, "stale", pending);
+                Assert.StartsWith("TARGET_CHANGED:", result.Error);
+                Assert.Contains("Current binding: pid:200", result.Error);
+                Assert.Contains("document_id=\"doc-200\"", result.Error);
+                Assert.Contains("--read-only --target pid:200", result.Error);
+                Assert.Contains("If it no longer matches, call dwg_list_available_targets", result.Error);
+                Assert.DoesNotContain("dwg_switch_target", result.Error);
+                Assert.DoesNotContain("pid:100", result.Error);
+                Assert.Equal(1, first.Requests);
+                Assert.Equal(1, second.Requests);
+            }
+            finally { ServerState.Config = previous; }
+        }
+
+        [Fact]
+        public async Task Read_only_host_identity_refusal_does_not_present_matching_local_PID_as_a_trusted_retry()
+        {
+            var previous = ServerState.Config;
+            try
+            {
+                ServerState.Config = new DwgMcpConfig { ReadOnly = true };
+                var calls = 0;
+                using var host = new FakePluginServer(line =>
+                {
+                    Interlocked.Increment(ref calls);
+                    var request = JObject.Parse(line);
+                    return new JObject { ["id"] = request["id"], ["ok"] = false,
+                        ["error"] = "TARGET_CHANGED: host identity refusal; command was not started." }.ToString(Newtonsoft.Json.Formatting.None);
+                });
+                var info = new DiscoveryInfo { Pid = 100, ProcessStartUtc = Start, Port = host.Port };
+                var client = new PluginClient(() => info, _ => info, _ => Start);
+                var result = await client.SendAsync("health", new { });
+                Assert.StartsWith("TARGET_CHANGED: host identity refusal; command was not started.", result.Error);
+                Assert.Contains("Historical binding identity: pid:100", result.Error);
+                Assert.Contains("process_start_utc=" + Start.ToString("O"), result.Error);
+                Assert.Contains("dwg_list_available_targets", result.Error);
+                Assert.DoesNotContain("--target pid:100", result.Error);
+                Assert.DoesNotContain("dwg_switch_target", result.Error);
+                Assert.Equal(1, calls);
+            }
+            finally { ServerState.Config = previous; }
+        }
+
+        [Fact]
+        public async Task Read_only_late_host_refusal_uses_newer_binding_for_recovery()
+        {
+            var previous = ServerState.Config;
+            try
+            {
+                ServerState.Config = new DwgMcpConfig { ReadOnly = true };
+                using var first = new Host(100);
+                using var second = new Host(200);
+                using var entered = new ManualResetEventSlim();
+                using var release = new ManualResetEventSlim();
+                var client = Client(first, second);
+                await client.SwitchTargetAsync("pid:100");
+                first.Refusal = "TARGET_CHANGED: old host identity refusal.";
+                first.BeforeReply = () => { entered.Set(); Assert.True(release.Wait(TimeSpan.FromSeconds(5))); };
+                var pending = client.SendAsync("health", new { });
+                try
+                {
+                    Assert.True(entered.Wait(TimeSpan.FromSeconds(5)));
+                    await client.SwitchTargetAsync("pid:200", rebind: true);
+                }
+                finally { release.Set(); }
+                var result = await pending;
+                Assert.StartsWith("TARGET_CHANGED: old host identity refusal.", result.Error);
+                Assert.Contains("Current binding: pid:200", result.Error);
+                Assert.Contains("document_id=\"doc-200\"", result.Error);
+                Assert.Contains("--read-only --target pid:200", result.Error);
+                Assert.DoesNotContain("Historical binding identity", result.Error);
+                Assert.DoesNotContain("pid:100", result.Error);
+                Assert.Equal(200, client.CurrentTarget.Value<int>("pid"));
+                Assert.Equal(2, first.Requests);
+                Assert.Equal(1, second.Requests);
+            }
+            finally { ServerState.Config = previous; }
+        }
+
+        [Fact]
+        public async Task Year_rebind_refusal_labels_lost_pin_historical_and_names_reviewed_candidate()
+        {
+            using var first = new Host(100);
+            using var second = new Host(200);
+            DateTime? firstStart = Start;
+            var client = new PluginClient(() => first.Info,
+                selector => selector == "pid:100" ? first.Info : second.Info,
+                pid => pid == 100 ? firstStart : Start);
+            await client.SwitchTargetAsync("pid:100");
+            firstStart = null;
+            Assert.Equal("lost", client.CurrentTarget.Value<string>("state"));
+            var error = await Assert.ThrowsAsync<InvalidOperationException>(() => client.SwitchTargetAsync("2024", rebind: true));
+            Assert.StartsWith("TARGET_REBIND_REQUIRED:", error.Message);
+            Assert.Contains("Historical binding identity: pid:100", error.Message);
+            Assert.Contains("document_id=\"doc-100\"", error.Message);
+            Assert.Contains("target=\"pid:200\", verify=true, rebind=true", error.Message);
+            Assert.Contains("Inspect that intended instance", error.Message);
+            Assert.DoesNotContain("target=\"pid:100\"", error.Message);
+            Assert.Equal(1, first.Requests);
+            Assert.Equal(0, second.Requests);
+        }
+
         private static PluginClient Client(Host first, Host second = null)
             => new PluginClient(() => first.Info,
                 selector => selector == "pid:200" || selector == "id:acad-2024-200" ? second.Info : first.Info, _ => Start);
@@ -499,6 +701,7 @@ namespace Bimwright.Dwg.Tests
             internal JObject LastRequest;
             internal bool VerifiedHealth = true, Legacy;
             internal string DocumentId;
+            internal string Refusal;
             internal Action BeforeReply;
 
             internal Host(int pid)
@@ -511,7 +714,7 @@ namespace Bimwright.Dwg.Tests
                     BeforeReply?.Invoke();
                     return new JObject
                     {
-                        ["id"] = LastRequest["id"], ["ok"] = true,
+                        ["id"] = LastRequest["id"], ["ok"] = Refusal == null, ["error"] = Refusal,
                         ["result"] = LastRequest.Value<string>("cmd") == "health" ? new JObject
                         {
                             ["ok"] = VerifiedHealth,
