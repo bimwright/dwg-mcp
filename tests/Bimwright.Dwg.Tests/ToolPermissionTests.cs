@@ -37,7 +37,8 @@ namespace Bimwright.Dwg.Tests
                 if (name == "dwg_send_code") { Assert.Empty(hints); continue; }
                 foreach (var hint in new[] { "ReadOnly", "Destructive", "Idempotent", "OpenWorld" })
                     Assert.True(hints.Contains(hint), name + " must explicitly set " + hint);
-                Assert.Equal(name == "dwg_health", method.GetCustomAttribute<McpServerToolAttribute>().OpenWorld);
+                Assert.Equal(name == "dwg_health" || name == "dwg_apply_unicode_style",
+                    method.GetCustomAttribute<McpServerToolAttribute>().OpenWorld);
             }
         }
 

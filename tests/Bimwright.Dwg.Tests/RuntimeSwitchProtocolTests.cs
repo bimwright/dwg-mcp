@@ -107,7 +107,8 @@ namespace Bimwright.Dwg.Tests
                     }
                     foreach (var hint in new[] { "readOnlyHint", "destructiveHint", "idempotentHint", "openWorldHint" })
                         Assert.Equal(JTokenType.Boolean, tool["annotations"]?[hint]?.Type);
-                    Assert.Equal(tool.Value<string>("name") == "dwg_health", tool["annotations"].Value<bool>("openWorldHint"));
+                    Assert.Equal(tool.Value<string>("name") is "dwg_health" or "dwg_apply_unicode_style",
+                        tool["annotations"].Value<bool>("openWorldHint"));
                 }
                 if (flags.Contains("--read-only"))
                 {

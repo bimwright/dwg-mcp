@@ -537,7 +537,7 @@ namespace Bimwright.Dwg.Server.Tools
             return ToolGateway.LoggedCall("translate_and_rewrite", request, request);
         }
 
-        [McpServerTool(Name = "dwg_apply_unicode_style", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false), Description(
+        [McpServerTool(Name = "dwg_apply_unicode_style", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = true), Description(
             "Ensure the 'Bimwright_Unicode' text style exists (using Open Sans Condensed Light font, " +
             "using the bundled font or a checksum-validated fallback download) and reassign " +
             "target entities to it. Height normalization is smart and idempotent: SHX " +
