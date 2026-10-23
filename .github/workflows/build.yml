@@ -33,15 +33,27 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup .NET SDKs for plugin dependency tests
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
       - name: Run installer regression tests
         run: ./tests/installer/relocate.Tests.ps1 -ResultPath installer-tests.json
+
+      - name: Check plugin dependencies without AutoCAD
+        run: ./tests/installer/plugin-payload.Tests.ps1 -ResultPath plugin-payload-tests.json
 
       - name: Upload installer test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: installer-tests-${{ matrix.shell }}
-          path: installer-tests.json
+          path: |
+            installer-tests.json
+            plugin-payload-tests.json
           if-no-files-found: warn
 
   server:

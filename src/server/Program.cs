@@ -66,7 +66,8 @@ namespace Bimwright.Dwg.Server
                 "Usage: dwg-mcp [options]\n" +
                 "\n" +
                 "Options:\n" +
-                "  --target <year>        Pin to AutoCAD 2022|2023|2024|2025|2026|2027.\n" +
+                "  --target <selector>    AutoCAD year (2022-2027), pid:<PID> or id:acad-<year>-<PID>.\n" +
+                "                         Verify with dwg_switch_target before writes.\n" +
                 "  --toolsets <csv>       Toolsets to register (default: query,modify,meta,view).\n" +
                 "                         'all' enables the full surface.\n" +
                 "  --read-only            Strip every write/execute tool.\n" +

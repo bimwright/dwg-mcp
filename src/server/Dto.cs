@@ -8,6 +8,7 @@ namespace Bimwright.Dwg.Server
         [JsonProperty("cmd")] public string Cmd { get; set; }
         [JsonProperty("params")] public object Params { get; set; }
         [JsonProperty("auth")] public string Auth { get; set; }
+        [JsonProperty("target", NullValueHandling = NullValueHandling.Ignore)] public Newtonsoft.Json.Linq.JObject Target { get; set; }
     }
 
     public class McpResponse

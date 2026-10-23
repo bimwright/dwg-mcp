@@ -10,11 +10,12 @@ using Newtonsoft.Json.Linq;
 
 namespace Bimwright.Dwg.Plugin
 {
-    /// <summary>Atomic schema-2 descriptors. Cleanup only removes this listener's token.</summary>
+    /// <summary>Per-instance descriptors with a legacy year alias. Cleanup removes only owned tokens.</summary>
     internal sealed class TransportDiscovery
     {
-        private readonly string _root, _target, _path, _token;
+        private readonly string _root, _target, _path, _alias, _token;
         private readonly int _pid = Process.GetCurrentProcess().Id;
+        private readonly DateTime _processStart = Process.GetCurrentProcess().StartTime.ToUniversalTime();
         private readonly object _gate = new object();
         private bool _closed;
 
@@ -22,7 +23,8 @@ namespace Bimwright.Dwg.Plugin
         {
             _target = target; _token = token;
             _root = Environment.ExpandEnvironmentVariables(@"%LOCALAPPDATA%\Bimwright");
-            _path = Path.Combine(_root, "dwg-mcp", "acad-" + target + ".json");
+            _alias = Path.Combine(_root, "dwg-mcp", "acad-" + target + ".json");
+            _path = Path.Combine(_root, "dwg-mcp", "acad-" + target + "-" + _pid + ".json");
         }
 
         internal void Publish(string transport, int? port, string pipeName)
@@ -32,12 +34,15 @@ namespace Bimwright.Dwg.Plugin
                 if (_closed) throw new ObjectDisposedException(nameof(TransportDiscovery));
                 var info = new
                 {
-                    schema_version = 2, acad_year = int.Parse(_target, CultureInfo.InvariantCulture),
+                    schema_version = 3, acad_year = int.Parse(_target, CultureInfo.InvariantCulture),
+                    target_id = "acad-" + _target + "-" + _pid, process_start_utc = _processStart,
                     transport, host = "127.0.0.1", port, pipe_name = pipeName,
                     auth_token = _token, pid = _pid, process_name = Process.GetCurrentProcess().ProcessName,
                     started_at_utc = DateTime.UtcNow
                 };
-                AtomicWrite(_path, JsonConvert.SerializeObject(info, Formatting.Indented));
+                var json = JsonConvert.SerializeObject(info, Formatting.Indented);
+                AtomicWrite(_path, json);
+                AtomicWrite(_alias, json);
                 if (_target == "2024" && transport == "tcp")
                     AtomicWrite(Path.Combine(_root, "portAcad24.txt"), port + "\n" + _token + "\n" + _pid + "\n");
             });
@@ -48,12 +53,12 @@ namespace Bimwright.Dwg.Plugin
             WithLock(() =>
             {
                 _closed = true;
-                try
+                foreach (var path in new[] { _path, _alias }) try
                 {
-                    BoundedLogFile.RefuseLink(_path);
-                    var descriptor = File.Exists(_path) ? JObject.Parse(File.ReadAllText(_path)) : null;
+                    BoundedLogFile.RefuseLink(path);
+                    var descriptor = File.Exists(path) ? JObject.Parse(File.ReadAllText(path)) : null;
                     if (descriptor?.Value<int?>("pid") == _pid && descriptor.Value<string>("auth_token") == _token)
-                        File.Delete(_path);
+                        File.Delete(path);
                 }
                 catch { }
                 if (_target != "2024") return;
@@ -70,7 +75,7 @@ namespace Bimwright.Dwg.Plugin
         }
 
         private void WithLock(Action action)
-            => RunLocked(_path, () => { lock (_gate) action(); });
+            => RunLocked(_alias, () => { lock (_gate) action(); });
 
         internal static void RunLocked(string path, Action action)
         {

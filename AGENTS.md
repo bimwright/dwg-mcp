@@ -7,7 +7,7 @@ These instructions apply to the development health feature; published v2.0.1 doe
 
 ## Session startup
 
-Select the intended AutoCAD target with `dwg_list_available_targets` / `dwg_switch_target` when needed. Call `dwg_health(check_updates=true)` once at session start if network access is permitted; later routine probes remain offline. If network access is unavailable or disallowed, report not checked/unknown, never up to date.
+Select the intended AutoCAD instance with `dwg_list_available_targets` then `dwg_switch_target(target="pid:<PID>")`; the default verification confirms the process and active drawing before writes. `--target` and `verify=false` select reads only. Reverify after opening/switching drawings; do not bypass `AMBIGUOUS_TARGET`, `TARGET_LOST`, `TARGET_CHANGED` or `DOCUMENT_CHANGED`. Gateway and plugin must both support target guards for writes. Call `dwg_health(check_updates=true)` once at session start if network access is permitted; later routine probes remain offline. If network access is unavailable or disallowed, report not checked/unknown, never up to date.
 
 Health is read-only, does not require or lock a drawing, and never creates, activates, saves or closes one. A successful host/state probe requires `host_connected=true` and `ok=true`. No target preserves the gateway identity. A responding legacy dispatcher may return `HEALTH_UNSUPPORTED` with `host_connected=true`, but health/state and the plugin's loaded identity remain unverified. A busy UI retains observed plugin identity and marks document state unavailable. Do not infer corruption, a closed host or missing installation from unavailable evidence.
 

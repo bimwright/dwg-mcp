@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Threading.Tasks;
 using Autodesk.AutoCAD.ApplicationServices;
+using Bimwright.Dwg.Plugin;
 using Bimwright.Dwg.Plugin.Handlers;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -72,6 +73,63 @@ namespace Bimwright.Dwg.Tests
             Assert.Equal(42, (int)payload["result"]["value"]);
             Assert.Equal("await", (string)payload["result"]["names"][1]);
             Assert.Contains("hello", payload.Value<string>("stdout"));
+        }
+
+        [Theory]
+        [InlineData("Console.WriteLine(\"not executed\"); return MissingBatchSymbol;", "CS0103", "")]
+        [InlineData("Console.WriteLine(\"before runtime failure\"); throw new InvalidOperationException(\"batch runtime failure\");", "batch runtime failure", "before runtime failure")]
+        public async Task Batch_reports_script_failures_and_preserves_details(string code, string expectedError, string expectedStdout)
+        {
+            var doc = new Document();
+            var continued = false;
+            var commands = JObject.FromObject(new
+            {
+                commands = new[]
+                {
+                    new { cmd = "send_code", @params = JObject.FromObject(new { code }) },
+                    new { cmd = "count_entities", @params = new JObject() }
+                }
+            });
+            var result = await Task.Run(() => BatchExecutor.Run(commands, (cmd, parameters) =>
+            {
+                if (cmd == "send_code") return new SendCodeHandler().Execute(doc, parameters);
+                continued = true;
+                return CommandResult.Success(new { count = 4 });
+            }));
+
+            Assert.True(result.Ok);
+            Assert.True(continued);
+            var batch = JObject.FromObject(result.Result);
+            Assert.True(batch.Value<bool>("partial_failure"));
+            var failed = batch["results"][0];
+            Assert.False(failed.Value<bool>("ok"));
+            Assert.Contains(expectedError, failed.Value<string>("error"));
+            Assert.False(failed["result"].Value<bool>("ok"));
+            Assert.Contains(expectedError, failed["result"].Value<string>("error"));
+            Assert.Equal(expectedStdout, failed["result"].Value<string>("stdout").Trim());
+            Assert.True(batch["results"][1].Value<bool>("ok"));
+            Assert.Equal(4, batch["results"][1]["result"].Value<int>("count"));
+        }
+
+        [Fact]
+        public async Task Batch_keeps_successful_script_stdout_and_user_dto_status()
+        {
+            var commands = JObject.FromObject(new
+            {
+                commands = new[] { new { cmd = "send_code", @params = new { code = "Console.WriteLine(\"batch ok\"); return new { ok = false, value = 42 };" } } }
+            });
+            var result = await Task.Run(() => BatchExecutor.Run(commands,
+                (cmd, parameters) => new SendCodeHandler().Execute(new Document(), parameters)));
+
+            Assert.True(result.Ok);
+            var batch = JObject.FromObject(result.Result);
+            Assert.False(batch.Value<bool>("partial_failure"));
+            var item = batch["results"][0];
+            Assert.True(item.Value<bool>("ok"));
+            Assert.True(item["result"].Value<bool>("ok"));
+            Assert.False(item["result"]["result"].Value<bool>("ok"));
+            Assert.Equal(42, item["result"]["result"].Value<int>("value"));
+            Assert.Contains("batch ok", item["result"].Value<string>("stdout"));
         }
 
         [Fact]

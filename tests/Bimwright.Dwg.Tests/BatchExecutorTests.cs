@@ -74,5 +74,19 @@ namespace Bimwright.Dwg.Tests
             Assert.Equal(2, ((JArray)json["results"]).Count);
             Assert.Equal("bad", json["results"][1].Value<string>("error"));
         }
+
+        [Fact]
+        public void Run_DoesNotTreatOtherCommandPayloadStatusAsExecutionFailure()
+        {
+            var result = BatchExecutor.Run(
+                JObject.Parse("{\"commands\":[{\"cmd\":\"query\",\"params\":{}}]}"),
+                (cmd, parameters) => CommandResult.Success(new { ok = false, value = 42 }));
+
+            Assert.True(result.Ok);
+            var batch = JObject.FromObject(result.Result);
+            Assert.False(batch.Value<bool>("partial_failure"));
+            Assert.True(batch["results"][0].Value<bool>("ok"));
+            Assert.False(batch["results"][0]["result"].Value<bool>("ok"));
+        }
     }
 }

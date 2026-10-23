@@ -131,14 +131,16 @@ AI agent 让“把选中的文字全部翻译成越南语”这类意图可以�
 }
 ```
 
-用 4 位目标年份锁定某个特定的 AutoCAD 实例：
+写入前先调用 `dwg_list_available_targets`，再调用 `dwg_switch_target(target="pid:<PID>")`。默认 `verify=true` 验证进程及当前图纸；`verify=false` 只允许读取。`--target` 只选择初始目标，不授权写入。多个候选返回 `AMBIGUOUS_TARGET`，图纸改变返回 `DOCUMENT_CHANGED`。目标丢失时不会自动切换到其他实例；旧绑定下等待的调用会在发送前被拒绝。打开或切换图纸后，请检查 health 并重新验证。写入需要同时更新 gateway 和 plugin，旧组件不能提供所需的目标验证。
+
+用 PID 或只匹配一个实例的 4 位年份选择初始 AutoCAD 目标：
 
 ```json
 {
   "mcpServers": {
     "bimwright-dwg": {
       "command": "bimwright-dwg",
-      "args": ["--target", "2024"]
+      "args": ["--target", "pid:12345"]
     }
   }
 }
@@ -211,9 +213,9 @@ Plan 2 的查询扩展仅限模型空间：`dwg_query_entities`、`dwg_count_ent
 | `dwg_translate_and_rewrite` | **首选。** 把翻译后的文字写回：锚定、删除、MText、字体、高度 |
 | `dwg_apply_unicode_style` | 确保 `Bimwright_Unicode` 样式存在并应用到目标实体 |
 | `dwg_collapse_and_rewrite` | 具有显式几何控制能力的底层改写原语 |
-| `dwg_list_available_targets` | 列出从 v2 JSON 和旧版 2024 发现文件探测到的运行中的 AutoCAD 目标 |
-| `dwg_get_current_target` | 显示锁定的目标年份（若有） |
-| `dwg_switch_target` | 把本 server 进程锁定到 AutoCAD `2022` 至 `2027` |
+| `dwg_list_available_targets` | 列出每个实例的 PID、目标 ID 和进程启动时间 |
+| `dwg_get_current_target` | 显示绑定状态、代次、PID 和已确认的图纸 |
+| `dwg_switch_target` | 选择 `pid:<PID>`、`id:acad-<year>-<PID>` 或唯一年份，写入前确认图纸 |
 | `dwg_list_recent_drawings` | 列出当前 AutoCAD 最多 50 个最近 DWG，可按文件名过滤；无需打开图纸 |
 | `dwg_open_drawing` | 按绝对路径打开 DWG，可请求只读；复用已打开图纸，不保存或关闭；默认等待 600 秒（[详情](README.md#drawing-session-tools)） |
 | `dwg_batch_execute` | 把多个内部 wire 命令作为逻辑批处理运行 |

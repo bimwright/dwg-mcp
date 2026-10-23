@@ -78,6 +78,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'plugin-payload.ps1')
 
 $bundleName = 'Bimwright.Dwg.bundle'
 $bundleTargetRoot = Join-Path $env:APPDATA "Autodesk\ApplicationPlugins\$bundleName"
@@ -382,11 +383,12 @@ function Assert-BundlePackage([string]$BundleDir, [int[]]$InstallYears) {
         if (-not (Test-Path -LiteralPath $dll -PathType Leaf)) {
             throw "Missing plugin payload for AutoCAD ${year}: $dll"
         }
+        Assert-PluginPayload -PayloadDir (Split-Path -Parent $dll) -Year $year
     }
 }
 
 # A repo build deploys src\plugin-acad<YY>\bin\<Config>\<tfm>; it must contain
-# the plugin DLL.
+# the plugin DLL and its send_code runtime dependencies.
 function Assert-RepoPayload([string]$RepoRoot, [int]$Year, [string]$Configuration) {
     $tfm = $script:YearTfm[$Year]
     $dir = Join-Path $RepoRoot ("src\plugin-acad{0}\bin\{1}\{2}" -f ("{0:D2}" -f ($Year - 2000)), $Configuration, $tfm)
@@ -394,6 +396,7 @@ function Assert-RepoPayload([string]$RepoRoot, [int]$Year, [string]$Configuratio
     if (-not (Test-Path -LiteralPath $dll -PathType Leaf)) {
         throw "Build output missing for AutoCAD ${Year}: $dll. Run: dotnet build src\plugin-acad$("{0:D2}" -f ($Year - 2000)) -c $Configuration"
     }
+    Assert-PluginPayload -PayloadDir $dir -Year $Year
     return $dir
 }
 
@@ -407,6 +410,7 @@ function Assert-InstalledPlugin([int[]]$InstallYears, [string]$BundleDir) {
     foreach ($year in $InstallYears) {
         $dll = Join-Path $BundleDir ("Contents\{0}\Bimwright.Dwg.Plugin.Acad{1}.dll" -f $year, "{0:D2}" -f ($year - 2000))
         if (-not (Test-Path -LiteralPath $dll -PathType Leaf)) { throw "$prefix missing file $dll" }
+        Assert-PluginPayload -PayloadDir (Split-Path -Parent $dll) -Year $year
         if ($script:bundleSourceDir -and (Test-Path -LiteralPath (Join-Path $script:bundleSourceDir "Contents\$year"))) {
             $expectedStream = [IO.File]::OpenRead((Join-Path $script:bundleSourceDir "Contents\$year\Bimwright.Dwg.Plugin.Acad$("{0:D2}" -f ($year - 2000)).dll"))
             try { $expected = Get-StreamSha256 $expectedStream } finally { $expectedStream.Dispose() }

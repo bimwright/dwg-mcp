@@ -14,20 +14,57 @@ namespace Bimwright.Dwg.Server
     public class PluginClient
     {
         private readonly Func<DiscoveryInfo> _discoveryProvider;
+        private readonly Func<string, DiscoveryInfo> _select;
+        private readonly TargetBinding _binding;
+        private readonly SemaphoreSlim _writeGate = new SemaphoreSlim(1, 1);
         private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(30);
         private static readonly SemaphoreSlim Calls = new SemaphoreSlim(TransportFraming.MaxConnections);
 
-        public PluginClient(Func<DiscoveryInfo> discoveryProvider)
+        public PluginClient(Func<DiscoveryInfo> discoveryProvider) : this(discoveryProvider, null, null) { }
+
+        internal PluginClient(Func<DiscoveryInfo> discoveryProvider, Func<string, DiscoveryInfo> select, Func<int, DateTime?> processStart = null)
         {
             _discoveryProvider = discoveryProvider;
+            _select = select ?? (_ => discoveryProvider());
+            _binding = new TargetBinding(processStart);
         }
 
         public static PluginClient FromDiscoveryFile()
         {
-            return new PluginClient(() => AuthToken.Resolve(ServerState.Config?.Target));
+            return new PluginClient(() => AuthToken.Resolve(ServerState.Config?.Target), target => AuthToken.Resolve(target));
         }
 
-        public async Task<McpResponse> SendAsync(string cmd, object parameters, string requestId = null)
+        internal JObject CurrentTarget => _binding.Snapshot();
+        internal TargetCall Capture(string command) => _binding.Capture(_discoveryProvider, command);
+
+        internal async Task<JObject> SwitchTargetAsync(string selector, bool verify = true, string expectedDocumentId = null)
+        {
+            selector = AuthToken.NormalizeTarget(selector);
+            var before = _binding.Generation;
+            var candidate = _binding.Candidate(_select(selector));
+            JObject stamp = null;
+            if (verify)
+            {
+                var id = Guid.NewGuid().ToString("N");
+                var response = await SendToAsync(candidate, "health", new JObject(), id, TimeSpan.FromSeconds(20), false);
+                var health = response?.Result as JObject;
+                stamp = health?["target"] as JObject;
+                if (response?.Id != id || response.Ok != true || health?.Value<bool?>("ok") != true || stamp?.Value<int?>("protocol") != 1)
+                    throw new InvalidOperationException("TARGET_VERIFICATION_FAILED: health/document identity was not verified. Update gateway and plugin together if the target protocol is missing. Previous binding was preserved.");
+                TargetContract.CheckInstance(stamp, candidate.Discovery.Pid, candidate.Discovery.ProcessStartUtc ?? DateTime.MinValue, false);
+                if (expectedDocumentId != null && stamp.Value<string>("document_id") != expectedDocumentId)
+                    throw new InvalidOperationException("DOCUMENT_CHANGED: verification found a different drawing. Previous binding was preserved.");
+            }
+            await _writeGate.WaitAsync();
+            try { _binding.Commit(before, candidate, stamp, verify); }
+            finally { _writeGate.Release(); }
+            return CurrentTarget;
+        }
+
+        public Task<McpResponse> SendAsync(string cmd, object parameters, string requestId = null)
+            => SendBoundAsync(cmd, parameters, requestId, null);
+
+        internal async Task<McpResponse> SendBoundAsync(string cmd, object parameters, string requestId, TargetCall pinned)
         {
             TimeSpan readTimeout;
             try
@@ -40,15 +77,11 @@ namespace Bimwright.Dwg.Server
             requestId = string.IsNullOrWhiteSpace(requestId) ? Guid.NewGuid().ToString("N") : requestId;
             try
             {
-                // Discovery failures propagate so callers can report NO_TARGET.
-                var discovery = _discoveryProvider();
-                var request = new McpRequest { Id = requestId, Cmd = cmd, Params = parameters, Auth = discovery.Token };
-                var json = JsonConvert.SerializeObject(request);
+                // Capture once before the first await. Discovery never redirects a bound call.
+                var call = pinned ?? Capture(cmd);
                 try
                 {
-                    return string.Equals(discovery.Transport, "pipe", StringComparison.OrdinalIgnoreCase)
-                        ? await SendPipeAsync(discovery, request.Id, json, readTimeout, cmd)
-                        : await SendTcpAsync(discovery, request.Id, json, readTimeout, cmd);
+                    return await SendToAsync(call, cmd, parameters, requestId, readTimeout, true);
                 }
                 catch (Exception ex)
                 {
@@ -58,7 +91,22 @@ namespace Bimwright.Dwg.Server
             finally { Calls.Release(); }
         }
 
-        private static async Task<McpResponse> SendTcpAsync(DiscoveryInfo discovery, string requestId, string json, TimeSpan readTimeout, string command)
+        private Task<McpResponse> SendToAsync(TargetCall call, string cmd, object parameters, string id, TimeSpan readTimeout, bool validate)
+        {
+            var discovery = call.Discovery;
+            var json = JsonConvert.SerializeObject(new McpRequest { Id = id, Cmd = cmd, Params = parameters, Auth = discovery.Token, Target = call.Context });
+            Func<Func<Task>, Task> write = async action =>
+            {
+                await _writeGate.WaitAsync();
+                try { if (validate) _binding.Validate(call); await action(); }
+                finally { _writeGate.Release(); }
+            };
+            return string.Equals(discovery.Transport, "pipe", StringComparison.OrdinalIgnoreCase)
+                ? SendPipeAsync(discovery, id, json, readTimeout, cmd, write)
+                : SendTcpAsync(discovery, id, json, readTimeout, cmd, write);
+        }
+
+        private static async Task<McpResponse> SendTcpAsync(DiscoveryInfo discovery, string requestId, string json, TimeSpan readTimeout, string command, Func<Func<Task>, Task> write)
         {
             using var tcp = new TcpClient();
             var host = string.IsNullOrWhiteSpace(discovery.Host) ? "127.0.0.1" : discovery.Host;
@@ -68,10 +116,10 @@ namespace Bimwright.Dwg.Server
             await connectTask;
 
             using var stream = tcp.GetStream();
-            return await SendStreamAsync(stream, requestId, json, readTimeout, command);
+            return await SendStreamAsync(stream, requestId, json, readTimeout, command, write);
         }
 
-        private static async Task<McpResponse> SendPipeAsync(DiscoveryInfo discovery, string requestId, string json, TimeSpan readTimeout, string command)
+        private static async Task<McpResponse> SendPipeAsync(DiscoveryInfo discovery, string requestId, string json, TimeSpan readTimeout, string command, Func<Func<Task>, Task> write)
         {
             using var pipe = new NamedPipeClientStream(
                 ".",
@@ -84,14 +132,15 @@ namespace Bimwright.Dwg.Server
             await connectTask;
 
 
-            return await SendStreamAsync(pipe, requestId, json, readTimeout, command);
+            return await SendStreamAsync(pipe, requestId, json, readTimeout, command, write);
         }
 
-        internal static async Task<McpResponse> SendStreamAsync(Stream stream, string requestId, string json, TimeSpan readTimeout, string command)
+        internal static async Task<McpResponse> SendStreamAsync(Stream stream, string requestId, string json, TimeSpan readTimeout, string command, Func<Func<Task>, Task> write = null)
         {
             // The socket/pipe owner disposes once. Deadline cancellation closes the actual
             // transport to release outstanding IO; it never retries a possibly delivered mutation.
-            await TransportFraming.WriteAsync(stream, json, TransportFraming.RequestBytes, TransportFraming.WriteTimeout);
+            Task Write() => TransportFraming.WriteAsync(stream, json, TransportFraming.RequestBytes, TransportFraming.WriteTimeout);
+            if (write == null) await Write(); else await write(Write);
             string line;
             try
             {
@@ -130,6 +179,8 @@ namespace Bimwright.Dwg.Server
         [JsonProperty("pid")] public int Pid { get; set; }
         [JsonProperty("process_name")] public string ProcessName { get; set; }
         [JsonProperty("started_at_utc")] public DateTime? StartedAtUtc { get; set; }
+        [JsonProperty("process_start_utc")] public DateTime? ProcessStartUtc { get; set; }
+        [JsonProperty("target_id")] public string TargetId { get; set; }
         [JsonIgnore] public string DiscoveryFile { get; set; }
     }
 }

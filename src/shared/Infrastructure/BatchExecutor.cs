@@ -44,7 +44,21 @@ namespace Bimwright.Dwg.Plugin
                     result = CommandResult.Fail(ErrorSanitizer.Sanitize(ex.Message));
                 }
 
-                if (!result.Ok)
+                var itemOk = result.Ok;
+                var itemError = result.Error;
+                // send_code keeps execution errors and stdout inside its payload.
+                // Its successful command wrapper does not mean the C# succeeded.
+                if (itemOk && string.Equals(cmd, "send_code", StringComparison.Ordinal) && result.Result != null)
+                {
+                    var script = JObject.FromObject(result.Result);
+                    if (script.Value<bool?>("ok") == false)
+                    {
+                        itemOk = false;
+                        itemError = script.Value<string>("error") ?? "send_code execution failed";
+                    }
+                }
+
+                if (!itemOk)
                 {
                     partialFailure = true;
                 }
@@ -52,9 +66,9 @@ namespace Bimwright.Dwg.Plugin
                 results.Add(new
                 {
                     cmd,
-                    ok = result.Ok,
+                    ok = itemOk,
                     result = result.Ok ? result.Result : null,
-                    error = result.Ok ? null : ErrorSanitizer.Sanitize(result.Error)
+                    error = itemOk ? null : ErrorSanitizer.Sanitize(itemError)
                 });
             }
 

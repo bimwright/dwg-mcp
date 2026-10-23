@@ -111,6 +111,8 @@ namespace Bimwright.Dwg.Plugin
 
                 cmd = (string)request["cmd"];
                 parameters = request["params"];
+                var expectedTarget = request["target"] as JObject;
+                DocumentTargetGuard.CheckInstance(expectedTarget, cmd);
 
                 if (string.Equals(cmd, "set_tool_catalog", StringComparison.Ordinal))
                 {
@@ -138,7 +140,7 @@ namespace Bimwright.Dwg.Plugin
 
                 var result = preflightHandler is IAcadSessionCommand sessionCommand
                     ? DocumentInvoker.InvokeSession(() => sessionCommand.ExecuteSession(parameters), _isAccepting)
-                    : DocumentInvoker.Invoke(doc => ExecuteCommand(doc, cmd, parameters), _isAccepting);
+                    : DocumentInvoker.Invoke(doc => ExecuteCommand(doc, cmd, parameters), _isAccepting, expectedTarget, cmd);
 
                 string resultJson = null;
                 if (result.Ok)

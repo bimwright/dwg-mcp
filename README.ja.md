@@ -131,14 +131,16 @@ MCP クライアント設定（例: `.mcp.json`）に追加:
 }
 ```
 
-4桁のターゲット年で特定のAutoCADインスタンスを固定:
+書き込み前に `dwg_list_available_targets`、次に `dwg_switch_target(target="pid:<PID>")` を呼びます。既定の `verify=true` はプロセスとアクティブ図面を確認し、`verify=false` は読み取りのみ許可します。`--target` は初期選択であり、書き込みを許可しません。複数候補は `AMBIGUOUS_TARGET`、図面の変更は `DOCUMENT_CHANGED` で拒否されます。接続先を失っても別のインスタンスには切り替わりません。図面を開く・切り替える操作の後は health を確認して再検証してください。書き込みには gateway と plugin の両方を更新する必要があります。
+
+PID、またはインスタンスが一つだけの4桁年で初期ターゲットを選択:
 
 ```json
 {
   "mcpServers": {
     "bimwright-dwg": {
       "command": "bimwright-dwg",
-      "args": ["--target", "2024"]
+      "args": ["--target", "pid:12345"]
     }
   }
 }
@@ -211,9 +213,9 @@ Plan 2 のクエリ拡張はモデル空間のみです。`dwg_query_entities`�
 | `dwg_translate_and_rewrite` | **推奨。** 翻訳テキストを書き戻す: アンカー、削除、MText、フォント、高さ |
 | `dwg_apply_unicode_style` | `Bimwright_Unicode` スタイルが存在することを確認し、ターゲットに適用 |
 | `dwg_collapse_and_rewrite` | 明示的な形状制御による低レベル書き換えプリミティブ |
-| `dwg_list_available_targets` | v2 JSONおよびレガシー2024検出ファイルから検出された実行中のAutoCADターゲットを一覧表示 |
-| `dwg_get_current_target` | 固定されているターゲット年（あれば）を表示 |
-| `dwg_switch_target` | このサーバープロセスをAutoCAD `2022`〜`2027` に固定 |
+| `dwg_list_available_targets` | PID、ターゲットID、プロセス開始時刻付きで各インスタンスを表示 |
+| `dwg_get_current_target` | バインド状態、世代、PID、確認済み図面を表示 |
+| `dwg_switch_target` | `pid:<PID>`、`id:acad-<year>-<PID>` または一意な年を選び、書き込み前に図面を確認 |
 | `dwg_list_recent_drawings` | 接続中の AutoCAD の最近の DWG を最大50件取得、名前で絞り込み可能；図面不要 |
 | `dwg_open_drawing` | 絶対パスの DWG を開く、読み取り専用を指定可能；既存図面を再利用し保存・閉じる操作なし；既定600秒（[詳細](README.md#drawing-session-tools)） |
 | `dwg_batch_execute` | 複数の内部ワイヤーコマンドを論理バッチとして実行 |

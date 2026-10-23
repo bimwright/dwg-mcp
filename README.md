@@ -156,18 +156,20 @@ The installer already did this for detected clients (Step `Client :` lines in it
 }
 ```
 
-Pin a specific AutoCAD instance with a 4-digit target year:
+Select an initial AutoCAD instance by PID (or an unambiguous 4-digit year):
 
 ```json
 {
   "mcpServers": {
     "dwg-mcp": {
       "command": "C:\\Users\\<user>\\AppData\\Local\\Bimwright\\dwg-mcp\\server\\current\\dwg-mcp.exe",
-      "args": ["--target", "2024"]
+      "args": ["--target", "pid:12345"]
     }
   }
 }
 ```
+
+Before writes, call `dwg_list_available_targets` and `dwg_switch_target(target="pid:<PID>")`. The default `verify=true` authenticates the selected process and confirms the active drawing; `verify=false` permits reads only. `--target` controls initial selection and does not authorize writes. A year or automatic selection matching multiple instances returns `AMBIGUOUS_TARGET`. Each gateway keeps its bound PID and process start; loss never selects another instance. Pending calls under an older binding are refused before sending. After opening or switching drawings, inspect `dwg_health().target` and reverify; a changed drawing lifetime returns `DOCUMENT_CHANGED` before execution. Update gateway and plugin together: legacy plugins cannot be verified for writes, and new plugins refuse unguarded writes from old gateways.
 
 Use `--read-only` to strip write-capable toolsets (query/view/meta routing remain as configured). Use `--toolsets all` or an explicit list that **includes** the defaults you need (a custom list **replaces** the default set — e.g. `query,modify,meta,view,annotation`). Env: `BIMWRIGHT_DWG_TOOLSETS=…`.
 
@@ -238,9 +240,9 @@ Plan 2 query expansion is model-space only: `dwg_query_entities`, `dwg_count_ent
 | `dwg_translate_and_rewrite` | **Preferred.** Write translated text back: anchor, delete, MText, font, height |
 | `dwg_apply_unicode_style` | Ensure `Bimwright_Unicode` style exists and apply to targets |
 | `dwg_collapse_and_rewrite` | Low-level rewrite primitive with explicit geometric control |
-| `dwg_list_available_targets` | List running AutoCAD targets discovered from v2 JSON and legacy 2024 discovery files |
-| `dwg_get_current_target` | Show the pinned target year, if any |
-| `dwg_switch_target` | Pin this server process to AutoCAD `2022` through `2027` |
+| `dwg_list_available_targets` | List AutoCAD instances with PID, target ID and process start |
+| `dwg_get_current_target` | Show binding state, generation, PID and confirmed drawing |
+| `dwg_switch_target` | Select `pid:<PID>`, `id:acad-<year>-<PID>` or an unambiguous year; verify the active drawing before writes |
 | `dwg_list_recent_drawings` | List up to 50 recent DWGs for the connected AutoCAD, with optional filename filter; works with no drawing open |
 | `dwg_open_drawing` | Open an absolute DWG path, optionally read-only; reuse an open drawing, never save or close drawings; default wait 600s |
 | `dwg_batch_execute` | Run multiple internal wire commands as a logical batch |

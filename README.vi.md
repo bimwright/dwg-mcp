@@ -133,14 +133,16 @@ Không `dotnet tool install -g Bimwright.Dwg.Server`.
 
 `dwg_send_code` chỉ nhận snippet đồng bộ được gửi trực tiếp: `async`/`await` và directive `#load` bị chặn trước thực thi. Giữ AutoCAD API trên luồng gọi; không chuyển sang `Task.Run` hoặc luồng khác. Chỉ trả DTO JSON; object AutoCAD/COM bị từ chối kể cả khi lồng nhau. `dwg_inspect_lisp` vẫn phân tích tĩnh: nguồn quá 2.000.000 ký tự bị đánh dấu không thể kiểm tra đầy đủ/nguy hiểm; giới hạn hiển thị 200 findings không làm mất phát hiện mức nguy hiểm. Regex có timeout; scan hết thời gian được báo chưa đầy đủ/nguy hiểm, không trả `clean`.
 
-Để pin một AutoCAD cụ thể, dùng năm 4 chữ số:
+Trước khi ghi, gọi `dwg_list_available_targets`, rồi `dwg_switch_target(target="pid:<PID>")`. Mặc định `verify=true` xác minh process và drawing đang active; `verify=false` chỉ cho đọc. `--target` chỉ chọn đích ban đầu, không cho phép ghi. Có nhiều instance phù hợp sẽ trả `AMBIGUOUS_TARGET`. Gateway giữ PID và thời điểm khởi động, không tự chuyển sang instance khác khi mất kết nối; lệnh đang chờ dưới binding cũ bị từ chối trước khi gửi. Sau khi mở/chuyển drawing, xem `dwg_health().target` rồi xác minh lại; drawing đổi vòng đời sẽ trả `DOCUMENT_CHANGED` trước thực thi. Cần cập nhật gateway và plugin cùng nhau: plugin cũ không đủ giao thức xác minh ghi, plugin mới từ chối ghi không có target guard từ gateway cũ.
+
+Để chọn AutoCAD ban đầu, dùng PID hoặc năm 4 chữ số chỉ khớp một instance:
 
 ```json
 {
   "mcpServers": {
     "bimwright-dwg": {
       "command": "bimwright-dwg",
-      "args": ["--target", "2024"]
+      "args": ["--target", "pid:12345"]
     }
   }
 }
@@ -209,9 +211,9 @@ Plan 2 query expansion chỉ quét model space: `dwg_query_entities`, `dwg_count
 | `dwg_translate_and_rewrite` | **Ưu tiên.** Ghi text đã dịch, tự động xử lý anchor, xóa, MText, font, chiều cao |
 | `dwg_apply_unicode_style` | Đảm bảo style `Bimwright_Unicode` tồn tại và áp dụng |
 | `dwg_collapse_and_rewrite` | Rewrite low-level với kiểm soát hình học chi tiết |
-| `dwg_list_available_targets` | Liệt kê AutoCAD đang chạy từ discovery v2 và legacy 2024 |
-| `dwg_get_current_target` | Xem target đang pin |
-| `dwg_switch_target` | Pin server sang AutoCAD `2022` đến `2027` |
+| `dwg_list_available_targets` | Liệt kê từng instance với PID, target ID và thời điểm khởi động process |
+| `dwg_get_current_target` | Xem trạng thái binding, generation, PID và drawing đã xác minh |
+| `dwg_switch_target` | Chọn `pid:<PID>`, `id:acad-<year>-<PID>` hoặc năm không nhập nhằng; xác minh drawing trước khi ghi |
 | `dwg_list_recent_drawings` | Liệt kê tối đa 50 DWG recent của AutoCAD đang kết nối, có lọc tên; không cần drawing active |
 | `dwg_open_drawing` | Mở DWG theo path tuyệt đối, tùy chọn đọc-only; tái sử dụng file đã mở, không lưu/đóng drawing; mặc định chờ 600s ([chi tiết](README.md#drawing-session-tools)) |
 | `dwg_batch_execute` | Chạy nhiều wire command nội bộ như một logical batch |

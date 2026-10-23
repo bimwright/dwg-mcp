@@ -17,7 +17,7 @@ namespace Bimwright.Dwg.Server.Tools
         private readonly ReleaseUpdateCheck updates;
         private readonly JObject gateway;
 
-        public HealthTools() : this(PluginClient.FromDiscoveryFile(), new ReleaseUpdateCheck(), GatewayRuntime.Identity) { }
+        public HealthTools() : this(ToolGateway.Client, new ReleaseUpdateCheck(), GatewayRuntime.Identity) { }
 
         internal HealthTools(PluginClient client, ReleaseUpdateCheck updates, JObject gateway)
         {
@@ -62,7 +62,7 @@ namespace Bimwright.Dwg.Server.Tools
                 {
                     var legacy = string.Equals(response.Error, "unknown command: health", StringComparison.Ordinal);
                     connected = legacy; // Authenticated old dispatcher replied, but cannot prove its loaded identity/state.
-                    health = Failure(legacy ? "HEALTH_UNSUPPORTED" : "TARGET_UNAVAILABLE",
+                    health = Failure(legacy ? "HEALTH_UNSUPPORTED" : TargetFailureCode(response.Error, "TARGET_UNAVAILABLE"),
                         legacy ? "The replying plugin does not support health. Its loaded version and document state are unverified."
                             : ErrorSanitizer.Sanitize(response.Error ?? "Health probe failed."));
                     health["health_supported"] = legacy ? false : (JToken)JValue.CreateNull();
@@ -82,10 +82,10 @@ namespace Bimwright.Dwg.Server.Tools
             {
                 health = Failure("HEALTH_TIMEOUT", "The host health probe did not complete within its deadline. Verify connection/UI availability; do not infer the host is closed.");
             }
-            catch (InvalidOperationException)
+            catch (InvalidOperationException ex)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                health = Failure("NO_TARGET", "No usable AutoCAD target was discovered. Verify the intended AutoCAD connection and loaded plugin.");
+                health = Failure(TargetFailureCode(ex.Message, "NO_TARGET"), ErrorSanitizer.Sanitize(ex.Message));
             }
             catch (Exception ex) when (ex is System.IO.IOException || ex is System.Net.Sockets.SocketException || ex is JsonException)
             {
@@ -94,6 +94,7 @@ namespace Bimwright.Dwg.Server.Tools
             }
 
             HealthRuntimeInfo.Enrich(health, gateway, connected);
+            health["binding"] = client.CurrentTarget;
             var plugin = connected ? health["setup_plugin"] as JObject : null;
             health["update"] = check_updates
                 ? await updates.CheckAsync(gateway, plugin, cancellationToken)
@@ -109,5 +110,12 @@ namespace Bimwright.Dwg.Server.Tools
             ["ok"] = false,
             ["error"] = new JObject { ["code"] = code, ["message"] = message }
         };
+
+        private static string TargetFailureCode(string message, string fallback)
+        {
+            foreach (var code in new[] { "AMBIGUOUS_TARGET", "TARGET_CHANGED", "TARGET_LOST", "TARGET_UNCONFIRMED", "DOCUMENT_CHANGED", "DOCUMENT_UNCONFIRMED", "PAIRING_REQUIRED" })
+                if (message?.StartsWith(code + ":", StringComparison.Ordinal) == true) return code;
+            return fallback;
+        }
     }
 }

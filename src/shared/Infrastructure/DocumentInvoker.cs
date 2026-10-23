@@ -1,5 +1,6 @@
 using System;
 using Autodesk.AutoCAD.ApplicationServices;
+using Newtonsoft.Json.Linq;
 
 namespace Bimwright.Dwg.Plugin
 {
@@ -45,7 +46,7 @@ namespace Bimwright.Dwg.Plugin
         /// <summary>
         /// Serializes AutoCAD API access, locks the active document, and runs the action.
         /// </summary>
-        public static T Invoke<T>(Func<Document, T> action, Func<bool> isAccepting = null)
+        public static T Invoke<T>(Func<Document, T> action, Func<bool> isAccepting = null, JObject expectedTarget = null, string command = null)
         {
             var executor = mainThread ?? throw new InvalidOperationException("AutoCAD main-thread executor is not initialized.");
             return DwgApiExecutor.Invoke(() => executor.Invoke(() =>
@@ -55,6 +56,8 @@ namespace Bimwright.Dwg.Plugin
                     ?? throw new InvalidOperationException(DrawingSessionContract.NoActiveDocument);
                 using (doc.LockDocument())
                 {
+                    // Validate after queueing and under the document lock, before any handler.
+                    if (command != null) DocumentTargetGuard.CheckDocument(expectedTarget, doc, command);
                     return action(doc);
                 }
             }));

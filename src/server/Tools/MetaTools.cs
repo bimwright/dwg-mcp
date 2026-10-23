@@ -12,14 +12,16 @@ namespace Bimwright.Dwg.Server.Tools
     public class MetaTools
     {
         [McpServerTool(Name = "dwg_list_available_targets", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false), Description(
-            "List running AutoCAD targets discovered through acad-YYYY.json and legacy AutoCAD 2024 discovery files. " +
-            "Versions are 4-digit AutoCAD years 2022 through 2027.")]
+            "List running AutoCAD instances with target_id, PID and process start time. Select the intended instance using dwg_switch_target(target='pid:<PID>'). " +
+            "Supports per-instance discovery and legacy AutoCAD 2022 through 2027 discovery files.")]
         public static Task<string> ListAvailableTargets()
         {
             var targets = AuthToken.ListAvailable()
                 .Select(info => new
                 {
                     target = info.Target,
+                    target_id = info.TargetId,
+                    process_start_utc = info.ProcessStartUtc,
                     transport = info.Transport,
                     host = info.Host,
                     port = info.Port,
@@ -33,26 +35,29 @@ namespace Bimwright.Dwg.Server.Tools
         }
 
         [McpServerTool(Name = "dwg_get_current_target", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false), Description(
-            "Return the currently pinned AutoCAD target. If unset, dwg-mcp auto-selects the newest discovered target.")]
+            "Return this gateway's binding state, PID, process start, generation, selection confirmation and drawing identity. No discovery or drawing changes.")]
         public static Task<string> GetCurrentTarget()
         {
-            return Ok(new { target = ServerState.Config?.Target });
+            return Ok(ToolGateway.Client.CurrentTarget);
         }
 
         [McpServerTool(Name = "dwg_switch_target", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false), Description(
-            "Pin subsequent dwg-mcp calls to an AutoCAD target year. Use 2022, 2023, 2024, 2025, 2026, or 2027; legacy R-codes are rejected." +
-            " Changes only the in-memory routing choice; no drawing or file changes. Call again with the previous target to restore routing.")]
-        public static Task<string> SwitchTarget(
-            [Description("4-digit AutoCAD target year: 2022, 2023, 2024, 2025, 2026, or 2027.")] string target)
+            "Bind this gateway to one AutoCAD instance. Prefer pid:<PID> or id:acad-<year>-<PID>; a year is accepted only when unambiguous. " +
+            "verify=true (default) authenticates health and confirms the current drawing before allowing writes. verify=false permits reads only. " +
+            "expected_document_id optionally checks a previously observed drawing lifetime ID. Failed verification preserves the previous binding. " +
+            "Reverify after opening/switching drawings. Changes routing only; never activates, saves or closes drawings. Calls pending under an older binding are refused before sending.")]
+        public static async Task<string> SwitchTarget(
+            [Description("pid:<PID>, id:acad-<year>-<PID>, or an unambiguous AutoCAD year (2022-2027).")] string target,
+            [Description("Verify host and active drawing before allowing writes; default true.")] bool verify = true,
+            [Description("Optional drawing lifetime ID observed from health.")] string expected_document_id = null)
         {
-            var normalized = AuthToken.NormalizeTarget(target);
-            if (ServerState.Config == null)
+            try
             {
-                ServerState.Config = new DwgMcpConfig();
+                var selected = await ToolGateway.Client.SwitchTargetAsync(target, verify, expected_document_id);
+                return await Ok(selected);
             }
-
-            ServerState.Config.Target = normalized;
-            return Ok(new { target = normalized });
+            catch (Exception ex) when (ex is InvalidOperationException || ex is ArgumentException)
+            { return await Refuse(ex.Message); }
         }
 
         [McpServerTool(Name = "dwg_list_recent_drawings", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false), Description(

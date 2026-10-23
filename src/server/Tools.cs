@@ -2,12 +2,14 @@ using System;
 using System.Diagnostics;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
+using ModelContextProtocol;
+using Bimwright.Dwg.Plugin;
 
 namespace Bimwright.Dwg.Server
 {
     internal static class ToolGateway
     {
-        private static readonly PluginClient Client = PluginClient.FromDiscoveryFile();
+        internal static readonly PluginClient Client = PluginClient.FromDiscoveryFile();
 
         private static readonly object CatalogGate = new object();
         private static string _catalogKey;
@@ -35,8 +37,9 @@ namespace Bimwright.Dwg.Server
             ServerLogger.Default.LogStart(requestId, toolName, inputParams);
             try
             {
-                await EnsureCatalogAsync();
-                var resp = await Client.SendAsync(toolName, pluginParams, requestId);
+                var call = Capture(toolName);
+                await EnsureCatalogAsync(call);
+                var resp = await Client.SendBoundAsync(toolName, pluginParams, requestId, call);
                 sw.Stop();
                 ServerLogger.Default.LogFinish(requestId, toolName, resp.Ok, sw.ElapsedMilliseconds, resp.Error);
                 return JsonConvert.SerializeObject(resp);
@@ -61,8 +64,22 @@ namespace Bimwright.Dwg.Server
             if (sendOverride != null)
                 return await sendOverride(toolName, pluginParams);
 
-            await EnsureCatalogAsync();
-            return await Client.SendAsync(toolName, pluginParams, requestId);
+            var call = Capture(toolName);
+            await EnsureCatalogAsync(call);
+            return await Client.SendBoundAsync(toolName, pluginParams, requestId, call);
+        }
+
+        private static TargetCall Capture(string command)
+        {
+            try { return Client.Capture(command); }
+            catch (InvalidOperationException ex) when (ex.Message.StartsWith("TARGET_", StringComparison.Ordinal)
+                || ex.Message.StartsWith("DOCUMENT_", StringComparison.Ordinal)
+                || ex.Message.StartsWith("AMBIGUOUS_TARGET:", StringComparison.Ordinal))
+            {
+                // The SDK hides ordinary exception messages. Only routing refusals
+                // are exposed so clients can select/reverify the intended target.
+                throw new McpException(ErrorSanitizer.Sanitize(ex.Message));
+            }
         }
 
         /// <summary>
@@ -71,17 +88,9 @@ namespace Bimwright.Dwg.Server
         /// set_tool_catalog would otherwise cost an extra round-trip per call.
         /// The real tool call still runs when the push fails.
         /// </summary>
-        private static async Task EnsureCatalogAsync()
+        private static async Task EnsureCatalogAsync(TargetCall call)
         {
-            DiscoveryInfo discovery;
-            try
-            {
-                discovery = AuthToken.Resolve(ServerState.Config?.Target);
-            }
-            catch
-            {
-                return;
-            }
+            var discovery = call.Discovery;
 
             var key = (discovery.Token ?? string.Empty)
                 + "|" + (discovery.Transport ?? string.Empty)
@@ -101,7 +110,7 @@ namespace Bimwright.Dwg.Server
             {
                 var payload = ToolCatalogBuilder.Build(ServerState.EnabledToolTypes,
                     ServerState.Config?.EnableSendCodeOrDefault ?? true, ServerState.IsReadOnly);
-                var response = await Client.SendAsync("set_tool_catalog", payload);
+                var response = await Client.SendBoundAsync("set_tool_catalog", payload, null, call);
                 pushed = response != null && response.Ok;
                 if (!pushed)
                     ServerLogger.Default.LogFinish("catalog", "set_tool_catalog", false, 0, response?.Error);

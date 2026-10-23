@@ -11,17 +11,14 @@ namespace Bimwright.Dwg.Tests
     public class DiscoveryFileTests
     {
         [Fact]
-        public void Resolve_PrefersHighestAvailableJsonTarget()
+        public void Resolve_RefusesAmbiguousAutomaticSelection()
         {
             using var temp = new TempDiscoveryRoot();
             temp.WriteJson("2022", port: 2222, token: "old");
             temp.WriteJson("2027", port: 2727, token: "new");
 
-            var info = AuthToken.Resolve(null, temp.Root);
-
-            Assert.Equal("2027", info.Target);
-            Assert.Equal(2727, info.Port);
-            Assert.Equal("new", info.Token);
+            var error = Assert.Throws<InvalidOperationException>(() => AuthToken.Resolve(null, temp.Root));
+            Assert.Contains("AMBIGUOUS_TARGET", error.Message);
         }
 
         [Fact]

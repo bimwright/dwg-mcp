@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using Newtonsoft.Json;
 
 namespace Bimwright.Dwg.Server
@@ -31,22 +32,36 @@ namespace Bimwright.Dwg.Server
             var dir = JsonDiscoveryDir(root);
             if (!Directory.Exists(dir))
             {
+                var legacyOnly = TryReadLegacy(root);
+                if (legacyOnly != null) infos.Add(legacyOnly);
                 return infos;
             }
 
             foreach (var year in AllVersions)
             {
                 var path = Path.Combine(dir, "acad-" + year + ".json");
-                // Read the six supported names under the publisher's lock. Directory
-                // enumeration can transiently miss a name during atomic replacement.
+                // Per-year coordination also covers enumeration during atomic publication.
                 try { Bimwright.Dwg.Plugin.TransportDiscovery.RunLocked(path, () =>
                 {
-                    if (File.Exists(path) && TryReadJson(path, out var info)) infos.Add(info);
+                    var paths = Directory.GetFiles(dir, "acad-" + year + "-*.json")
+                        .Concat(new[] { path });
+                    foreach (var descriptor in paths)
+                    {
+                        if (TryReadJson(descriptor, out var info, out var transient)) infos.Add(info);
+                        else if (!transient) TryDelete(descriptor);
+                    }
                 }); } catch (IOException) { } catch (TimeoutException) { }
             }
 
+            var legacy = TryReadLegacy(root);
+            if (legacy != null && !infos.Any(info => info.Target == "2024" && info.Pid == legacy.Pid)) infos.Add(legacy);
+
             return infos
+                .GroupBy(info => info.TargetId)
+                .Select(group => group.OrderByDescending(info => info.SchemaVersion)
+                    .ThenByDescending(info => Path.GetFileNameWithoutExtension(info.DiscoveryFile) == info.TargetId).First())
                 .OrderByDescending(info => Array.IndexOf(AllVersions, info.Target))
+                .ThenBy(info => info.Pid)
                 .ToArray();
         }
 
@@ -56,28 +71,15 @@ namespace Bimwright.Dwg.Server
             target = NormalizeTarget(target);
 
             var available = ListAvailable(root);
-            DiscoveryInfo selected = null;
-            if (!string.IsNullOrWhiteSpace(target))
-            {
-                selected = available.FirstOrDefault(info => string.Equals(info.Target, target, StringComparison.Ordinal));
-            }
-            else
-            {
-                selected = available.FirstOrDefault();
-            }
+            var matches = available.Where(info => target == null || info.Target == target
+                || target == "pid:" + info.Pid || target == "id:" + info.TargetId).ToArray();
+            if (matches.Length > 1)
+                throw new InvalidOperationException("AMBIGUOUS_TARGET: multiple AutoCAD instances match. Use dwg_list_available_targets and select pid:<PID> or id:<target_id>.");
+            var selected = matches.SingleOrDefault();
 
             if (selected != null)
             {
                 return selected;
-            }
-
-            if (string.IsNullOrWhiteSpace(target) || string.Equals(target, "2024", StringComparison.Ordinal))
-            {
-                var legacy = TryReadLegacy(root);
-                if (legacy != null)
-                {
-                    return legacy;
-                }
             }
 
             if (!string.IsNullOrWhiteSpace(target))
@@ -98,13 +100,15 @@ namespace Bimwright.Dwg.Server
             }
 
             target = target.Trim();
-            if (AllVersions.Any(version => string.Equals(version, target, StringComparison.Ordinal)))
+            if (AllVersions.Any(version => string.Equals(version, target, StringComparison.Ordinal))
+                || Regex.IsMatch(target, @"^pid:[1-9][0-9]*$") && int.TryParse(target.Substring(4), out _)
+                || Regex.IsMatch(target, @"^id:acad-202[2-7]-[1-9][0-9]*$"))
             {
                 return target;
             }
 
             throw new ArgumentException(
-                "Invalid --target value '" + target + "'. Expected a 4-digit AutoCAD year: " + string.Join(" | ", AllVersions) + ".",
+                "Invalid --target value '" + target + "'. Expected a 4-digit AutoCAD year (2022-2027), pid:<PID>, or id:acad-<year>-<PID>.",
                 nameof(target));
         }
 
@@ -121,7 +125,8 @@ namespace Bimwright.Dwg.Server
                     // A transient read/parse failure never deletes a potentially live descriptor.
                     try { Bimwright.Dwg.Plugin.TransportDiscovery.RunLocked(path, () =>
                     {
-                        if (!TryReadJson(path, out _, out var transient) && !transient) TryDelete(path);
+                        foreach (var descriptor in Directory.GetFiles(dir, "acad-" + year + "-*.json").Concat(new[] { path }))
+                            if (!TryReadJson(descriptor, out _, out var transient) && !transient) TryDelete(descriptor);
                     }); } catch (IOException) { } catch (TimeoutException) { }
                 }
             }
@@ -152,7 +157,8 @@ namespace Bimwright.Dwg.Server
                     return false;
                 }
 
-                parsed.Target = NormalizeTarget(parsed.Target ?? parsed.Version ?? (parsed.AcadYear > 0 ? parsed.AcadYear.ToString() : null));
+                parsed.Target = parsed.Target ?? parsed.Version ?? (parsed.AcadYear > 0 ? parsed.AcadYear.ToString() : null);
+                if (!AllVersions.Contains(parsed.Target)) return false;
                 parsed.Version = parsed.Version ?? parsed.Target;
                 parsed.AcadYear = parsed.AcadYear > 0 ? parsed.AcadYear : int.Parse(parsed.Target);
                 parsed.Transport = string.IsNullOrWhiteSpace(parsed.Transport) ? "tcp" : parsed.Transport.Trim().ToLowerInvariant();
@@ -170,6 +176,16 @@ namespace Bimwright.Dwg.Server
                 {
                     return false;
                 }
+                using (var process = Process.GetProcessById(parsed.Pid))
+                {
+                    var actualStart = process.StartTime.ToUniversalTime();
+                    if (parsed.SchemaVersion >= 3 && (parsed.ProcessStartUtc?.ToUniversalTime() != actualStart
+                        || parsed.TargetId != "acad-" + parsed.Target + "-" + parsed.Pid)) return false;
+                    parsed.ProcessStartUtc = actualStart;
+                    parsed.TargetId = "acad-" + parsed.Target + "-" + parsed.Pid;
+                }
+                var name = Path.GetFileNameWithoutExtension(path);
+                if (name != "acad-" + parsed.Target && name != parsed.TargetId) return false;
 
                 if (string.Equals(parsed.Transport, "tcp", StringComparison.OrdinalIgnoreCase) && (parsed.Port ?? 0) <= 0)
                 {
@@ -191,6 +207,7 @@ namespace Bimwright.Dwg.Server
             }
             catch (IOException) { transient = true; return false; }
             catch (UnauthorizedAccessException) { transient = true; return false; }
+            catch (System.ComponentModel.Win32Exception) { transient = true; return false; }
             catch (JsonException) { transient = true; return false; }
             catch
             {
@@ -241,6 +258,9 @@ namespace Bimwright.Dwg.Server
                     Port = port,
                     Token = token,
                     Pid = pid,
+                    AcadYear = 2024,
+                    TargetId = "acad-2024-" + pid,
+                    ProcessStartUtc = Process.GetProcessById(pid).StartTime.ToUniversalTime(),
                     DiscoveryFile = path
                 };
                 return true;

@@ -16,6 +16,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'plugin-payload.ps1')
 
 if (-not $RepoRoot) { $RepoRoot = Split-Path -Parent $PSScriptRoot }
 $RepoRoot = (Resolve-Path $RepoRoot).Path
@@ -79,6 +80,7 @@ foreach ($y in $years) {
     $outDir = Join-Path $RepoRoot ("src\plugin-acad{0}\bin\{1}\{2}" -f $y.Suffix, $Config, $y.Tfm)
     $dll = Join-Path $outDir ("Bimwright.Dwg.Plugin.Acad{0}.dll" -f $y.Suffix)
     if (-not (Test-Path $dll)) { throw "Built but missing $dll" }
+    Assert-PluginPayload -PayloadDir $outDir -Year $y.Year
     $dest = Join-Path $contentsStage "$($y.Year)"
     New-Item -ItemType Directory -Path $dest -Force | Out-Null
     Get-ChildItem $outDir -File | Where-Object {
@@ -87,6 +89,7 @@ foreach ($y in $years) {
     if (Test-Path (Join-Path $outDir 'Fonts')) {
         Copy-Item (Join-Path $outDir 'Fonts') (Join-Path $dest 'Fonts') -Recurse -Force
     }
+    Assert-PluginPayload -PayloadDir $dest -Year $y.Year
     $packedYears += $y.Year
 }
 
@@ -108,6 +111,7 @@ foreach ($comp in $toRemove) { [void]$manifestXml.ApplicationPackage.RemoveChild
 $manifestXml.Save((Join-Path $bundleStage 'PackageContents.xml'))
 
 Copy-Item (Join-Path $RepoRoot 'scripts\install.ps1') (Join-Path $stageRoot 'install.ps1') -Force
+Copy-Item (Join-Path $RepoRoot 'scripts\plugin-payload.ps1') (Join-Path $stageRoot 'plugin-payload.ps1') -Force
 Copy-Item (Join-Path $RepoRoot 'scripts\uninstall-all.ps1') (Join-Path $stageRoot 'uninstall.ps1') -Force
 Copy-Item (Join-Path $RepoRoot 'scripts\uninstall-all.ps1') (Join-Path $stageRoot 'uninstall-all.ps1') -Force
 Copy-Item (Join-Path $RepoRoot 'README.md') (Join-Path $stageRoot 'README.md') -Force

@@ -78,6 +78,7 @@
     <Compile Include="..\..\src\shared\Infrastructure\IAcadCommand.cs" LinkBase="Shared\Infrastructure" />
     <Compile Include="..\..\src\shared\Infrastructure\IAcadSessionCommand.cs" LinkBase="Shared\Infrastructure" />
     <Compile Include="..\..\src\shared\Infrastructure\DocumentInvoker.cs" LinkBase="Shared\Infrastructure" />
+    <Compile Include="..\..\src\shared\Infrastructure\DocumentTargetGuard.cs" LinkBase="Shared\Infrastructure" />
     <Compile Include="..\..\src\shared\Infrastructure\PluginTarget.cs" LinkBase="Shared\Infrastructure" />
     <Compile Include="..\..\src\shared\Handlers\Drawing\SessionDrawingHandlers.cs" LinkBase="Shared\Handlers\Drawing" />
   </ItemGroup>

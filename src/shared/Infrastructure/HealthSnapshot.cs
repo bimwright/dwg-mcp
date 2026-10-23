@@ -20,7 +20,7 @@ namespace Bimwright.Dwg.Plugin
             try
             {
                 var state = readState() ?? throw new InvalidOperationException("No host state returned.");
-                foreach (var name in new[] { "has_active_document", "document_title", "is_quiescent" })
+                foreach (var name in new[] { "has_active_document", "document_title", "is_quiescent", "target" })
                     result[name] = state[name]?.DeepClone() ?? JValue.CreateNull();
                 result["state_probe"] = "available";
             }

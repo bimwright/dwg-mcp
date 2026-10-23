@@ -2,6 +2,19 @@
 
 ## 2.1.1 — Unreleased
 
+### Instance and drawing targeting
+
+- Publish per-instance `acad-<year>-<PID>.json` discovery with process start identity, retaining legacy year aliases. List and select by PID/target ID; refuse ambiguous automatic/year selection.
+- Keep one binding for every host tool in a gateway, including health, catalog and send-code. Pin calls before asynchronous work, check binding generation immediately before transport writes, and never route to another instance after process loss or PID reuse. Concurrent or failed verification cannot replace a newer or previously valid binding.
+- `dwg_switch_target` verifies authenticated host and drawing identity by default. Initial/`verify=false` bindings allow reads only. Validate the document lifetime on the AutoCAD UI thread under its lock before handlers, including batch/baked/send-code. Reverify after switching or opening drawings; opening itself requires only a confirmed instance and never saves/closes drawings.
+- Update gateway and plugin together for writes. Old plugins cannot satisfy target verification; new plugins refuse unguarded writes from old gateways. `--target` selects the initial instance and does not authorize writes. See the routing workflow in [README](README.md).
+
+### send_code
+
+- Mark AutoCAD 2025–2027 plugins as dynamically loaded so builds include Roslyn scripting and its runtime dependencies alongside the plugin DLL.
+- Reject incomplete repo, Setup and installed plugin payloads, including missing runtime libraries declared by modern plugins' dependency manifests. Ship the shared validator with Setup and check dependency copying without AutoCAD in both PowerShell CI jobs.
+- Report failed C# execution inside a batch as a failed item with `partial_failure=true`, preserving stdout and detailed compile/runtime errors while continuing subsequent commands.
+
 ### Drawing session tools
 
 - Add `dwg_list_recent_drawings` and `dwg_open_drawing` on default `meta`, usable without an active drawing. Recent reads the connected product's HKCU MRU list using the Autodesk-reported registry root, returns up to 50 DWGs with existence/pinned metadata, and supports a case-insensitive filename filter before the limit. Ask the user to choose before opening.

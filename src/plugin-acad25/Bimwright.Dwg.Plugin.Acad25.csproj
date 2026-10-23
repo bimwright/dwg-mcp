@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net8.0-windows</TargetFramework>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
     <RootNamespace>Bimwright.Dwg.Plugin</RootNamespace>
     <AssemblyName>Bimwright.Dwg.Plugin.Acad25</AssemblyName>
     <Version>2.1.1</Version>

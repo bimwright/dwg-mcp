@@ -18,6 +18,7 @@ namespace Bimwright.Dwg.Plugin.Handlers
                     {
                         ["has_active_document"] = doc != null,
                         ["document_title"] = doc == null ? null : Path.GetFileName(doc.Name),
+                        ["target"] = DocumentTargetGuard.Capture(doc),
                         ["is_quiescent"] = doc == null ? (JToken)JValue.CreateNull() : new JValue(doc.Editor.IsQuiescent)
                     };
                 })));
