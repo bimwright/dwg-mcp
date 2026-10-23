@@ -144,7 +144,7 @@ $manifest = [ordered]@{
     dirty = $dirty
     platform = 'win-x64'
     packedAutocadYears = @($packedYears)
-    supportedAutocadYears = @(2022, 2023, 2024, 2025, 2026, 2027)
+    supportedAutocadYears = @($packedYears)
     server = [ordered]@{ command = 'server/dwg-mcp.exe'; selfContained = $true; requiresDotnet = $false }
     files = $files
 }
