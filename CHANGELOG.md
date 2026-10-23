@@ -2,6 +2,11 @@
 
 ## 2.1.1 — Unreleased
 
+### Tool argument diagnostics
+
+- Check required top-level argument keys before SDK binding. Missing keys return `INVALID_ARGUMENT` with case-sensitive name suggestions and key-only diagnostics, without invoking the tool or AutoCAD. Rejection logs remain opt-in and exclude argument values.
+- Warn about ignored extra keys with `_ignored_arguments` while running the tool once. Preserve SDK value coercion, tool errors and image content; schemas that explicitly allow additional properties keep accepting them without warnings.
+
 ### Instance and drawing targeting
 
 - Publish per-instance `acad-<year>-<PID>.json` discovery with process start identity, retaining legacy year aliases. List and select by PID/target ID; refuse ambiguous automatic/year selection.

@@ -78,7 +78,7 @@ The current request envelope carries command, parameters, authentication and tar
 ## Request lifecycle
 
 1. MCP client sends `tools/call` over stdio.
-2. The MCP SDK invokes the registered tool. Default toolsets are `query`, `modify`, `meta`, and `view`; `code` is an alias for the code tools already registered by `meta`, while `toolbaker` is optional.
+2. The MCP SDK resolves the registered tool. `ToolArgumentGuard` checks top-level argument names against its final `InputSchema` before SDK binding and invocation. Default toolsets are `query`, `modify`, `meta`, and `view`; `code` is an alias for the code tools already registered by `meta`, while `toolbaker` is optional.
 3. Gateway wrappers enforce read-only/send-code policy, capture target context and send the exposed tool catalog when needed. Call-log files are opt-in.
 4. `PluginClient` validates the pinned binding before sending the authenticated request over a per-call TCP or named-pipe connection.
 5. Plugin's listener thread reads the NDJSON line, `CommandDispatcher.Dispatch` is called:
@@ -93,6 +93,10 @@ The current request envelope carries command, parameters, authentication and tar
    - Response serialized as JSON.
 6. The sanitized response travels back over the selected transport.
 7. Gateway logging and the host activity UI record their respective outcomes; opt-in file logging and in-memory UI history are separate.
+
+Missing required keys return an MCP tool error (`isError=true`) containing `ok=false`, `INVALID_ARGUMENT`, suggestions and `invalid_arguments`, without invoking the tool or plugin. Names are case-sensitive. Undeclared top-level keys allow the call to run once and add `_ignored_arguments` to its result; an explicit `additionalProperties` allowance suppresses that warning. The guard preserves image content and error status. Unknown tools and schemas without declared properties retain SDK behavior, as do value coercion and binding/tool-body errors. Nested JSON and code contents are not validated by this guard.
+
+Rejection diagnostics and opt-in rejection logs contain key names only, capped at 32 keys per list and 64 characters per name. Raw rejected argument values are never passed to the logger. Logging remains off by default.
 
 Gateway response timeout is normally 30 seconds. `open_drawing` defaults to a 600-second wait and accepts `timeout_seconds` from 1 to 900. The main-thread queue has a separate default 15-second wait for work to start: a timed-out queued item is cancelled before execution, while work that has already started is allowed to finish. A caller timeout or disconnect does not cancel native work already running; inspect its outcome before retrying a write.
 
