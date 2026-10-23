@@ -65,7 +65,7 @@ namespace Bimwright.Dwg.Tests
         [Fact]
         public void Invalid_env_values_do_not_override_defaults()
         {
-            var config = Load(env: _ => "invalid");
+            var config = Load(env: name => name == DwgMcpConfig.EnvEnableSendCode || name == DwgMcpConfig.EnvEnableCallLog ? "invalid" : null);
             Assert.True(config.EnableSendCodeOrDefault);
             Assert.False(config.EnableCallLogOrDefault);
         }

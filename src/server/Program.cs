@@ -77,6 +77,11 @@ namespace Bimwright.Dwg.Server
                 "  --enable-send-code / --disable-send-code (default: enabled).\n" +
                 "  --enable-call-log / --disable-call-log (default: disabled).\n" +
                 "  --enable-toolbaker / --disable-toolbaker\n" +
+                "  --response-budget-bytes <n>       Final MCP tool-result budget (default: 83886080).\n" +
+                "  --response-warn-bytes <n>         Warning threshold (default: 1048576, capped by budget).\n" +
+                "  --response-strong-warn-bytes <n>  Strong warning threshold (default: 8388608, capped by budget).\n" +
+                "                         ASCII decimal bytes; budget >= 4096 and 0 < warn <= strong <= budget.\n" +
+                "                         Per tool result, excluding the JSON-RPC envelope; no automatic retry.\n" +
                 "  --allow-lan-bind       Parsed but not yet implemented (loopback only).\n" +
                 "  --log-level <level>    trace|debug|information|warning|error.\n" +
                 "  --config <path>        JSON config file. Default:\n" +
@@ -85,7 +90,9 @@ namespace Bimwright.Dwg.Server
                 "Environment overrides: BIMWRIGHT_DWG_TARGET, BIMWRIGHT_DWG_TOOLSETS,\n" +
                 "BIMWRIGHT_DWG_READ_ONLY, BIMWRIGHT_DWG_ENABLE_TOOLBAKER,\n" +
                 "BIMWRIGHT_DWG_ENABLE_SEND_CODE, BIMWRIGHT_DWG_ENABLE_CALL_LOG,\n" +
-                "BIMWRIGHT_DWG_ALLOW_LAN_BIND, BIMWRIGHT_DWG_LOG_LEVEL.\n" +
+                "BIMWRIGHT_DWG_ALLOW_LAN_BIND, BIMWRIGHT_DWG_LOG_LEVEL,\n" +
+                "BIMWRIGHT_DWG_RESPONSE_BUDGET_BYTES, BIMWRIGHT_DWG_RESPONSE_WARN_BYTES,\n" +
+                "BIMWRIGHT_DWG_RESPONSE_STRONG_WARN_BYTES.\n" +
                 "\n" +
                 "  -h, --help             Show this help and exit.");
         }

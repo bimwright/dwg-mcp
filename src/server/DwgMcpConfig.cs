@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using Newtonsoft.Json;
 
@@ -15,6 +16,13 @@ namespace Bimwright.Dwg.Server
         public const string EnvEnableToolbaker = "BIMWRIGHT_DWG_ENABLE_TOOLBAKER";
         public const string EnvAllowLanBind = "BIMWRIGHT_DWG_ALLOW_LAN_BIND";
         public const string EnvLogLevel = "BIMWRIGHT_DWG_LOG_LEVEL";
+        public const string EnvResponseBudgetBytes = "BIMWRIGHT_DWG_RESPONSE_BUDGET_BYTES";
+        public const string EnvResponseWarnBytes = "BIMWRIGHT_DWG_RESPONSE_WARN_BYTES";
+        public const string EnvResponseStrongWarnBytes = "BIMWRIGHT_DWG_RESPONSE_STRONG_WARN_BYTES";
+        public const int DefaultResponseBudgetBytes = 80 * 1024 * 1024;
+        public const int DefaultResponseWarnBytes = 1024 * 1024;
+        public const int DefaultResponseStrongWarnBytes = 8 * 1024 * 1024;
+        public const int MinResponseBudgetBytes = 4096;
 
         public string Target { get; set; }
         public List<string> Toolsets { get; set; }
@@ -24,6 +32,9 @@ namespace Bimwright.Dwg.Server
         public bool? EnableToolbaker { get; set; }
         public bool? AllowLanBind { get; set; }
         public string LogLevel { get; set; }
+        public int? ResponseBudgetBytes { get; set; }
+        public int? ResponseWarnBytes { get; set; }
+        public int? ResponseStrongWarnBytes { get; set; }
 
         /// <summary>
         /// Default config file the installer seeds and the server reads when no
@@ -39,6 +50,23 @@ namespace Bimwright.Dwg.Server
         [JsonIgnore] public bool EnableCallLogOrDefault => EnableCallLog ?? false;
         [JsonIgnore] public bool EnableToolbakerOrDefault => EnableToolbaker ?? true;
         [JsonIgnore] public bool AllowLanBindOrDefault => AllowLanBind ?? false;
+        [JsonIgnore] public int ResponseBudgetBytesOrDefault => ResponseBudgetBytes ?? DefaultResponseBudgetBytes;
+        [JsonIgnore] public int ResponseWarnBytesOrDefault => ResponseWarnBytes ?? Math.Min(DefaultResponseWarnBytes, ResponseBudgetBytesOrDefault);
+        [JsonIgnore] public int ResponseStrongWarnBytesOrDefault => ResponseStrongWarnBytes ?? Math.Min(DefaultResponseStrongWarnBytes, ResponseBudgetBytesOrDefault);
+
+        public void ValidateResponseBudget()
+        {
+            if (ResponseBudgetBytesOrDefault < MinResponseBudgetBytes)
+                throw new ArgumentException("ResponseBudgetBytes must be at least 4096 bytes.", nameof(ResponseBudgetBytes));
+            if (ResponseWarnBytesOrDefault <= 0)
+                throw new ArgumentException("ResponseWarnBytes must be positive.", nameof(ResponseWarnBytes));
+            if (ResponseStrongWarnBytesOrDefault <= 0)
+                throw new ArgumentException("ResponseStrongWarnBytes must be positive.", nameof(ResponseStrongWarnBytes));
+            if (ResponseWarnBytesOrDefault > ResponseStrongWarnBytesOrDefault)
+                throw new ArgumentException("ResponseWarnBytes must not exceed ResponseStrongWarnBytes.", nameof(ResponseWarnBytes));
+            if (ResponseStrongWarnBytesOrDefault > ResponseBudgetBytesOrDefault)
+                throw new ArgumentException("ResponseStrongWarnBytes must not exceed ResponseBudgetBytes.", nameof(ResponseStrongWarnBytes));
+        }
 
         public static DwgMcpConfig Load(
             string[] args = null,
@@ -56,6 +84,7 @@ namespace Bimwright.Dwg.Server
 
             ApplyEnv(config, envLookup);
             ApplyCli(config, args);
+            config.ValidateResponseBudget();
             return config;
         }
 
@@ -80,6 +109,9 @@ namespace Bimwright.Dwg.Server
             ApplyBool(envLookup(EnvEnableToolbaker), value => config.EnableToolbaker = value);
             ApplyBool(envLookup(EnvAllowLanBind), value => config.AllowLanBind = value);
             ApplyString(envLookup(EnvLogLevel), value => config.LogLevel = value);
+            ApplyBytes(envLookup(EnvResponseBudgetBytes), EnvResponseBudgetBytes, value => config.ResponseBudgetBytes = value);
+            ApplyBytes(envLookup(EnvResponseWarnBytes), EnvResponseWarnBytes, value => config.ResponseWarnBytes = value);
+            ApplyBytes(envLookup(EnvResponseStrongWarnBytes), EnvResponseStrongWarnBytes, value => config.ResponseStrongWarnBytes = value);
         }
 
         private static void ApplyCli(DwgMcpConfig config, string[] args)
@@ -87,6 +119,9 @@ namespace Bimwright.Dwg.Server
             ApplyString(GetOptionValue(args, "--target"), value => config.Target = value);
             ApplyCsv(GetOptionValue(args, "--toolsets"), value => config.Toolsets = value);
             ApplyString(GetOptionValue(args, "--log-level"), value => config.LogLevel = value);
+            ApplyCliBytes(args, "--response-budget-bytes", value => config.ResponseBudgetBytes = value);
+            ApplyCliBytes(args, "--response-warn-bytes", value => config.ResponseWarnBytes = value);
+            ApplyCliBytes(args, "--response-strong-warn-bytes", value => config.ResponseStrongWarnBytes = value);
 
             // Each explicit pair overrides JSON/env; the last CLI occurrence wins.
             foreach (var arg in args)
@@ -115,6 +150,29 @@ namespace Bimwright.Dwg.Server
             if (HasFlag(args, "--allow-lan-bind"))
             {
                 config.AllowLanBind = true;
+            }
+        }
+
+        private static void ApplyBytes(string raw, string name, Action<int> set)
+        {
+            if (raw == null) return;
+            // Only ASCII decimal digits: no signs, whitespace, suffixes or culture-dependent separators.
+            var digits = raw.Length > 0;
+            foreach (var character in raw)
+                if (character < '0' || character > '9') digits = false;
+            if (!digits || !int.TryParse(raw, NumberStyles.None, CultureInfo.InvariantCulture, out var value))
+                throw new ArgumentException(name + " requires an ASCII decimal integer byte count from 0 to 2147483647.", name);
+            set(value);
+        }
+
+        private static void ApplyCliBytes(string[] args, string name, Action<int> set)
+        {
+            for (var i = 0; i < args.Length; i++)
+            {
+                if (!string.Equals(args[i], name, StringComparison.OrdinalIgnoreCase)) continue;
+                if (i + 1 == args.Length || args[i + 1] == null || args[i + 1].StartsWith("--", StringComparison.Ordinal))
+                    throw new ArgumentException(name + " requires a byte-count value.", name);
+                ApplyBytes(args[++i], name, set);
             }
         }
 
