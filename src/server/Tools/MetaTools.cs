@@ -12,7 +12,8 @@ namespace Bimwright.Dwg.Server.Tools
     public class MetaTools
     {
         [McpServerTool(Name = "dwg_list_available_targets", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false), Description(
-            "List running AutoCAD instances with target_id, PID and process start time. Select the intended instance using dwg_switch_target(target='pid:<PID>'). " +
+            "List running AutoCAD instances with target_id, PID and process start time. In full mode select the intended instance using dwg_switch_target(target='pid:<PID>'). " +
+            "In --read-only, start or restart the gateway with --target pid:<PID> or id:<target_id>; dwg_switch_target is unavailable. " +
             "Supports per-instance discovery and legacy AutoCAD 2022 through 2027 discovery files.")]
         public static Task<string> ListAvailableTargets()
         {
@@ -41,19 +42,23 @@ namespace Bimwright.Dwg.Server.Tools
             return Ok(ToolGateway.Client.CurrentTarget);
         }
 
-        [McpServerTool(Name = "dwg_switch_target", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false), Description(
-            "Bind this gateway to one AutoCAD instance. Prefer pid:<PID> or id:acad-<year>-<PID>; a year is accepted only when unambiguous. " +
+        [McpServerTool(Name = "dwg_switch_target", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false), Description(
+            "Bind this gateway to one AutoCAD instance. A different bound instance requires pid:<PID> or id:acad-<year>-<PID>; an initial year must be unambiguous. " +
             "verify=true (default) authenticates health and confirms the current drawing before allowing writes. verify=false permits reads only. " +
-            "expected_document_id optionally checks a previously observed drawing lifetime ID. Failed verification preserves the previous binding. " +
-            "Reverify after opening/switching drawings. Changes routing only; never activates, saves or closes drawings. Calls pending under an older binding are refused before sending.")]
+            "Without rebind=true, selecting the same process preserves its drawing lifetime pin, including with verify=false. expected_document_id explicitly sets that pin, even without verification. " +
+            "Leaving a live confirmed instance requires rebind=true. A changed drawing must match an explicit expected_document_id or be intentionally accepted with rebind=true. " +
+            "Failed verification preserves the previous binding. Inspect health after opening/switching drawings before accepting a new pin. " +
+            "Unavailable in --read-only. Changes routing only; never activates, saves or closes drawings. Calls pending under an older binding are refused before sending.")]
         public static async Task<string> SwitchTarget(
-            [Description("pid:<PID>, id:acad-<year>-<PID>, or an unambiguous AutoCAD year (2022-2027).")] string target,
+            [Description("pid:<PID> or id:acad-<year>-<PID> for a different bound instance; an unambiguous AutoCAD year (2022-2027) is accepted for initial selection.")] string target,
             [Description("Verify host and active drawing before allowing writes; default true.")] bool verify = true,
-            [Description("Optional drawing lifetime ID observed from health.")] string expected_document_id = null)
+            [Description("Optional drawing lifetime pin observed from health. Sets the pin even with verify=false; verification must match it.")] string expected_document_id = null,
+            [Description("Explicitly accept an intended instance or drawing change; default false. Does not bypass an expected_document_id mismatch.")] bool rebind = false)
         {
+            if (ServerState.IsReadOnly) return ServerState.ReadOnlyError("dwg_switch_target");
             try
             {
-                var selected = await ToolGateway.Client.SwitchTargetAsync(target, verify, expected_document_id);
+                var selected = await ToolGateway.Client.SwitchTargetAsync(target, verify, expected_document_id, rebind);
                 return await Ok(selected);
             }
             catch (Exception ex) when (ex is InvalidOperationException || ex is ArgumentException)

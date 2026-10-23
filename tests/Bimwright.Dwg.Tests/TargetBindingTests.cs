@@ -53,7 +53,9 @@ namespace Bimwright.Dwg.Tests
             var client = Client(first, second);
             await client.SwitchTargetAsync("pid:100");
             var before = client.CurrentTarget;
-            await Assert.ThrowsAsync<InvalidOperationException>(() => client.SwitchTargetAsync("pid:200"));
+            var failed = await Assert.ThrowsAsync<InvalidOperationException>(() => client.SwitchTargetAsync("pid:200", rebind: true));
+            Assert.Contains("TARGET_VERIFICATION_FAILED", failed.Message);
+            Assert.Equal(1, second.Requests); // Reach the health failure, not the departure policy.
             Assert.True(JToken.DeepEquals(before, client.CurrentTarget));
             await Assert.ThrowsAsync<InvalidOperationException>(() => client.SwitchTargetAsync("pid:100", expectedDocumentId: "other-document"));
             Assert.True(JToken.DeepEquals(before, client.CurrentTarget));
@@ -94,6 +96,24 @@ namespace Bimwright.Dwg.Tests
             Assert.Equal(0, second.Requests);
         }
 
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task Routing_failure_after_capture_preserves_health_error_prefix_without_sending(bool reuse)
+        {
+            using var host = new Host(100);
+            DateTime? actualStart = Start;
+            var client = new PluginClient(() => host.Info, _ => host.Info, _ => actualStart);
+            await client.SwitchTargetAsync("pid:100");
+            var pending = client.Capture("health");
+            actualStart = reuse ? Start.AddMinutes(1) : null;
+            var result = await client.SendBoundAsync("health", new { }, "pending-health", pending);
+            Assert.False(result.Ok);
+            Assert.StartsWith(reuse ? "TARGET_CHANGED:" : "TARGET_LOST:", result.Error);
+            Assert.DoesNotContain("plugin communication error:", result.Error);
+            Assert.Equal(1, host.Requests); // Only initial verification; no post-capture health bytes arrived.
+        }
+
         [Fact]
         public async Task Call_captured_before_switch_is_refused_before_wire_write()
         {
@@ -102,10 +122,10 @@ namespace Bimwright.Dwg.Tests
             var client = Client(first, second);
             await client.SwitchTargetAsync("pid:100");
             var pending = client.Capture("send_code");
-            await client.SwitchTargetAsync("pid:200");
+            await client.SwitchTargetAsync("pid:200", rebind: true);
             var result = await client.SendBoundAsync("send_code", new { }, "pending", pending);
             Assert.False(result.Ok);
-            Assert.Contains("TARGET_CHANGED", result.Error);
+            Assert.StartsWith("TARGET_CHANGED:", result.Error);
             Assert.Equal(1, first.Requests); // Health only: the stale command never arrived.
             Assert.Equal(1, second.Requests);
         }
@@ -120,7 +140,7 @@ namespace Bimwright.Dwg.Tests
             var client = Client(first, second);
             await client.SwitchTargetAsync("pid:100");
             second.BeforeReply = () => { entered.Set(); Assert.True(release.Wait(TimeSpan.FromSeconds(5))); };
-            var slow = client.SwitchTargetAsync("pid:200");
+            var slow = client.SwitchTargetAsync("pid:200", rebind: true);
             try
             {
                 Assert.True(entered.Wait(TimeSpan.FromSeconds(5)));
@@ -130,6 +150,37 @@ namespace Bimwright.Dwg.Tests
             var error = await Assert.ThrowsAsync<InvalidOperationException>(() => slow);
             Assert.Contains("TARGET_CHANGED", error.Message);
             Assert.Equal(100, client.CurrentTarget.Value<int>("pid"));
+        }
+
+        [Fact]
+        public async Task Slow_resolver_cannot_overwrite_a_newer_switch_or_send_its_health_probe()
+        {
+            using var first = new Host(100);
+            using var second = new Host(200);
+            using var entered = new ManualResetEventSlim();
+            using var release = new ManualResetEventSlim();
+            var client = new PluginClient(() => first.Info, selector =>
+            {
+                if (selector != "pid:200") return first.Info;
+                entered.Set();
+                Assert.True(release.Wait(TimeSpan.FromSeconds(5)));
+                return second.Info;
+            }, _ => Start);
+            await client.SwitchTargetAsync("pid:100");
+            var slow = Task.Run(() => client.SwitchTargetAsync("pid:200", rebind: true));
+            JObject newer = null;
+            try
+            {
+                Assert.True(entered.Wait(TimeSpan.FromSeconds(5)));
+                await client.SwitchTargetAsync("pid:100");
+                newer = client.CurrentTarget;
+            }
+            finally { release.Set(); }
+            var error = await Assert.ThrowsAsync<InvalidOperationException>(() => slow);
+            Assert.Contains("TARGET_CHANGED", error.Message);
+            Assert.True(JToken.DeepEquals(newer, client.CurrentTarget));
+            Assert.Equal(2, first.Requests);
+            Assert.Equal(0, second.Requests);
         }
 
         [Fact]
@@ -154,8 +205,259 @@ namespace Bimwright.Dwg.Tests
             Assert.Contains("DOCUMENT_UNCONFIRMED", error.Message);
         }
 
+        [Theory]
+        [InlineData(null)]
+        [InlineData("2024")]
+        public async Task First_unique_auto_or_year_selection_is_still_allowed(string selector)
+        {
+            using var host = new Host(100);
+            var client = Client(host);
+            await client.SwitchTargetAsync(selector);
+            Assert.Equal(100, client.CurrentTarget.Value<int>("pid"));
+            Assert.True(client.CurrentTarget.Value<bool>("selection_confirmed"));
+            Assert.Equal("doc-100", client.CurrentTarget.Value<string>("document_id"));
+        }
+
+        [Theory]
+        [InlineData(null, false)]
+        [InlineData("2024", false)]
+        [InlineData(null, true)]
+        [InlineData("2024", true)]
+        public async Task Auto_or_year_cannot_move_an_existing_binding_even_with_rebind(string selector, bool rebind)
+        {
+            using var first = new Host(100);
+            using var second = new Host(200);
+            var selected = first.Info;
+            var client = new PluginClient(() => selected, _ => selected, _ => Start);
+            await client.SwitchTargetAsync("pid:100");
+            var before = client.CurrentTarget;
+            selected = second.Info;
+            var error = await Assert.ThrowsAsync<InvalidOperationException>(() => client.SwitchTargetAsync(selector, rebind: rebind));
+            Assert.Contains("TARGET_REBIND_REQUIRED", error.Message);
+            Assert.True(JToken.DeepEquals(before, client.CurrentTarget));
+            Assert.Equal(0, second.Requests); // Refuse before the candidate's health probe.
+        }
+
+        [Theory]
+        [InlineData("pid:200")]
+        [InlineData("id:acad-2024-200")]
+        public async Task Explicit_departure_from_live_confirmed_instance_requires_rebind_before_probe(string selector)
+        {
+            using var first = new Host(100);
+            using var second = new Host(200);
+            var client = Client(first, second);
+            await client.SwitchTargetAsync("pid:100");
+            var before = client.CurrentTarget;
+            var error = await Assert.ThrowsAsync<InvalidOperationException>(() => client.SwitchTargetAsync(selector));
+            Assert.Contains("TARGET_REBIND_REQUIRED", error.Message);
+            Assert.True(JToken.DeepEquals(before, client.CurrentTarget));
+            Assert.Equal(0, second.Requests);
+            await client.SwitchTargetAsync(selector, rebind: true);
+            Assert.Equal(200, client.CurrentTarget.Value<int>("pid"));
+            Assert.Equal("doc-200", client.CurrentTarget.Value<string>("document_id"));
+            Assert.Equal(1, second.Requests);
+        }
+
+        [Theory]
+        [InlineData("pid:200")]
+        [InlineData("id:acad-2024-200")]
+        public async Task Explicit_switch_from_unconfirmed_binding_does_not_inherit_its_document_pin(string selector)
+        {
+            using var first = new Host(100);
+            using var second = new Host(200);
+            var client = Client(first, second);
+            await client.SwitchTargetAsync("pid:100", verify: false, expectedDocumentId: "first-only");
+            await client.SwitchTargetAsync(selector);
+            Assert.Equal(200, client.CurrentTarget.Value<int>("pid"));
+            Assert.Equal("doc-200", client.CurrentTarget.Value<string>("document_id"));
+            Assert.Null(client.CurrentTarget.Value<string>("expected_document_id"));
+            Assert.Equal(0, first.Requests);
+            Assert.Equal(1, second.Requests);
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task Explicit_switch_from_lost_or_reused_process_needs_no_live_departure_override(bool reuse)
+        {
+            using var first = new Host(100);
+            using var second = new Host(200);
+            DateTime? firstStart = Start;
+            var client = new PluginClient(() => first.Info,
+                selector => selector == "pid:200" ? second.Info : first.Info,
+                pid => pid == 100 ? firstStart : Start);
+            await client.SwitchTargetAsync("pid:100");
+            firstStart = reuse ? Start.AddMinutes(1) : null;
+            Assert.Equal("lost", client.CurrentTarget.Value<string>("state"));
+            await client.SwitchTargetAsync("pid:200");
+            Assert.Equal("bound", client.CurrentTarget.Value<string>("state"));
+            Assert.Equal("doc-200", client.CurrentTarget.Value<string>("document_id"));
+            Assert.Equal(1, first.Requests);
+            Assert.Equal(1, second.Requests);
+        }
+
+        [Fact]
+        public async Task Same_process_unverified_reselection_preserves_pin_but_demotes_write_authority()
+        {
+            using var host = new Host(100);
+            var client = Client(host);
+            await client.SwitchTargetAsync("pid:100");
+            host.DocumentId = "different-drawing-lifetime";
+            await client.SwitchTargetAsync("pid:100", verify: false);
+            await client.SwitchTargetAsync("pid:100", verify: false);
+            var pinned = client.CurrentTarget;
+            Assert.False(pinned.Value<bool>("selection_confirmed"));
+            Assert.Null(pinned.Value<string>("document_id"));
+            Assert.Equal("doc-100", pinned.Value<string>("expected_document_id"));
+            var write = await Assert.ThrowsAsync<InvalidOperationException>(() => client.SendAsync("send_code", new { }));
+            Assert.Contains("TARGET_UNCONFIRMED", write.Message);
+            Assert.Equal(1, host.Requests); // Unverified switches and refused write sent nothing.
+            var changed = await Assert.ThrowsAsync<InvalidOperationException>(() => client.SwitchTargetAsync("pid:100"));
+            Assert.Contains("DOCUMENT_CHANGED", changed.Message);
+            Assert.True(JToken.DeepEquals(pinned, client.CurrentTarget));
+            host.DocumentId = "doc-100";
+            await client.SwitchTargetAsync("pid:100");
+            Assert.True(client.CurrentTarget.Value<bool>("selection_confirmed"));
+            Assert.Equal("doc-100", client.CurrentTarget.Value<string>("document_id"));
+            Assert.Null(client.CurrentTarget.Value<string>("expected_document_id"));
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task Changed_or_reopened_drawing_needs_explicit_document_intent(bool rebind)
+        {
+            using var host = new Host(100);
+            var client = Client(host);
+            await client.SwitchTargetAsync("pid:100");
+            var before = client.CurrentTarget;
+            host.DocumentId = "reopened-same-path-new-lifetime";
+            var error = await Assert.ThrowsAsync<InvalidOperationException>(() => client.SwitchTargetAsync("pid:100"));
+            Assert.Contains("DOCUMENT_CHANGED", error.Message);
+            Assert.True(JToken.DeepEquals(before, client.CurrentTarget));
+            await client.SwitchTargetAsync("pid:100", expectedDocumentId: rebind ? null : host.DocumentId, rebind: rebind);
+            Assert.Equal(host.DocumentId, client.CurrentTarget.Value<string>("document_id"));
+            Assert.True(client.CurrentTarget.Value<bool>("selection_confirmed"));
+        }
+
+        [Fact]
+        public async Task Explicit_expected_document_survives_unverified_reselection_until_matching_verification()
+        {
+            using var host = new Host(100);
+            var client = Client(host);
+            await client.SwitchTargetAsync("pid:100", verify: false, expectedDocumentId: "reviewed-drawing");
+            await client.SwitchTargetAsync("pid:100", verify: false);
+            var before = client.CurrentTarget;
+            Assert.Equal("reviewed-drawing", before.Value<string>("expected_document_id"));
+            var error = await Assert.ThrowsAsync<InvalidOperationException>(() => client.SwitchTargetAsync("pid:100"));
+            Assert.Contains("DOCUMENT_CHANGED", error.Message);
+            Assert.True(JToken.DeepEquals(before, client.CurrentTarget));
+            host.DocumentId = "reviewed-drawing";
+            await client.SwitchTargetAsync("pid:100");
+            Assert.Equal("reviewed-drawing", client.CurrentTarget.Value<string>("document_id"));
+        }
+
+        [Fact]
+        public async Task Explicit_expected_document_takes_precedence_over_rebind()
+        {
+            using var host = new Host(100);
+            var client = Client(host);
+            await client.SwitchTargetAsync("pid:100");
+            var before = client.CurrentTarget;
+            host.DocumentId = "new-drawing";
+            var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                client.SwitchTargetAsync("pid:100", expectedDocumentId: "reviewed-other-drawing", rebind: true));
+            Assert.Contains("DOCUMENT_CHANGED", error.Message);
+            Assert.True(JToken.DeepEquals(before, client.CurrentTarget));
+            await client.SwitchTargetAsync("pid:100", expectedDocumentId: "new-drawing", rebind: true);
+            Assert.Equal("new-drawing", client.CurrentTarget.Value<string>("document_id"));
+        }
+
+        [Fact]
+        public async Task Same_process_unverified_rebind_intentionally_clears_old_document_pin()
+        {
+            using var host = new Host(100);
+            var client = Client(host);
+            await client.SwitchTargetAsync("pid:100");
+            host.DocumentId = "reviewed-new-drawing";
+            await client.SwitchTargetAsync("pid:100", verify: false, rebind: true);
+            Assert.False(client.CurrentTarget.Value<bool>("selection_confirmed"));
+            Assert.Null(client.CurrentTarget.Value<string>("document_id"));
+            Assert.Null(client.CurrentTarget.Value<string>("expected_document_id"));
+            await client.SwitchTargetAsync("pid:100");
+            Assert.Equal("reviewed-new-drawing", client.CurrentTarget.Value<string>("document_id"));
+        }
+
+        [Fact]
+        public async Task Same_process_reselection_refuses_previously_captured_write_before_bytes()
+        {
+            using var host = new Host(100);
+            var client = Client(host);
+            await client.SwitchTargetAsync("pid:100");
+            var old = client.Capture("send_code");
+            await client.SwitchTargetAsync("pid:100", verify: false);
+            var result = await client.SendBoundAsync("send_code", new { }, "old-write", old);
+            Assert.False(result.Ok);
+            Assert.StartsWith("TARGET_CHANGED:", result.Error);
+            Assert.Equal(1, host.Requests);
+            Assert.Equal("doc-100", client.CurrentTarget.Value<string>("expected_document_id"));
+        }
+
+        [Fact]
+        public async Task Process_identity_changed_during_verification_cannot_replace_previous_binding()
+        {
+            using var first = new Host(100);
+            using var second = new Host(200);
+            var secondStart = Start;
+            var client = new PluginClient(() => first.Info,
+                selector => selector == "pid:200" ? second.Info : first.Info,
+                pid => pid == 200 ? secondStart : Start);
+            await client.SwitchTargetAsync("pid:100");
+            var before = client.CurrentTarget;
+            second.BeforeReply = () => secondStart = Start.AddMinutes(1);
+            var error = await Assert.ThrowsAsync<InvalidOperationException>(() => client.SwitchTargetAsync("pid:200", rebind: true));
+            Assert.Contains("TARGET_CHANGED", error.Message);
+            Assert.True(JToken.DeepEquals(before, client.CurrentTarget));
+            Assert.Equal(1, second.Requests);
+        }
+
+        [Fact]
+        public async Task Commit_rechecks_live_confirmed_departure_policy_after_probe()
+        {
+            using var first = new Host(100);
+            using var second = new Host(200);
+            DateTime? firstStart = Start;
+            var client = new PluginClient(() => first.Info,
+                selector => selector == "pid:200" ? second.Info : first.Info,
+                pid => pid == 100 ? firstStart : Start);
+            await client.SwitchTargetAsync("pid:100");
+            var before = client.CurrentTarget;
+            firstStart = null; // Preflight observes an unavailable process probe.
+            second.BeforeReply = () => firstStart = Start;
+            var error = await Assert.ThrowsAsync<InvalidOperationException>(() => client.SwitchTargetAsync("pid:200"));
+            Assert.Contains("TARGET_REBIND_REQUIRED", error.Message);
+            Assert.True(JToken.DeepEquals(before, client.CurrentTarget));
+            Assert.Equal(1, second.Requests); // Commit repeats policy after the read-only health probe.
+        }
+
+        [Fact]
+        public async Task Reused_same_PID_is_a_different_instance_and_does_not_inherit_document_pin()
+        {
+            using var host = new Host(100);
+            var actualStart = Start;
+            var client = new PluginClient(() => host.Info, _ => host.Info, _ => actualStart);
+            await client.SwitchTargetAsync("pid:100");
+            actualStart = Start.AddMinutes(1);
+            host.Info.ProcessStartUtc = actualStart;
+            await client.SwitchTargetAsync("pid:100", verify: false);
+            Assert.Equal(actualStart, client.CurrentTarget.Value<DateTime>("process_start_utc"));
+            Assert.False(client.CurrentTarget.Value<bool>("selection_confirmed"));
+            Assert.Null(client.CurrentTarget.Value<string>("expected_document_id"));
+        }
+
         private static PluginClient Client(Host first, Host second = null)
-            => new PluginClient(() => first.Info, selector => selector == "pid:200" ? second.Info : first.Info, _ => Start);
+            => new PluginClient(() => first.Info,
+                selector => selector == "pid:200" || selector == "id:acad-2024-200" ? second.Info : first.Info, _ => Start);
 
         [Fact]
         public async Task Named_pipe_transport_carries_the_same_verified_target_context()

@@ -37,11 +37,12 @@ namespace Bimwright.Dwg.Server
         internal JObject CurrentTarget => _binding.Snapshot();
         internal TargetCall Capture(string command) => _binding.Capture(_discoveryProvider, command);
 
-        internal async Task<JObject> SwitchTargetAsync(string selector, bool verify = true, string expectedDocumentId = null)
+        internal async Task<JObject> SwitchTargetAsync(string selector, bool verify = true, string expectedDocumentId = null, bool rebind = false)
         {
             selector = AuthToken.NormalizeTarget(selector);
             var before = _binding.Generation;
             var candidate = _binding.Candidate(_select(selector));
+            _binding.PrepareSwitch(before, candidate, selector, rebind, expectedDocumentId);
             JObject stamp = null;
             if (verify)
             {
@@ -52,11 +53,9 @@ namespace Bimwright.Dwg.Server
                 if (response?.Id != id || response.Ok != true || health?.Value<bool?>("ok") != true || stamp?.Value<int?>("protocol") != 1)
                     throw new InvalidOperationException("TARGET_VERIFICATION_FAILED: health/document identity was not verified. Update gateway and plugin together if the target protocol is missing. Previous binding was preserved.");
                 TargetContract.CheckInstance(stamp, candidate.Discovery.Pid, candidate.Discovery.ProcessStartUtc ?? DateTime.MinValue, false);
-                if (expectedDocumentId != null && stamp.Value<string>("document_id") != expectedDocumentId)
-                    throw new InvalidOperationException("DOCUMENT_CHANGED: verification found a different drawing. Previous binding was preserved.");
             }
             await _writeGate.WaitAsync();
-            try { _binding.Commit(before, candidate, stamp, verify); }
+            try { _binding.Commit(before, candidate, stamp, verify, selector, rebind); }
             finally { _writeGate.Release(); }
             return CurrentTarget;
         }
@@ -81,7 +80,17 @@ namespace Bimwright.Dwg.Server
                 var call = pinned ?? Capture(cmd);
                 try
                 {
-                    return await SendToAsync(call, cmd, parameters, requestId, readTimeout, true);
+                    var response = await SendToAsync(call, cmd, parameters, requestId, readTimeout, true);
+                    if (ServerState.IsReadOnly && response?.Ok == false
+                        && (response.Error?.StartsWith("TARGET_LOST:", StringComparison.Ordinal) == true
+                            || response.Error?.StartsWith("TARGET_CHANGED:", StringComparison.Ordinal) == true))
+                        response.Error += " " + TargetBinding.Recovery();
+                    return response;
+                }
+                catch (InvalidOperationException ex) when (ex.Message.StartsWith("TARGET_", StringComparison.Ordinal)
+                    || ex.Message.StartsWith("DOCUMENT_", StringComparison.Ordinal))
+                {
+                    return Error(requestId, ex.Message);
                 }
                 catch (Exception ex)
                 {

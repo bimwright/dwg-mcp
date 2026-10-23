@@ -133,7 +133,11 @@ Không `dotnet tool install -g Bimwright.Dwg.Server`.
 
 `dwg_send_code` chỉ nhận snippet đồng bộ được gửi trực tiếp: `async`/`await` và directive `#load` bị chặn trước thực thi. Giữ AutoCAD API trên luồng gọi; không chuyển sang `Task.Run` hoặc luồng khác. Chỉ trả DTO JSON; object AutoCAD/COM bị từ chối kể cả khi lồng nhau. `dwg_inspect_lisp` vẫn phân tích tĩnh: nguồn quá 2.000.000 ký tự bị đánh dấu không thể kiểm tra đầy đủ/nguy hiểm; giới hạn hiển thị 200 findings không làm mất phát hiện mức nguy hiểm. Regex có timeout; scan hết thời gian được báo chưa đầy đủ/nguy hiểm, không trả `clean`.
 
-Trước khi ghi, gọi `dwg_list_available_targets`, rồi `dwg_switch_target(target="pid:<PID>")`. Mặc định `verify=true` xác minh process và drawing đang active; `verify=false` chỉ cho đọc. `--target` chỉ chọn đích ban đầu, không cho phép ghi. Có nhiều instance phù hợp sẽ trả `AMBIGUOUS_TARGET`. Gateway giữ PID và thời điểm khởi động, không tự chuyển sang instance khác khi mất kết nối; lệnh đang chờ dưới binding cũ bị từ chối trước khi gửi. Sau khi mở/chuyển drawing, xem `dwg_health().target` rồi xác minh lại; drawing đổi vòng đời sẽ trả `DOCUMENT_CHANGED` trước thực thi. Cần cập nhật gateway và plugin cùng nhau: plugin cũ không đủ giao thức xác minh ghi, plugin mới từ chối ghi không có target guard từ gateway cũ.
+Trước khi ghi, gọi `dwg_list_available_targets`, rồi `dwg_switch_target(target="pid:<PID>")`. Mặc định `verify=true` xác minh process và drawing đang active; `verify=false` chỉ cho đọc. `--target` chỉ chọn đích ban đầu, không cho phép ghi. Có nhiều instance phù hợp sẽ trả `AMBIGUOUS_TARGET`.
+
+Khi đã có binding, chuyển sang instance khác phải dùng `pid:<PID>` hoặc `id:acad-<year>-<PID>`; rời target đang sống và đã xác minh còn cần `rebind=true`. Chọn lại cùng process với `verify=false` gỡ xác nhận ghi. ID vòng đời drawing dự kiến trước đó được giữ, trừ khi `rebind=true` xóa pin cũ hoặc `expected_document_id` được chỉ rõ để thay pin. Sau khi mở/chuyển drawing, xem `dwg_health().target`; xác nhận drawing khác cần `expected_document_id` khớp drawing đó hoặc `rebind=true`. Xác minh thất bại giữ binding trước đó; lệnh đang chờ dưới binding cũ bị từ chối trước khi gửi. Cần cập nhật gateway và plugin cùng nhau: plugin cũ không đủ giao thức xác minh ghi, plugin mới từ chối ghi không có target guard từ gateway cũ.
+
+Trong `--read-only`, `dwg_switch_target` không có trong catalog và gọi trực tiếp cũng bị từ chối. Khởi động gateway với `--read-only --target pid:<PID>` (hoặc `--target id:acad-<year>-<PID>`), rồi kiểm tra health và target hiện tại. Nếu gặp `TARGET_LOST` hoặc `TARGET_CHANGED`, gọi `dwg_list_available_targets` rồi khởi động lại gateway với `--target` cụ thể đã chọn. Binding mất không tự chuyển sang instance khác.
 
 Để chọn AutoCAD ban đầu, dùng PID hoặc năm 4 chữ số chỉ khớp một instance:
 
@@ -213,7 +217,7 @@ Plan 2 query expansion chỉ quét model space: `dwg_query_entities`, `dwg_count
 | `dwg_collapse_and_rewrite` | Rewrite low-level với kiểm soát hình học chi tiết |
 | `dwg_list_available_targets` | Liệt kê từng instance với PID, target ID và thời điểm khởi động process |
 | `dwg_get_current_target` | Xem trạng thái binding, generation, PID và drawing đã xác minh |
-| `dwg_switch_target` | Chọn `pid:<PID>`, `id:acad-<year>-<PID>` hoặc năm không nhập nhằng; xác minh drawing trước khi ghi |
+| `dwg_switch_target` | Chọn và xác minh instance; chuyển instance cần `pid:`/`id:`, thêm `rebind=true` khi rời target đang sống và đã xác minh. Không có trong read-only |
 | `dwg_list_recent_drawings` | Liệt kê tối đa 50 DWG recent của AutoCAD đang kết nối, có lọc tên; không cần drawing active |
 | `dwg_open_drawing` | Mở DWG theo path tuyệt đối, tùy chọn đọc-only; tái sử dụng file đã mở, không lưu/đóng drawing; mặc định chờ 600s ([chi tiết](README.md#drawing-session-tools)) |
 | `dwg_batch_execute` | Chạy nhiều wire command nội bộ như một logical batch |
@@ -449,7 +453,7 @@ Thông báo bên thứ ba: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
 
 ## Quyền và chế độ tự động
 
-Mọi tool trừ `dwg_send_code` khai báo đủ cờ read-only, destructive, idempotent và open-world. Chế độ full có 68 tool; `--toolsets all --read-only` expose 23 tool đọc bên dưới. Zoom có thể đổi trạng thái UI tạm thời. Capture, inspect region và restore tạo file ảnh nên bị loại trong read-only. `dwg_health` là tool đọc; tùy chọn kiểm tra cập nhật có thể gọi GitHub.
+Mọi tool trừ `dwg_send_code` khai báo đủ cờ read-only, destructive, idempotent và open-world. Chế độ full có 68 tool; read-only mặc định có 16, còn `--toolsets all --read-only` expose 22 tool đọc bên dưới. Zoom có thể đổi trạng thái UI tạm thời. Chuyển target bị loại trong read-only; capture, inspect region và restore cũng bị loại vì tạo file ảnh. `dwg_health` là tool đọc; tùy chọn kiểm tra cập nhật có thể gọi GitHub.
 
 Chỉ cấp quyền bằng rule chính xác cho tool bạn muốn dùng. Tránh wildcard `mcp__dwg-mcp__*` vì nó cấp cả quyền sửa bản vẽ/file và thực thi mã. `dwg_send_code` không có annotations và không nằm trong allowlist đọc này; quyền cho phép lâu dài phải là lựa chọn rõ ràng trong MCP client.
 
@@ -474,7 +478,6 @@ mcp__dwg-mcp__dwg_list_recent_drawings
 mcp__dwg-mcp__dwg_query_entities
 mcp__dwg-mcp__dwg_select_by_layer
 mcp__dwg-mcp__dwg_select_by_type
-mcp__dwg-mcp__dwg_switch_target
 mcp__dwg-mcp__dwg_zoom_extents
 mcp__dwg-mcp__dwg_zoom_to_entity
 mcp__dwg-mcp__dwg_zoom_window

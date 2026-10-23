@@ -169,7 +169,11 @@ Select an initial AutoCAD instance by PID (or an unambiguous 4-digit year):
 }
 ```
 
-Before writes, call `dwg_list_available_targets` and `dwg_switch_target(target="pid:<PID>")`. The default `verify=true` authenticates the selected process and confirms the active drawing; `verify=false` permits reads only. `--target` controls initial selection and does not authorize writes. A year or automatic selection matching multiple instances returns `AMBIGUOUS_TARGET`. Each gateway keeps its bound PID and process start; loss never selects another instance. Pending calls under an older binding are refused before sending. After opening or switching drawings, inspect `dwg_health().target` and reverify; a changed drawing lifetime returns `DOCUMENT_CHANGED` before execution. Update gateway and plugin together: legacy plugins cannot be verified for writes, and new plugins refuse unguarded writes from old gateways.
+Before writes, call `dwg_list_available_targets` and `dwg_switch_target(target="pid:<PID>")`. The default `verify=true` authenticates the selected process and confirms the active drawing; `verify=false` permits reads only. `--target` controls initial selection and does not authorize writes. A year or automatic selection matching multiple instances returns `AMBIGUOUS_TARGET`.
+
+Once bound, changing instances requires `pid:<PID>` or `id:acad-<year>-<PID>`; leaving a live confirmed target also requires `rebind=true`. Reselecting the same process with `verify=false` removes write confirmation. It retains the previous expected drawing lifetime ID unless `rebind=true` resets it or an explicit `expected_document_id` replaces it. After opening or switching drawings, inspect `dwg_health().target`; confirming a different drawing requires its matching `expected_document_id` or `rebind=true`. Failed verification preserves the previous binding, and pending calls under an older binding are refused before sending. Update gateway and plugin together: legacy plugins cannot be verified for writes, and new plugins refuse unguarded writes from old gateways.
+
+With `--read-only`, `dwg_switch_target` is unavailable and direct calls are refused. Start the gateway with `--read-only --target pid:<PID>` (or `--target id:acad-<year>-<PID>`), then check health and the current target. On `TARGET_LOST` or `TARGET_CHANGED`, call `dwg_list_available_targets` and restart the gateway with the intended explicit `--target`. A lost binding never selects another instance automatically.
 
 Use `--read-only` to strip write-capable toolsets (query/view/meta routing remain as configured). Use `--toolsets all` or an explicit list that **includes** the defaults you need (a custom list **replaces** the default set — e.g. `query,modify,meta,view,annotation`). Env: `BIMWRIGHT_DWG_TOOLSETS=…`.
 
@@ -242,7 +246,7 @@ Plan 2 query expansion is model-space only: `dwg_query_entities`, `dwg_count_ent
 | `dwg_collapse_and_rewrite` | Low-level rewrite primitive with explicit geometric control |
 | `dwg_list_available_targets` | List AutoCAD instances with PID, target ID and process start |
 | `dwg_get_current_target` | Show binding state, generation, PID and confirmed drawing |
-| `dwg_switch_target` | Select `pid:<PID>`, `id:acad-<year>-<PID>` or an unambiguous year; verify the active drawing before writes |
+| `dwg_switch_target` | Bind and verify an instance; changing instances requires `pid:`/`id:`, plus `rebind=true` when leaving a live confirmed target. Excluded from read-only mode |
 | `dwg_list_recent_drawings` | List up to 50 recent DWGs for the connected AutoCAD, with optional filename filter; works with no drawing open |
 | `dwg_open_drawing` | Open an absolute DWG path, optionally read-only; reuse an open drawing, never save or close drawings; default wait 600s |
 | `dwg_batch_execute` | Run multiple internal wire commands as a logical batch |
@@ -522,7 +526,7 @@ Third-party notices: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
 
 ## Permissions & auto mode
 
-Every tool except `dwg_send_code` declares read-only, destructive, idempotent and open-world hints. Full mode has 68 tools; `--toolsets all --read-only` exposes the 23 read-only tools below. Zoom can change transient UI state. Capture, region inspection and restore create image files and are excluded from read-only mode. `dwg_health` is read-only; its explicit update check can contact GitHub.
+Every tool except `dwg_send_code` declares read-only, destructive, idempotent and open-world hints. Full mode has 68 tools; default read-only mode has 16, and `--toolsets all --read-only` exposes the 22 read-only tools below. Zoom can change transient UI state. Target switching, capture, region inspection and restore are excluded from read-only mode. `dwg_health` is read-only; its explicit update check can contact GitHub.
 
 Use exact rules for the tools you intend to allow. Avoid `mcp__dwg-mcp__*`: it also permits drawing/file writes and code execution. `dwg_send_code` has no annotations and is deliberately absent from this read-only allowlist; any persistent approval for it must be an explicit choice in your MCP client.
 
@@ -547,7 +551,6 @@ mcp__dwg-mcp__dwg_list_recent_drawings
 mcp__dwg-mcp__dwg_query_entities
 mcp__dwg-mcp__dwg_select_by_layer
 mcp__dwg-mcp__dwg_select_by_type
-mcp__dwg-mcp__dwg_switch_target
 mcp__dwg-mcp__dwg_zoom_extents
 mcp__dwg-mcp__dwg_zoom_to_entity
 mcp__dwg-mcp__dwg_zoom_window

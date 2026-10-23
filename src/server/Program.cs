@@ -71,7 +71,9 @@ namespace Bimwright.Dwg.Server
                 "                         Verify with dwg_switch_target before writes.\n" +
                 "  --toolsets <csv>       Toolsets to register (default: query,modify,meta,view).\n" +
                 "                         'all' enables the full surface.\n" +
-                "  --read-only            Strip every write/execute tool.\n" +
+                "  --read-only            Strip every write/execute tool, including dwg_switch_target.\n" +
+                "                         Select reads at startup with --target pid:<PID> or id:<target_id>.\n" +
+                "                         On target loss, list targets and restart with the intended selector.\n" +
                 "  --enable-send-code / --disable-send-code (default: enabled).\n" +
                 "  --enable-call-log / --disable-call-log (default: disabled).\n" +
                 "  --enable-toolbaker / --disable-toolbaker\n" +

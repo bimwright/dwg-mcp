@@ -131,7 +131,11 @@ AI agent 让“把选中的文字全部翻译成越南语”这类意图可以�
 }
 ```
 
-写入前先调用 `dwg_list_available_targets`，再调用 `dwg_switch_target(target="pid:<PID>")`。默认 `verify=true` 验证进程及当前图纸；`verify=false` 只允许读取。`--target` 只选择初始目标，不授权写入。多个候选返回 `AMBIGUOUS_TARGET`，图纸改变返回 `DOCUMENT_CHANGED`。目标丢失时不会自动切换到其他实例；旧绑定下等待的调用会在发送前被拒绝。打开或切换图纸后，请检查 health 并重新验证。写入需要同时更新 gateway 和 plugin，旧组件不能提供所需的目标验证。
+写入前先调用 `dwg_list_available_targets`，再调用 `dwg_switch_target(target="pid:<PID>")`。默认 `verify=true` 验证进程及当前图纸；`verify=false` 只允许读取。`--target` 只选择初始目标，不授权写入。多个候选返回 `AMBIGUOUS_TARGET`。
+
+已有绑定后，切换到其他实例必须指定 `pid:<PID>` 或 `id:acad-<year>-<PID>`；离开仍在运行且已确认的目标还需要 `rebind=true`。用 `verify=false` 重新选择同一进程会撤销写入确认。此前预期的图纸生命周期ID会保留，除非用 `rebind=true` 重置，或用明确的 `expected_document_id` 替换。打开或切换图纸后，请检查 `dwg_health().target`；确认另一张图纸需要与其匹配的 `expected_document_id` 或 `rebind=true`。验证失败会保留原绑定，旧绑定下等待的调用会在发送前被拒绝。写入需要同时更新 gateway 和 plugin，旧组件不能提供所需的目标验证。
+
+在 `--read-only` 下，`dwg_switch_target` 不在工具目录中，直接调用也会被拒绝。请用 `--read-only --target pid:<PID>`（或 `--target id:acad-<year>-<PID>`）启动 gateway，然后检查 health 和当前目标。遇到 `TARGET_LOST` 或 `TARGET_CHANGED` 时，调用 `dwg_list_available_targets`，再用明确的预期 `--target` 重启 gateway。绑定丢失后不会自动选择其他实例。
 
 用 PID 或只匹配一个实例的 4 位年份选择初始 AutoCAD 目标：
 
@@ -215,7 +219,7 @@ Plan 2 的查询扩展仅限模型空间：`dwg_query_entities`、`dwg_count_ent
 | `dwg_collapse_and_rewrite` | 具有显式几何控制能力的底层改写原语 |
 | `dwg_list_available_targets` | 列出每个实例的 PID、目标 ID 和进程启动时间 |
 | `dwg_get_current_target` | 显示绑定状态、代次、PID 和已确认的图纸 |
-| `dwg_switch_target` | 选择 `pid:<PID>`、`id:acad-<year>-<PID>` 或唯一年份，写入前确认图纸 |
+| `dwg_switch_target` | 选择并验证实例；切换实例必须用 `pid:`/`id:`，离开仍在运行且已确认的目标还需 `rebind=true`。只读模式下不可用 |
 | `dwg_list_recent_drawings` | 列出当前 AutoCAD 最多 50 个最近 DWG，可按文件名过滤；无需打开图纸 |
 | `dwg_open_drawing` | 按绝对路径打开 DWG，可请求只读；复用已打开图纸，不保存或关闭；默认等待 600 秒（[详情](README.md#drawing-session-tools)） |
 | `dwg_batch_execute` | 把多个内部 wire 命令作为逻辑批处理运行 |
@@ -455,7 +459,7 @@ AutoCAD 和 Autodesk 是 Autodesk, Inc. 的注册商标。bimwright 是一个独
 
 ## 权限与自动模式
 
-除 `dwg_send_code` 外，每个工具都显式声明 read-only、destructive、idempotent 和 open-world 标记。完整模式有 68 个工具；`--toolsets all --read-only` 提供下列 23 个只读工具。缩放可能改变临时界面状态。截图、区域查看和视图恢复会创建图片文件，因此只读模式会移除这些工具。`dwg_health` 为只读工具，显式更新检查可以访问 GitHub。
+除 `dwg_send_code` 外，每个工具都显式声明 read-only、destructive、idempotent 和 open-world 标记。完整模式有 68 个工具；默认只读模式有 16 个，`--toolsets all --read-only` 提供下列 22 个只读工具。缩放可能改变临时界面状态。只读模式会移除目标切换工具；截图、区域查看和视图恢复也因创建图片文件而被移除。`dwg_health` 为只读工具，显式更新检查可以访问 GitHub。
 
 仅为需要的工具设置精确权限规则。避免 `mcp__dwg-mcp__*` 通配规则，因为它也允许修改图纸、写文件和执行代码。`dwg_send_code` 没有 annotations，且不在此只读列表中；持久允许执行它必须由用户在 MCP 客户端中明确选择。
 
@@ -480,7 +484,6 @@ mcp__dwg-mcp__dwg_list_recent_drawings
 mcp__dwg-mcp__dwg_query_entities
 mcp__dwg-mcp__dwg_select_by_layer
 mcp__dwg-mcp__dwg_select_by_type
-mcp__dwg-mcp__dwg_switch_target
 mcp__dwg-mcp__dwg_zoom_extents
 mcp__dwg-mcp__dwg_zoom_to_entity
 mcp__dwg-mcp__dwg_zoom_window

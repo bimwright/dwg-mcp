@@ -131,7 +131,11 @@ MCP クライアント設定（例: `.mcp.json`）に追加:
 }
 ```
 
-書き込み前に `dwg_list_available_targets`、次に `dwg_switch_target(target="pid:<PID>")` を呼びます。既定の `verify=true` はプロセスとアクティブ図面を確認し、`verify=false` は読み取りのみ許可します。`--target` は初期選択であり、書き込みを許可しません。複数候補は `AMBIGUOUS_TARGET`、図面の変更は `DOCUMENT_CHANGED` で拒否されます。接続先を失っても別のインスタンスには切り替わりません。図面を開く・切り替える操作の後は health を確認して再検証してください。書き込みには gateway と plugin の両方を更新する必要があります。
+書き込み前に `dwg_list_available_targets`、次に `dwg_switch_target(target="pid:<PID>")` を呼びます。既定の `verify=true` はプロセスとアクティブ図面を確認し、`verify=false` は読み取りのみ許可します。`--target` は初期選択であり、書き込みを許可しません。複数候補は `AMBIGUOUS_TARGET` で拒否されます。
+
+接続先が決まった後、別のインスタンスに切り替えるには `pid:<PID>` または `id:acad-<year>-<PID>` を指定します。稼働中の確認済みターゲットから離れる場合は `rebind=true` も必要です。同じプロセスを `verify=false` で再選択すると、書き込み確認は解除されます。以前の期待する図面のライフタイムIDは保持されますが、`rebind=true` でリセットするか、明示的な `expected_document_id` で置き換えることができます。図面を開く・切り替える操作の後は `dwg_health().target` を確認してください。別の図面を確認するには、その図面に一致する `expected_document_id` または `rebind=true` が必要です。検証失敗時は以前の接続先を保持し、古い接続先で待機中の呼び出しは送信前に拒否されます。書き込みには gateway と plugin の両方を更新する必要があります。
+
+`--read-only` では `dwg_switch_target` はカタログに含まれず、直接呼び出しも拒否されます。`--read-only --target pid:<PID>`（または `--target id:acad-<year>-<PID>`）で gateway を起動し、health と現在のターゲットを確認してください。`TARGET_LOST` または `TARGET_CHANGED` の場合は `dwg_list_available_targets` を呼び、意図した明示的な `--target` で gateway を再起動します。接続先を失っても別のインスタンスには自動的に切り替わりません。
 
 PID、またはインスタンスが一つだけの4桁年で初期ターゲットを選択:
 
@@ -215,7 +219,7 @@ Plan 2 のクエリ拡張はモデル空間のみです。`dwg_query_entities`�
 | `dwg_collapse_and_rewrite` | 明示的な形状制御による低レベル書き換えプリミティブ |
 | `dwg_list_available_targets` | PID、ターゲットID、プロセス開始時刻付きで各インスタンスを表示 |
 | `dwg_get_current_target` | バインド状態、世代、PID、確認済み図面を表示 |
-| `dwg_switch_target` | `pid:<PID>`、`id:acad-<year>-<PID>` または一意な年を選び、書き込み前に図面を確認 |
+| `dwg_switch_target` | インスタンスを選択・確認。別のインスタンスには `pid:`/`id:`、稼働中の確認済みターゲットから離れるには `rebind=true` も必要。読み取り専用モードでは除外 |
 | `dwg_list_recent_drawings` | 接続中の AutoCAD の最近の DWG を最大50件取得、名前で絞り込み可能；図面不要 |
 | `dwg_open_drawing` | 絶対パスの DWG を開く、読み取り専用を指定可能；既存図面を再利用し保存・閉じる操作なし；既定600秒（[詳細](README.md#drawing-session-tools)） |
 | `dwg_batch_execute` | 複数の内部ワイヤーコマンドを論理バッチとして実行 |
@@ -453,7 +457,7 @@ AutoCAD および Autodesk は Autodesk, Inc. の登録商標です。bimwright 
 
 ## 権限と自動モード
 
-`dwg_send_code` 以外の各ツールは read-only、destructive、idempotent、open-world の各属性を明示します。通常の全ツールモードは68ツール、`--toolsets all --read-only` は以下の23読み取り専用ツールです。ズームは一時的なUI状態を変更できます。キャプチャ、領域検査、ビュー復元は画像ファイルを作成するため、読み取り専用モードから除外されます。`dwg_health` は読み取り専用ですが、明示的な更新チェックではGitHubに接続できます。
+`dwg_send_code` 以外の各ツールは read-only、destructive、idempotent、open-world の各属性を明示します。通常の全ツールモードは68ツール、既定の読み取り専用モードは16ツール、`--toolsets all --read-only` は以下の22読み取り専用ツールです。ズームは一時的なUI状態を変更できます。ターゲット切り替えは読み取り専用モードから除外されます。キャプチャ、領域検査、ビュー復元も画像ファイルを作成するため除外されます。`dwg_health` は読み取り専用ですが、明示的な更新チェックではGitHubに接続できます。
 
 許可するツールだけに正確なルールを設定してください。`mcp__dwg-mcp__*` のワイルドカードは図面編集、ファイル書き込み、コード実行も許可するため避けてください。`dwg_send_code` は annotations を持たず、この読み取り専用リストには含まれません。継続的な実行許可はMCPクライアントで明示的に選択してください。
 
@@ -478,7 +482,6 @@ mcp__dwg-mcp__dwg_list_recent_drawings
 mcp__dwg-mcp__dwg_query_entities
 mcp__dwg-mcp__dwg_select_by_layer
 mcp__dwg-mcp__dwg_select_by_type
-mcp__dwg-mcp__dwg_switch_target
 mcp__dwg-mcp__dwg_zoom_extents
 mcp__dwg-mcp__dwg_zoom_to_entity
 mcp__dwg-mcp__dwg_zoom_window

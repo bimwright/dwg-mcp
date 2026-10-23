@@ -96,7 +96,7 @@ namespace Bimwright.Dwg.Tests
         [InlineData(" DWG_GET_DRAWING_INFO ", ToolActivityKind.Read)]
         [InlineData("select_by_layer", ToolActivityKind.Read)]
         [InlineData("zoom_window", ToolActivityKind.Read)]
-        [InlineData("switch_target", ToolActivityKind.Read)]
+        [InlineData("switch_target", ToolActivityKind.Write)]
         [InlineData("send_code", ToolActivityKind.Write)]
         [InlineData("dwg_run_baked_tool", ToolActivityKind.Write)]
         [InlineData("batch_execute", ToolActivityKind.Write)]

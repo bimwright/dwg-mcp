@@ -247,8 +247,8 @@ namespace Bimwright.Dwg.Tests
         {
             var catalog = ToolCatalogBuilder.Build(new[] { typeof(ViewTools), typeof(CodeTools), typeof(MetaTools) }, readOnly: true);
             var names = catalog["tools"].Select(tool => tool.Value<string>("name")).ToArray();
-            Assert.Equal(7, names.Length);
-            Assert.Contains("dwg_switch_target", names);
+            Assert.Equal(6, names.Length);
+            Assert.DoesNotContain("dwg_switch_target", names);
             Assert.Contains("dwg_list_recent_drawings", names);
             Assert.DoesNotContain("dwg_open_drawing", names);
             Assert.DoesNotContain("dwg_capture_view_image", names);
