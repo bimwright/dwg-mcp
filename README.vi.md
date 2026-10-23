@@ -10,7 +10,7 @@
   <a href="https://github.com/bimwright/dwg-mcp/actions/workflows/build.yml"><img src="https://github.com/bimwright/dwg-mcp/actions/workflows/build.yml/badge.svg" alt="build" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="license" /></a>
   <a href="#phiên-bản-autocad-hỗ-trợ"><img src="https://img.shields.io/badge/AutoCAD-2022--2027-186BFF" alt="AutoCAD 2022-2027" /></a>
-  <a href="#công-cụ"><img src="https://img.shields.io/badge/MCP-44%20default%20%2B%20optional-6C47FF" alt="MCP tools" /></a>
+  <a href="#công-cụ"><img src="https://img.shields.io/badge/MCP-45%20default%20%2B%20optional-6C47FF" alt="MCP tools" /></a>
 </p>
 
 <p align="center">
@@ -178,16 +178,21 @@ Sau reconnect, đối chiếu initialize và `tools/list` mới trên cùng conn
 
 ## Công cụ
 
-Bản development mặc định expose 44 tool: query (gồm `dwg_inspect_lisp`), modify, meta (gồm `dwg_send_code`/`dwg_run_lisp`), view, và `dwg_capture_view_image` mặc định bật. Các toolset tùy chọn ToolBaker, annotation, block, dimension, export, và drawing được kích hoạt qua `--toolsets`, nâng tổng diện tích bề mặt MCP lên 68 tool. Số tool đăng ký có tính `dwg_run_lisp`, hiện chỉ trả từ chối; không verdict nào cấp quyền thực thi.
+Bản development mặc định expose 45 tool: query (gồm `dwg_get_drawing_profile` và `dwg_inspect_lisp`), modify, meta (gồm `dwg_send_code`/`dwg_run_lisp`), view, và `dwg_capture_view_image` mặc định bật. Các toolset tùy chọn ToolBaker, annotation, block, dimension, export, và drawing được kích hoạt qua `--toolsets`, nâng tổng diện tích bề mặt MCP lên 69 tool. Số tool đăng ký có tính `dwg_run_lisp`, hiện chỉ trả từ chối; không verdict nào cấp quyền thực thi.
 
 CAD tool chạy trên active document hiện tại của AutoCAD target đang chọn. Entity input và entity id trả về dùng AutoCAD hex handle, ví dụ `7F5AD`, do tool selection, creation, hoặc properties trả về. Creation, copy, offset, và modify response identify entity tạo/sửa bằng hex handle.
 
 Plan 2 query expansion chỉ quét model space: `dwg_query_entities`, `dwg_count_entities`, `dwg_select_by_layer`, và `dwg_select_by_type` không quét paper-space/layout entity. `dwg_select_by_layer` và `dwg_select_by_type` trả về handle list cho caller; chúng không đổi AutoCAD pickfirst selection.
 
+Bắt đầu đọc bản vẽ lớn bằng `dwg_get_drawing_profile()` (`section="summary"`, `offset=0`). Tool quét entity cấp trên cùng trong model space và mọi layout, không mở rộng block definition hay nội dung xref; một block reference được tính là một entity. Xem source, scope và trạng thái đầy đủ trước khi dùng tổng số. Nhóm type giữ nguyên tên runtime đầy đủ; nhóm layer và space có số đếm riêng. Số đã quan sát/chưa đầy đủ và giá trị chưa xác định được ghi rõ hoặc trả `null`, không coi là tổng đầy đủ.
+
+Theo `output.next_calls` để phân trang `types`, `layers` hoặc `spaces`; mỗi lời gọi đề xuất chứa `section`, `offset`, `expected_snapshot` và `max_output_bytes`. Trang đầu có thể bỏ `expected_snapshot`, nhưng `offset>0` bắt buộc có; snapshot đổi trả `PROFILE_CHANGED`, khi đó đọc lại summary. Giữ `document_id` riêng cùng kết quả. Mỗi trang quét lại drawing, không dùng cache. `max_output_bytes` mặc định 16384 (4096–65536), giới hạn kết quả MCP cuối đã serialize và còn chịu global response budget; nó giới hạn dung lượng trả về, không giới hạn thời gian quét.
+
 | Tool | Mục đích |
 |------|----------|
 | `dwg_health` | Probe health/identity server-plugin; tùy chọn check stable release, mặc định offline/read-only |
 | `dwg_get_drawing_info` | Đọc tên drawing, current layer, current space/layout, và unit scalar |
+| `dwg_get_drawing_profile` | Summary chỉ đọc và phân trang số lượng theo type/layer/space của entity cấp trên cùng trong model/layout, kiểm tra snapshot và giới hạn byte response cuối |
 | `dwg_get_entity_properties` | Đọc property của entity theo AutoCAD hex handle |
 | `dwg_list_layers` | Liệt kê layer trong drawing hiện tại kèm color và state flag |
 | `dwg_query_entities` | Query model-space entity theo type, layer, color, limit, và geometry flag tùy chọn |
@@ -453,7 +458,7 @@ Thông báo bên thứ ba: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
 
 ## Quyền và chế độ tự động
 
-Mọi tool trừ `dwg_send_code` khai báo đủ cờ read-only, destructive, idempotent và open-world. Chế độ full có 68 tool; read-only mặc định có 16, còn `--toolsets all --read-only` expose 22 tool đọc bên dưới. Zoom có thể đổi trạng thái UI tạm thời. Chuyển target bị loại trong read-only; capture, inspect region và restore cũng bị loại vì tạo file ảnh. `dwg_health` là tool đọc; tùy chọn kiểm tra cập nhật có thể gọi GitHub.
+Mọi tool trừ `dwg_send_code` khai báo đủ cờ read-only, destructive, idempotent và open-world. Chế độ full có 69 tool; read-only mặc định có 17, còn `--toolsets all --read-only` expose 23 tool đọc bên dưới. Zoom có thể đổi trạng thái UI tạm thời. Chuyển target bị loại trong read-only; capture, inspect region và restore cũng bị loại vì tạo file ảnh. `dwg_health` là tool đọc; tùy chọn kiểm tra cập nhật có thể gọi GitHub.
 
 Chỉ cấp quyền bằng rule chính xác cho tool bạn muốn dùng. Tránh wildcard `mcp__dwg-mcp__*` vì nó cấp cả quyền sửa bản vẽ/file và thực thi mã. `dwg_send_code` không có annotations và không nằm trong allowlist đọc này; quyền cho phép lâu dài phải là lựa chọn rõ ràng trong MCP client.
 
@@ -464,6 +469,7 @@ mcp__dwg-mcp__dwg_create_bake_issue_draft
 mcp__dwg-mcp__dwg_get_block_attributes
 mcp__dwg-mcp__dwg_get_current_target
 mcp__dwg-mcp__dwg_get_drawing_info
+mcp__dwg-mcp__dwg_get_drawing_profile
 mcp__dwg-mcp__dwg_get_entity_properties
 mcp__dwg-mcp__dwg_get_selected_texts
 mcp__dwg-mcp__dwg_get_variables

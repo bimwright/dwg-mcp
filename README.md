@@ -10,7 +10,7 @@
   <a href="https://github.com/bimwright/dwg-mcp/actions/workflows/build.yml"><img src="https://github.com/bimwright/dwg-mcp/actions/workflows/build.yml/badge.svg" alt="build" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="license" /></a>
   <a href="#supported-autocad-versions"><img src="https://img.shields.io/badge/AutoCAD-2022--2027-186BFF" alt="AutoCAD 2022-2027" /></a>
-  <a href="#tools"><img src="https://img.shields.io/badge/MCP-44%20default%20%2B%20optional-6C47FF" alt="MCP tools" /></a>
+  <a href="#tools"><img src="https://img.shields.io/badge/MCP-45%20default%20%2B%20optional-6C47FF" alt="MCP tools" /></a>
 </p>
 
 <p align="center">
@@ -217,7 +217,7 @@ After reconnect, compare fresh `initialize.serverInfo` and the health tool's `_m
 
 ## Tools
 
-Development startup exposes 44 tools: query (including `dwg_inspect_lisp`), modify, meta (including `dwg_send_code`/`dwg_run_lisp`), view, and default-on `dwg_capture_view_image`. Optional ToolBaker, annotation, block, dimension, export, and drawing toolsets, enabled through `--toolsets`, bring the backed MCP surface to 68 tools. The registered counts include `dwg_run_lisp`, which only returns a refusal; no scan verdict authorizes execution.
+Development startup exposes 45 tools: query (including `dwg_get_drawing_profile` and `dwg_inspect_lisp`), modify, meta (including `dwg_send_code`/`dwg_run_lisp`), view, and default-on `dwg_capture_view_image`. Optional ToolBaker, annotation, block, dimension, export, and drawing toolsets, enabled through `--toolsets`, bring the backed MCP surface to 69 tools. The registered counts include `dwg_run_lisp`, which only returns a refusal; no scan verdict authorizes execution.
 
 With no drawing open, use `dwg_list_recent_drawings` → user chooses → `dwg_open_drawing(path)`. Both are standalone `meta` tools; recent is available under `--read-only`, open is not (even with file `read_only=true`). Native dialogs may require the user; timeouts do not cancel an Open already running. See [drawing session tools](#drawing-session-tools) for parameters, API references and verification limits.
 
@@ -225,10 +225,15 @@ General CAD tools operate on the current active document in the selected AutoCAD
 
 Plan 2 query expansion is model-space only: `dwg_query_entities`, `dwg_count_entities`, `dwg_select_by_layer`, and `dwg_select_by_type` scan model space, not paper-space/layout entities. `dwg_select_by_layer` and `dwg_select_by_type` return handle lists for the caller; they do not change AutoCAD's pickfirst selection.
 
+Start a large-drawing read with `dwg_get_drawing_profile()` (`section="summary"`, `offset=0`). It scans top-level entities in model space and every layout, without expanding block definitions or xref contents; one block reference counts as one entity. Inspect the reported source, scope and completeness before interpreting totals. Type groups use exact runtime full names; layer and space groups retain their own counts. Observed/incomplete counts and unavailable values remain explicit or `null`, rather than being presented as complete totals.
+
+Follow `output.next_calls` to page `types`, `layers` or `spaces`; each suggested call includes `section`, `offset`, `expected_snapshot` and `max_output_bytes`. `expected_snapshot` is optional for the first page and required when `offset>0`; a changed snapshot returns `PROFILE_CHANGED`, so restart from summary. Keep the separate `document_id` with the response. Every page rescans the drawing without a cache. `max_output_bytes` defaults to 16384 (4096–65536) and limits the final serialized MCP result, also subject to the global response budget; it limits output size, not scan time.
+
 | Tool | Purpose |
 |------|---------|
 | `dwg_health` | Read-only host/runtime identity probe; optional stable-release check, offline by default |
 | `dwg_get_drawing_info` | Read current drawing name, current layer, current space/layout, and unit scalars |
+| `dwg_get_drawing_profile` | Read-only summary and paged type/layer/space counts across top-level model and layout entities, with snapshot checks and a final-response byte cap |
 | `dwg_get_entity_properties` | Read properties for entities identified by AutoCAD hex handles |
 | `dwg_list_layers` | List layers in the current drawing with color and state flags |
 | `dwg_query_entities` | Query model-space entities by optional type, layer, color, limit, and geometry flags |
@@ -538,7 +543,7 @@ Third-party notices: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
 
 ## Permissions & auto mode
 
-Every tool except `dwg_send_code` declares read-only, destructive, idempotent and open-world hints. Full mode has 68 tools; default read-only mode has 16, and `--toolsets all --read-only` exposes the 22 read-only tools below. Zoom can change transient UI state. Target switching, capture, region inspection and restore are excluded from read-only mode. `dwg_health` is read-only; its explicit update check can contact GitHub.
+Every tool except `dwg_send_code` declares read-only, destructive, idempotent and open-world hints. Full mode has 69 tools; default read-only mode has 17, and `--toolsets all --read-only` exposes the 23 read-only tools below. Zoom can change transient UI state. Target switching, capture, region inspection and restore are excluded from read-only mode. `dwg_health` is read-only; its explicit update check can contact GitHub.
 
 Use exact rules for the tools you intend to allow. Avoid `mcp__dwg-mcp__*`: it also permits drawing/file writes and code execution. `dwg_send_code` has no annotations and is deliberately absent from this read-only allowlist; any persistent approval for it must be an explicit choice in your MCP client.
 
@@ -549,6 +554,7 @@ mcp__dwg-mcp__dwg_create_bake_issue_draft
 mcp__dwg-mcp__dwg_get_block_attributes
 mcp__dwg-mcp__dwg_get_current_target
 mcp__dwg-mcp__dwg_get_drawing_info
+mcp__dwg-mcp__dwg_get_drawing_profile
 mcp__dwg-mcp__dwg_get_entity_properties
 mcp__dwg-mcp__dwg_get_selected_texts
 mcp__dwg-mcp__dwg_get_variables

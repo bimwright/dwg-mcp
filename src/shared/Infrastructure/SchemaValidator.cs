@@ -162,6 +162,12 @@ namespace Bimwright.Dwg.Plugin
 
         public static readonly CommandSchema GetDrawingInfo = CommandSchema.Empty;
 
+        public static readonly CommandSchema GetDrawingProfile = CommandSchema.Object(
+            SchemaProperty.Optional("section", JTokenType.String),
+            SchemaProperty.Optional("offset", JTokenType.Integer),
+            SchemaProperty.Optional("max_output_bytes", JTokenType.Integer),
+            SchemaProperty.Optional("expected_snapshot", JTokenType.String));
+
         public static readonly CommandSchema GetEntityProperties = CommandSchema.Object(
             SchemaProperty.Required("handles", JTokenType.Array),
             SchemaProperty.Optional("include_geometry", JTokenType.Boolean));

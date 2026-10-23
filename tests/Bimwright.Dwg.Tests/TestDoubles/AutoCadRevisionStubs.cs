@@ -3,7 +3,7 @@ using System.Runtime.CompilerServices;
 
 namespace Autodesk.AutoCAD.DatabaseServices
 {
-    public class DBObject { }
+    public partial class DBObject { }
     public class Viewport : DBObject { }
     public class ViewportTableRecord : DBObject { }
     public class ObjectEventArgs : EventArgs { public DBObject DBObject { get; set; } }

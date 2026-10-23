@@ -10,7 +10,7 @@
   <a href="https://github.com/bimwright/dwg-mcp/actions/workflows/build.yml"><img src="https://github.com/bimwright/dwg-mcp/actions/workflows/build.yml/badge.svg" alt="build" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="license" /></a>
   <a href="#支持的-autocad-版本"><img src="https://img.shields.io/badge/AutoCAD-2022--2027-186BFF" alt="AutoCAD 2022-2027" /></a>
-  <a href="#tools"><img src="https://img.shields.io/badge/MCP-44%20default%20%2B%20optional-6C47FF" alt="MCP tools" /></a>
+  <a href="#tools"><img src="https://img.shields.io/badge/MCP-45%20default%20%2B%20optional-6C47FF" alt="MCP tools" /></a>
 </p>
 
 <p align="center">
@@ -180,16 +180,21 @@ reconnect 后，在同一连接上将新的 initialize 与 `tools/list` 的 `_me
 
 ## Tools
 
-development 默认启动暴露 44 个工具：query（含 `dwg_inspect_lisp`）、modify、meta（含 `dwg_send_code`/`dwg_run_lisp`）、view 和默认启用的 `dwg_capture_view_image`。可选 ToolBaker、annotation、block、dimension、export 和 drawing 工具集，通过 `--toolsets` 启用，把后端可用的 MCP surface 扩充到 68 个工具。 注册数量包含仅返回拒绝的 `dwg_run_lisp`；任何扫描判定都不授权执行。
+development 默认启动暴露 45 个工具：query（含 `dwg_get_drawing_profile` 和 `dwg_inspect_lisp`）、modify、meta（含 `dwg_send_code`/`dwg_run_lisp`）、view 和默认启用的 `dwg_capture_view_image`。可选 ToolBaker、annotation、block、dimension、export 和 drawing 工具集，通过 `--toolsets` 启用，把后端可用的 MCP surface 扩充到 69 个工具。 注册数量包含仅返回拒绝的 `dwg_run_lisp`；任何扫描判定都不授权执行。
 
 通用 CAD 工具作用于所选 AutoCAD 目标中的当前活动文档。实体输入与返回的实体 ID 使用 AutoCAD 十六进制 handle，例如 `7F5AD`，由选择、创建或属性工具返回。创建、复制、偏移和修改操作的响应会用十六进制 handle 标识所生成或修改的实体。
 
 Plan 2 的查询扩展仅限模型空间：`dwg_query_entities`、`dwg_count_entities`、`dwg_select_by_layer` 和 `dwg_select_by_type` 扫描的是模型空间，而非图纸空间/布局实体。`dwg_select_by_layer` 和 `dwg_select_by_type` 返回给调用方的 handle 列表；它们不会改变 AutoCAD 的 pickfirst 选择。
 
+读取大型图纸时，先调用 `dwg_get_drawing_profile()`（`section="summary"`、`offset=0`）。它扫描模型空间和所有布局的顶层实体，不展开块定义或xref内容；一个块参照计为一个实体。使用总数前先检查source、scope和完整性。type按准确的运行时完整名称分组，layer和space也有各自的计数。已观察但不完整的计数以及不可用值会明确标注或返回 `null`，不会当作完整总数。
+
+按照 `output.next_calls` 分页读取 `types`、`layers` 或 `spaces`；建议调用包含 `section`、`offset`、`expected_snapshot` 和 `max_output_bytes`。第一页可省略 `expected_snapshot`，但 `offset>0` 时必须提供；snapshot变化会返回 `PROFILE_CHANGED`，此时应重新读取summary。结果中的独立 `document_id` 也应保留。每页都会重新扫描图纸，不使用缓存。`max_output_bytes` 默认16384（4096–65536），与全局response budget共同限制最终MCP结果序列化后的大小，不限制扫描时间。
+
 | 工具 | 用途 |
 |------|------|
 | `dwg_health` | host/runtime identity 与可选 stable release 检查；默认离线、只读 |
 | `dwg_get_drawing_info` | 读取当前图纸名称、当前图层、当前空间/布局，以及单位标量 |
+| `dwg_get_drawing_profile` | 只读汇总模型和布局的顶层实体，按type/layer/space分页计数，检查snapshot并限制最终response字节数 |
 | `dwg_get_entity_properties` | 读取由 AutoCAD 十六进制 handle 标识的实体属性 |
 | `dwg_list_layers` | 列出当前图纸中的图层及其颜色和状态标志 |
 | `dwg_query_entities` | 按可选的类型、图层、颜色、数量和几何标志查询模型空间实体 |
@@ -459,7 +464,7 @@ AutoCAD 和 Autodesk 是 Autodesk, Inc. 的注册商标。bimwright 是一个独
 
 ## 权限与自动模式
 
-除 `dwg_send_code` 外，每个工具都显式声明 read-only、destructive、idempotent 和 open-world 标记。完整模式有 68 个工具；默认只读模式有 16 个，`--toolsets all --read-only` 提供下列 22 个只读工具。缩放可能改变临时界面状态。只读模式会移除目标切换工具；截图、区域查看和视图恢复也因创建图片文件而被移除。`dwg_health` 为只读工具，显式更新检查可以访问 GitHub。
+除 `dwg_send_code` 外，每个工具都显式声明 read-only、destructive、idempotent 和 open-world 标记。完整模式有 69 个工具；默认只读模式有 17 个，`--toolsets all --read-only` 提供下列 23 个只读工具。缩放可能改变临时界面状态。只读模式会移除目标切换工具；截图、区域查看和视图恢复也因创建图片文件而被移除。`dwg_health` 为只读工具，显式更新检查可以访问 GitHub。
 
 仅为需要的工具设置精确权限规则。避免 `mcp__dwg-mcp__*` 通配规则，因为它也允许修改图纸、写文件和执行代码。`dwg_send_code` 没有 annotations，且不在此只读列表中；持久允许执行它必须由用户在 MCP 客户端中明确选择。
 
@@ -470,6 +475,7 @@ mcp__dwg-mcp__dwg_create_bake_issue_draft
 mcp__dwg-mcp__dwg_get_block_attributes
 mcp__dwg-mcp__dwg_get_current_target
 mcp__dwg-mcp__dwg_get_drawing_info
+mcp__dwg-mcp__dwg_get_drawing_profile
 mcp__dwg-mcp__dwg_get_entity_properties
 mcp__dwg-mcp__dwg_get_selected_texts
 mcp__dwg-mcp__dwg_get_variables

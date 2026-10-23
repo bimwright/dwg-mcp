@@ -9,7 +9,7 @@ namespace Bimwright.Dwg.Plugin
     {
         private static readonly HashSet<string> Reads = new HashSet<string>(StringComparer.Ordinal)
         {
-            "health", "set_tool_catalog", "ping", "list_recent_drawings", "get_drawing_info",
+            "health", "set_tool_catalog", "ping", "list_recent_drawings", "get_drawing_info", "get_drawing_profile",
             "get_entity_properties", "get_selected_texts", "list_layers", "query_entities",
             "count_entities", "select_by_layer", "select_by_type", "list_blocks",
             "get_block_attributes", "list_baked_tools", "get_variables",

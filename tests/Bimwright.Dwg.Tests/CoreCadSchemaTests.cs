@@ -8,6 +8,17 @@ namespace Bimwright.Dwg.Tests
     public class CoreCadSchemaTests
     {
         [Fact]
+        public void Drawing_profile_accepts_optional_group_page_and_budget_but_rejects_wrong_types()
+        {
+            var schema = GetCommandSchema("GetDrawingProfile");
+            AssertValid("get_drawing_profile", null, schema);
+            AssertValid("get_drawing_profile", JObject.Parse("{\"section\":\"layers\",\"offset\":5,\"max_output_bytes\":4096,\"expected_snapshot\":\"lifetime:2\"}"), schema);
+            AssertInvalidField("get_drawing_profile", JObject.Parse("{\"offset\":\"5\"}"), schema, "offset");
+            AssertInvalidField("get_drawing_profile", JObject.Parse("{\"max_output_bytes\":16.5}"), schema, "max_output_bytes");
+            AssertInvalidField("get_drawing_profile", JObject.Parse("{\"expected_snapshot\":7}"), schema, "expected_snapshot");
+            Assert.False(TargetContract.IsWrite("get_drawing_profile"));
+        }
+        [Fact]
         public void Validate_QueryEntitiesAcceptsOptionalFilters()
         {
             var schema = GetCommandSchema("QueryEntities");

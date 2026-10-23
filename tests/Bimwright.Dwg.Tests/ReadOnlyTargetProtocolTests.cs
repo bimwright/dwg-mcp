@@ -25,7 +25,7 @@ public class ReadOnlyTargetProtocolTests
         Assert.Equal(2, targets.Count());
         Assert.All(targets, target => Assert.Equal("2024", target.Value<string>("target")));
         var names = h.Catalog["tools"].Select(tool => tool.Value<string>("name")).ToArray();
-        Assert.Equal(22, names.Length);
+        Assert.Equal(23, names.Length);
         Assert.DoesNotContain("dwg_switch_target", names);
         Assert.All(h.Catalog["tools"], tool => Assert.True(tool["annotations"].Value<bool>("readOnlyHint")));
         Assert.Equal("none", Body(await h.CallAsync("dwg_get_current_target"))["result"].Value<string>("state"));

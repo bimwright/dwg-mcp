@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Bimwright.Dwg.Server.Tools;
 using Bimwright.Dwg.Tests.Helpers;
 using ModelContextProtocol.Server;
+using ModelContextProtocol.Protocol;
 using Newtonsoft.Json.Linq;
 using Xunit;
 
@@ -16,6 +17,7 @@ namespace Bimwright.Dwg.Tests
         {
             "dwg_count_entities",
             "dwg_get_drawing_info",
+            "dwg_get_drawing_profile",
             "dwg_get_entity_properties",
             "dwg_get_selected_texts",
             "dwg_inspect_lisp",
@@ -45,6 +47,38 @@ namespace Bimwright.Dwg.Tests
 
             Assert.Equal("get_drawing_info", sent.Command);
             Assert.Empty(sent.Json().Properties());
+        }
+
+        private static async Task<string> ProfileText(Task<CallToolResult> call)
+            => ((TextContentBlock)(await call).Content[0]).Text;
+
+        [Fact]
+        public async Task Drawing_profile_sends_its_own_default_byte_cap()
+        {
+            var sent = await Capture.Send(() => ProfileText(QueryTools.GetDrawingProfile()));
+            Assert.Equal("get_drawing_profile", sent.Command);
+            Assert.Equal(JObject.Parse("{\"section\":\"summary\",\"offset\":0,\"max_output_bytes\":16384}"), sent.Json());
+        }
+
+        [Fact]
+        public async Task Drawing_profile_forwards_group_continuation_without_normalizing_snapshot()
+        {
+            var sent = await Capture.Send(() => ProfileText(QueryTools.GetDrawingProfile("layers", 40, 8192, "snapshot:12")));
+            Assert.Equal(JObject.Parse("{\"section\":\"layers\",\"offset\":40,\"max_output_bytes\":8192,\"expected_snapshot\":\"snapshot:12\"}"), sent.Json());
+        }
+
+        [Theory]
+        [InlineData("all", 0, 16384, null)]
+        [InlineData("summary", 1, 16384, "snapshot:12")]
+        [InlineData("layers", -1, 16384, null)]
+        [InlineData("layers", 1, 16384, null)]
+        [InlineData("summary", 0, 4095, null)]
+        [InlineData("summary", 0, 65537, null)]
+        public async Task Invalid_profile_options_do_not_contact_the_plugin(string section, int offset, int bytes, string snapshot)
+        {
+            var error = await Capture.Local(() => ProfileText(QueryTools.GetDrawingProfile(section, offset, bytes, snapshot)));
+            Assert.False(error.Value<bool>("ok"));
+            Assert.NotEmpty(error.Value<string>("error"));
         }
 
         [Fact]

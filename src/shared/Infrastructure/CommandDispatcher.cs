@@ -30,6 +30,7 @@ namespace Bimwright.Dwg.Plugin
             _commands = new Dictionary<string, IAcadCommand>
             {
                 { "get_drawing_info",        new GetDrawingInfoHandler() },
+                { "get_drawing_profile",     new DrawingProfileHandler() },
                 { "get_entity_properties",   new GetEntityPropertiesHandler() },
                 { "get_selected_texts",      new GetSelectedTextsHandler() },
                 { "list_layers",             new ListLayersHandler() },

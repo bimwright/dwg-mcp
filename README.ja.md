@@ -10,7 +10,7 @@
   <a href="https://github.com/bimwright/dwg-mcp/actions/workflows/build.yml"><img src="https://github.com/bimwright/dwg-mcp/actions/workflows/build.yml/badge.svg" alt="build" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="license" /></a>
   <a href="#サポート対象autocadバージョン"><img src="https://img.shields.io/badge/AutoCAD-2022--2027-186BFF" alt="AutoCAD 2022-2027" /></a>
-  <a href="#ツール"><img src="https://img.shields.io/badge/MCP-44%20default%20%2B%20optional-6C47FF" alt="MCP tools" /></a>
+  <a href="#ツール"><img src="https://img.shields.io/badge/MCP-45%20default%20%2B%20optional-6C47FF" alt="MCP tools" /></a>
 </p>
 
 <p align="center">
@@ -180,16 +180,21 @@ reconnect 後、同じ接続の新しい initialize と `tools/list` の `_meta[
 
 ## ツール
 
-development のデフォルト起動では44のツール（クエリ（`dwg_inspect_lisp` 含む）、変更、メタ（`dwg_send_code`/`dwg_run_lisp` 含む）、ビュー、およびデフォルト有効の `dwg_capture_view_image`）が公開されます。オプショナルのToolBaker、注釈、ブロック、寸法、エクスポート、作図ツールセットは `--toolsets` で有効にでき、MCPサーフェス全体は68ツールになります。 登録数には拒否のみを返す `dwg_run_lisp` が含まれます。スキャン判定は実行を許可しません。
+development のデフォルト起動では45のツール（クエリ（`dwg_get_drawing_profile` と `dwg_inspect_lisp` 含む）、変更、メタ（`dwg_send_code`/`dwg_run_lisp` 含む）、ビュー、およびデフォルト有効の `dwg_capture_view_image`）が公開されます。オプショナルのToolBaker、注釈、ブロック、寸法、エクスポート、作図ツールセットは `--toolsets` で有効にでき、MCPサーフェス全体は69ツールになります。 登録数には拒否のみを返す `dwg_run_lisp` が含まれます。スキャン判定は実行を許可しません。
 
 一般的なCADツールは、選択されたAutoCADターゲットの現在アクティブなドキュメントに対して動作します。エンティティ入力と返されるエンティティIDは、`7F5AD` のようなAutoCAD 16進ハンドルを使用します。作成、コピー、オフセット、および変更の応答は、生成または変更されたエンティティを16進ハンドルで識別します。
 
 Plan 2 のクエリ拡張はモデル空間のみです。`dwg_query_entities`、`dwg_count_entities`、`dwg_select_by_layer`、`dwg_select_by_type` はペーパー空間/レイアウトエンティティではなくモデル空間をスキャンします。`dwg_select_by_layer` と `dwg_select_by_type` は呼び出し元にハンドルリストを返します。AutoCADのピックファースト選択は変更しません。
 
+大きな図面の読み取りは `dwg_get_drawing_profile()`（`section="summary"`、`offset=0`）から始めます。モデル空間と全レイアウトの最上位エンティティを走査し、ブロック定義やxrefの内容は展開しません。ブロック参照一つを一つのエンティティとして数えます。合計を使う前にsource、scope、完全性を確認してください。typeは正確なランタイム完全名で分類し、layerとspaceも個別に集計します。観測済み・不完全な件数や取得不能値は明示するか `null` を返し、完全な合計とは扱いません。
+
+`output.next_calls` に従い `types`、`layers`、`spaces` をページ取得します。提案には `section`、`offset`、`expected_snapshot`、`max_output_bytes` が含まれます。最初のページでは `expected_snapshot` は省略可能ですが、`offset>0` では必須です。snapshotが変わると `PROFILE_CHANGED` を返すのでsummaryからやり直します。別の `document_id` も結果と一緒に保持してください。各ページで図面を再走査し、キャッシュは使いません。`max_output_bytes` の既定は16384（4096–65536）で、グローバルresponse budgetとともに最終MCP結果のシリアライズ後サイズを制限します。走査時間の制限ではありません。
+
 | ツール | 目的 |
 |------|---------|
 | `dwg_health` | host/runtime identity と任意の stable release 確認。既定はオフライン・読み取り専用 |
 | `dwg_get_drawing_info` | 現在の図面名、現在の画層、現在のスペース/レイアウト、単位スカラーを読み取る |
+| `dwg_get_drawing_profile` | モデル・レイアウトの最上位エンティティを読み取り専用で集計。type/layer/space別ページ、snapshot確認、最終responseのバイト上限 |
 | `dwg_get_entity_properties` | AutoCAD 16進ハンドルで識別されるエンティティのプロパティを読み取る |
 | `dwg_list_layers` | 現在の図面の画層を色と状態フラグとともに一覧表示 |
 | `dwg_query_entities` | オプションのタイプ、画層、色、制限、形状フラグでモデル空間エンティティをクエリ |
@@ -457,7 +462,7 @@ AutoCAD および Autodesk は Autodesk, Inc. の登録商標です。bimwright 
 
 ## 権限と自動モード
 
-`dwg_send_code` 以外の各ツールは read-only、destructive、idempotent、open-world の各属性を明示します。通常の全ツールモードは68ツール、既定の読み取り専用モードは16ツール、`--toolsets all --read-only` は以下の22読み取り専用ツールです。ズームは一時的なUI状態を変更できます。ターゲット切り替えは読み取り専用モードから除外されます。キャプチャ、領域検査、ビュー復元も画像ファイルを作成するため除外されます。`dwg_health` は読み取り専用ですが、明示的な更新チェックではGitHubに接続できます。
+`dwg_send_code` 以外の各ツールは read-only、destructive、idempotent、open-world の各属性を明示します。通常の全ツールモードは69ツール、既定の読み取り専用モードは17ツール、`--toolsets all --read-only` は以下の23読み取り専用ツールです。ズームは一時的なUI状態を変更できます。ターゲット切り替えは読み取り専用モードから除外されます。キャプチャ、領域検査、ビュー復元も画像ファイルを作成するため除外されます。`dwg_health` は読み取り専用ですが、明示的な更新チェックではGitHubに接続できます。
 
 許可するツールだけに正確なルールを設定してください。`mcp__dwg-mcp__*` のワイルドカードは図面編集、ファイル書き込み、コード実行も許可するため避けてください。`dwg_send_code` は annotations を持たず、この読み取り専用リストには含まれません。継続的な実行許可はMCPクライアントで明示的に選択してください。
 
@@ -468,6 +473,7 @@ mcp__dwg-mcp__dwg_create_bake_issue_draft
 mcp__dwg-mcp__dwg_get_block_attributes
 mcp__dwg-mcp__dwg_get_current_target
 mcp__dwg-mcp__dwg_get_drawing_info
+mcp__dwg-mcp__dwg_get_drawing_profile
 mcp__dwg-mcp__dwg_get_entity_properties
 mcp__dwg-mcp__dwg_get_selected_texts
 mcp__dwg-mcp__dwg_get_variables

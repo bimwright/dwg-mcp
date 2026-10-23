@@ -28,7 +28,7 @@ namespace Bimwright.Dwg.Tests
         [Fact]
         public void Every_non_code_tool_sets_all_four_hints_explicitly()
         {
-            Assert.Equal(68, Methods.Length);
+            Assert.Equal(69, Methods.Length);
             foreach (var method in Methods)
             {
                 var attribute = method.CustomAttributes.Single(a => a.AttributeType == typeof(McpServerToolAttribute));
@@ -48,6 +48,17 @@ namespace Bimwright.Dwg.Tests
         [InlineData("RestoreView")]
         public void Image_file_tools_are_writes(string method)
             => Assert.False(typeof(ViewTools).GetMethod(method).GetCustomAttribute<McpServerToolAttribute>().ReadOnly);
+
+        [Fact]
+        public void Drawing_profile_is_read_only_nondestructive_idempotent_and_local()
+        {
+            var tool = Methods.Select(method => method.GetCustomAttribute<McpServerToolAttribute>())
+                .Single(attribute => attribute.Name == "dwg_get_drawing_profile");
+            Assert.True(tool.ReadOnly);
+            Assert.False(tool.Destructive);
+            Assert.True(tool.Idempotent);
+            Assert.False(tool.OpenWorld);
+        }
 
         public static IEnumerable<object[]> WriteCommands()
             => Methods.Select(method => method.GetCustomAttribute<McpServerToolAttribute>())

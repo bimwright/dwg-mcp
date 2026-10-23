@@ -1,7 +1,10 @@
 using System.Collections.Generic;
+using System;
 using System.ComponentModel;
 using System.Threading.Tasks;
 using ModelContextProtocol.Server;
+using ModelContextProtocol.Protocol;
+using Bimwright.Dwg.Plugin;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
@@ -18,6 +21,29 @@ namespace Bimwright.Dwg.Server.Tools
         {
             var request = new { };
             return ToolGateway.LoggedCall("get_drawing_info", request, request);
+        }
+
+        [McpServerTool(Name = "dwg_get_drawing_profile", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false), Description(
+            "Profile the active drawing with a full read-only enumeration of top-level model-space and all layout entities. " +
+            "Reports exact managed runtime type, layer and per-space counts with source/coverage; incomplete reads report observed counts and null exact totals. " +
+            "Block inserts count once; nested block contents, uninserted definitions and xref contents are not expanded. " +
+            "The default final MCP output cap is 16384 UTF-8 bytes, independent of the global response budget. " +
+            "Content identifies omitted groups and next_calls for types/layers/spaces. Each page rescans; pass expected_snapshot from the previous result when offset is positive. " +
+            "A changed document/revision refuses continuation. No geometry, selection or drawing changes.")]
+        public static async Task<CallToolResult> GetDrawingProfile(
+            [Description("summary (default), types, layers or spaces. Summary starts all tables at offset zero.")] string section = "summary",
+            [Description("Ordinal group offset for the selected table, default 0; positive offsets require expected_snapshot.")] int offset = 0,
+            [Description("Maximum final MCP result bytes, default 16384; supported range 4096..65536. A smaller global budget still applies.")] int max_output_bytes = DrawingProfileOptions.DefaultMaxOutputBytes,
+            [Description("Snapshot token from a previous profile result. Required for positive offsets; mismatches require restarting at offset zero.")] string expected_snapshot = null)
+        {
+            try { DrawingProfileOptions.Create(section, offset, max_output_bytes, expected_snapshot); }
+            catch (ArgumentException ex)
+            {
+                return DrawingProfileResponse.FromJson(JsonConvert.SerializeObject(new { ok = false, error = ex.Message }), DrawingProfileOptions.DefaultMaxOutputBytes);
+            }
+            var request = new JObject { ["section"] = section, ["offset"] = offset, ["max_output_bytes"] = max_output_bytes };
+            if (expected_snapshot != null) request["expected_snapshot"] = expected_snapshot;
+            return DrawingProfileResponse.FromJson(await ToolGateway.LoggedCall("get_drawing_profile", request, request), max_output_bytes);
         }
 
         [McpServerTool(Name = "dwg_get_entity_properties", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false), Description(

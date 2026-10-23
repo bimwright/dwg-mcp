@@ -16,8 +16,12 @@ namespace Bimwright.Dwg.Plugin.View
         private static DocumentCollection documents;
         private Database database;
         private long revision;
+        private long profileRevision;
         internal string SessionId { get; } = Guid.NewGuid().ToString("N");
         internal long Revision => Interlocked.Read(ref revision);
+        // Profiles include layout viewports and their layers; any object change
+        // invalidates histogram continuation, including navigation-related objects.
+        internal long ProfileRevision => Interlocked.Read(ref profileRevision);
         internal static DrawingRevision For(Document document)
         {
             if (document == null) throw new ArgumentNullException(nameof(document));
@@ -86,6 +90,7 @@ namespace Bimwright.Dwg.Plugin.View
 
         private void Changed(DBObject value)
         {
+            Interlocked.Increment(ref profileRevision);
             // Navigation itself updates view state; its full metadata is checked
             // independently. All other observed database-object changes invalidate history.
             if (!(value is ViewportTableRecord) && !(value is Viewport))
