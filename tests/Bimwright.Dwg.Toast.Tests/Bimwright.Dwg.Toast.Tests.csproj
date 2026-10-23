@@ -25,6 +25,9 @@
     <Compile Include="../../src/shared/Views/Toast/McpToastNotifier.cs" Link="McpToastNotifier.cs" />
     <Compile Include="../../src/shared/Config/PluginSettings.cs" Link="PluginSettings.cs" />
     <Compile Include="../../src/shared/Infrastructure/PluginLog.cs" Link="PluginLog.cs" />
+    <Compile Include="../../src/shared/Infrastructure/PluginTarget.cs" Link="PluginTarget.cs" />
+    <Compile Include="../../src/shared/Logging/DiagnosticLog.cs" Link="DiagnosticLog.cs" />
+    <Compile Include="../../src/shared/Logging/BoundedLogFile.cs" Link="BoundedLogFile.cs" />
     <Compile Include="../../src/shared/Views/Toast/McpToastTheme.cs" Link="McpToastTheme.cs" />
     <Compile Include="../../src/shared/Views/Toast/McpToastViewModel.cs" Link="McpToastViewModel.cs" />
     <Compile Include="../../src/shared/Views/Toast/ToolActivityClassifier.cs" Link="ToolActivityClassifier.cs" />

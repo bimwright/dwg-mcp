@@ -5,6 +5,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Threading;
+using Bimwright.Dwg.Plugin;
 using Bimwright.Dwg.Plugin.Views.Toast;
 
 internal static class Program
@@ -12,6 +13,9 @@ internal static class Program
     [STAThread]
     private static int Main(string[] args)
     {
+        var tempRoot = Path.GetFullPath(Path.GetTempPath()).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        var diagnosticsRoot = Path.GetFullPath(Path.Combine(tempRoot, "dwg-toast-diagnostics-" + Guid.NewGuid().ToString("N")));
+        DiagnosticLog.LocalAppDataOverride = diagnosticsRoot;
         try
         {
             if (args.Length == 1 && args[0] == "--settings-idle")
@@ -78,6 +82,14 @@ internal static class Program
         {
             Console.Error.WriteLine(ex);
             return 1;
+        }
+        finally
+        {
+            if (!DiagnosticLog.Flush(5000))
+                throw new IOException("WPF diagnostics did not drain; retained temporary files at " + diagnosticsRoot);
+            if (!diagnosticsRoot.StartsWith(tempRoot, StringComparison.OrdinalIgnoreCase))
+                throw new IOException("Unsafe WPF diagnostics cleanup path.");
+            if (Directory.Exists(diagnosticsRoot)) Directory.Delete(diagnosticsRoot, recursive: true);
         }
     }
 
