@@ -2,6 +2,11 @@
 
 ## 2.1.1 — Unreleased
 
+### Response budgets
+
+- Measure final MCP tool results as serialized UTF-8, including escaping, metadata and image blocks. Configurable warning thresholds and a byte budget default to 80 MiB to preserve existing 8 MiB inline captures.
+- Compact oversized output after a single invocation, preserving reported failure/partial/truncation facts and bounded effect evidence. Writes retain outcome-inspection guidance without replay; reads receive narrowing guidance. No output spill or automatic retry is performed.
+
 ### Tool argument diagnostics
 
 - Check required top-level argument keys before SDK binding. Missing keys return `INVALID_ARGUMENT` with case-sensitive name suggestions and key-only diagnostics, without invoking the tool or AutoCAD. Rejection logs remain opt-in and exclude argument values.

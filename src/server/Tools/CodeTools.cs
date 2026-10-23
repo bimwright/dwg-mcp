@@ -30,6 +30,7 @@ namespace Bimwright.Dwg.Server.Tools
             "Default namespaces: System, System.Collections.Generic, System.Linq, Autodesk.AutoCAD.ApplicationServices, " +
             "Autodesk.AutoCAD.DatabaseServices, Autodesk.AutoCAD.EditorInput, Autodesk.AutoCAD.Geometry. " +
             "result/stdout are returned inline; output above the current 10 MiB plugin limit is truncated, with no full-output spill file. " +
+            "The configured final MCP response budget may further compact output after execution. " +
             "Keep results small and never repeat a drawing mutation just to recover output.")]
         public static Task<string> SendCode(
             [Description("C# code to execute")] string code)
