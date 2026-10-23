@@ -153,5 +153,8 @@ $manifest | ConvertTo-Json -Depth 20 | Set-Content (Join-Path $stageRoot 'manife
 $setupZip = Join-Path $OutputDir ("DwgMcp.Setup-{0}-win-x64.zip" -f $displayVersion)
 if (Test-Path $setupZip) { Remove-Item $setupZip -Force }
 Compress-Archive -Path (Join-Path $stageRoot '*') -DestinationPath $setupZip -Force
+$checksum = (Get-Sha256Lower $setupZip) + '  ' + [IO.Path]::GetFileName($setupZip) + "`n"
+[IO.File]::WriteAllText($setupZip + '.sha256', $checksum, (New-Object Text.UTF8Encoding($false)))
 Write-Host "Output : $setupZip"
+Write-Host "SHA256 : $setupZip.sha256"
 Write-Host "Years  : $($packedYears -join ', ')"

@@ -110,7 +110,7 @@ Xem [ARCHITECTURE.md](ARCHITECTURE.md) để biết chi tiết về threading, d
 
 ## Cài đặt
 
-Tải setup ZIP từ [GitHub Releases](https://github.com/bimwright/dwg-mcp/releases/latest) (`DwgMcp.Setup-*-win-x64.zip`). v1.0.0 gồm plugin AutoCAD **2024** và **2027**. Giải nén rồi `install.ps1` (xem README tiếng Anh để copy-paste đầy đủ).
+Tải setup ZIP từ [GitHub Releases](https://github.com/bimwright/dwg-mcp/releases/latest) (`DwgMcp.Setup-*-win-x64.zip`). Xem `packedAutocadYears` trong `manifest.json` và `PackageContents.xml` của bundle trong ZIP đã tải để biết các năm có plugin; xem ghi chú phát hành để biết các năm đã kiểm chứng trên AutoCAD đang chạy. Source có shell cho 2022–2027, còn plugin đóng gói và host đã kiểm chứng tùy từng bản phát hành. Năm chưa có trong gói cần build plugin từ source với AutoCAD SDK tương ứng. Giải nén rồi chạy `install.ps1` (xem README tiếng Anh để copy-paste đầy đủ).
 
 Không `dotnet tool install -g Bimwright.Dwg.Server`.
 

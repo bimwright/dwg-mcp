@@ -110,7 +110,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for threading, discovery, and auth detail
 
 ## Install
 
-Download the client setup ZIP from [GitHub Releases](https://github.com/bimwright/dwg-mcp/releases/latest). It includes a self-contained MCP server and the AutoCAD plugin years that were compiled for that release (see `manifest.json` inside the ZIP). This machine’s v1.0.0 ZIP ships **2024** and **2027**. Other years: build the plugin from source with that year’s AutoCAD SDK.
+Download the client setup ZIP from [GitHub Releases](https://github.com/bimwright/dwg-mcp/releases/latest). It includes a self-contained MCP server and release-specific AutoCAD plugins. Check `packedAutocadYears` in the downloaded ZIP's `manifest.json` and its bundle `PackageContents.xml` for the included years; check the release notes for years verified in a running AutoCAD host. Source shells cover 2022–2027, while packaged plugins and tested host years depend on the release. For a year absent from the package, build the plugin from source with that year's AutoCAD SDK.
 
 ```powershell
 $tag = (Invoke-RestMethod https://api.github.com/repos/bimwright/dwg-mcp/releases/latest).tag_name

@@ -13,6 +13,7 @@
 - Keep one binding for every host tool in a gateway, including health, catalog and send-code. Pin calls before asynchronous work, check binding generation immediately before transport writes, and never route to another instance after process loss or PID reuse. Concurrent or failed verification cannot replace a newer or previously valid binding.
 - `dwg_switch_target` verifies authenticated host and drawing identity by default. Changing an existing instance binding requires an explicit `pid:`/`id:` selector; leaving a live confirmed target also requires `rebind=true`. Initial/`verify=false` bindings allow reads only; reselecting the same process without verification retains its previous expected drawing lifetime ID unless `rebind=true` resets it or an explicit `expected_document_id` replaces it. Confirming a different drawing requires a matching explicit `expected_document_id` or `rebind=true`. Validate the document lifetime on the AutoCAD UI thread under its lock before handlers, including batch/baked/send-code. Opening itself requires only a confirmed instance and never saves/closes drawings.
 - Classify target switching as a routing write: exclude `dwg_switch_target` from read-only catalogs and refuse direct calls before changing the binding or contacting the host. Read-only startup selects `--target pid:<PID>`/`id:acad-<year>-<PID>`; target-loss recovery lists available targets and asks for a gateway restart with an explicit selector. No fallback instance is selected.
+- Include process and drawing identities in routing recovery errors. Retry guidance uses the current verified process identity; lost or reused PID information is marked historical and requires review before reselection.
 - Update gateway and plugin together for writes. Old plugins cannot satisfy target verification; new plugins refuse unguarded writes from old gateways. `--target` selects the initial instance and does not authorize writes. See the routing workflow in [README](README.md).
 
 ### send_code
@@ -38,6 +39,10 @@
 
 - Fix installer matrix shell selection by resolving it through job defaults; Windows PowerShell and PowerShell 7 remain separate jobs.
 - Add a public-tree CI check with positive/negative path fixtures. Move internal release checklists and WPF harness notes out of the public product tree.
+
+### Setup integrity
+
+- Write a SHA-256 sidecar next to each Setup ZIP and align the Autodesk bundle template version with the gateway. Product documentation points to each package's manifest for included AutoCAD years and its release notes for host validation coverage.
 
 ### Documentation
 

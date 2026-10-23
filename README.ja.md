@@ -110,7 +110,7 @@ AIエージェントは、「選択したすべてのテキストをベトナム
 
 ## インストール
 
-[GitHub Releases](https://github.com/bimwright/dwg-mcp/releases/latest) から setup ZIP（`DwgMcp.Setup-*-win-x64.zip`）を入手。v1.0.0 は AutoCAD **2024** と **2027** プラグイン入り。展開して `install.ps1`（全文は英語 README）。
+[GitHub Releases](https://github.com/bimwright/dwg-mcp/releases/latest) から setup ZIP（`DwgMcp.Setup-*-win-x64.zip`）を入手してください。同梱する年次バージョンは、ダウンロードしたZIP内の `manifest.json` の `packedAutocadYears` と bundle の `PackageContents.xml` で確認し、実行中のAutoCADで検証済みの年次バージョンはリリースノートで確認してください。ソースには2022–2027のシェルがありますが、同梱プラグインと実ホストの検証範囲はリリースごとに異なります。未同梱の年次バージョンは、対応するAutoCAD SDKでソースからビルドします。展開して `install.ps1` を実行してください（全文は英語 README）。
 
 `dotnet tool install -g Bimwright.Dwg.Server` は使わないでください。
 

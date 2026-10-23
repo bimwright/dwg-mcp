@@ -110,7 +110,7 @@ AI agent 让“把选中的文字全部翻译成越南语”这类意图可以�
 
 ## 安装
 
-从 [GitHub Releases](https://github.com/bimwright/dwg-mcp/releases/latest) 下载 setup ZIP（`DwgMcp.Setup-*-win-x64.zip`）。v1.0.0 含 AutoCAD **2024** 与 **2027** 插件。解压后运行 `install.ps1`（完整命令见英文 README）。
+从 [GitHub Releases](https://github.com/bimwright/dwg-mcp/releases/latest) 下载 setup ZIP（`DwgMcp.Setup-*-win-x64.zip`）。请查看已下载ZIP内 `manifest.json` 的 `packedAutocadYears` 和 bundle 的 `PackageContents.xml`，确认实际包含哪些年份的插件；在运行中的AutoCAD上已验证的年份请查阅发行说明。源码提供2022–2027的shell，但打包插件和实机验证范围取决于具体版本。未包含的年份需要用对应的AutoCAD SDK从源码构建插件。解压后运行 `install.ps1`（完整命令见英文 README）。
 
 不要 `dotnet tool install -g Bimwright.Dwg.Server`。
 
