@@ -44,7 +44,7 @@ public sealed class TextReadProtocolTests : IDisposable
             Assert.Equal(Encoding.UTF8.GetByteCount(gateway.LastRawResult), ResponseBudget.Measure(typed));
             var body = Body(reply); Assert.True(body.Value<bool>("ok")); var page = body["result"];
             Assert.True(page.Value<bool>("read_only")); Assert.False(page.Value<bool>("writeback_ready"));
-            Assert.True(page.Value<bool>("legacy_cluster_state_cleared")); Assert.False(ClusterStateStore.HasState());
+            Assert.True(page.Value<bool>("legacy_cluster_state_preserved")); Assert.True(ClusterStateStore.HasState());
             var clusters = page["clusters"].ToArray(); Assert.NotEmpty(clusters);
             foreach (var cluster in clusters)
             {

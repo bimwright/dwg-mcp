@@ -271,7 +271,7 @@ development 默认启动暴露 45 个工具：query（含 `dwg_get_drawing_profi
 
 按照 `result.output.next_calls` 调用，保持MCP camelCase参数 `groupingStrength`、`includeEntities`。cursor绑定document/scope revision、来源、grouping设置和文字专用cluster序号，不是entity handle。byte fitting只移除整个cluster，只推进到已交付的cluster；检查 `omitted_clusters`、blocked说明和续页信息。cluster太大时，可提高cap至65536（若全局budget更小也需调整），或使用 `includeEntities=false`、较弱grouping或更窄来源。改变source/grouping/includeEntities必须不用cursor重新开始。
 
-新来源结果为 `read_only=true`、`writeback_ready=false`，返回opaque `cluster_key`，没有旧数字ID或 `rewrite_mode`。受理新来源会清除旧rewrite分组，但不改变CAD几何或选择。之后 `dwg_translate_and_rewrite` 会拒绝，直到重新做一次**手动选择**读取；本阶段不允许从新来源页直接写回。新来源读取只能直接调用，gateway/plugin在执行前拒绝整个batch及增强baked调用；旧选择batch保持不变。旧plugin不支持来源时，gateway返回 `TEXT_FEATURE_UNSUPPORTED` 并丢弃selection payload，不会回退到选择结果。
+新来源结果为 `read_only=true`、`writeback_ready=false`，返回opaque `cluster_key`，没有旧数字ID或 `rewrite_mode`。新来源读取会保留已有的rewrite分组，也不改变CAD几何或选择。按实体翻译时，用 `includeEntities=true` 读取，再按handle调用 `dwg_update_texts` 写回；`dwg_translate_and_rewrite` 仍需**手动选择**读取，本阶段不允许从新来源页按簇写回。新来源读取只能直接调用，gateway/plugin在执行前拒绝整个batch及增强baked调用；旧选择batch保持不变。旧plugin不支持来源时，gateway返回 `TEXT_FEATURE_UNSUPPORTED` 并丢弃selection payload，不会回退到选择结果。
 
 启用 `toolbaker` 工具集时会暴露可选 ToolBaker 工具：
 

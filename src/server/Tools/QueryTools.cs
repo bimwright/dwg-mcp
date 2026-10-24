@@ -187,7 +187,7 @@ namespace Bimwright.Dwg.Server.Tools
             "Read and cluster text. Existing two-argument calls use AutoCAD pickfirst selection and legacy rewrite IDs. " +
             "Supply handles or bbox to read without selecting anything; choose exactly one explicit source. " +
             "Explicit-source mode reads top-level DBText/MText/MLeader, does not expand blocks/xrefs, clusters the full declared source before paging whole clusters, and returns read-only cluster_key values. " +
-            "It clears legacy rewrite state; fresh manual-selection extraction is required before legacy translation/writeback. " +
+            "It leaves legacy rewrite state unchanged. For per-entity writes use includeEntities=true then dwg_update_texts by handle; cluster rewrite still requires manual selection. " +
             "Cursor, content omissions and next_calls follow the bounded query pattern (default16384 final MCP UTF-8 bytes). " +
             "Source limits5000 text records/8MiB UTF-8; incomplete sources produce no groups or continuation. " +
             "Model snapshots ignore viewport navigation; entity changes refuse continuation. Explicit-source calls must be direct outside batches/baked tools. " +

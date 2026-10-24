@@ -20,7 +20,6 @@ namespace Bimwright.Dwg.Plugin.Cad
         internal const int MaxTextUtf8Bytes = TextReadOptions.MaxTextUtf8Bytes;
         private const int MaxRows = 128;
         private const int MaxRawBytes = 128 * 1024;
-        private const string ClearedGuidance = " Legacy cluster state was cleared; use a fresh manual-selection read before legacy translation/writeback.";
 
         internal static JObject Read(Document document, TextReadOptions options)
         {
@@ -28,11 +27,9 @@ namespace Bimwright.Dwg.Plugin.Cad
             var revision = DrawingRevision.For(document);
             var snapshot = revision.Snapshot(options.Query.Space);
             var after = options.Cursor == null ? 0UL : EntityQueryCursor.Read(options.Cursor, snapshot, options.Fingerprint);
-            // Old numeric IDs must never continue to refer to an earlier manual selection.
-            ClusterStateStore.Replace(Array.Empty<ClusterState>());
-            try { return ReadSource(document, options, revision, snapshot, after); }
-            catch (Exception ex)
-            { throw new InvalidOperationException(ex.Message + ClearedGuidance, ex); }
+            // Opaque cluster_key values cannot collide with legacy numeric IDs, so an
+            // explicit read leaves a prior manual-selection rewrite state intact.
+            return ReadSource(document, options, revision, snapshot, after);
         }
 
         private static JObject ReadSource(Document document, TextReadOptions options, DrawingRevision revision, string snapshot, ulong after)
@@ -196,7 +193,7 @@ namespace Bimwright.Dwg.Plugin.Cad
             {
                 ["text_page_version"] = 1, ["snapshot"] = snapshot, ["document_id"] = DocumentTargetGuard.Id(document),
                 ["query_hash"] = options.Fingerprint, ["query_arguments"] = options.ToArguments(),
-                ["read_only"] = true, ["writeback_ready"] = false, ["legacy_cluster_state_cleared"] = true,
+                ["read_only"] = true, ["writeback_ready"] = false, ["legacy_cluster_state_preserved"] = true,
                 ["scope"] = scope,
                 ["source"] = new JObject { ["kind"] = options.Handles == null ? "bbox" : "handles",
                     ["api"] = "AutoCAD managed DatabaseServices", ["extraction"] = "top_level_DBText_MText_MLeader",
@@ -209,7 +206,7 @@ namespace Bimwright.Dwg.Plugin.Cad
                 ["matches_after_cursor"] = stats.Complete ? new JValue(0) : JValue.CreateNull(),
                 ["clusters"] = new JArray(), ["_checkpoints"] = new JArray(),
                 ["_continuation_allowed"] = false, ["_host_more"] = false,
-                ["guidance"] = "This is a read-only text result, not legacy rewrite state. A fresh manual-selection get_selected_texts call is required before legacy translation/writeback."
+                ["guidance"] = "This is a read-only text result, not legacy rewrite state; existing legacy rewrite groups are unchanged. For per-entity writes, read with includeEntities=true and call dwg_update_texts by handle. Cluster rewrite still requires a manual-selection get_selected_texts call."
             };
             var units = new JObject { ["coordinates"] = "drawing_units_no_conversion" };
             try { var value = document.Database.Insunits; units["insunits"] = value.ToString(); units["insunits_code"] = (int)value; }

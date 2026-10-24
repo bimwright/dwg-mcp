@@ -271,7 +271,7 @@ development のデフォルト起動では45のツール（クエリ（`dwg_get_
 
 `result.output.next_calls` のMCP camelCase引数 `groupingStrength`、`includeEntities` を保持してください。cursorはdocument/scope revision、ソース、grouping設定とtext専用のクラスター序数に結び付き、entity handleではありません。byte fittingはクラスターを丸ごと外し、返却済みクラスターまでしか進めません。`omitted_clusters`、blockedの説明、継続情報を確認してください。大きすぎるクラスターはcapを最大65536まで上げ（制限中のglobal budgetも調整）、または `includeEntities=false`、弱いgrouping、狭いソースを使います。source/grouping/includeEntitiesを変える場合はcursorなしでやり直します。
 
-新ソース結果は `read_only=true`、`writeback_ready=false` で、従来の数値IDや `rewrite_mode` の代わりにopaqueな `cluster_key` を返します。新ソースを受理するとCAD形状や選択を変えずに古いrewriteグループを消去します。その後 `dwg_translate_and_rewrite` は新しい**手動選択**読み取りまで拒否し、この段階では新ソースページから直接書き戻せません。新ソース読み取りは直接呼び出しのみで、gateway/pluginがbatch全体と拡張baked呼び出しを実行前に拒否します。従来選択batchは維持します。古いpluginがソースを扱えない場合、gatewayは `TEXT_FEATURE_UNSUPPORTED` を返して選択payloadを破棄し、選択へフォールバックしません。
+新ソース結果は `read_only=true`、`writeback_ready=false` で、従来の数値IDや `rewrite_mode` の代わりにopaqueな `cluster_key` を返します。新ソース読み取りは既存のrewriteグループを保持し、CAD形状や選択も変えません。エンティティ単位で翻訳する場合は `includeEntities=true` で読み取り、handle指定の `dwg_update_texts` で書き込みます。`dwg_translate_and_rewrite` には引き続き**手動選択**読み取りが必要で、この段階では新ソースページからクラスタ単位で書き戻せません。新ソース読み取りは直接呼び出しのみで、gateway/pluginがbatch全体と拡張baked呼び出しを実行前に拒否します。従来選択batchは維持します。古いpluginがソースを扱えない場合、gatewayは `TEXT_FEATURE_UNSUPPORTED` を返して選択payloadを破棄し、選択へフォールバックしません。
 
 オプショナルのToolBakerツールは、`toolbaker` ツールセットが有効な場合に公開されます:
 

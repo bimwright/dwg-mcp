@@ -51,7 +51,7 @@ public sealed class TextReadTests : IDisposable
         var explicitRead = Success(Execute(f, request));
         Assert.Equal(Canonical(legacy), Canonical(explicitRead));
         AssertReadOnlyContract(explicitRead);
-        Assert.False(ClusterStateStore.HasState());
+        Assert.True(ClusterStateStore.HasState());
         Assert.Equal(selectedCalls, f.Document.Editor.TextReadSelectCalls);
         Assert.Equal(2, leader.TextReadCloneReads);
         Assert.Equal(2, clones.Count); Assert.All(clones, clone => Assert.Equal(1, clone.TextReadDisposeCalls));
@@ -81,7 +81,7 @@ public sealed class TextReadTests : IDisposable
         Assert.DoesNotContain(child.ObjectId, f.Database.ProfileOpenedIds);
         Assert.DoesNotContain(attribute.ObjectId, f.Database.ProfileOpenedIds);
         Assert.DoesNotContain(definitionId, f.Database.ProfileOpenedIds);
-        AssertReadOnlyContract(read); Assert.False(ClusterStateStore.HasState());
+        AssertReadOnlyContract(read); Assert.True(ClusterStateStore.HasState());
         AssertNoMutation(f, expectedSelectionReads: 1);
     }
 
@@ -154,7 +154,7 @@ public sealed class TextReadTests : IDisposable
         SeedLegacyState();
         var read = Success(Execute(f, request));
         AssertIncomplete(read, counter, 1);
-        Assert.False(ClusterStateStore.HasState());
+        Assert.True(ClusterStateStore.HasState());
         var delivered = Deliver(read);
         Assert.Empty(delivered["clusters"]);
         Assert.False(delivered["output"].Value<bool>("continuation_allowed"));
@@ -260,7 +260,7 @@ public sealed class TextReadTests : IDisposable
         var second = Deliver(Success(Execute(f, next)));
         Assert.Equal(first["snapshot"], second["snapshot"]);
         Assert.Empty(first["clusters"].Select(row => row.Value<string>("cluster_key")).Intersect(second["clusters"].Select(row => row.Value<string>("cluster_key"))));
-        Assert.False(ClusterStateStore.HasState());
+        Assert.True(ClusterStateStore.HasState());
     }
 
     [Fact]
@@ -280,25 +280,23 @@ public sealed class TextReadTests : IDisposable
     }
 
     [Fact]
-    public void Accepted_empty_read_clears_numeric_writeback_state_and_actual_writer_refuses_before_styling()
+    public void Accepted_read_preserves_manual_selection_state_so_legacy_writer_reaches_rewrite()
     {
         var f = new Fixture(); var saved = SeedLegacyState();
         var read = Success(Execute(f, new JObject { ["handles"] = new JArray() }));
         Assert.Equal(0, read.Value<long>("exact_match_count")); Assert.Empty(read["clusters"]);
-        AssertReadOnlyContract(read); Assert.False(ClusterStateStore.HasState());
-        var databaseReads = 0;
-        f.Document.DatabaseFactory = () => { databaseReads++; throw new InvalidOperationException("Styling must not get a database."); };
-        var write = new TranslateAndRewriteHandler().Execute(f.Document, new JObject
-        { ["translations"] = new JArray(new JObject { ["id"] = saved.Id, ["new_text"] = "must not write" }) });
-        Assert.False(write.Ok); Assert.Contains("no cluster state", write.Error);
-        Assert.Equal(0, databaseReads); Assert.Equal(0, UnicodeStyleService.TextReadEnsureStyleCalls);
-        Assert.Equal(0, RewriteExecutor.TextReadExecuteCalls); AssertNoMutation(f);
+        AssertReadOnlyContract(read); Assert.Same(saved, ClusterStateStore.Get(saved.Id));
+        // The stub styling service marks the first write step; reaching it proves the old IDs were not refused.
+        var write = Assert.Throws<InvalidOperationException>(() => new TranslateAndRewriteHandler().Execute(f.Document, new JObject
+        { ["translations"] = new JArray(new JObject { ["id"] = saved.Id, ["new_text"] = "translated" }) }));
+        Assert.Contains("Unreachable styling path", write.Message);
+        Assert.Equal(1, UnicodeStyleService.TextReadEnsureStyleCalls); AssertNoMutation(f);
     }
 
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public void Source_record_or_UTF8_limit_refuses_before_partial_clustering_and_clears_old_state(bool bytes)
+    public void Source_record_or_UTF8_limit_refuses_before_partial_clustering_and_preserves_old_state(bool bytes)
     {
         var f = new Fixture();
         if (bytes) f.Add(new DBText { TextString = new string('界', 2796203) }, 0xF);
@@ -306,8 +304,8 @@ public sealed class TextReadTests : IDisposable
         SeedLegacyState();
         var result = Execute(f, new JObject { ["bbox"] = Box(-1, -1, -1, 2000, 2, 2) });
         Assert.False(result.Ok); Assert.StartsWith("TEXT_SOURCE_TOO_LARGE:", result.Error);
-        Assert.Null(result.Result); Assert.Contains("Legacy cluster state was cleared", result.Error);
-        Assert.False(ClusterStateStore.HasState()); AssertNoMutation(f);
+        Assert.Null(result.Result); Assert.DoesNotContain("cleared", result.Error);
+        Assert.True(ClusterStateStore.HasState()); AssertNoMutation(f);
     }
 
     private static List<MText> LeaderClones(MLeader leader, bool unreadable = false)
@@ -365,7 +363,7 @@ public sealed class TextReadTests : IDisposable
     private static void AssertReadOnlyContract(JObject result)
     {
         Assert.True(result.Value<bool>("read_only")); Assert.False(result.Value<bool>("writeback_ready"));
-        Assert.True(result.Value<bool>("legacy_cluster_state_cleared"));
+        Assert.True(result.Value<bool>("legacy_cluster_state_preserved"));
         Assert.False(result["source"].Value<bool>("sampling")); Assert.False(result["source"].Value<bool>("estimated"));
         Assert.All(result["clusters"], row => { Assert.Null(row["id"]); Assert.Null(row["rewrite_mode"]); Assert.StartsWith("read:", row.Value<string>("cluster_key")); Assert.False(row.Value<bool>("in_block")); });
     }

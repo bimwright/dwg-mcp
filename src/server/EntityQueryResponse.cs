@@ -296,7 +296,7 @@ internal static class EntityQueryResponse
         if (textRead)
         {
             output["omitted_clusters"] = null;
-            foreach (var key in new[] { "read_only", "writeback_ready", "legacy_cluster_state_cleared" })
+            foreach (var key in new[] { "read_only", "writeback_ready", "legacy_cluster_state_preserved" })
                 if (page[key]?.Type == JTokenType.Boolean) body["result"][key] = page[key].DeepClone();
         }
         if (page["output"]?["blocked"] is JObject blocked) output["blocked"] = SafeBlocked(blocked, identityField);

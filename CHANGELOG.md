@@ -5,7 +5,7 @@
 ### Explicit-source text reads
 
 - Extend `dwg_get_selected_texts` with mutually exclusive handles/bbox sources and model/layout scope, without manual selection. Keep the original two-parameter selection/writeback path unchanged. Complete bounded sources are clustered before whole-cluster paging; cursors bind the text source, grouping and last delivered cluster ordinal.
-- Mark source results read-only and not ready for writeback, using opaque cluster keys. Accepted source reads clear old rewrite groups; legacy translation requires a fresh manual-selection read. Incomplete sources emit coverage without clusters or continuation; oversized sources must be narrowed.
+- Mark source results read-only and not ready for writeback, using opaque cluster keys. Source reads leave existing manual-selection rewrite groups unchanged; per-entity translation can use `includeEntities=true` with `dwg_update_texts`, while cluster rewrite still requires a manual-selection read. Incomplete sources emit coverage without clusters or continuation; oversized sources must be narrowed.
 - Bound final cluster pages to 16 KiB by default (4–64 KiB), preserve whole clusters, and refuse enhanced text reads in batch/baked dispatch before execution. `TEXT_FEATURE_UNSUPPORTED` rejects older-plugin selection data that did not honor the source. Tool counts remain unchanged.
 
 ### Spatial and paged entity reads
