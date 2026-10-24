@@ -410,6 +410,8 @@ Flow ghi lại này dùng selection thủ công và chỉ hai tham số `groupin
 5. Nếu cần, người dùng chạy REGEN
 ```
 
+Với rewrite thành công, `final_text_height` là property chiều cao thực của entity theo `new_handle`, đọc trong transaction rewrite sau chuẩn hóa Unicode và scale cuối; không đọc được thì trả `null`. Với `style_only`, số này mô tả anchor nên các thành viên khác trong nhóm có thể có chiều cao khác. Rewrite trong block definition báo chiều cao theo đơn vị cục bộ của definition, không phải chiều cao hiển thị trong world.
+
 ---
 
 ## Phiên bản AutoCAD hỗ trợ

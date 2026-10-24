@@ -491,6 +491,8 @@ This writeback workflow uses the legacy manual-selection call with only `groupin
 5. User runs REGEN if needed
 ```
 
+For a successful rewrite, `final_text_height` reports the actual height property of the entity identified by `new_handle`, read inside the rewrite transaction after Unicode normalization and the final scale; unavailable readings are `null`. For `style_only` it describes the anchor, so other group members may have different heights. Block-definition rewrites report height in local definition units, not world-rendered height.
+
 Two steps from the agent's perspective: read, then write.
 
 ---

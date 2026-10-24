@@ -414,6 +414,8 @@ MCP 工具名现在使用 `dwg_` 前缀。原始的 plugin 命令名仍是内部
 5. 必要时用户运行 REGEN
 ```
 
+rewrite成功时，`final_text_height` 表示 `new_handle` 对应entity的实际高度property，在rewrite transaction内完成Unicode归一化和最终scale后读取；无法读取时为 `null`。`style_only` 报告anchor的值，其他组成员的高度可能不同。block definition内的rewrite按definition局部单位报告高度，不代表world渲染高度。
+
 从 agent 的视角看只有两步：读取，然后写入。
 
 ---

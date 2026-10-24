@@ -193,6 +193,11 @@ namespace Bimwright.Dwg.Plugin.Rewriting
         public string Error { get; set; }
         public string LayoutHint { get; set; }
         public double FinalWidth { get; set; }
-        public double FinalTextHeight { get; set; }
+        /// <summary>
+        /// Stored height of NewHandle measured after writes in the successful
+        /// transaction; null when unavailable. Block definitions use local units.
+        /// StyleOnly reports the anchor, not every member's height.
+        /// </summary>
+        public double? FinalTextHeight { get; set; }
     }
 }

@@ -2,6 +2,10 @@
 
 ## 2.1.1 — Unreleased
 
+### Rewrite height receipts
+
+- Report `final_text_height` from the resulting `new_handle` entity after Unicode normalization and final scale, as read inside a successful rewrite transaction; unavailable values are null. Style-only receipts describe the anchor, and block-definition heights use local definition units.
+
 ### Explicit-source text reads
 
 - Extend `dwg_get_selected_texts` with mutually exclusive handles/bbox sources and model/layout scope, without manual selection. Keep the original two-parameter selection/writeback path unchanged. Complete bounded sources are clustered before whole-cluster paging; cursors bind the text source, grouping and last delivered cluster ordinal.

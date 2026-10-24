@@ -412,6 +412,8 @@ MCPツール名は現在 `dwg_` プレフィックスを使用しています。
 5. 必要に応じてユーザーが REGEN を実行
 ```
 
+rewrite成功時の `final_text_height` は、Unicode正規化と最終scaleの後、rewrite transaction内で `new_handle` のentityから読み取った実際の高さpropertyです。取得できない場合は `null` です。`style_only` はanchorの値であり、他のグループ要素の高さは異なる場合があります。block definition内のrewriteはdefinitionのローカル単位で高さを返し、world表示上の高さではありません。
+
 エージェントの視点からは、読み取り、書き込みの2ステップです。
 
 ---

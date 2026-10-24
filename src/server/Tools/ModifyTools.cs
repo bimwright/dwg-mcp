@@ -524,6 +524,7 @@ namespace Bimwright.Dwg.Server.Tools
             "(pure numbers, elevation markers), omit it - the tool will still " +
             "apply the Unicode style to it. Per-cluster response includes an " +
             "'action' field: update | collapse | rewrite_in_block | style_only. " +
+            "final_text_height measures the resulting entity's stored height after normalization/scaling, or null if unavailable; style_only reports the anchor and block definitions use local units. " +
             "Workflow: dwg_get_selected_texts -> translate each cluster -> dwg_translate_and_rewrite. " +
             "Use dwg_collapse_and_rewrite (low-level) only for expert control or " +
             "replaying call-log scenarios." +
@@ -585,6 +586,7 @@ namespace Bimwright.Dwg.Server.Tools
             "per cluster includes an 'action' field: update | collapse | " +
             "rewrite_in_block. If applyUnicodeStyle=true, the same call reassigns " +
             "surviving entities to the Unicode text style and scales height." +
+            " final_text_height measures the resulting entity's stored height after normalization/scaling, or null if unavailable; block definitions use local units." +
             " Changes the current drawing; use AutoCAD UNDO immediately to reverse drawing edits before saving. Disabled in read-only mode.")]
         public static Task<string> CollapseAndRewrite(
             [Description("JSON: {\"clusters\":[{\"anchor_handle\":\"...\",\"new_text\":\"...\",\"delete_handles\":[\"...\"],\"convert_to_mtext\":true,\"mtext_width\":0}]}")] string clusters,

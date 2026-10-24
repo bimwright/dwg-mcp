@@ -95,6 +95,7 @@ namespace Bimwright.Dwg.Plugin.Rewriting
                             return Fail(req, $"unknown action: {req.Action}");
                     }
 
+                    var finalTextHeight = ReadFinalTextHeight(tx, db, newHandle);
                     tx.Commit();
                     return new RewriteResult
                     {
@@ -106,7 +107,7 @@ namespace Bimwright.Dwg.Plugin.Rewriting
                         Error = null,
                         LayoutHint = req.LayoutHint,
                         FinalWidth = req.MtextWidth,
-                        FinalTextHeight = DetermineReportedFinalHeight(req, effectiveHeight)
+                        FinalTextHeight = finalTextHeight
                     };
                 }
             }
@@ -349,10 +350,31 @@ namespace Bimwright.Dwg.Plugin.Rewriting
             }
         }
 
-        private static double DetermineReportedFinalHeight(RewriteRequest req, double effectiveHeight)
+        private static double? ReadFinalTextHeight(Transaction tx, Database db, string handle)
         {
-            double baseHeight = req.ExplicitTextHeight ?? effectiveHeight;
-            return FinalTextScalePolicy.Apply(baseHeight, req.FinalScale);
+            // Replacement actions can erase the anchor. Measure the surviving/new
+            // object in its local coordinates, after every write and scale step.
+            try
+            {
+                if (!TryGetObjectId(db, handle, out var id)) return null;
+                var entity = tx.GetObject(id, OpenMode.ForRead);
+                double height;
+                switch (entity)
+                {
+                    case DBText text: height = text.Height; break;
+                    case MText text: height = text.TextHeight; break;
+                    case MLeader leader: height = leader.TextHeight; break;
+                    default: return null;
+                }
+                return height > 0 && !double.IsNaN(height) && !double.IsInfinity(height)
+                    ? height : (double?)null;
+            }
+            catch
+            {
+                // A missing measurement must not turn successful writes into a
+                // failed receipt that invites replay.
+                return null;
+            }
         }
 
         private static void ApplyFinalScale(Entity ent, double scale)

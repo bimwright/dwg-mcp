@@ -73,6 +73,9 @@ jobs:
       - name: Run tests
         run: dotnet test tests/Bimwright.Dwg.Tests/Bimwright.Dwg.Tests.csproj -c Release
 
+      - name: Run actual rewrite executor regression tests
+        run: dotnet test tests/Bimwright.Dwg.Rewriting.Tests/Bimwright.Dwg.Rewriting.Tests.csproj -c Release
+
   toast-wpf:
     name: toast-wpf
     runs-on: windows-latest
