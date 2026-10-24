@@ -49,6 +49,7 @@
     <Compile Include="..\shared\Drawing\DrawingProfile.cs" LinkBase="Shared\Drawing" />
     <Compile Include="..\shared\Drawing\EntityQueryOptions.cs" LinkBase="Shared\Drawing" />
     <Compile Include="..\shared\Drawing\EntityQueryCursor.cs" LinkBase="Shared\Drawing" />
+    <Compile Include="..\shared\Drawing\TextReadOptions.cs" LinkBase="Shared\Drawing" />
     <Compile Include="..\shared\Security\SecretMasker.cs" LinkBase="Shared\Security" />
     <Compile Include="..\shared\Security\ErrorSanitizer.cs" LinkBase="Shared\Security" />
     <Compile Include="..\shared\Security\BakeRedactor.cs" LinkBase="Shared\Security" />

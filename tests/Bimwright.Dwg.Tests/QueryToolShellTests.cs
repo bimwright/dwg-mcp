@@ -178,6 +178,7 @@ namespace Bimwright.Dwg.Tests
         [InlineData("query_entities", "{\"paged\":true}")]
         [InlineData("count_entities", "{\"space\":\"model\"}")]
         [InlineData("get_drawing_profile", "{\"space\":\"model\"}")]
+        [InlineData("get_selected_texts", "{\"handles\":[]}")]
         public async Task Extended_reads_in_a_batch_are_refused_before_any_gateway_send(string command, string parameters)
         {
             var commands = new JArray(new JObject { ["cmd"] = "update_texts", ["params"] = new JObject() },
@@ -256,6 +257,26 @@ namespace Bimwright.Dwg.Tests
             Assert.Equal(
                 JObject.Parse("{\"grouping_strength\":\"weak\",\"include_entities\":true}"),
                 sent.Json());
+        }
+
+        [Fact]
+        public async Task Text_handles_mode_sends_explicit_source_without_replacing_old_parameter_names()
+        {
+            var sent = await Capture.Send(() => QueryTools.GetSelectedTexts("weak", true, handles: "[\"F\",\"10\"]", space: "model", cursor: "opaque", max_output_bytes: 8192));
+            Assert.Equal("get_selected_texts", sent.Command); var data = sent.Json();
+            Assert.Equal("weak", data.Value<string>("grouping_strength")); Assert.True(data.Value<bool>("include_entities"));
+            Assert.Equal(new JArray("F", "10"), data["handles"]); Assert.Equal("opaque", data.Value<string>("cursor"));
+            Assert.Equal(8192, data.Value<int>("max_output_bytes"));
+        }
+
+        [Theory]
+        [InlineData(null, null)]
+        [InlineData("not-json", null)]
+        [InlineData("[]", "{\"min\":[0,0,0],\"max\":[1,1,1]}")]
+        public async Task Invalid_explicit_text_sources_do_not_fall_back_to_pickfirst(string handles, string bbox)
+        {
+            var data = await Capture.Local(() => QueryTools.GetSelectedTexts(handles: handles, bbox: bbox, max_output_bytes: 8192));
+            Assert.False(data.Value<bool>("ok")); Assert.StartsWith("INVALID_ARGUMENT:", data.Value<string>("error"));
         }
 
         [Fact]

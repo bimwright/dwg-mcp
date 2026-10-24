@@ -8,6 +8,14 @@ namespace Bimwright.Dwg.Tests
     public class CoreCadSchemaTests
     {
         [Fact]
+        public void Explicit_text_sources_extend_the_existing_schema()
+        {
+            var schema = GetCommandSchema("GetSelectedTexts");
+            AssertValid("get_selected_texts", JObject.Parse("{\"grouping_strength\":\"normal\",\"include_entities\":false}"), schema);
+            AssertValid("get_selected_texts", JObject.Parse("{\"handles\":[],\"space\":\"model\",\"cursor\":\"opaque\",\"max_output_bytes\":4096}"), schema);
+            AssertInvalidField("get_selected_texts", JObject.Parse("{\"handles\":\"[]\"}"), schema, "handles");
+        }
+        [Fact]
         public void Paged_query_and_spatial_count_extend_existing_schemas_without_changing_select_schema()
         {
             var query = GetCommandSchema("QueryEntities");

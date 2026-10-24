@@ -36,6 +36,7 @@ namespace Bimwright.Dwg.Plugin
 
         public static bool RequiresDirectCall(string command, JToken parameters)
         {
+            if (command == "get_selected_texts") return TextReadOptions.IsExtended(parameters);
             if (command == "get_drawing_profile")
             {
                 var space = (parameters as JObject)?["space"];

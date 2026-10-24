@@ -21,13 +21,14 @@ internal static class ResponseBudget
         => mcp.WithRequestFilters(filters => filters.AddCallToolFilter(next => async (request, ct) =>
         {
             var result = await next(request, ct); // Execute exactly once, including writes.
-            if (IsEntityQueryExtendedRequest(request.Params))
+            var textRead = IsTextReadRequest(request.Params);
+            if (textRead || IsEntityQueryExtendedRequest(request.Params))
             {
                 var countOnly = request.Params.Name == "dwg_count_entities";
                 var limit = Math.Min(countOnly ? EntityQueryResponse.DefaultCap : EntityQueryResponse.ReadRequestedCap(request.Params), config.ResponseBudgetBytesOrDefault);
                 // Fit signed per-row checkpoints exactly once, after argument decoration.
                 // Optional global warnings may add metadata, never trim the delivered page.
-                var fitted = EntityQueryResponse.Fit(result, limit, countOnly);
+                var fitted = textRead ? TextReadResponse.Fit(result, limit) : EntityQueryResponse.Fit(result, limit, countOnly);
                 var previousMeta = fitted.Meta?.DeepClone().AsObject();
                 var decorated = Apply(fitted, config, true, request.Params.Name);
                 if (Measure(decorated) > limit) decorated.Meta = previousMeta;
@@ -43,6 +44,11 @@ internal static class ResponseBudget
             // Argument warnings and global warning metadata must also fit the tool's cap.
             return profile ? DrawingProfileResponse.Fit(result, profileLimit, profileSpace) : result;
         }));
+
+    internal static bool IsTextReadRequest(CallToolRequestParams request)
+        => request?.Name == "dwg_get_selected_texts" && request.Arguments != null
+            && new[] { "handles", "bbox", "bbox_mode", "space", "cursor", "max_output_bytes" }.Any(key =>
+                request.Arguments.TryGetValue(key, out var value) && value.ValueKind != System.Text.Json.JsonValueKind.Null);
 
     internal static bool IsEntityQueryExtendedRequest(CallToolRequestParams request)
     {

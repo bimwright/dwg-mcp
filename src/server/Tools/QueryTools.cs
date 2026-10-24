@@ -184,17 +184,40 @@ namespace Bimwright.Dwg.Server.Tools
         }
 
         [McpServerTool(Name = "dwg_get_selected_texts", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false), Description(
-            "Read and cluster text entities currently selected in AutoCAD. " +
-            "Returns pre-clustered groups with combined text in reading order. " +
+            "Read and cluster text. Existing two-argument calls use AutoCAD pickfirst selection and legacy rewrite IDs. " +
+            "Supply handles or bbox to read without selecting anything; choose exactly one explicit source. " +
+            "Explicit-source mode reads top-level DBText/MText/MLeader, does not expand blocks/xrefs, clusters the full declared source before paging whole clusters, and returns read-only cluster_key values. " +
+            "It clears legacy rewrite state; fresh manual-selection extraction is required before legacy translation/writeback. " +
+            "Cursor, content omissions and next_calls follow the bounded query pattern (default16384 final MCP UTF-8 bytes). " +
+            "Source limits5000 text records/8MiB UTF-8; incomplete sources produce no groups or continuation. " +
+            "Model snapshots ignore viewport navigation; entity changes refuse continuation. Explicit-source calls must be direct outside batches/baked tools. " +
             "Each cluster has id, text, entity_count, in_block (bool) and " +
-            "rewrite_mode (one of: update, collapse, rewrite_in_block) - the " +
-            "mode that dwg_translate_and_rewrite will apply if given a translation " +
-            "for this cluster. Use this BEFORE dwg_translate_and_rewrite. The user " +
-            "must select entities in AutoCAD BEFORE calling this tool.")]
+            "rewrite_mode only on the legacy selection path. Explicit-source groups never supply writable numeric IDs.")]
         public static Task<string> GetSelectedTexts(
             [Description("Optional grouping strength: weak, normal, or strong. Use weak when an image/layout reference indicates nearby labels should stay separate.")] string groupingStrength = "normal",
-            [Description("When true, include each child text entity's handle/text/position so callers can recover from over-grouped clusters.")] bool includeEntities = false)
+            [Description("When true, include each child text entity's handle/text/position so callers can recover from over-grouped clusters.")] bool includeEntities = false,
+            [Description("Explicit source JSON array of0..5000 hexadecimal handle values; deduplicated. Mutually exclusive with bbox.")] string handles = null,
+            [Description("Explicit source JSON object {min:[x,y,z],max:[x,y,z]} in WCS drawing units; mutually exclusive with handles.")] string bbox = null,
+            [Description("intersects or contains inclusive3D extents test; requires bbox.")] string bbox_mode = null,
+            [Description("model(default for explicit source) or layout:<exact name>. Top-level text only.")] string space = null,
+            [Description("Opaque whole-cluster continuation from output.next_calls. Echo same source/grouping/includeEntities.")] string cursor = null,
+            [Description("Explicit-source final MCP UTF-8 cap4096..65536(default16384), subject to lower global cap.")] int? max_output_bytes = null)
         {
+            if (handles != null || bbox != null || bbox_mode != null || space != null || cursor != null || max_output_bytes.HasValue)
+            {
+                var explicitRequest = new JObject { ["grouping_strength"] = groupingStrength, ["include_entities"] = includeEntities };
+                try
+                {
+                    if (handles != null) explicitRequest["handles"] = JArray.Parse(handles);
+                    AddSpatialOptions(explicitRequest, bbox, bbox_mode, space);
+                    if (cursor != null) explicitRequest["cursor"] = cursor;
+                    if (max_output_bytes.HasValue) explicitRequest["max_output_bytes"] = max_output_bytes.Value;
+                    TextReadOptions.Create(explicitRequest);
+                }
+                catch (Exception ex) when (ex is ArgumentException || ex is JsonException || ex is OverflowException)
+                { return ToolInputError("INVALID_ARGUMENT: " + ex.Message); }
+                return ToolGateway.LoggedCall("get_selected_texts", explicitRequest, explicitRequest);
+            }
             var request = new { grouping_strength = groupingStrength, include_entities = includeEntities };
             return ToolGateway.LoggedCall("get_selected_texts", request, request);
         }

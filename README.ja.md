@@ -201,7 +201,7 @@ development のデフォルト起動では45のツール（クエリ（`dwg_get_
 | `dwg_count_entities` | type/layer/color、任意のWCS extentsと名前付きspaceで集計し、判定不能のcoverageを明示 |
 | `dwg_select_by_layer` | 1つの画層のモデル空間エンティティハンドルリストを返す（ピックファースト選択は変更しない） |
 | `dwg_select_by_type` | 1つのエンティティタイプのモデル空間エンティティハンドルリストを返す（ピックファースト選択は変更しない） |
-| `dwg_get_selected_texts` | ピックファースト選択を読み取り、テキストエンティティを空間クラスタリングし、書き換えモードのヒント付きでグループ化テキストを返す |
+| `dwg_get_selected_texts` | 従来pickfirst選択の書き戻し用グループ、またはhandles/bboxソースから読み取り専用クラスターをページ取得 |
 | `dwg_update_texts` | 1つのトランザクションでハンドル指定による新しいテキストを書き込む |
 | `dwg_create_layer` | 既存の画層のプロパティを上書きせずに画層を作成する |
 | `dwg_create_line` | 現在の図面空間に1本の線を作成 |
@@ -255,6 +255,23 @@ development のデフォルト起動では45のツール（クエリ（`dwg_get_
 `bbox` は接触境界を含むWCS軸平行3D `GeometricExtents` の比較で、厳密な図形交差判定ではありません。座標は図面単位で、INSUNITS換算は行いません。結果にINSUNITSコード・名前を含み、コード0はunitless/unknownのままです。選んだモデル空間またはレイアウトの最上位entityだけを走査し、block/xref/viewportの表示内容を展開せず、別spaceへフォールバックしません。`dwg_count_entities` は従来三つのパラメータに `bbox`、`bbox_mode`、`space` だけを追加し、範囲metadataと判定不能coverageを返します。範囲内のハンドル一覧はqueryの `fields="[\"handle\"]"` を使い、selectの契約は維持します。
 
 ページはAutoCADハンドルの数値順です。`result.output.next_calls` のfilter/fieldsを保って呼び出してください。署名付きhost-session cursorは図面ライフタイム、revision、最後に**返却された**ハンドルに結び付きます。`limit` とbyte capは変更可能ですが、filter/fieldsを変える場合はcursorを省略して最初から始めます。不正・改変・図面変更後のcursorは拒否します。各ページでspaceを再走査し、キャッシュは使いません。byte capは出力量だけを制限し、走査時間は制限しません。`result.output` はbudget、`omitted_matching`、`has_more`、`next_cursor`、`next_calls`、行が入らない場合の案内を返します。読み取り・filter・必要extentsの失敗はcoverageに数え、`exact_match_count=null` と観測済み `matched_count` を返し、不明ハンドルを飛ばす継続は発行しません。entityが対応しないpropertyは `null` と `unavailable_fields` で示します。拡張query/countは直接呼び出しのみで、gatewayとpluginのbatch事前検査が前の項目を実行する前に全体を拒否します。従来パラメータだけのquery/count batchは維持し、baked queryは引き続き許可しません。拡張読み取りにはgatewayとpluginの両方の対応が必要で、未対応の古いpluginに対してgatewayが `QUERY_FEATURE_UNSUPPORTED` を返し、従来形式の出力を破棄しますが、従来パラメータだけの呼び出しは利用できます。
+
+**手動選択なしのテキスト読み取り**は既存の `dwg_get_selected_texts` に明示的なソースを指定します。元の `groupingStrength="normal"`、`includeEntities=false` は先頭に維持され、この二つだけなら従来の選択・書き戻しフローです。新オプションを使う場合は `handles` と `bbox` のどちらか一つが必須で、選択ソースへ暗黙に戻りません。
+
+| 追加するtext-readオプション | 意味 |
+|---|---|
+| `handles=null` | 16進ハンドルのJSON配列文字列。入力は最大5000件で重複を除去、`"[]"` は有効な空ソース |
+| `bbox=null` | JSONオブジェクト文字列 `{"min":[x,y,z],"max":[x,y,z]}`。空間queryと同じWCS・図面単位のextents条件 |
+| `bbox_mode=null` | box指定時は既定 `intersects`、または `contains`。`bbox` が必要 |
+| `space=null` | 既定 `model`、または大文字小文字を区別せず完全一致の `layout:<name>`。別spaceへ戻らない |
+| `cursor=null` | `output.next_calls` から受け取る署名付きtext-cluster継続 |
+| `max_output_bytes=null` | 最終MCP結果の上限。既定16384バイト、4096–65536、グローバルbudgetも適用 |
+
+新ソースは最上位で直接見つかるDBText、MText、MLeader、属性参照・定数属性定義だけを読み、BlockReference、入れ子block、xrefは展開しません。従来選択の一段block処理は維持します。modelソースのsnapshotはviewportだけの変更を無視し、layoutソースは検出します。完全ソースは最大5000テキストrecord・合計8 MiBのUTF-8 textです。不完全なソースはcoverageを示し、クラスターやcursorを返しません。`TEXT_SOURCE_TOO_LARGE` ではソースを絞ります。既存の空間クラスタリングは変更せず、完全な受理ソース全体を処理してから安定順にクラスター単位でページ化します。
+
+`result.output.next_calls` のMCP camelCase引数 `groupingStrength`、`includeEntities` を保持してください。cursorはdocument/scope revision、ソース、grouping設定とtext専用のクラスター序数に結び付き、entity handleではありません。byte fittingはクラスターを丸ごと外し、返却済みクラスターまでしか進めません。`omitted_clusters`、blockedの説明、継続情報を確認してください。大きすぎるクラスターはcapを最大65536まで上げ（制限中のglobal budgetも調整）、または `includeEntities=false`、弱いgrouping、狭いソースを使います。source/grouping/includeEntitiesを変える場合はcursorなしでやり直します。
+
+新ソース結果は `read_only=true`、`writeback_ready=false` で、従来の数値IDや `rewrite_mode` の代わりにopaqueな `cluster_key` を返します。新ソースを受理するとCAD形状や選択を変えずに古いrewriteグループを消去します。その後 `dwg_translate_and_rewrite` は新しい**手動選択**読み取りまで拒否し、この段階では新ソースページから直接書き戻せません。新ソース読み取りは直接呼び出しのみで、gateway/pluginがbatch全体と拡張baked呼び出しを実行前に拒否します。従来選択batchは維持します。古いpluginがソースを扱えない場合、gatewayは `TEXT_FEATURE_UNSUPPORTED` を返して選択payloadを破棄し、選択へフォールバックしません。
 
 オプショナルのToolBakerツールは、`toolbaker` ツールセットが有効な場合に公開されます:
 
@@ -383,6 +400,8 @@ MCPツール名は現在 `dwg_` プレフィックスを使用しています。
 ---
 
 ## 標準ワークフロー
+
+この書き戻しフローは手動選択と元の `groupingStrength`/`includeEntities` だけを使います。読み取り専用ソースの `cluster_key` は数値IDの代わりに使えません。
 
 ```
 1. ユーザーがAutoCADでテキストエンティティを選択

@@ -119,30 +119,32 @@ namespace Autodesk.AutoCAD.DatabaseServices
         public TextVerticalMode VerticalMode { get; set; }
     }
     public enum AttachmentPoint { TopLeft, TopCenter, MiddleCenter }
-    public class MText : Entity, IDisposable
+    public partial class MText : Entity, IDisposable
     {
-        public string Contents { get; set; }
+        private string contents;
+        public string Contents { get { if (TextReadContentsFailure != null) throw TextReadContentsFailure; return contents; } set => contents = value; }
         public Point3d Location { get; set; }
         public double TextHeight { get; set; }
         public double Width { get; set; }
         public double Rotation { get; set; }
         public AttachmentPoint Attachment { get; set; }
-        public void Dispose() { }
+        public void Dispose() { TextReadDisposeCalls++; }
     }
     public partial class BlockReference
     {
         public Point3d Position { get; set; }
         public double Rotation { get; set; }
         public Scale3d ScaleFactors { get; set; }
-        public List<object> AttributeCollection { get; } = new();
+        public AttributeCollection AttributeCollection { get; } = new();
     }
-    public class MLeader : Entity
+    public partial class MLeader : Entity
     {
-        public MText MText { get; set; }
+        private MText mtext;
+        public MText MText { get { TextReadCloneReads++; return TextReadMTextFactory == null ? mtext : TextReadMTextFactory(); } set => mtext = value; }
         public double TextHeight { get; set; }
         public int LeaderCount { get; set; }
         public int LeaderLineCount { get; set; }
-        public Point3d GetFirstVertex(int line) => default;
+        public Point3d GetFirstVertex(int line) { if (TextReadAnchorFailure != null) throw TextReadAnchorFailure; return TextReadAnchor; }
         public Point3d GetLastVertex(int line) => default;
     }
     public class Table : Entity

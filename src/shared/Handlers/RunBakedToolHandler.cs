@@ -39,6 +39,9 @@ namespace Bimwright.Dwg.Plugin.Handlers
                 return CommandResult.Fail(validation.Error);
             }
 
+            if (BakedToolParameterDefaults.ContainsStandaloneRead(record, runtimeParams))
+                return CommandResult.Fail("PAGED_QUERY_DIRECT_TOOL_ONLY: explicit-source text and spatial/paged reads must use their direct MCP tools; no baked step was started.");
+
             if (record.Source == "macro")
             {
                 return RunMacro(doc, record);

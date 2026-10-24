@@ -185,7 +185,7 @@ namespace Bimwright.Dwg.Plugin.Cad
             return result;
         }
 
-        private static BlockTableRecord ResolveSpace(Database database, Transaction transaction, string space, out JObject scope)
+        internal static BlockTableRecord ResolveSpace(Database database, Transaction transaction, string space, out JObject scope)
         {
             var blocks = (BlockTable)transaction.GetObject(database.BlockTableId, OpenMode.ForRead);
             var modelId = blocks[BlockTableRecord.ModelSpace];
@@ -224,7 +224,7 @@ namespace Bimwright.Dwg.Plugin.Cad
             return !options.ColorIndex.HasValue || (int)entity.ColorIndex == options.ColorIndex.Value;
         }
 
-        private static bool MatchesBounds(Extents3d extents, EntityQueryOptions options)
+        internal static bool MatchesBounds(Extents3d extents, EntityQueryOptions options)
         {
             var min = extents.MinPoint; var max = extents.MaxPoint; var bbox = options.Bbox;
             if (options.BboxMode == "contains")

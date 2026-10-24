@@ -240,7 +240,7 @@ Follow `output.next_calls` to page `types`, `layers` or `spaces`; each suggested
 | `dwg_count_entities` | Count by type/layer/color, with optional WCS extents and named-space filters plus explicit unknown-match coverage |
 | `dwg_select_by_layer` | Return model-space entity handle lists for one layer without changing pickfirst selection |
 | `dwg_select_by_type` | Return model-space entity handle lists for one entity type without changing pickfirst selection |
-| `dwg_get_selected_texts` | Read pickfirst selection, spatially cluster text entities, return grouped text with rewrite mode hints |
+| `dwg_get_selected_texts` | Legacy pickfirst clusters for writeback, or explicit handle/bbox sources for bounded read-only cluster pages |
 | `dwg_update_texts` | Write new text by handle in one transaction |
 | `dwg_create_layer` | Ensure a layer exists without overwriting an existing layer's properties |
 | `dwg_create_line` | Create one line in the current drawing space |
@@ -294,6 +294,23 @@ Visual reading: capture → inspect the image → choose a region → `dwg_inspe
 `bbox` compares closed 3D axis-aligned `GeometricExtents`, including touching boundaries; it does not test exact geometry intersections. Coordinates use drawing units with no INSUNITS conversion. Results include the INSUNITS code/name; code 0 remains unitless/unknown. Reads cover only top-level entities in the selected model space or named layout, without block, xref or viewport-content traversal and without falling back to another space. `dwg_count_entities` appends only `bbox`, `bbox_mode` and `space` to its existing three parameters and reports spatial metadata and unknown-match coverage. For spatial handle lists, query with `fields="[\"handle\"]"`; the select tools remain unchanged.
 
 Pages sort by numeric AutoCAD handle. Follow `result.output.next_calls` with the same filters and fields; its signed host-session cursor binds the document lifetime, revision and last **delivered** handle. You may change `limit` or the byte cap; changing matching filters or fields requires omitting the cursor and starting again. Invalid, tampered or changed-drawing cursors are refused. Each page rescans the space without a cache; the byte cap limits delivery, not scan time. `result.output` reports the budget, `omitted_matching`, `has_more`, `next_cursor`, `next_calls` and any blocked-row guidance. Read/filter/required-extents failures produce explicit coverage counters, `exact_match_count=null` and an observed `matched_count`, with no continuation that could silently skip unknown handles. Properties unsupported by an entity are `null` with `unavailable_fields`. Extended query/count calls must be direct: gateway and plugin batch preflight reject the whole batch before earlier commands run. Legacy query/count batches using only original parameters retain their behavior; baked query dispatch remains unavailable. Extended reads require updated gateway/plugin support: the gateway returns `QUERY_FEATURE_UNSUPPORTED` for unsupported older plugins and discards legacy-shaped output; original-parameter calls remain available.
+
+**Read text without manual selection** by supplying a source to the existing `dwg_get_selected_texts`. The original `groupingStrength="normal"`, `includeEntities=false` parameters remain first; calls using only those parameters retain the legacy selection/writeback workflow. Any new option requires exactly one of `handles` or `bbox`, so it never silently falls back to selection.
+
+| Appended text-read option | Meaning |
+|---|---|
+| `handles=null` | JSON-array string of up to 5000 hexadecimal handle values, deduplicated; `"[]"` is a valid empty source |
+| `bbox=null` | JSON-object string `{"min":[x,y,z],"max":[x,y,z]}` with the same WCS drawing-unit extents rules as spatial query |
+| `bbox_mode=null` | `intersects` by default with a box, or `contains`; requires `bbox` |
+| `space=null` | `model` by default, or an exact case-insensitive `layout:<name>`; no fallback space |
+| `cursor=null` | Signed text-cluster continuation from `output.next_calls` |
+| `max_output_bytes=null` | Final MCP result cap, default 16384 bytes, range 4096–65536, also constrained by the global budget |
+
+Explicit sources read only top-level DBText, MText, MLeader and directly encountered attribute references/constant attribute definitions; they do not expand block references, nested blocks or xrefs. The old selection path keeps its existing one-level block handling. Model-source snapshots ignore viewport-only changes; layout-source snapshots track them. The complete source is limited to 5000 text records and 8 MiB aggregate UTF-8 text. Incomplete source coverage returns no clusters or cursor; inspect coverage counters. `TEXT_SOURCE_TOO_LARGE` requires narrowing the source. The unchanged spatial clusterer processes the complete accepted source before whole-cluster paging in stable order.
+
+Follow `result.output.next_calls`, preserving its MCP argument names `groupingStrength` and `includeEntities`. Cursors bind the document/scope revision, source and grouping options to a text-specific cluster ordinal, not an entity handle. Byte fitting removes entire clusters and advances only past delivered clusters; inspect `omitted_clusters`, blocked-cluster notes and continuation fields. For a blocked cluster, increase the cap up to 65536 (and the global budget if limiting), or use `includeEntities=false`, weaker grouping or a narrower source. Changing source/grouping/includeEntities requires restarting without the cursor.
+
+Source-based results are `read_only=true`, `writeback_ready=false`, with opaque `cluster_key` values instead of legacy numeric IDs or `rewrite_mode`. Accepting a new source clears prior legacy rewrite groups without changing CAD geometry or selection. `dwg_translate_and_rewrite` then refuses until a fresh **manual-selection** read restores legacy writeback groups; source-read pages do not authorize writes in this phase. Enhanced text reads are direct calls only: gateway/plugin batch preflight rejects the entire batch, and enhanced baked calls are refused before execution. Legacy selection batching is retained. The gateway refuses unsupported older-plugin data with `TEXT_FEATURE_UNSUPPORTED` instead of using selection results for the requested source.
 
 Optional ToolBaker tools are exposed when the `toolbaker` toolset is enabled:
 
@@ -462,6 +479,8 @@ MCP tool names now use the `dwg_` prefix. Raw plugin command names remain intern
 ---
 
 ## Standard Workflow
+
+This writeback workflow uses the legacy manual-selection call with only `groupingStrength`/`includeEntities`; explicit-source `cluster_key` values cannot be used as its numeric IDs.
 
 ```
 1. User selects text entities in AutoCAD

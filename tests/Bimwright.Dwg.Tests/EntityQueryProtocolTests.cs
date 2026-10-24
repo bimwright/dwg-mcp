@@ -140,7 +140,7 @@ public class EntityQueryProtocolTests : IDisposable
     }
     public void Dispose() { DrawingRevision.Shutdown(); Application.DocumentManager = previous; }
 
-    private sealed class Gateway : IAsyncDisposable
+    internal sealed class Gateway : IAsyncDisposable
     {
         private readonly string root = Path.Combine(Path.GetTempPath(), "dwg-entity-query-gateway-" + Guid.NewGuid().ToString("N"));
         private Process process;
@@ -171,6 +171,10 @@ public class EntityQueryProtocolTests : IDisposable
                 {
                     case "query_entities": result = new QueryEntitiesHandler().Execute(document, request["params"]); break;
                     case "count_entities": result = new CountEntitiesHandler().Execute(document, request["params"]); break;
+                    case "get_drawing_profile": result = new DrawingProfileHandler().Execute(document, request["params"]); break;
+                    case "get_selected_texts": result = legacyReply
+                        ? CommandResult.Success(new JObject { ["clusters"] = new JArray(new JObject { ["id"] = 1, ["text"] = "legacy selection" }) })
+                        : new GetSelectedTextsHandler().Execute(document, request["params"]); break;
                     case "health": result = CommandResult.Success(new JObject { ["ok"] = true, ["target"] = new JObject
                         { ["protocol"] = 1, ["pid"] = ownerId, ["process_start_utc"] = startTime, ["document_id"] = DocumentTargetGuard.Id(document) } }); break;
                     default: result = CommandResult.Success(new JObject { ["accepted"] = true }); break;

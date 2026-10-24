@@ -199,7 +199,7 @@ Theo `output.next_calls` để phân trang `types`, `layers` hoặc `spaces`; m�
 | `dwg_count_entities` | Đếm theo type/layer/color, tùy chọn extents WCS và space có tên; báo rõ coverage của các match chưa xác định |
 | `dwg_select_by_layer` | Trả về handle list của model-space entity trên một layer, không đổi pickfirst selection |
 | `dwg_select_by_type` | Trả về handle list của model-space entity theo một entity type, không đổi pickfirst selection |
-| `dwg_get_selected_texts` | Đọc text đang chọn, cluster không gian, trả về nhóm text |
+| `dwg_get_selected_texts` | Cluster từ pickfirst để ghi lại theo flow cũ, hoặc nguồn handles/bbox để đọc phân trang cluster chỉ đọc |
 | `dwg_update_texts` | Ghi text theo handle trong một transaction |
 | `dwg_create_layer` | Đảm bảo layer tồn tại, không ghi đè property của layer đã có |
 | `dwg_create_line` | Tạo một line trong drawing space hiện tại |
@@ -253,6 +253,23 @@ Theo `output.next_calls` để phân trang `types`, `layers` hoặc `spaces`; m�
 `bbox` so `GeometricExtents` dạng hộp 3D theo trục WCS, kể cả biên chạm nhau; không phải kiểm tra giao hình học chính xác. Tọa độ là drawing units, không quy đổi INSUNITS. Kết quả kèm code/tên INSUNITS; code 0 giữ nghĩa unitless/unknown. Chỉ duyệt entity cấp trên cùng của model space hoặc layout đã chọn, không mở rộng block/xref/nội dung nhìn qua viewport, không fallback sang space khác. `dwg_count_entities` chỉ nối `bbox`, `bbox_mode`, `space` vào ba tham số cũ, kèm metadata vùng và coverage match chưa rõ. Muốn lấy handle theo vùng, query với `fields="[\"handle\"]"`; contract select không đổi.
 
 Trang sắp theo giá trị số của handle AutoCAD. Theo `result.output.next_calls`, giữ nguyên filter và fields; cursor có chữ ký của host session gắn với vòng đời drawing, revision và handle cuối **đã giao**. Có thể đổi `limit` hoặc byte cap; đổi filter/fields phải bỏ cursor và bắt đầu lại. Cursor sai, bị sửa hoặc drawing đổi bị từ chối. Mỗi trang quét lại space, không cache; byte cap chỉ giới hạn output, không giới hạn thời gian quét. `result.output` báo budget, `omitted_matching`, `has_more`, `next_cursor`, `next_calls` và hướng dẫn nếu row bị chặn. Lỗi đọc/filter/extents cần thiết được đếm trong coverage, trả `exact_match_count=null`, `matched_count` đã quan sát và không có continuation để tránh bỏ qua handle chưa rõ. Property không hỗ trợ trên entity trả `null` cùng `unavailable_fields`. Query/count mở rộng phải gọi trực tiếp: gateway và plugin đều preflight từ chối cả batch trước khi lệnh trước đó chạy. Batch query/count chỉ dùng tham số cũ giữ nguyên hành vi; baked query vẫn không được phép. Đọc mở rộng cần gateway/plugin cùng hỗ trợ: gateway trả `QUERY_FEATURE_UNSUPPORTED` khi plugin cũ chưa hỗ trợ và loại output dạng cũ, còn lời gọi chỉ dùng tham số cũ vẫn dùng được.
+
+**Đọc text không cần chọn trước** bằng nguồn rõ ràng trong tool `dwg_get_selected_texts` hiện có. Hai tham số cũ `groupingStrength="normal"`, `includeEntities=false` vẫn đứng đầu; chỉ dùng hai tham số này thì giữ quy trình selection/writeback cũ. Bất kỳ tùy chọn mới nào cũng yêu cầu đúng một nguồn `handles` hoặc `bbox`, không ngầm quay về selection.
+
+| Tùy chọn text-read nối thêm | Ý nghĩa |
+|---|---|
+| `handles=null` | Chuỗi mảng JSON chứa tối đa 5000 giá trị handle hex, được loại trùng; `"[]"` là nguồn rỗng hợp lệ |
+| `bbox=null` | Chuỗi object JSON `{"min":[x,y,z],"max":[x,y,z]}`, cùng quy tắc extents WCS/drawing units như spatial query |
+| `bbox_mode=null` | `intersects` mặc định khi có box, hoặc `contains`; cần `bbox` |
+| `space=null` | Mặc định `model`, hoặc đúng tên `layout:<name>` không phân biệt hoa thường; không fallback |
+| `cursor=null` | Continuation có chữ ký cho cluster text, từ `output.next_calls` |
+| `max_output_bytes=null` | Giới hạn MCP result cuối, mặc định 16384 byte, khoảng 4096–65536, còn chịu global budget |
+
+Nguồn mới chỉ đọc DBText, MText, MLeader, attribute reference và attribute definition constant gặp trực tiếp ở cấp trên cùng; không mở rộng BlockReference, block lồng hay xref. Đường selection cũ giữ cách đọc block sâu một cấp. Snapshot nguồn model bỏ qua thay đổi chỉ ở viewport; nguồn layout có tính thay đổi đó. Toàn bộ nguồn giới hạn 5000 text record và tổng 8 MiB text UTF-8. Nguồn chưa đầy đủ trả coverage, không trả cluster/cursor; `TEXT_SOURCE_TOO_LARGE` yêu cầu thu hẹp nguồn. Spatial clusterer không đổi, xử lý toàn bộ nguồn hợp lệ trước khi phân trang nguyên cluster theo thứ tự ổn định.
+
+Theo `result.output.next_calls`, giữ tên tham số MCP camelCase `groupingStrength` và `includeEntities`. Cursor gắn với document/scope revision, nguồn và tùy chọn grouping, chứa thứ tự cluster riêng cho text, không phải entity handle. Giới hạn byte chỉ bỏ nguyên cluster và chỉ tiến qua cluster đã giao; xem `omitted_clusters`, ghi chú cluster bị chặn và continuation. Nếu cluster quá lớn, tăng cap tối đa 65536 (cả global budget nếu đang giới hạn), hoặc đặt `includeEntities=false`, giảm độ gom nhóm hay thu hẹp nguồn. Đổi source/grouping/includeEntities phải bắt đầu lại không dùng cursor.
+
+Kết quả nguồn mới có `read_only=true`, `writeback_ready=false`, dùng `cluster_key` opaque thay vì ID số hay `rewrite_mode` cũ. Nguồn mới được chấp nhận sẽ xóa nhóm rewrite cũ nhưng không sửa hình học hay selection CAD. Sau đó `dwg_translate_and_rewrite` từ chối cho tới khi có lần đọc **selection thủ công** mới; trang nguồn mới chưa cho phép ghi trong đợt này. Phải gọi đọc nguồn mới trực tiếp: gateway/plugin preflight từ chối cả batch và chặn enhanced baked call trước thực thi. Selection batch cũ giữ nguyên. Gateway trả `TEXT_FEATURE_UNSUPPORTED` và loại payload selection từ plugin cũ chưa hỗ trợ nguồn, không fallback.
 
 ToolBaker là toolset tùy chọn:
 
@@ -381,6 +398,8 @@ Tên MCP tool này có prefix `dwg_`. Tên command raw trong plugin chỉ còn l
 ---
 
 ## Quy trình tiêu chuẩn
+
+Flow ghi lại này dùng selection thủ công và chỉ hai tham số `groupingStrength`/`includeEntities` cũ; không dùng `cluster_key` từ nguồn chỉ đọc thay cho ID số.
 
 ```
 1. Người dùng chọn text trong AutoCAD

@@ -5,7 +5,7 @@ namespace Bimwright.Dwg.Plugin
     /// so UnicodeScaleHeuristics (included as shared source) can compile
     /// without referencing the AutoCAD-dependent original.
     /// </summary>
-    internal static class UnicodeStyleService
+    internal static partial class UnicodeStyleService
     {
         internal const string StyleName = "Bimwright_Unicode";
         internal const string FontFileName = "OpenSans-CondensedLight.ttf";

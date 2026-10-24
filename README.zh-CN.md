@@ -201,7 +201,7 @@ development 默认启动暴露 45 个工具：query（含 `dwg_get_drawing_profi
 | `dwg_count_entities` | 按type/layer/color及可选WCS extents、命名space计数，明确报告无法判定的匹配coverage |
 | `dwg_select_by_layer` | 返回一个图层的模型空间实体 handle 列表，且不改变 pickfirst 选择 |
 | `dwg_select_by_type` | 返回一个实体类型的模型空间实体 handle 列表，且不改变 pickfirst 选择 |
-| `dwg_get_selected_texts` | 读取 pickfirst 选择，对文字实体做空间聚类，返回带改写模式提示的分组文字 |
+| `dwg_get_selected_texts` | 旧pickfirst选择的写回分组，或从handles/bbox明确来源分页读取只读文字cluster |
 | `dwg_update_texts` | 在一个事务中按 handle 写入新文字 |
 | `dwg_create_layer` | 确保某个图层存在，且不覆盖已有图层的属性 |
 | `dwg_create_line` | 在当前绘图空间中创建一条直线 |
@@ -255,6 +255,23 @@ development 默认启动暴露 45 个工具：query（含 `dwg_get_drawing_profi
 `bbox` 比较WCS轴对齐三维 `GeometricExtents`，包含接触边界，不是精确图形交集测试。坐标使用图纸单位，不做INSUNITS换算。结果附INSUNITS代码/名称；代码0仍是unitless/unknown。只扫描所选模型空间或命名布局的顶层实体，不展开block、xref或viewport可见内容，也不回退到其他space。`dwg_count_entities` 只向旧三个参数追加 `bbox`、`bbox_mode`、`space`，并报告范围metadata和未知匹配coverage。需要空间handle列表时，query使用 `fields="[\"handle\"]"`，不改变select契约。
 
 分页按AutoCAD handle的数值排序。按照 `result.output.next_calls` 调用并保持filter和fields；签名host-session cursor绑定图纸生命周期、revision和最后**已交付**的handle。可改变 `limit` 或byte cap；改变filter/fields必须省略cursor并重新开始。无效、篡改或图纸变化后的cursor会被拒绝。每页重新扫描space，不使用缓存；byte cap限制输出，不限制扫描时间。`result.output` 报告budget、`omitted_matching`、`has_more`、`next_cursor`、`next_calls`及row受阻时的说明。读取/filter/必要extents失败会在coverage中明确计数，返回 `exact_match_count=null` 和已观察的 `matched_count`，不提供可能跳过未知handle的续页。entity不支持的property以 `null` 和 `unavailable_fields` 标明。扩展query/count只能直接调用；gateway和plugin的batch预检查都会在执行前面项目之前拒绝整个batch。只用旧参数的query/count batch保持原行为，baked query仍不可用。扩展读取需要gateway/plugin共同支持：gateway对未支持该功能的旧plugin返回 `QUERY_FEATURE_UNSUPPORTED` 并丢弃旧格式输出，只用原参数的调用仍可用。
+
+**无需手动选择即可读文字**：给现有 `dwg_get_selected_texts` 指定明确来源。原参数 `groupingStrength="normal"`、`includeEntities=false` 仍在最前，只用这两个参数保留旧选择/写回流程。任一新选项都必须恰好提供 `handles` 或 `bbox` 之一，不会暗中退回选择来源。
+
+| 追加的text-read选项 | 含义 |
+|---|---|
+| `handles=null` | 十六进制handle的JSON数组字符串，最多5000项并去重；`"[]"` 是合法空来源 |
+| `bbox=null` | JSON对象字符串 `{"min":[x,y,z],"max":[x,y,z]}`，沿用空间query的WCS、图纸单位extents规则 |
+| `bbox_mode=null` | 有box时默认 `intersects`，或 `contains`；必须提供 `bbox` |
+| `space=null` | 默认 `model`，或忽略大小写精确匹配的 `layout:<name>`；不回退到其他space |
+| `cursor=null` | 从 `output.next_calls` 取得的签名text-cluster续页 |
+| `max_output_bytes=null` | 最终MCP结果上限，默认16384字节，4096–65536，仍受全局budget限制 |
+
+新来源仅读取顶层直接遇到的DBText、MText、MLeader、属性参照及常量属性定义，不展开BlockReference、嵌套block或xref；旧选择路径仍保留原来一层block处理。model来源的snapshot忽略仅viewport的变化，layout来源则检测这些变化。完整来源最多5000条文字record、合计8 MiB UTF-8文字。来源不完整时返回coverage，不返回cluster或cursor；`TEXT_SOURCE_TOO_LARGE` 要求缩小来源。保持原空间聚类算法，先对完整受理来源整体聚类，再以稳定顺序按完整cluster分页。
+
+按照 `result.output.next_calls` 调用，保持MCP camelCase参数 `groupingStrength`、`includeEntities`。cursor绑定document/scope revision、来源、grouping设置和文字专用cluster序号，不是entity handle。byte fitting只移除整个cluster，只推进到已交付的cluster；检查 `omitted_clusters`、blocked说明和续页信息。cluster太大时，可提高cap至65536（若全局budget更小也需调整），或使用 `includeEntities=false`、较弱grouping或更窄来源。改变source/grouping/includeEntities必须不用cursor重新开始。
+
+新来源结果为 `read_only=true`、`writeback_ready=false`，返回opaque `cluster_key`，没有旧数字ID或 `rewrite_mode`。受理新来源会清除旧rewrite分组，但不改变CAD几何或选择。之后 `dwg_translate_and_rewrite` 会拒绝，直到重新做一次**手动选择**读取；本阶段不允许从新来源页直接写回。新来源读取只能直接调用，gateway/plugin在执行前拒绝整个batch及增强baked调用；旧选择batch保持不变。旧plugin不支持来源时，gateway返回 `TEXT_FEATURE_UNSUPPORTED` 并丢弃selection payload，不会回退到选择结果。
 
 启用 `toolbaker` 工具集时会暴露可选 ToolBaker 工具：
 
@@ -385,6 +402,8 @@ MCP 工具名现在使用 `dwg_` 前缀。原始的 plugin 命令名仍是内部
 ---
 
 ## 标准工作流
+
+此写回流程使用手动选择及原有 `groupingStrength`/`includeEntities` 两个参数；只读来源的 `cluster_key` 不能替代其数字ID。
 
 ```
 1. 用户在 AutoCAD 中选择文字实体

@@ -32,5 +32,5 @@ namespace Autodesk.AutoCAD.ApplicationServices
     }
 }
 namespace Autodesk.AutoCAD.DatabaseServices { public partial class Database { } }
-namespace Autodesk.AutoCAD.EditorInput { public class Editor { } }
+namespace Autodesk.AutoCAD.EditorInput { public partial class Editor { } }
 namespace Autodesk.AutoCAD.Geometry { public partial struct Point3d { } }

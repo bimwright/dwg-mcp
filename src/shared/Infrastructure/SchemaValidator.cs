@@ -325,7 +325,13 @@ namespace Bimwright.Dwg.Plugin
 
         public static readonly CommandSchema GetSelectedTexts = CommandSchema.Object(
             SchemaProperty.Optional("grouping_strength", JTokenType.String),
-            SchemaProperty.Optional("include_entities", JTokenType.Boolean));
+            SchemaProperty.Optional("include_entities", JTokenType.Boolean),
+            SchemaProperty.Optional("handles", JTokenType.Array),
+            SchemaProperty.Optional("bbox", JTokenType.Object),
+            SchemaProperty.Optional("bbox_mode", JTokenType.String),
+            SchemaProperty.Optional("space", JTokenType.String),
+            SchemaProperty.Optional("cursor", JTokenType.String),
+            SchemaProperty.Optional("max_output_bytes", JTokenType.Integer));
 
         public static readonly CommandSchema ListBlocks = CommandSchema.Empty;
 

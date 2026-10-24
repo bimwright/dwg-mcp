@@ -6,6 +6,7 @@ using Bimwright.Dwg.Server.Handlers;
 using ModelContextProtocol.Server;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using Bimwright.Dwg.Plugin.ToolBaker;
 
 namespace Bimwright.Dwg.Server.Tools
 {
@@ -39,6 +40,10 @@ namespace Bimwright.Dwg.Server.Tools
             {
                 return Task.FromResult(JsonConvert.SerializeObject(new McpResponse { Ok = false, Error = "baked tool not found: " + name }));
             }
+
+            if (BakedToolParameterDefaults.ContainsStandaloneRead(record, parsed))
+                return Task.FromResult(JsonConvert.SerializeObject(new McpResponse { Ok = false,
+                    Error = "PAGED_QUERY_DIRECT_TOOL_ONLY: call explicit-source text or spatial/paged read tools directly. No baked request was sent." }));
 
             return ToolGateway.LoggedCall(
                 "run_baked_tool",

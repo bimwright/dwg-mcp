@@ -28,13 +28,18 @@ internal static class EntityQueryResponse
         return DefaultCap;
     }
 
-    internal static CallToolResult Fit(CallToolResult result, int cap, bool countOnly = false)
+    internal static CallToolResult Fit(CallToolResult result, int cap, bool countOnly = false,
+        string toolName = "dwg_query_entities", string collection = "entities", string versionKey = "query_page_version", string identityField = "handle")
     {
         if (cap < MinimumCap || cap > MaximumCap) throw new ArgumentOutOfRangeException(nameof(cap), "Query output must be 4096..65536 bytes.");
+        var textRead = collection == "clusters";
         var text = result.Content?.OfType<TextContentBlock>().FirstOrDefault();
         JObject body;
         try { body = JObject.Parse(text?.Text ?? ""); }
-        catch (JsonReaderException) { return BoundOther(result, cap); }
+        catch (JsonReaderException) { return textRead && result.IsError != true ? Unsupported(cap, true) : BoundOther(result, cap, textRead); }
+        if (textRead && body["ok"]?.Type != JTokenType.Boolean)
+            return result.IsError == true ? BoundOther(result, cap, true) : Unsupported(cap, true);
+        if (textRead && body.Value<bool?>("ok") == false) return BoundOther(result, cap, true);
         // Older plugins accept unknown query parameters and may silently ignore
         // bbox/space/paging. Never present that legacy result as a filtered read.
         if (body.Value<bool?>("ok") == true)
@@ -42,11 +47,11 @@ internal static class EntityQueryResponse
             var data = body["result"] as JObject;
             if (countOnly)
                 return Count(data?["query_count_version"]) == 1 ? BoundOther(result, cap) : Unsupported(cap);
-            if (Count(data?["query_page_version"]) != 1 || data?["entities"] is not JArray)
-                return Unsupported(cap);
+            if (Count(data?[versionKey]) != 1 || data?[collection] is not JArray)
+                return Unsupported(cap, textRead);
         }
-        if (body["result"] is not JObject page || Count(page["query_page_version"]) != 1 || page["entities"] is not JArray rows)
-            return BoundOther(result, cap);
+        if (body["result"] is not JObject page || Count(page[versionKey]) != 1 || page[collection] is not JArray rows)
+            return BoundOther(result, cap, textRead);
 
         var checkpoints = page["_checkpoints"] as JArray;
         var candidateCount = rows.Count;
@@ -57,8 +62,22 @@ internal static class EntityQueryResponse
         var arguments = page["query_arguments"] is JObject supplied ? (JObject)supplied.DeepClone() : null;
         arguments?.Remove("cursor");
         (page["query_arguments"] as JObject)?.Remove("cursor");
-        var hostBlocked = page["_blocked"] is JObject blocked ? SafeBlocked(blocked) : null;
+        var hostBlocked = page["_blocked"] is JObject blocked ? SafeBlocked(blocked, identityField) : null;
         foreach (var key in InternalKeys) page.Remove(key);
+        if (textRead)
+        {
+            foreach (var key in InternalKeys) body.Remove(key);
+            // Enhanced text reads never expose legacy writable cluster IDs.
+            foreach (var row in rows.OfType<JObject>()) { row.Remove("id"); row.Remove("rewrite_mode"); }
+            if (!scanComplete)
+            {
+                // Grouping a partial population changes medians and adjacency;
+                // no subset can stand in for complete-scope clusters.
+                rows.Clear(); candidateCount = 0; hostMore = false;
+                checkpoints = null; matchedAfter = null; hostAllowsContinuation = false;
+                page["matched_count"] = null; page["exact_match_count"] = null; page["matches_after_cursor"] = null;
+            }
+        }
         var fitted = new CallToolResult
         {
             IsError = result.IsError,
@@ -68,7 +87,7 @@ internal static class EntityQueryResponse
         };
         var fittedText = fitted.Content.OfType<TextContentBlock>().First();
         var output = new JObject();
-        var firstHandle = (rows.First as JObject)?["handle"]?.DeepClone();
+        var firstIdentity = (rows.First as JObject)?[identityField]?.DeepClone();
         // An old structured/secondary copy could contain undelivered rows or
         // private checkpoints. The single rebuilt text page is authoritative.
         if (fitted.StructuredContent != null) { fitted.StructuredContent = null; output["structured_content_omitted"] = true; }
@@ -92,9 +111,9 @@ internal static class EntityQueryResponse
                 allowed = false;
                 deliveryBlocked = SafeBlocked(new JObject
                 {
-                    ["handle"] = firstHandle,
+                    [identityField] = firstIdentity,
                     ["reason"] = "row_does_not_fit_final_MCP_output_budget"
-                });
+                }, identityField);
             }
             if (more && delivered == 0) allowed = false;
             page["count"] = delivered;
@@ -102,22 +121,23 @@ internal static class EntityQueryResponse
             output["complete"] = scanComplete && !more && deliveryBlocked == null;
             output["has_more"] = more;
             output["omitted_matching"] = remaining.HasValue ? new JValue(remaining.Value) : JValue.CreateNull();
+            if (textRead) output["omitted_clusters"] = output["omitted_matching"].DeepClone();
             output["continuation_allowed"] = allowed && delivered > 0;
             output["next_cursor"] = nextCursor;
             var calls = new JArray();
             if (nextCursor != null)
             {
                 var nextArguments = (JObject)arguments.DeepClone();
-                nextArguments["paged"] = true;
+                if (!textRead) nextArguments["paged"] = true;
                 nextArguments["cursor"] = nextCursor;
                 nextArguments["max_output_bytes"] = cap;
-                calls.Add(new JObject { ["tool"] = "dwg_query_entities", ["arguments"] = nextArguments });
+                calls.Add(new JObject { ["tool"] = toolName, ["arguments"] = nextArguments });
             }
             output["next_calls"] = calls;
             if (deliveryBlocked != null) output["blocked"] = deliveryBlocked;
             else output.Remove("blocked");
             var hostPayloadBlocked = candidateCount == 0 && hostBlocked?.Value<string>("reason")?.StartsWith("row_exceeds_host", StringComparison.Ordinal) == true;
-            output["note"] = "Only retained entities were delivered. omitted_matching counts observed matches after the input cursor; unavailable extents/read failures remain separate in coverage. " +
+            output["note"] = textRead ? TextGuidance(cap, hostPayloadBlocked, scanComplete) : "Only retained entities were delivered. omitted_matching counts observed matches after the input cursor; unavailable extents/read failures remain separate in coverage. " +
                 "Follow next_calls with the same filters and fields; an incomplete scan disables continuation. A blocked row is never skipped. " +
                 (hostPayloadBlocked ? "The blocked row exceeds the host payload budget; narrow fields and restart without a cursor. Raising the MCP cap does not bypass that host limit. "
                     : cap < MaximumCap ? "Retry the same input cursor with a larger max_output_bytes (up to 65536); a smaller --response-budget-bytes must also be raised. "
@@ -152,23 +172,38 @@ internal static class EntityQueryResponse
             Refresh();
             bytes = ResponseBudget.Measure(fitted);
         }
-        return bytes <= cap ? fitted : CoreTooLarge(page, cap);
+        return bytes <= cap ? fitted : CoreTooLarge(page, cap, collection, versionKey, identityField, textRead);
     }
 
     private static long? Count(JToken value)
         => value?.Type == JTokenType.Integer && long.TryParse(value.ToString(Formatting.None), NumberStyles.None, CultureInfo.InvariantCulture, out var count)
             && count >= 0 ? count : null;
 
-    private static CallToolResult Unsupported(int cap) => Text(new JObject
+    private static CallToolResult Unsupported(int cap, bool textRead = false) => Text(new JObject
     {
         ["ok"] = false,
-        ["error"] = "QUERY_FEATURE_UNSUPPORTED: the plugin did not confirm the requested spatial/paged contract. Update gateway and plugin together.",
+        ["error"] = textRead
+            ? "TEXT_FEATURE_UNSUPPORTED: the plugin did not confirm the requested bounded text-read contract. Update gateway and plugin together."
+            : "QUERY_FEATURE_UNSUPPORTED: the plugin did not confirm the requested spatial/paged contract. Update gateway and plugin together.",
         ["result"] = new JObject { ["output"] = new JObject
         {
             ["budget_bytes"] = cap, ["complete"] = false, ["next_calls"] = new JArray(),
-            ["note"] = "Unverified legacy data was discarded: bbox, space, fields and cursor semantics were not confirmed. No count, entity rows or continuation are claimed."
+            ["note"] = textRead
+                ? "Unverified legacy selection data and writable cluster IDs were discarded: handles, bbox, space and cursor semantics were not confirmed. No cluster count, clusters or continuation are claimed."
+                : "Unverified legacy data was discarded: bbox, space, fields and cursor semantics were not confirmed. No count, entity rows or continuation are claimed."
         }}
     }, true);
+
+    private static string TextGuidance(int cap, bool hostPayloadBlocked, bool scanComplete)
+        => (scanComplete ? "Only retained whole clusters were delivered. omitted_clusters counts complete-scope clusters after the input cursor, not text entities. "
+                : "The source scan was incomplete; no complete-scope clusters, cluster counts or continuation are claimed. ") +
+            "Read failures and unavailable extents remain separate in coverage. Follow next_calls with the same source, groupingStrength and includeEntities. A blocked cluster is never split or skipped. " +
+            (hostPayloadBlocked
+                ? "The blocked cluster exceeds the host payload budget; set includeEntities=false, use weaker groupingStrength or narrow the source, and restart without a cursor. Raising the MCP cap does not bypass that host limit. "
+                : cap < MaximumCap
+                    ? "Retry the same input cursor with a larger max_output_bytes (up to 65536); a smaller --response-budget-bytes must also be raised. "
+                    : "This page already uses the 65536-byte tool maximum; a still-blocked cluster requires includeEntities=false, weaker groupingStrength or a narrower source. ") +
+            "Changing includeEntities, groupingStrength or source requires restarting without a cursor. These read-only cluster keys are not writable translation IDs.";
 
     private static bool Token(JToken value)
     {
@@ -180,19 +215,22 @@ internal static class EntityQueryResponse
     private static int EscapedBytes(JToken value)
         => System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(value.ToString(Formatting.None), McpJsonUtilities.DefaultOptions).Length;
 
-    private static JObject SafeBlocked(JObject data)
+    private static JObject SafeBlocked(JObject data, string identityField = "handle")
     {
         var result = new JObject();
-        var handle = data["handle"]?.Type == JTokenType.String ? data.Value<string>("handle") : null;
-        if (handle != null && handle.Length is > 0 and <= 16 && handle.All(c => c is >= '0' and <= '9' or >= 'A' and <= 'F' or >= 'a' and <= 'f')) result["handle"] = handle;
-        else result["handle_unavailable"] = true;
+        var identity = data[identityField]?.Type == JTokenType.String ? data.Value<string>(identityField) : null;
+        var validIdentity = identityField == "handle"
+            ? identity != null && identity.Length is > 0 and <= 16 && identity.All(c => c is >= '0' and <= '9' or >= 'A' and <= 'F' or >= 'a' and <= 'f')
+            : identity != null && identity.Length is > 0 and <= 128 && identity.All(c => c >= ' ' && c <= '~');
+        if (validIdentity) result[identityField] = identity;
+        else result[identityField + "_unavailable"] = true;
         var reason = data["reason"]?.Type == JTokenType.String ? data.Value<string>("reason") : null;
         if (reason != null && reason.Length <= 256 && EscapedBytes(new JValue(reason)) <= 256) result["reason"] = reason;
         else { result["reason"] = "blocked_row_details_unavailable"; result["details_omitted"] = true; }
         return result;
     }
 
-    private static CallToolResult BoundOther(CallToolResult result, int cap)
+    private static CallToolResult BoundOther(CallToolResult result, int cap, bool textRead = false)
     {
         // Even a malformed page must not expose host-only checkpoint fields.
         var originalText = result.Content?.OfType<TextContentBlock>().FirstOrDefault();
@@ -201,11 +239,16 @@ internal static class EntityQueryResponse
             try
             {
                 var original = JObject.Parse(originalText.Text);
-                if (original["result"] is JObject payload && InternalKeys.Any(key => payload.Property(key) != null))
+                var payload = original["result"] as JObject;
+                if (textRead || payload != null && InternalKeys.Any(key => payload.Property(key) != null))
                 {
-                    foreach (var key in InternalKeys) payload.Remove(key);
+                    foreach (var key in InternalKeys) { payload?.Remove(key); if (textRead) original.Remove(key); }
+                    if (textRead && payload?["clusters"] is JArray clusters)
+                        foreach (var row in clusters.OfType<JObject>()) { row.Remove("id"); row.Remove("rewrite_mode"); }
                     original["output"] = new JObject { ["budget_bytes"] = cap, ["complete"] = false, ["next_calls"] = new JArray(),
-                        ["note"] = "Host cursor internals and secondary content were omitted from a malformed page. Inspect the retained error; no continuation was issued." };
+                        ["note"] = textRead
+                            ? "Host cursor internals, writable IDs and secondary content were omitted. Inspect the retained error; no continuation was issued. If a source limit was reached, narrow handles or bbox and restart without a cursor; raising the output cap does not raise source limits."
+                            : "Host cursor internals and secondary content were omitted from a malformed page. Inspect the retained error; no continuation was issued." };
                     result = new CallToolResult { IsError = result.IsError,
                         Content = new[] { new TextContentBlock { Text = original.ToString(Formatting.None) } } };
                 }
@@ -219,32 +262,44 @@ internal static class EntityQueryResponse
         if (block == null) return bounded;
         var body = JObject.Parse(block.Text);
         body["output"] = new JObject { ["budget_bytes"] = cap, ["complete"] = false, ["next_calls"] = new JArray(),
-            ["note"] = "Query details were omitted; inspect the retained error. No cursor was advanced. Increase max_output_bytes (up to 65536) and --response-budget-bytes if needed." };
+            ["note"] = textRead
+                ? "Text-read details were omitted; inspect the retained error. No cursor was advanced. Increase max_output_bytes (up to 65536) and --response-budget-bytes if needed. Source limits require narrower handles or bbox and a restart without a cursor."
+                : "Query details were omitted; inspect the retained error. No cursor was advanced. Increase max_output_bytes (up to 65536) and --response-budget-bytes if needed." };
         var candidate = Text(body, bounded.IsError);
         return ResponseBudget.Measure(candidate) <= cap ? candidate : bounded;
     }
 
-    private static CallToolResult CoreTooLarge(JObject page, int cap)
+    private static CallToolResult CoreTooLarge(JObject page, int cap, string collection, string versionKey, string identityField, bool textRead)
     {
         var body = new JObject
         {
-            ["ok"] = false, ["error"] = "QUERY_PAGE_TOO_LARGE: query metadata or one entity cannot fit this output budget.",
+            ["ok"] = false, ["error"] = textRead
+                ? "TEXT_PAGE_TOO_LARGE: text-read metadata or one whole cluster cannot fit this output budget."
+                : "QUERY_PAGE_TOO_LARGE: query metadata or one entity cannot fit this output budget.",
             ["result"] = new JObject
             {
-                ["query_page_version"] = 1, ["count"] = 0, ["entities"] = new JArray(),
+                [versionKey] = 1, ["count"] = 0, [collection] = new JArray(),
                 ["source"] = new JObject { ["details_omitted"] = true }, ["scope"] = new JObject { ["details_omitted"] = true },
                 ["coverage"] = new JObject { ["details_omitted"] = true },
                 ["output"] = new JObject
                 {
                     ["budget_bytes"] = cap, ["complete"] = false, ["has_more"] = null, ["omitted_matching"] = null,
                     ["continuation_allowed"] = false, ["next_cursor"] = null, ["next_calls"] = new JArray(),
-                    ["note"] = "No entity or continuation was delivered. Increase max_output_bytes up to 65536 and --response-budget-bytes if smaller. " +
-                        "If the maximum still cannot fit this page, narrow fields and restart without a cursor; no row was skipped."
+                    ["note"] = textRead
+                        ? "No cluster or continuation was delivered. Increase max_output_bytes up to 65536 and --response-budget-bytes if smaller. If the maximum still cannot fit this page, set includeEntities=false, use weaker groupingStrength or narrow the source, and restart without a cursor; no cluster was split or skipped."
+                        : "No entity or continuation was delivered. Increase max_output_bytes up to 65536 and --response-budget-bytes if smaller. " +
+                            "If the maximum still cannot fit this page, narrow fields and restart without a cursor; no row was skipped."
                 }
             }
         };
         var output = (JObject)body["result"]["output"];
-        if (page["output"]?["blocked"] is JObject blocked) output["blocked"] = SafeBlocked(blocked);
+        if (textRead)
+        {
+            output["omitted_clusters"] = null;
+            foreach (var key in new[] { "read_only", "writeback_ready", "legacy_cluster_state_cleared" })
+                if (page[key]?.Type == JTokenType.Boolean) body["result"][key] = page[key].DeepClone();
+        }
+        if (page["output"]?["blocked"] is JObject blocked) output["blocked"] = SafeBlocked(blocked, identityField);
         foreach (var key in new[] { "snapshot", "document_id" })
         {
             var value = page[key]?.Type == JTokenType.String ? page.Value<string>(key) : null;
@@ -252,6 +307,12 @@ internal static class EntityQueryResponse
             else body["result"][key + "_omitted"] = true;
         }
         var result = Text(body, true);
+        if (textRead && ResponseBudget.Measure(result) > cap)
+        {
+            if (output["blocked"] != null) output["blocked"] = new JObject { ["reason"] = "blocked_cluster_details_omitted", ["details_omitted"] = true };
+            foreach (var key in new[] { "snapshot", "document_id" }) { ((JObject)body["result"]).Remove(key); body["result"][key + "_omitted"] = true; }
+            result = Text(body, true);
+        }
         System.Diagnostics.Debug.Assert(ResponseBudget.Measure(result) <= cap);
         return result;
     }

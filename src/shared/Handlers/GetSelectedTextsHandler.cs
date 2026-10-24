@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Bimwright.Dwg.Plugin;
 using Bimwright.Dwg.Plugin.Rewriting;
+using Bimwright.Dwg.Plugin.Cad;
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.EditorInput;
@@ -24,6 +25,12 @@ namespace Bimwright.Dwg.Plugin.Handlers
 
         public CommandResult Execute(Document doc, JToken parameters)
         {
+            if (TextReadOptions.IsExtended(parameters))
+            {
+                try { return CommandResult.Success(CadTextReadService.Read(doc, TextReadOptions.Create(parameters))); }
+                catch (Exception ex) when (ex is ArgumentException || ex is InvalidOperationException || ex is OverflowException)
+                { return CommandResult.Fail(ex.Message); }
+            }
             var ed = doc.Editor;
             var pickfirst = ed.SelectImplied();
             if (pickfirst.Status != PromptStatus.OK || pickfirst.Value == null || pickfirst.Value.Count == 0)
@@ -114,7 +121,10 @@ namespace Bimwright.Dwg.Plugin.Handlers
                     break;
 
                 case MLeader mLeader:
-                    var mlText = mLeader.MText != null ? mLeader.MText.Contents : string.Empty;
+                    var leaderText = mLeader.MText;
+                    string mlText;
+                    try { mlText = leaderText != null ? leaderText.Contents : string.Empty; }
+                    finally { leaderText?.Dispose(); }
                     Point3d mlPos;
                     try { mlPos = mLeader.GetFirstVertex(0); }
                     catch { mlPos = Point3d.Origin; }
@@ -152,10 +162,10 @@ namespace Bimwright.Dwg.Plugin.Handlers
             }
         }
 
-        private static EntityRecord BuildEntityRecord(
+        internal static EntityRecord BuildEntityRecord(
             Entity ent, string text,
             Point3d localPos, double localHeight,
-            Matrix3d xform, string blockHandle)
+            Matrix3d xform, string blockHandle, Extents3d? knownExtents = null)
         {
             var worldPos = localPos.TransformBy(xform);
             double worldH = localHeight * YScaleOf(xform);
@@ -164,7 +174,7 @@ namespace Bimwright.Dwg.Plugin.Handlers
             double boundsMinY = worldPos.Y, boundsMaxY = worldPos.Y;
             try
             {
-                var ext = ent.GeometricExtents;
+                var ext = knownExtents ?? ent.GeometricExtents;
                 var corners = new[]
                 {
                     new Point3d(ext.MinPoint.X, ext.MinPoint.Y, ext.MinPoint.Z),

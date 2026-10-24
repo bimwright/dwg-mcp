@@ -31,6 +31,7 @@ public readonly struct ObjectId : IEquatable<ObjectId>
     internal ObjectId(ProfileObjectSlot slot) { Slot = slot; }
     public bool IsNull => Slot == null;
     public bool IsErased => Slot?.Erased ?? false;
+    public Handle Handle => Slot?.Value.Handle ?? default;
     public bool Equals(ObjectId other) => ReferenceEquals(Slot, other.Slot);
     public override bool Equals(object other) => other is ObjectId id && Equals(id);
     public override int GetHashCode() => Slot == null ? 0 : RuntimeHelpers.GetHashCode(Slot);
