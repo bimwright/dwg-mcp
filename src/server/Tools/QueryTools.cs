@@ -84,27 +84,65 @@ namespace Bimwright.Dwg.Server.Tools
 
         [McpServerTool(Name = "dwg_query_entities", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false), Description(
             "Query model-space AutoCAD entities with optional filters for entity type, layer, and ACI color index. " +
-            "Returns count and entity property records; limit is clamped by the plugin.")]
+            "Existing calls retain their legacy fields, geometry option and order. Set paged=true or supply spatial/field options for bounded numeric-handle pages. " +
+            "Paged defaults are handle/type/layer and 16384 final MCP UTF-8 bytes. Content reports omissions and next_calls; echo their filters/fields with the signed cursor. " +
+            "BBox tests inclusive WCS 3D axis-aligned extents, not exact geometry clipping, in selected-space drawing units without INSUNITS conversion. " +
+            "Unavailable bbox-filter extents/population read failures are counted and block continuation; changed drawing/filter/fields rejects the cursor. " +
+            "Requires matching plugin support; unconfirmed legacy replies are refused. Call directly, outside batches, for paged reads. " +
+            "Use fields=[\"handle\"] for paged spatial handles without changing selection.")]
         public static Task<string> QueryEntities(
             [Description("Optional entity type filter such as Line, Circle, Polyline, DBText, MText, BlockReference, Hatch, Arc, or Ellipse. Case-insensitive.")] string entity_type = null,
             [Description("Optional layer name filter. Case-insensitive.")] string layer = null,
             [Description("Optional ACI color index filter. Valid range: 1-256.")] int? color_index = null,
             [Description("Optional maximum number of returned entities. The plugin clamps this to 1-5000.")] int? limit = null,
-            [Description("When true, include lightweight geometry such as extents, points, lengths, and text positions where available.")] bool include_geometry = false)
+            [Description("Legacy only: include full existing geometry output. Paged reads use fields instead.")] bool include_geometry = false,
+            [Description("Opt in to bounded stable pages, even without spatial or field filters.")] bool paged = false,
+            [Description("Optional JSON object {min:[x,y,z],max:[x,y,z]}, finite ordered WCS drawing-unit bounds.")] string bbox = null,
+            [Description("intersects (default with bbox) or contains; closed AABB boundaries. Requires bbox.")] string bbox_mode = null,
+            [Description("model (default) or layout:<exact human layout name>, case-insensitive. Top-level entities only; no block/xref expansion.")] string space = null,
+            [Description("JSON array from handle,type,runtime_type,layer,color_index,text,position,extents. Default handle/type/layer; handle always included. Unsupported field values are null with unavailable_fields.")] string fields = null,
+            [Description("Opaque cursor from output.next_calls. Echo the same matching/field options; changed snapshots refuse continuation.")] string cursor = null,
+            [Description("Paged final MCP byte cap, default 16384, range4096..65536; lower global cap still applies.")] int? max_output_bytes = null)
         {
             var request = BuildEntityQueryRequest(entity_type, layer, color_index, limit);
             request["include_geometry"] = include_geometry;
+            if (paged || bbox != null || bbox_mode != null || space != null || fields != null || cursor != null || max_output_bytes.HasValue)
+            {
+                try
+                {
+                    request["paged"] = true;
+                    AddSpatialOptions(request, bbox, bbox_mode, space);
+                    if (fields != null) request["fields"] = JArray.Parse(fields);
+                    if (cursor != null) request["cursor"] = cursor;
+                    if (max_output_bytes.HasValue) request["max_output_bytes"] = max_output_bytes.Value;
+                    EntityQueryOptions.Create(request);
+                }
+                catch (Exception ex) when (ex is ArgumentException || ex is JsonException || ex is OverflowException)
+                { return ToolInputError("INVALID_ARGUMENT: " + ex.Message); }
+            }
             return ToolGateway.LoggedCall("query_entities", request, request);
         }
 
         [McpServerTool(Name = "dwg_count_entities", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false), Description(
-            "Count model-space AutoCAD entities matching optional entity type, layer, and ACI color index filters.")]
+            "Count AutoCAD entities matching type/layer/color; legacy calls read model space. " +
+            "Optional bbox/space use the same inclusive WCS extents filter as paged query, report INSUNITS and unknown extents separately. " +
+            "Incomplete spatial counts return null count/exact_match_count plus observed matched_count; no estimated count is invented. " +
+            "Spatial counts require matching plugin support and direct calls outside batches.")]
         public static Task<string> CountEntities(
             [Description("Optional entity type filter such as Line, Circle, Polyline, DBText, MText, BlockReference, Hatch, Arc, or Ellipse. Case-insensitive.")] string entity_type = null,
             [Description("Optional layer name filter. Case-insensitive.")] string layer = null,
-            [Description("Optional ACI color index filter. Valid range: 1-256.")] int? color_index = null)
+            [Description("Optional ACI color index filter. Valid range: 1-256.")] int? color_index = null,
+            [Description("JSON object {min:[x,y,z],max:[x,y,z]} in WCS drawing units.")] string bbox = null,
+            [Description("intersects (default with bbox) or contains; inclusive AABB test, requires bbox.")] string bbox_mode = null,
+            [Description("model or layout:<exact human layout name>; no fallback to another space.")] string space = null)
         {
             var request = BuildEntityQueryRequest(entity_type, layer, color_index, limit: null);
+            if (bbox != null || bbox_mode != null || space != null)
+            {
+                try { AddSpatialOptions(request, bbox, bbox_mode, space); EntityQueryOptions.Create(request); }
+                catch (Exception ex) when (ex is ArgumentException || ex is JsonException || ex is OverflowException)
+                { return ToolInputError("INVALID_ARGUMENT: " + ex.Message); }
+            }
             return ToolGateway.LoggedCall("count_entities", request, request);
         }
 
@@ -191,6 +229,13 @@ namespace Bimwright.Dwg.Server.Tools
             }
 
             return Task.FromResult(LispSecurityScanner.ToJson(merged, string.Join("; ", scanned)).ToString(Newtonsoft.Json.Formatting.None));
+        }
+
+        private static void AddSpatialOptions(JObject request, string bbox, string mode, string space)
+        {
+            if (bbox != null) request["bbox"] = JObject.Parse(bbox);
+            if (mode != null) request["bbox_mode"] = mode;
+            if (space != null) request["space"] = space;
         }
 
         private static JObject BuildEntityQueryRequest(

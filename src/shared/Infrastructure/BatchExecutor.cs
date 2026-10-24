@@ -107,6 +107,9 @@ namespace Bimwright.Dwg.Plugin
                     return CommandResult.Fail("run_baked_tool is not allowed inside batch_execute");
                 }
 
+                if (EntityQueryOptions.RequiresDirectCall(cmd, item?["params"]))
+                    return CommandResult.Fail("PAGED_QUERY_DIRECT_TOOL_ONLY: call dwg_query_entities or dwg_count_entities directly; verified final MCP delivery is required. The batch was not started.");
+
                 // Reject the entire batch before any earlier item can mutate the
                 // drawing. Direct run_lisp is also blocked; do not suggest a bypass.
                 if (string.Equals(cmd, "run_lisp", StringComparison.Ordinal))

@@ -75,6 +75,14 @@
   <ItemGroup>
     <Compile Include="..\..\src\shared\Handlers\SendCodeHandler.cs" LinkBase="Shared\Handlers" />
     <Compile Include="..\..\src\shared\Handlers\DrawingProfileHandler.cs" LinkBase="Shared\Handlers" />
+    <Compile Include="..\..\src\shared\Cad\CadQueryService.cs" LinkBase="Shared\Cad" />
+    <Compile Include="..\..\src\shared\Cad\CadEntityProperties.cs" LinkBase="Shared\Cad" />
+    <Compile Include="..\..\src\shared\Cad\CadEntityPageService.cs" LinkBase="Shared\Cad" />
+    <Compile Include="..\..\src\shared\Cad\CadEntityProjection.cs" LinkBase="Shared\Cad" />
+    <Compile Include="..\..\src\shared\Handlers\QueryEntitiesHandler.cs" LinkBase="Shared\Handlers" />
+    <Compile Include="..\..\src\shared\Handlers\CountEntitiesHandler.cs" LinkBase="Shared\Handlers" />
+    <Compile Include="..\..\src\shared\Handlers\SelectByLayerHandler.cs" LinkBase="Shared\Handlers" />
+    <Compile Include="..\..\src\shared\Handlers\SelectByTypeHandler.cs" LinkBase="Shared\Handlers" />
     <Compile Include="..\..\src\shared\Handlers\RunLispHandler.cs" LinkBase="Shared\Handlers" />
     <Compile Include="..\..\src\shared\Infrastructure\IAcadCommand.cs" LinkBase="Shared\Infrastructure" />
     <Compile Include="..\..\src\shared\Infrastructure\IAcadSessionCommand.cs" LinkBase="Shared\Infrastructure" />

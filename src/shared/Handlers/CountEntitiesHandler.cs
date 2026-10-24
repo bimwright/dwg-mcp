@@ -13,6 +13,15 @@ namespace Bimwright.Dwg.Plugin.Handlers
 
         public CommandResult Execute(Document doc, JToken parameters)
         {
+            if (EntityQueryOptions.IsExtended(parameters))
+            {
+                foreach (var field in new[] { "fields", "cursor", "paged", "max_output_bytes", "include_geometry" })
+                    if (parameters[field] != null && parameters[field].Type != JTokenType.Null)
+                        return CommandResult.Fail("Extended count_entities does not accept " + field + "; use bbox, bbox_mode and space only.");
+                try { return CommandResult.Success(CadEntityPageService.Query(doc, EntityQueryOptions.Create(parameters), countOnly: true)); }
+                catch (Exception ex) when (ex is ArgumentException || ex is InvalidOperationException || ex is OverflowException)
+                { return CommandResult.Fail(ex.Message); }
+            }
             if (!QueryHandlerInput.TryCreateOptions(
                 parameters,
                 includeGeometry: false,

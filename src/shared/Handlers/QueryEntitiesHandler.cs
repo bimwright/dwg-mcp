@@ -13,6 +13,12 @@ namespace Bimwright.Dwg.Plugin.Handlers
 
         public CommandResult Execute(Document doc, JToken parameters)
         {
+            if (EntityQueryOptions.IsExtended(parameters))
+            {
+                try { return CommandResult.Success(CadEntityPageService.Query(doc, EntityQueryOptions.Create(parameters))); }
+                catch (Exception ex) when (ex is ArgumentException || ex is InvalidOperationException || ex is OverflowException)
+                { return CommandResult.Fail(ex.Message); }
+            }
             var includeGeometry = parameters?["include_geometry"]?.Value<bool>() ?? false;
             if (!QueryHandlerInput.TryCreateOptions(
                 parameters,

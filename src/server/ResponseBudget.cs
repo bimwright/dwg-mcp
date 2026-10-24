@@ -21,6 +21,18 @@ internal static class ResponseBudget
         => mcp.WithRequestFilters(filters => filters.AddCallToolFilter(next => async (request, ct) =>
         {
             var result = await next(request, ct); // Execute exactly once, including writes.
+            if (IsEntityQueryExtendedRequest(request.Params))
+            {
+                var countOnly = request.Params.Name == "dwg_count_entities";
+                var limit = Math.Min(countOnly ? EntityQueryResponse.DefaultCap : EntityQueryResponse.ReadRequestedCap(request.Params), config.ResponseBudgetBytesOrDefault);
+                // Fit signed per-row checkpoints exactly once, after argument decoration.
+                // Optional global warnings may add metadata, never trim the delivered page.
+                var fitted = EntityQueryResponse.Fit(result, limit, countOnly);
+                var previousMeta = fitted.Meta?.DeepClone().AsObject();
+                var decorated = Apply(fitted, config, true, request.Params.Name);
+                if (Measure(decorated) > limit) decorated.Meta = previousMeta;
+                return decorated;
+            }
             var profile = request.Params?.Name == "dwg_get_drawing_profile";
             var profileLimit = profile ? Math.Min(DrawingProfileResponse.ReadRequestedCap(request.Params), config.ResponseBudgetBytesOrDefault) : 0;
             if (profile) result = DrawingProfileResponse.Fit(result, profileLimit);
@@ -30,6 +42,18 @@ internal static class ResponseBudget
             // Argument warnings and global warning metadata must also fit the tool's cap.
             return profile ? DrawingProfileResponse.Fit(result, profileLimit) : result;
         }));
+
+    internal static bool IsEntityQueryExtendedRequest(CallToolRequestParams request)
+    {
+        if (request?.Arguments == null || request.Name is not ("dwg_query_entities" or "dwg_count_entities")) return false;
+        var keys = request.Name == "dwg_query_entities"
+            ? new[] { "bbox", "bbox_mode", "space", "fields", "cursor", "max_output_bytes" }
+            : new[] { "bbox", "bbox_mode", "space" };
+        if (keys.Any(key => request.Arguments.TryGetValue(key, out var value)
+            && value.ValueKind != System.Text.Json.JsonValueKind.Null)) return true;
+        return request.Name == "dwg_query_entities" && request.Arguments.TryGetValue("paged", out var paged)
+            && paged.ValueKind is not (System.Text.Json.JsonValueKind.False or System.Text.Json.JsonValueKind.Null);
+    }
 
     internal static CallToolResult Apply(CallToolResult result, DwgMcpConfig config, bool readOnly, string toolName)
     {

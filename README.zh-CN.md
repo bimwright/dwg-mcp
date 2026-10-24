@@ -184,7 +184,7 @@ development 默认启动暴露 45 个工具：query（含 `dwg_get_drawing_profi
 
 通用 CAD 工具作用于所选 AutoCAD 目标中的当前活动文档。实体输入与返回的实体 ID 使用 AutoCAD 十六进制 handle，例如 `7F5AD`，由选择、创建或属性工具返回。创建、复制、偏移和修改操作的响应会用十六进制 handle 标识所生成或修改的实体。
 
-Plan 2 的查询扩展仅限模型空间：`dwg_query_entities`、`dwg_count_entities`、`dwg_select_by_layer` 和 `dwg_select_by_type` 扫描的是模型空间，而非图纸空间/布局实体。`dwg_select_by_layer` 和 `dwg_select_by_type` 返回给调用方的 handle 列表；它们不会改变 AutoCAD 的 pickfirst 选择。
+只使用原有query/count参数的调用仍扫描模型空间。旧query保留参数顺序、结果字段、遍历顺序和 `include_geometry` 输出；limit默认500，限制在1–5000。`dwg_select_by_layer` 和 `dwg_select_by_type` 保留模型空间handle列表契约，不改变pickfirst选择。四个type过滤器按实际managed短名称或完整名称进行不区分大小写的匹配，并增加 `TEXT` → `DBText`、`INSERT` → `BlockReference`、`LWPOLYLINE` → `Polyline`；不从 `POLYLINE` 推断额外的DXF类型。
 
 读取大型图纸时，先调用 `dwg_get_drawing_profile()`（`section="summary"`、`offset=0`）。它扫描模型空间和所有布局的顶层实体，不展开块定义或xref内容；一个块参照计为一个实体。使用总数前先检查source、scope和完整性。type按准确的运行时完整名称分组，layer和space也有各自的计数。已观察但不完整的计数以及不可用值会明确标注或返回 `null`，不会当作完整总数。
 
@@ -197,8 +197,8 @@ Plan 2 的查询扩展仅限模型空间：`dwg_query_entities`、`dwg_count_ent
 | `dwg_get_drawing_profile` | 只读汇总模型和布局的顶层实体，按type/layer/space分页计数，检查snapshot并限制最终response字节数 |
 | `dwg_get_entity_properties` | 读取由 AutoCAD 十六进制 handle 标识的实体属性 |
 | `dwg_list_layers` | 列出当前图纸中的图层及其颜色和状态标志 |
-| `dwg_query_entities` | 按可选的类型、图层、颜色、数量和几何标志查询模型空间实体 |
-| `dwg_count_entities` | 按可选的类型、图层或颜色过滤统计模型空间实体数量 |
+| `dwg_query_entities` | 旧模型空间查询，或选择范围/投影字段分页读取，使用签名续页及最终response字节上限 |
+| `dwg_count_entities` | 按type/layer/color及可选WCS extents、命名space计数，明确报告无法判定的匹配coverage |
 | `dwg_select_by_layer` | 返回一个图层的模型空间实体 handle 列表，且不改变 pickfirst 选择 |
 | `dwg_select_by_type` | 返回一个实体类型的模型空间实体 handle 列表，且不改变 pickfirst 选择 |
 | `dwg_get_selected_texts` | 读取 pickfirst 选择，对文字实体做空间聚类，返回带改写模式提示的分组文字 |
@@ -239,6 +239,22 @@ Plan 2 的查询扩展仅限模型空间：`dwg_query_entities`、`dwg_count_ent
 | `dwg_restore_view` | 返回先前截图的相机位置并获取新图像 |
 
 读图流程：截图 → 查看图像 → 选择区域 → `dwg_inspect_view_region` → 查看细节。保留父图像ID，通过 `dwg_restore_view` 返回总览。历史记录在当前AutoCAD进程中最多保留64张、30分钟。首版区域导航仅支持模型空间中的单个视口、俯视正投影、无视图旋转；拒绝过期来源和不支持的视图。响应在原有JSON旁增加MCP图像块（最多8 MiB）。这些工具会改变相机并保存图片，因此在 `--read-only` 下不可用；不会编辑几何或保存DWG。已安装主机的运行验收仍待完成。参见上述工作流程。
+
+**空间过滤和分页entity读取**扩展现有 `dwg_query_entities`、`dwg_count_entities`，不增加MCP工具。提供 `bbox`、`bbox_mode`、`space`、`fields`、`cursor` 或 `max_output_bytes` 即进入分页模式；无过滤分页可用 `paged=true`。只提供 `paged=false` 则保留旧行为。旧五个参数仍在前面。不要把 `include_geometry=true` 与新选项组合，改用 `fields` 选择字段。
+
+| 追加的query选项 | 含义 |
+|---|---|
+| `paged=false` | 设为true，在没有其他新选项时启用分页 |
+| `bbox=null` | JSON字符串 `{"min":[x,y,z],"max":[x,y,z]}`，WCS坐标有限且min ≤ max |
+| `bbox_mode=null` | 有box时默认 `intersects`，或 `contains`；必须提供 `bbox` |
+| `space=null` | 默认 `model`，或 `layout:<人类可读LayoutName>`，忽略大小写的精确匹配；使用profile中的布局名 |
+| `fields=null` | JSON数组字符串，默认 `handle`、`type`、`layer`。仅允许 `handle`、`type`、`runtime_type`、`layer`、`color_index`、`text`、`position`、`extents`；始终包含 `handle` |
+| `cursor=null` | 上一页返回的续页token |
+| `max_output_bytes=null` | 最终MCP结果上限，默认16384字节，范围4096–65536；更小的全局budget仍适用 |
+
+`bbox` 比较WCS轴对齐三维 `GeometricExtents`，包含接触边界，不是精确图形交集测试。坐标使用图纸单位，不做INSUNITS换算。结果附INSUNITS代码/名称；代码0仍是unitless/unknown。只扫描所选模型空间或命名布局的顶层实体，不展开block、xref或viewport可见内容，也不回退到其他space。`dwg_count_entities` 只向旧三个参数追加 `bbox`、`bbox_mode`、`space`，并报告范围metadata和未知匹配coverage。需要空间handle列表时，query使用 `fields="[\"handle\"]"`，不改变select契约。
+
+分页按AutoCAD handle的数值排序。按照 `result.output.next_calls` 调用并保持filter和fields；签名host-session cursor绑定图纸生命周期、revision和最后**已交付**的handle。可改变 `limit` 或byte cap；改变filter/fields必须省略cursor并重新开始。无效、篡改或图纸变化后的cursor会被拒绝。每页重新扫描space，不使用缓存；byte cap限制输出，不限制扫描时间。`result.output` 报告budget、`omitted_matching`、`has_more`、`next_cursor`、`next_calls`及row受阻时的说明。读取/filter/必要extents失败会在coverage中明确计数，返回 `exact_match_count=null` 和已观察的 `matched_count`，不提供可能跳过未知handle的续页。entity不支持的property以 `null` 和 `unavailable_fields` 标明。扩展query/count只能直接调用；gateway和plugin的batch预检查都会在执行前面项目之前拒绝整个batch。只用旧参数的query/count batch保持原行为，baked query仍不可用。扩展读取需要gateway/plugin共同支持：gateway对未支持该功能的旧plugin返回 `QUERY_FEATURE_UNSUPPORTED` 并丢弃旧格式输出，只用原参数的调用仍可用。
 
 启用 `toolbaker` 工具集时会暴露可选 ToolBaker 工具：
 

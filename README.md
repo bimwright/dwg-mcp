@@ -223,7 +223,7 @@ With no drawing open, use `dwg_list_recent_drawings` → user chooses → `dwg_o
 
 General CAD tools operate on the current active document in the selected AutoCAD target. Entity inputs and returned entity IDs use AutoCAD hex handles, such as `7F5AD`, returned by selection, creation, or property tools. Creation, copy, offset, and modify responses identify generated or modified entities by hex handle.
 
-Plan 2 query expansion is model-space only: `dwg_query_entities`, `dwg_count_entities`, `dwg_select_by_layer`, and `dwg_select_by_type` scan model space, not paper-space/layout entities. `dwg_select_by_layer` and `dwg_select_by_type` return handle lists for the caller; they do not change AutoCAD's pickfirst selection.
+Calls using only the original query/count parameters scan model space. Legacy `dwg_query_entities` keeps its existing parameter order, result fields, enumeration order and `include_geometry` output, with a default limit of 500 clamped to 1–5000. `dwg_select_by_layer` and `dwg_select_by_type` keep their model-space handle-list contract and do not change AutoCAD's pickfirst selection. All four type filters match exact managed short or full names ignoring case, with the additional aliases `TEXT` → `DBText`, `INSERT` → `BlockReference`, and `LWPOLYLINE` → `Polyline`; no extra `POLYLINE` DXF inference is made.
 
 Start a large-drawing read with `dwg_get_drawing_profile()` (`section="summary"`, `offset=0`). It scans top-level entities in model space and every layout, without expanding block definitions or xref contents; one block reference counts as one entity. Inspect the reported source, scope and completeness before interpreting totals. Type groups use exact runtime full names; layer and space groups retain their own counts. Observed/incomplete counts and unavailable values remain explicit or `null`, rather than being presented as complete totals.
 
@@ -236,8 +236,8 @@ Follow `output.next_calls` to page `types`, `layers` or `spaces`; each suggested
 | `dwg_get_drawing_profile` | Read-only summary and paged type/layer/space counts across top-level model and layout entities, with snapshot checks and a final-response byte cap |
 | `dwg_get_entity_properties` | Read properties for entities identified by AutoCAD hex handles |
 | `dwg_list_layers` | List layers in the current drawing with color and state flags |
-| `dwg_query_entities` | Query model-space entities by optional type, layer, color, limit, and geometry flags |
-| `dwg_count_entities` | Count model-space entities by optional type, layer, or color filters |
+| `dwg_query_entities` | Legacy model-space query, or opt-in spatial/projected pages with signed continuation and a final-response byte cap |
+| `dwg_count_entities` | Count by type/layer/color, with optional WCS extents and named-space filters plus explicit unknown-match coverage |
 | `dwg_select_by_layer` | Return model-space entity handle lists for one layer without changing pickfirst selection |
 | `dwg_select_by_type` | Return model-space entity handle lists for one entity type without changing pickfirst selection |
 | `dwg_get_selected_texts` | Read pickfirst selection, spatially cluster text entities, return grouped text with rewrite mode hints |
@@ -278,6 +278,22 @@ Follow `output.next_calls` to page `types`, `layers` or `spaces`; each suggested
 | `dwg_restore_view` | Return to an earlier capture's camera and obtain a fresh inline image |
 
 Visual reading: capture → inspect the image → choose a region → `dwg_inspect_view_region` → inspect again. Keep ancestor IDs and use `dwg_restore_view` to return to the overview. Source history lasts 30 minutes / 64 captures in one AutoCAD process. Region navigation initially supports one top-down, unrotated, orthographic model-space viewport; unsupported or stale sources are refused. Capture responses now include an MCP image block (8 MiB limit) alongside the existing JSON text. These tools change the visible camera and save images, and are unavailable under `--read-only`; they do not edit geometry or save DWG. Installed-host acceptance is pending. See the workflow described above.
+
+**Spatial and paged entity reads** extend `dwg_query_entities` and `dwg_count_entities`; they add no MCP tool. Supplying `bbox`, `bbox_mode`, `space`, `fields`, `cursor` or `max_output_bytes` activates paged mode, or use `paged=true` for unfiltered pages. `paged=false` alone keeps legacy behavior. The original five query parameters remain first. Do not combine `include_geometry=true` with new options; choose `fields` instead.
+
+| Appended query option | Meaning |
+|---|---|
+| `paged=false` | Set true to opt into pages without other new options |
+| `bbox=null` | String containing JSON `{"min":[x,y,z],"max":[x,y,z]}` with finite, ordered WCS bounds |
+| `bbox_mode=null` | `intersects` by default with a box, or `contains`; requires `bbox` |
+| `space=null` | `model` by default, or `layout:<human LayoutName>` matched exactly ignoring case; use profile layout names |
+| `fields=null` | String containing a JSON array; defaults to `handle`, `type`, `layer`. Allowed: `handle`, `type`, `runtime_type`, `layer`, `color_index`, `text`, `position`, `extents`; `handle` is always included |
+| `cursor=null` | Opaque continuation token from the prior page |
+| `max_output_bytes=null` | Final MCP result cap, default 16384 bytes, range 4096–65536; a smaller global response budget still applies |
+
+`bbox` compares closed 3D axis-aligned `GeometricExtents`, including touching boundaries; it does not test exact geometry intersections. Coordinates use drawing units with no INSUNITS conversion. Results include the INSUNITS code/name; code 0 remains unitless/unknown. Reads cover only top-level entities in the selected model space or named layout, without block, xref or viewport-content traversal and without falling back to another space. `dwg_count_entities` appends only `bbox`, `bbox_mode` and `space` to its existing three parameters and reports spatial metadata and unknown-match coverage. For spatial handle lists, query with `fields="[\"handle\"]"`; the select tools remain unchanged.
+
+Pages sort by numeric AutoCAD handle. Follow `result.output.next_calls` with the same filters and fields; its signed host-session cursor binds the document lifetime, revision and last **delivered** handle. You may change `limit` or the byte cap; changing matching filters or fields requires omitting the cursor and starting again. Invalid, tampered or changed-drawing cursors are refused. Each page rescans the space without a cache; the byte cap limits delivery, not scan time. `result.output` reports the budget, `omitted_matching`, `has_more`, `next_cursor`, `next_calls` and any blocked-row guidance. Read/filter/required-extents failures produce explicit coverage counters, `exact_match_count=null` and an observed `matched_count`, with no continuation that could silently skip unknown handles. Properties unsupported by an entity are `null` with `unavailable_fields`. Extended query/count calls must be direct: gateway and plugin batch preflight reject the whole batch before earlier commands run. Legacy query/count batches using only original parameters retain their behavior; baked query dispatch remains unavailable. Extended reads require updated gateway/plugin support: the gateway returns `QUERY_FEATURE_UNSUPPORTED` for unsupported older plugins and discards legacy-shaped output; original-parameter calls remain available.
 
 Optional ToolBaker tools are exposed when the `toolbaker` toolset is enabled:
 

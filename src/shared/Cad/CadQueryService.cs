@@ -178,7 +178,7 @@ namespace Bimwright.Dwg.Plugin.Cad
         private static bool Matches(Entity entity, CadEntityQueryOptions options)
         {
             if (!string.IsNullOrEmpty(options.EntityType) &&
-                !string.Equals(entity.GetType().Name, options.EntityType, StringComparison.OrdinalIgnoreCase))
+                !EntityQueryOptions.TypeMatches(entity.GetType(), options.EntityType))
             {
                 return false;
             }

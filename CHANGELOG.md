@@ -2,6 +2,13 @@
 
 ## 2.1.1 — Unreleased
 
+### Spatial and paged entity reads
+
+- Extend existing query/count tools with WCS 3D extents filtering and explicit model/layout scope. Opt-in query pages project allowlisted fields, retain mandatory handles and bind signed continuations to the document/revision, filters, fields and last delivered numeric handle. Incomplete matching coverage reports observed counts and disables continuation.
+- Keep legacy query fields, geometry output, enumeration order and default/clamped limits; append new options without adding a tool. Share managed-name matching and the explicit TEXT/INSERT/LWPOLYLINE aliases across query/count/select. Extended query/count are direct calls, refused by gateway and plugin whole-batch preflight; select handle-list contracts remain unchanged.
+
+- Refuse extended reads from older plugins with `QUERY_FEATURE_UNSUPPORTED` and discard legacy-shaped data that could ignore spatial/paging options. Original-parameter query/count calls remain available.
+
 ### Drawing profile
 
 - Add read-only `dwg_get_drawing_profile` to default `query`: scan top-level entities in model space and every layout, count exact runtime types, layers and spaces, and keep observed/incomplete counts distinct from complete totals. Block references count once; block definitions and xref contents are not expanded.

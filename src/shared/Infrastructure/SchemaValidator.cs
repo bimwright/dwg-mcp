@@ -179,12 +179,22 @@ namespace Bimwright.Dwg.Plugin
             SchemaProperty.Optional("layer", JTokenType.String),
             SchemaProperty.Optional("color_index", JTokenType.Integer),
             SchemaProperty.Optional("limit", JTokenType.Integer),
-            SchemaProperty.Optional("include_geometry", JTokenType.Boolean));
+            SchemaProperty.Optional("include_geometry", JTokenType.Boolean),
+            SchemaProperty.Optional("paged", JTokenType.Boolean),
+            SchemaProperty.Optional("bbox", JTokenType.Object),
+            SchemaProperty.Optional("bbox_mode", JTokenType.String),
+            SchemaProperty.Optional("space", JTokenType.String),
+            SchemaProperty.Optional("fields", JTokenType.Array),
+            SchemaProperty.Optional("cursor", JTokenType.String),
+            SchemaProperty.Optional("max_output_bytes", JTokenType.Integer));
 
         public static readonly CommandSchema CountEntities = CommandSchema.Object(
             SchemaProperty.Optional("entity_type", JTokenType.String),
             SchemaProperty.Optional("layer", JTokenType.String),
-            SchemaProperty.Optional("color_index", JTokenType.Integer));
+            SchemaProperty.Optional("color_index", JTokenType.Integer),
+            SchemaProperty.Optional("bbox", JTokenType.Object),
+            SchemaProperty.Optional("bbox_mode", JTokenType.String),
+            SchemaProperty.Optional("space", JTokenType.String));
 
         public static readonly CommandSchema SelectByLayer = CommandSchema.Object(
             SchemaProperty.RequiredNonEmptyString("layer"),

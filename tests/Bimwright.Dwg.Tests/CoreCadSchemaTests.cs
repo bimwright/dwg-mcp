@@ -8,6 +8,15 @@ namespace Bimwright.Dwg.Tests
     public class CoreCadSchemaTests
     {
         [Fact]
+        public void Paged_query_and_spatial_count_extend_existing_schemas_without_changing_select_schema()
+        {
+            var query = GetCommandSchema("QueryEntities");
+            AssertValid("query_entities", JObject.Parse("{\"paged\":true,\"bbox\":{\"min\":[0,0,0],\"max\":[1,1,1]},\"fields\":[\"text\"],\"cursor\":\"opaque\",\"space\":\"model\",\"max_output_bytes\":4096}"), query);
+            AssertInvalidField("query_entities", JObject.Parse("{\"fields\":\"[text]\"}"), query, "fields");
+            AssertInvalidField("query_entities", JObject.Parse("{\"bbox\":[]}"), query, "bbox");
+            AssertValid("count_entities", JObject.Parse("{\"bbox\":{\"min\":[0,0,0],\"max\":[1,1,1]},\"space\":\"layout:A\"}"), GetCommandSchema("CountEntities"));
+        }
+        [Fact]
         public void Drawing_profile_accepts_optional_group_page_and_budget_but_rejects_wrong_types()
         {
             var schema = GetCommandSchema("GetDrawingProfile");

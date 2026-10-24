@@ -182,7 +182,7 @@ Bản development mặc định expose 45 tool: query (gồm `dwg_get_drawing_pr
 
 CAD tool chạy trên active document hiện tại của AutoCAD target đang chọn. Entity input và entity id trả về dùng AutoCAD hex handle, ví dụ `7F5AD`, do tool selection, creation, hoặc properties trả về. Creation, copy, offset, và modify response identify entity tạo/sửa bằng hex handle.
 
-Plan 2 query expansion chỉ quét model space: `dwg_query_entities`, `dwg_count_entities`, `dwg_select_by_layer`, và `dwg_select_by_type` không quét paper-space/layout entity. `dwg_select_by_layer` và `dwg_select_by_type` trả về handle list cho caller; chúng không đổi AutoCAD pickfirst selection.
+Lời gọi chỉ dùng tham số query/count cũ vẫn quét model space. Query cũ giữ thứ tự tham số, các trường kết quả, thứ tự duyệt và output `include_geometry`; limit mặc định 500, clamp trong 1–5000. `dwg_select_by_layer` và `dwg_select_by_type` giữ contract trả handle model-space, không đổi pickfirst selection. Cả bốn bộ lọc type so tên managed ngắn hoặc đầy đủ, không phân biệt hoa thường; bổ sung alias `TEXT` → `DBText`, `INSERT` → `BlockReference`, `LWPOLYLINE` → `Polyline`, không suy diễn thêm loại DXF từ `POLYLINE`.
 
 Bắt đầu đọc bản vẽ lớn bằng `dwg_get_drawing_profile()` (`section="summary"`, `offset=0`). Tool quét entity cấp trên cùng trong model space và mọi layout, không mở rộng block definition hay nội dung xref; một block reference được tính là một entity. Xem source, scope và trạng thái đầy đủ trước khi dùng tổng số. Nhóm type giữ nguyên tên runtime đầy đủ; nhóm layer và space có số đếm riêng. Số đã quan sát/chưa đầy đủ và giá trị chưa xác định được ghi rõ hoặc trả `null`, không coi là tổng đầy đủ.
 
@@ -195,8 +195,8 @@ Theo `output.next_calls` để phân trang `types`, `layers` hoặc `spaces`; m�
 | `dwg_get_drawing_profile` | Summary chỉ đọc và phân trang số lượng theo type/layer/space của entity cấp trên cùng trong model/layout, kiểm tra snapshot và giới hạn byte response cuối |
 | `dwg_get_entity_properties` | Đọc property của entity theo AutoCAD hex handle |
 | `dwg_list_layers` | Liệt kê layer trong drawing hiện tại kèm color và state flag |
-| `dwg_query_entities` | Query model-space entity theo type, layer, color, limit, và geometry flag tùy chọn |
-| `dwg_count_entities` | Đếm model-space entity theo type, layer, hoặc color filter tùy chọn |
+| `dwg_query_entities` | Query model-space cũ hoặc opt-in phân trang theo vùng/trường, cursor có chữ ký và giới hạn byte kết quả cuối |
+| `dwg_count_entities` | Đếm theo type/layer/color, tùy chọn extents WCS và space có tên; báo rõ coverage của các match chưa xác định |
 | `dwg_select_by_layer` | Trả về handle list của model-space entity trên một layer, không đổi pickfirst selection |
 | `dwg_select_by_type` | Trả về handle list của model-space entity theo một entity type, không đổi pickfirst selection |
 | `dwg_get_selected_texts` | Đọc text đang chọn, cluster không gian, trả về nhóm text |
@@ -237,6 +237,22 @@ Theo `output.next_calls` để phân trang `types`, `layers` hoặc `spaces`; m�
 | `dwg_restore_view` | Quay lại camera của ảnh trước và nhận ảnh chụp mới |
 
 Đọc bản vẽ: chụp → xem ảnh → chọn vùng → `dwg_inspect_view_region` → xem chi tiết. Giữ ID ảnh cha và dùng `dwg_restore_view` để quay lại tổng thể. Lịch sử giữ tối đa 64 ảnh / 30 phút trong tiến trình AutoCAD. Bản đầu hỗ trợ một viewport model space, nhìn từ trên xuống, không xoay, trực giao; từ chối nguồn cũ hoặc view ngoài phạm vi. Capture trả thêm image block MCP (tối đa 8 MiB) cạnh JSON hiện có. Các tool thay đổi camera và ghi ảnh, và không dùng được trong `--read-only`; không sửa geometry hay lưu DWG. Kiểm chứng trên host đã cài vẫn pending. Xem quy trình mô tả ở trên.
+
+**Đọc entity theo vùng và phân trang** mở rộng `dwg_query_entities` và `dwg_count_entities`, không thêm MCP tool. Cung cấp `bbox`, `bbox_mode`, `space`, `fields`, `cursor` hoặc `max_output_bytes` sẽ bật phân trang; dùng `paged=true` nếu muốn phân trang không lọc. Chỉ có `paged=false` thì vẫn giữ hành vi cũ. Năm tham số query cũ vẫn đứng đầu. Không kết hợp `include_geometry=true` với tùy chọn mới; dùng `fields` để chọn dữ liệu.
+
+| Tùy chọn query nối thêm | Ý nghĩa |
+|---|---|
+| `paged=false` | Đặt true để bật phân trang khi không có tùy chọn mới khác |
+| `bbox=null` | Chuỗi JSON `{"min":[x,y,z],"max":[x,y,z]}` với tọa độ WCS hữu hạn, min ≤ max |
+| `bbox_mode=null` | `intersects` mặc định khi có box, hoặc `contains`; cần `bbox` |
+| `space=null` | Mặc định `model`, hoặc `layout:<tên LayoutName hiển thị>` khớp chính xác không phân biệt hoa thường; lấy tên từ profile |
+| `fields=null` | Chuỗi mảng JSON; mặc định `handle`, `type`, `layer`. Chỉ nhận `handle`, `type`, `runtime_type`, `layer`, `color_index`, `text`, `position`, `extents`; luôn có `handle` |
+| `cursor=null` | Token tiếp trang từ kết quả trước |
+| `max_output_bytes=null` | Giới hạn MCP result cuối, mặc định 16384 byte, khoảng 4096–65536; global budget nhỏ hơn vẫn áp dụng |
+
+`bbox` so `GeometricExtents` dạng hộp 3D theo trục WCS, kể cả biên chạm nhau; không phải kiểm tra giao hình học chính xác. Tọa độ là drawing units, không quy đổi INSUNITS. Kết quả kèm code/tên INSUNITS; code 0 giữ nghĩa unitless/unknown. Chỉ duyệt entity cấp trên cùng của model space hoặc layout đã chọn, không mở rộng block/xref/nội dung nhìn qua viewport, không fallback sang space khác. `dwg_count_entities` chỉ nối `bbox`, `bbox_mode`, `space` vào ba tham số cũ, kèm metadata vùng và coverage match chưa rõ. Muốn lấy handle theo vùng, query với `fields="[\"handle\"]"`; contract select không đổi.
+
+Trang sắp theo giá trị số của handle AutoCAD. Theo `result.output.next_calls`, giữ nguyên filter và fields; cursor có chữ ký của host session gắn với vòng đời drawing, revision và handle cuối **đã giao**. Có thể đổi `limit` hoặc byte cap; đổi filter/fields phải bỏ cursor và bắt đầu lại. Cursor sai, bị sửa hoặc drawing đổi bị từ chối. Mỗi trang quét lại space, không cache; byte cap chỉ giới hạn output, không giới hạn thời gian quét. `result.output` báo budget, `omitted_matching`, `has_more`, `next_cursor`, `next_calls` và hướng dẫn nếu row bị chặn. Lỗi đọc/filter/extents cần thiết được đếm trong coverage, trả `exact_match_count=null`, `matched_count` đã quan sát và không có continuation để tránh bỏ qua handle chưa rõ. Property không hỗ trợ trên entity trả `null` cùng `unavailable_fields`. Query/count mở rộng phải gọi trực tiếp: gateway và plugin đều preflight từ chối cả batch trước khi lệnh trước đó chạy. Batch query/count chỉ dùng tham số cũ giữ nguyên hành vi; baked query vẫn không được phép. Đọc mở rộng cần gateway/plugin cùng hỗ trợ: gateway trả `QUERY_FEATURE_UNSUPPORTED` khi plugin cũ chưa hỗ trợ và loại output dạng cũ, còn lời gọi chỉ dùng tham số cũ vẫn dùng được.
 
 ToolBaker là toolset tùy chọn:
 

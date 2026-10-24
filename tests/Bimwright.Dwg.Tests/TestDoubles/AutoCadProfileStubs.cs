@@ -228,7 +228,7 @@ public class Layout : DBObject
     }
 }
 
-public class Entity : DBObject
+public partial class Entity : DBObject
 {
     private string layer;
     internal Exception ProfileLayerFailure;
@@ -239,11 +239,11 @@ public class Entity : DBObject
     }
 }
 
-public class Line : Entity { }
-public class Circle : Entity { }
-public class DBText : Entity { }
+public partial class Line : Curve { }
+public partial class Circle : Curve { }
+public partial class DBText : Entity { }
 public class ProxyEntity : Entity { }
-public class BlockReference : Entity
+public partial class BlockReference : Entity
 {
     public ObjectId BlockTableRecord { get; set; }
 }

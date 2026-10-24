@@ -140,6 +140,60 @@ namespace Bimwright.Dwg.Tests
         }
 
         [Fact]
+        public async Task Paged_query_parses_only_new_JSON_options_and_preserves_legacy_filter_names()
+        {
+            var sent = await Capture.Send(() => QueryTools.QueryEntities("TEXT", "A", 7, 3, false, paged: true,
+                bbox: "{\"min\":[-1,-2,-3],\"max\":[4,5,6]}", bbox_mode: "contains", space: "layout:Sheet A",
+                fields: "[\"handle\",\"text\"]", cursor: "opaque", max_output_bytes: 4096));
+            Assert.Equal("query_entities", sent.Command);
+            var request = sent.Json();
+            Assert.True(request.Value<bool>("paged"));
+            Assert.Equal("TEXT", request.Value<string>("entity_type"));
+            Assert.IsType<JObject>(request["bbox"]); Assert.IsType<JArray>(request["fields"]);
+            Assert.Equal("layout:Sheet A", request.Value<string>("space"));
+            Assert.Equal("opaque", request.Value<string>("cursor")); Assert.Equal(4096, request.Value<int>("max_output_bytes"));
+        }
+
+        [Theory]
+        [InlineData("[\"arbitrary_property\"]", null, false)]
+        [InlineData("not-json", null, false)]
+        [InlineData(null, "{\"min\":[2,0,0],\"max\":[1,1,1]}", false)]
+        [InlineData(null, "not-json", false)]
+        [InlineData(null, null, true)]
+        public async Task Paged_query_invalid_fields_box_or_geometry_never_reach_the_plugin(string fields, string bbox, bool geometry)
+        {
+            var result = await Capture.Local(() => QueryTools.QueryEntities(include_geometry: geometry, paged: true, fields: fields, bbox: bbox));
+            Assert.False(result.Value<bool>("ok")); Assert.StartsWith("INVALID_ARGUMENT:", result.Value<string>("error"));
+        }
+
+        [Fact]
+        public async Task Spatial_count_uses_the_same_box_wire_shape_without_query_only_fields()
+        {
+            var sent = await Capture.Send(() => QueryTools.CountEntities(bbox: "{\"min\":[0,0,0],\"max\":[1,2,3]}", bbox_mode: "intersects", space: "model"));
+            Assert.Equal("count_entities", sent.Command); Assert.IsType<JObject>(sent.Json()["bbox"]);
+            Assert.Equal(new[] { "bbox", "bbox_mode", "space" }, sent.Json().Properties().Select(p => p.Name).OrderBy(p => p).ToArray());
+        }
+
+        [Theory]
+        [InlineData("query_entities", "{\"paged\":true}")]
+        [InlineData("count_entities", "{\"space\":\"model\"}")]
+        public async Task Extended_reads_in_a_batch_are_refused_before_any_gateway_send(string command, string parameters)
+        {
+            var commands = new JArray(new JObject { ["cmd"] = "update_texts", ["params"] = new JObject() },
+                new JObject { ["cmd"] = command, ["params"] = JObject.Parse(parameters) });
+            var result = await Capture.Local(() => BatchTools.BatchExecute(commands.ToString(Newtonsoft.Json.Formatting.None)));
+            Assert.False(result.Value<bool>("ok")); Assert.Contains("PAGED_QUERY_DIRECT_TOOL_ONLY", result.Value<string>("error"));
+        }
+
+        [Fact]
+        public async Task Legacy_query_and_count_batches_keep_the_existing_wire_contract()
+        {
+            const string commands = "[{\"cmd\":\"query_entities\",\"params\":{\"limit\":2}},{\"cmd\":\"count_entities\",\"params\":{}}]";
+            var sent = await Capture.Send(() => BatchTools.BatchExecute(commands));
+            Assert.Equal("batch_execute", sent.Command); Assert.Equal(JArray.Parse(commands), sent.Json()["commands"]);
+        }
+
+        [Fact]
         public async Task Count_entities_omits_unset_filters()
         {
             var sent = await Capture.Send(() => QueryTools.CountEntities());

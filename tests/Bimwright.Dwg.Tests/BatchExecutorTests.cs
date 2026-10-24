@@ -7,6 +7,26 @@ namespace Bimwright.Dwg.Tests
     public class BatchExecutorTests
     {
         [Fact]
+        public void Paged_query_is_rejected_before_any_batch_item_but_legacy_query_is_unchanged()
+        {
+            var executed = 0;
+            var result = BatchExecutor.Run(JObject.Parse("{\"commands\":[{\"cmd\":\"update_texts\",\"params\":{}},{\"cmd\":\"query_entities\",\"params\":{\"paged\":true}}]}"),
+                (_, _) => { executed++; return CommandResult.Success(null); });
+            Assert.False(result.Ok); Assert.Equal(0, executed); Assert.Contains("PAGED_QUERY_DIRECT_TOOL_ONLY", result.Error);
+            var legacy = BatchExecutor.Run(JObject.Parse("{\"commands\":[{\"cmd\":\"query_entities\",\"params\":{\"limit\":2}}]}"),
+                (_, _) => { executed++; return CommandResult.Success(null); });
+            Assert.True(legacy.Ok); Assert.Equal(1, executed);
+        }
+
+        [Fact]
+        public void Extended_count_is_also_direct_only_before_any_native_batch_item()
+        {
+            var executed = 0;
+            var result = BatchExecutor.Run(JObject.Parse("{\"commands\":[{\"cmd\":\"update_texts\",\"params\":{}},{\"cmd\":\"count_entities\",\"params\":{\"bbox\":{\"min\":[0,0,0],\"max\":[1,1,1]}}}]}"),
+                (_, _) => { executed++; return CommandResult.Success(null); });
+            Assert.False(result.Ok); Assert.Equal(0, executed); Assert.Contains("PAGED_QUERY_DIRECT_TOOL_ONLY", result.Error);
+        }
+        [Fact]
         public void Run_RejectsLispBeforeExecutingAnyBatchItem()
         {
             var executed = 0;

@@ -184,7 +184,7 @@ development のデフォルト起動では45のツール（クエリ（`dwg_get_
 
 一般的なCADツールは、選択されたAutoCADターゲットの現在アクティブなドキュメントに対して動作します。エンティティ入力と返されるエンティティIDは、`7F5AD` のようなAutoCAD 16進ハンドルを使用します。作成、コピー、オフセット、および変更の応答は、生成または変更されたエンティティを16進ハンドルで識別します。
 
-Plan 2 のクエリ拡張はモデル空間のみです。`dwg_query_entities`、`dwg_count_entities`、`dwg_select_by_layer`、`dwg_select_by_type` はペーパー空間/レイアウトエンティティではなくモデル空間をスキャンします。`dwg_select_by_layer` と `dwg_select_by_type` は呼び出し元にハンドルリストを返します。AutoCADのピックファースト選択は変更しません。
+従来のquery/countパラメータだけの呼び出しはモデル空間を走査します。従来queryのパラメータ順、返却フィールド、列挙順、`include_geometry` 出力は維持され、limitは既定500、1–5000にクランプされます。`dwg_select_by_layer` と `dwg_select_by_type` は引き続きモデル空間のハンドル一覧を返し、pickfirst選択は変更しません。四つのtypeフィルターは実際のmanaged短縮名・完全名を大文字小文字を区別せず照合し、`TEXT` → `DBText`、`INSERT` → `BlockReference`、`LWPOLYLINE` → `Polyline` を追加します。`POLYLINE` から追加のDXF型を推測しません。
 
 大きな図面の読み取りは `dwg_get_drawing_profile()`（`section="summary"`、`offset=0`）から始めます。モデル空間と全レイアウトの最上位エンティティを走査し、ブロック定義やxrefの内容は展開しません。ブロック参照一つを一つのエンティティとして数えます。合計を使う前にsource、scope、完全性を確認してください。typeは正確なランタイム完全名で分類し、layerとspaceも個別に集計します。観測済み・不完全な件数や取得不能値は明示するか `null` を返し、完全な合計とは扱いません。
 
@@ -197,8 +197,8 @@ Plan 2 のクエリ拡張はモデル空間のみです。`dwg_query_entities`�
 | `dwg_get_drawing_profile` | モデル・レイアウトの最上位エンティティを読み取り専用で集計。type/layer/space別ページ、snapshot確認、最終responseのバイト上限 |
 | `dwg_get_entity_properties` | AutoCAD 16進ハンドルで識別されるエンティティのプロパティを読み取る |
 | `dwg_list_layers` | 現在の図面の画層を色と状態フラグとともに一覧表示 |
-| `dwg_query_entities` | オプションのタイプ、画層、色、制限、形状フラグでモデル空間エンティティをクエリ |
-| `dwg_count_entities` | オプションのタイプ、画層、色フィルターでモデル空間エンティティをカウント |
+| `dwg_query_entities` | 従来のモデル空間query、または範囲・フィールドを指定したページ取得。署名付き継続と最終応答のバイト上限 |
+| `dwg_count_entities` | type/layer/color、任意のWCS extentsと名前付きspaceで集計し、判定不能のcoverageを明示 |
 | `dwg_select_by_layer` | 1つの画層のモデル空間エンティティハンドルリストを返す（ピックファースト選択は変更しない） |
 | `dwg_select_by_type` | 1つのエンティティタイプのモデル空間エンティティハンドルリストを返す（ピックファースト選択は変更しない） |
 | `dwg_get_selected_texts` | ピックファースト選択を読み取り、テキストエンティティを空間クラスタリングし、書き換えモードのヒント付きでグループ化テキストを返す |
@@ -239,6 +239,22 @@ Plan 2 のクエリ拡張はモデル空間のみです。`dwg_query_entities`�
 | `dwg_restore_view` | 以前のキャプチャのカメラへ戻り、新しい画像を取得する |
 
 図面の読み取り: キャプチャ → 画像を確認 → 領域を選択 → `dwg_inspect_view_region` → 詳細を確認。全体へ戻るには親IDを保存して `dwg_restore_view` を使用します。履歴はAutoCADプロセス内で最大64件・30分です。初期対応はモデル空間の単一ビューポート、真上からの正投影、回転なしに限定されます。古い画像や非対応ビューは拒否されます。応答には既存JSONに加えてMCP画像ブロック（最大8 MiB）が含まれます。カメラの変更と画像保存を行うため `--read-only` では利用できませんが、図形編集やDWG保存は行いません。インストール済みホストでの受入検証は未完了です。上記のワークフローを参照。
+
+**範囲指定とページ化されたentity読み取り**は既存の `dwg_query_entities` と `dwg_count_entities` の拡張で、新しいMCPツールは増えません。`bbox`、`bbox_mode`、`space`、`fields`、`cursor`、`max_output_bytes` のいずれかを指定するとページ化されます。フィルターなしなら `paged=true` を使います。`paged=false` だけなら従来動作を維持します。従来の五つのパラメータは先頭に維持されます。新オプションと `include_geometry=true` は併用せず、`fields` で選びます。
+
+| 末尾に追加するqueryオプション | 意味 |
+|---|---|
+| `paged=false` | trueにして他の新オプションなしでページ化を有効化 |
+| `bbox=null` | 有限でmin ≤ maxのWCS座標を含むJSON文字列 `{"min":[x,y,z],"max":[x,y,z]}` |
+| `bbox_mode=null` | box指定時は既定 `intersects`、または `contains`。`bbox` が必要 |
+| `space=null` | 既定 `model`、または `layout:<表示LayoutName>` を大文字小文字を区別せず完全一致。profileの名前を使用 |
+| `fields=null` | JSON配列文字列。既定 `handle`、`type`、`layer`。許可項目は `handle`、`type`、`runtime_type`、`layer`、`color_index`、`text`、`position`、`extents`。`handle` は常に含む |
+| `cursor=null` | 前のページから受け取る継続トークン |
+| `max_output_bytes=null` | 最終MCP結果の上限。既定16384バイト、4096–65536。小さいグローバルbudgetも適用 |
+
+`bbox` は接触境界を含むWCS軸平行3D `GeometricExtents` の比較で、厳密な図形交差判定ではありません。座標は図面単位で、INSUNITS換算は行いません。結果にINSUNITSコード・名前を含み、コード0はunitless/unknownのままです。選んだモデル空間またはレイアウトの最上位entityだけを走査し、block/xref/viewportの表示内容を展開せず、別spaceへフォールバックしません。`dwg_count_entities` は従来三つのパラメータに `bbox`、`bbox_mode`、`space` だけを追加し、範囲metadataと判定不能coverageを返します。範囲内のハンドル一覧はqueryの `fields="[\"handle\"]"` を使い、selectの契約は維持します。
+
+ページはAutoCADハンドルの数値順です。`result.output.next_calls` のfilter/fieldsを保って呼び出してください。署名付きhost-session cursorは図面ライフタイム、revision、最後に**返却された**ハンドルに結び付きます。`limit` とbyte capは変更可能ですが、filter/fieldsを変える場合はcursorを省略して最初から始めます。不正・改変・図面変更後のcursorは拒否します。各ページでspaceを再走査し、キャッシュは使いません。byte capは出力量だけを制限し、走査時間は制限しません。`result.output` はbudget、`omitted_matching`、`has_more`、`next_cursor`、`next_calls`、行が入らない場合の案内を返します。読み取り・filter・必要extentsの失敗はcoverageに数え、`exact_match_count=null` と観測済み `matched_count` を返し、不明ハンドルを飛ばす継続は発行しません。entityが対応しないpropertyは `null` と `unavailable_fields` で示します。拡張query/countは直接呼び出しのみで、gatewayとpluginのbatch事前検査が前の項目を実行する前に全体を拒否します。従来パラメータだけのquery/count batchは維持し、baked queryは引き続き許可しません。拡張読み取りにはgatewayとpluginの両方の対応が必要で、未対応の古いpluginに対してgatewayが `QUERY_FEATURE_UNSUPPORTED` を返し、従来形式の出力を破棄しますが、従来パラメータだけの呼び出しは利用できます。
 
 オプショナルのToolBakerツールは、`toolbaker` ツールセットが有効な場合に公開されます:
 
