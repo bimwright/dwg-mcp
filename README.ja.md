@@ -186,15 +186,15 @@ development のデフォルト起動では45のツール（クエリ（`dwg_get_
 
 従来のquery/countパラメータだけの呼び出しはモデル空間を走査します。従来queryのパラメータ順、返却フィールド、列挙順、`include_geometry` 出力は維持され、limitは既定500、1–5000にクランプされます。`dwg_select_by_layer` と `dwg_select_by_type` は引き続きモデル空間のハンドル一覧を返し、pickfirst選択は変更しません。四つのtypeフィルターは実際のmanaged短縮名・完全名を大文字小文字を区別せず照合し、`TEXT` → `DBText`、`INSERT` → `BlockReference`、`LWPOLYLINE` → `Polyline` を追加します。`POLYLINE` から追加のDXF型を推測しません。
 
-大きな図面の読み取りは `dwg_get_drawing_profile()`（`section="summary"`、`offset=0`）から始めます。モデル空間と全レイアウトの最上位エンティティを走査し、ブロック定義やxrefの内容は展開しません。ブロック参照一つを一つのエンティティとして数えます。合計を使う前にsource、scope、完全性を確認してください。typeは正確なランタイム完全名で分類し、layerとspaceも個別に集計します。観測済み・不完全な件数や取得不能値は明示するか `null` を返し、完全な合計とは扱いません。
+大きな図面の読み取りは `dwg_get_drawing_profile()`（`section="summary"`、`offset=0`）から始めます。既定ではモデル空間と全レイアウトの最上位エンティティを走査し、ブロック定義やxrefの内容は展開しません。ブロック参照一つを一つのエンティティとして数えます。任意の第5引数 `space` は `all`（既定）、レイアウト定義を読まない `model`、または一つの正確な名前を指定する `layout:<name>` を選びます。合計を使う前にsource、scope、完全性を確認してください。typeは正確なランタイム完全名で分類し、layerとspaceも個別に集計します。観測済み・不完全な件数や取得不能値は明示するか `null` を返し、完全な合計とは扱いません。
 
-`output.next_calls` に従い `types`、`layers`、`spaces` をページ取得します。提案には `section`、`offset`、`expected_snapshot`、`max_output_bytes` が含まれます。最初のページでは `expected_snapshot` は省略可能ですが、`offset>0` では必須です。snapshotが変わると `PROFILE_CHANGED` を返すのでsummaryからやり直します。別の `document_id` も結果と一緒に保持してください。各ページで図面を再走査し、キャッシュは使いません。`max_output_bytes` の既定は16384（4096–65536）で、グローバルresponse budgetとともに最終MCP結果のシリアライズ後サイズを制限します。走査時間の制限ではありません。
+`output.next_calls` に従い `types`、`layers`、`spaces` をページ取得します。提案には `section`、`offset`、`expected_snapshot`、`max_output_bytes`、`space` が含まれます。最初のページでは `expected_snapshot` は省略可能ですが、`offset>0` では必須です。snapshotが変わると `PROFILE_CHANGED` を返すのでsummaryからやり直します。別の `document_id` も結果と一緒に保持してください。各ページで図面を再走査し、キャッシュは使いません。`max_output_bytes` の既定は16384（4096–65536）で、グローバルresponse budgetとともに最終MCP結果のシリアライズ後サイズを制限します。走査時間の制限ではありません。snapshotはscopeを固定し、modelのquery/count/profileはviewportだけの変更を無視しますが、all・名前付きlayoutのprofileとlayout queryはそれも検出します。scopeを変える場合は古い `expected_snapshot` を省略してsummaryを再取得します。scope指定のprofile応答には `scope.requested_space` が必要で、scopeを無視する古いpluginは `PROFILE_SCOPE_UNSUPPORTED` で拒否されます。
 
 | ツール | 目的 |
 |------|---------|
 | `dwg_health` | host/runtime identity と任意の stable release 確認。既定はオフライン・読み取り専用 |
 | `dwg_get_drawing_info` | 現在の図面名、現在の画層、現在のスペース/レイアウト、単位スカラーを読み取る |
-| `dwg_get_drawing_profile` | モデル・レイアウトの最上位エンティティを読み取り専用で集計。type/layer/space別ページ、snapshot確認、最終responseのバイト上限 |
+| `dwg_get_drawing_profile` | all（既定）・modelのみ・名前付きlayoutの最上位entityを読み取り専用で集計。scope付きsnapshotと最終responseバイト上限 |
 | `dwg_get_entity_properties` | AutoCAD 16進ハンドルで識別されるエンティティのプロパティを読み取る |
 | `dwg_list_layers` | 現在の図面の画層を色と状態フラグとともに一覧表示 |
 | `dwg_query_entities` | 従来のモデル空間query、または範囲・フィールドを指定したページ取得。署名付き継続と最終応答のバイト上限 |

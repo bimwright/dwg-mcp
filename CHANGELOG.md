@@ -5,12 +5,14 @@
 ### Spatial and paged entity reads
 
 - Extend existing query/count tools with WCS 3D extents filtering and explicit model/layout scope. Opt-in query pages project allowlisted fields, retain mandatory handles and bind signed continuations to the document/revision, filters, fields and last delivered numeric handle. Incomplete matching coverage reports observed counts and disables continuation.
-- Keep legacy query fields, geometry output, enumeration order and default/clamped limits; append new options without adding a tool. Share managed-name matching and the explicit TEXT/INSERT/LWPOLYLINE aliases across query/count/select. Extended query/count are direct calls, refused by gateway and plugin whole-batch preflight; select handle-list contracts remain unchanged.
+- Keep legacy query fields, geometry output, enumeration order and default/clamped limits; append new options without adding a tool. Legacy query/count/select calls without spatial or paging options now also accept the aliases `TEXT` -> `DBText`, `INSERT` -> `BlockReference`, and `LWPOLYLINE` -> `Polyline`; managed-name matching remains available. Extended query/count are direct calls, refused by gateway and plugin whole-batch preflight; select handle-list contracts remain unchanged.
 
 - Refuse extended reads from older plugins with `QUERY_FEATURE_UNSUPPORTED` and discard legacy-shaped data that could ignore spatial/paging options. Original-parameter query/count calls remain available.
+- Refuse the exact uppercase `POLYLINE` DXF token before query/count/select scans, including empty drawings. Use `Polyline`/`LWPOLYLINE` for lightweight polylines or explicit `Polyline2d`/`Polyline3d` managed types; existing managed-name spellings remain available.
 
 ### Drawing profile
 
+- Add optional `space="all"` (unchanged default), `model` or one named layout. Model query/count/profile snapshots ignore viewport-only changes; all/layout profiles and layout queries retain those invalidations. Snapshots bind scope, model-only profiles avoid layout reads, and scoped replies from older plugins are refused with `PROFILE_SCOPE_UNSUPPORTED` instead of accepting ignored scope.
 - Add read-only `dwg_get_drawing_profile` to default `query`: scan top-level entities in model space and every layout, count exact runtime types, layers and spaces, and keep observed/incomplete counts distinct from complete totals. Block references count once; block definitions and xref contents are not expanded.
 - Start with `section="summary"`, then follow `output.next_calls` for `types`, `layers` or `spaces`. Every page rescans the drawing; continuation requires its `expected_snapshot` and refuses changes with `PROFILE_CHANGED`. `max_output_bytes` defaults to 16384 (4096–65536) and caps the final MCP tool result together with the global response budget. No cache or full-entity dump is introduced.
 

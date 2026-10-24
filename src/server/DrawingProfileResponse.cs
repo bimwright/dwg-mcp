@@ -17,11 +17,15 @@ internal static class DrawingProfileResponse
     internal const int MaximumCap = 64 * 1024;
     private static readonly string[] Sections = { "types", "layers", "spaces" };
 
-    internal static CallToolResult FromJson(string json, int maxOutputBytes)
+    internal static CallToolResult FromJson(string json, int maxOutputBytes, string space = "all")
     {
         var body = JObject.Parse(json);
-        return Fit(Text(body, body.Value<bool?>("ok") != true), maxOutputBytes);
+        return Fit(Text(body, body.Value<bool?>("ok") != true), maxOutputBytes, space);
     }
+
+    internal static string ReadRequestedSpace(CallToolRequestParams request)
+        => request?.Arguments?.TryGetValue("space", out var value) == true && value.ValueKind == JsonValueKind.String
+            ? value.GetString() : "all";
 
     internal static int ReadRequestedCap(CallToolRequestParams request)
     {
@@ -34,13 +38,16 @@ internal static class DrawingProfileResponse
         return DefaultCap;
     }
 
-    internal static CallToolResult Fit(CallToolResult result, int cap)
+    internal static CallToolResult Fit(CallToolResult result, int cap, string space = "all")
     {
         if (cap < MinimumCap || cap > MaximumCap) throw new ArgumentOutOfRangeException(nameof(cap), "Profile output must be 4096..65536 bytes.");
         var text = result.Content?.OfType<TextContentBlock>().FirstOrDefault();
         JObject body;
         try { body = JObject.Parse(text?.Text ?? ""); }
         catch (JsonReaderException) { return BoundOther(result, cap); }
+        if (!string.Equals(space, "all", StringComparison.OrdinalIgnoreCase) && body.Value<bool?>("ok") == true
+            && !string.Equals(body["result"]?["scope"]?.Value<string>("requested_space"), space, StringComparison.OrdinalIgnoreCase))
+            return Text(new JObject { ["ok"] = false, ["error"] = "PROFILE_SCOPE_UNSUPPORTED: the plugin did not confirm the requested profile space. Update gateway and plugin together; no profile counts were accepted." }, true);
         if (body["result"] is not JObject profile || Count(profile["profile_version"]) != 1
             || profile["histograms"] is not JObject histograms
             || Sections.Any(section => histograms[section] is not JObject table || table["rows"] is not JArray))
@@ -128,6 +135,12 @@ internal static class DrawingProfileResponse
             omitted[section] = remaining.HasValue ? new JValue(remaining.Value) : JValue.CreateNull();
             prior[section] = before;
             if (!remaining.HasValue || remaining.Value > 0 || before > 0) complete = false;
+            if (table.Value<bool?>("counts_complete") != true)
+            {
+                complete = false;
+                blocked.Add(new JObject { ["section"] = section, ["reason"] = "scan_incomplete; resolve unavailable reads and restart this table at offset=0" });
+                continue;
+            }
             if (remaining == 0) continue;
             if (!remaining.HasValue || !offset.HasValue || string.IsNullOrEmpty(snapshot))
             {
@@ -151,7 +164,8 @@ internal static class DrawingProfileResponse
                 ["arguments"] = new JObject
                 {
                     ["section"] = section, ["offset"] = selected ? offset.Value + rows.Count : 0,
-                    ["expected_snapshot"] = snapshot, ["max_output_bytes"] = cap
+                    ["expected_snapshot"] = snapshot, ["max_output_bytes"] = cap,
+                    ["space"] = profile["request"]?.Value<string>("space") ?? "all"
                 }
             });
         }

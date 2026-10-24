@@ -67,7 +67,7 @@ public class EntityQueryProtocolTests : IDisposable
         var document = Model(); await using var gateway = await Gateway.StartAsync(document);
         var first = Body(await gateway.CallAsync("dwg_query_entities", new JObject { ["paged"] = true, ["limit"] = 2, ["max_output_bytes"] = 8192 }))["result"];
         var next = (JObject)first["output"]["next_calls"][0]["arguments"].DeepClone();
-        if (mutate) document.Database.Raise("modified", new Viewport()); else next["fields"] = "[\"handle\",\"text\"]";
+        if (mutate) document.Database.Raise("modified", new Line()); else next["fields"] = "[\"handle\",\"text\"]";
         var starts = document.Database.ProfileTransactionStarts;
         var error = Body(await gateway.CallAsync("dwg_query_entities", next));
         Assert.False(error.Value<bool>("ok")); Assert.StartsWith(prefix, error.Value<string>("error"));

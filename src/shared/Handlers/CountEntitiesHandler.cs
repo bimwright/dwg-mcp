@@ -13,6 +13,7 @@ namespace Bimwright.Dwg.Plugin.Handlers
 
         public CommandResult Execute(Document doc, JToken parameters)
         {
+            if (!QueryHandlerInput.TryValidateEntityType(parameters, out var typeError)) return CommandResult.Fail(typeError);
             if (EntityQueryOptions.IsExtended(parameters))
             {
                 foreach (var field in new[] { "fields", "cursor", "paged", "max_output_bytes", "include_geometry" })

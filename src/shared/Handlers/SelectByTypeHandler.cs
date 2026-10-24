@@ -13,6 +13,7 @@ namespace Bimwright.Dwg.Plugin.Handlers
 
         public CommandResult Execute(Document doc, JToken parameters)
         {
+            if (!QueryHandlerInput.TryValidateEntityType(parameters, out var typeError)) return CommandResult.Fail(typeError);
             var entityType = QueryHandlerInput.ReadOptionalString(parameters, "entity_type");
             if (string.IsNullOrWhiteSpace(entityType))
             {

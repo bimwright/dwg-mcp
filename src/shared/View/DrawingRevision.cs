@@ -2,6 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Threading;
+using System.Globalization;
+using System.Security.Cryptography;
+using System.Text;
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
 
@@ -19,9 +22,18 @@ namespace Bimwright.Dwg.Plugin.View
         private long profileRevision;
         internal string SessionId { get; } = Guid.NewGuid().ToString("N");
         internal long Revision => Interlocked.Read(ref revision);
-        // Profiles include layout viewports and their layers; any object change
-        // invalidates histogram continuation, including navigation-related objects.
+        // Layout/all-space reads include viewport entities and track all changes.
+        // Model-only snapshots use Revision and ignore viewport navigation.
         internal long ProfileRevision => Interlocked.Read(ref profileRevision);
+        internal string Snapshot(string space)
+        {
+            var model = string.Equals(space, "model", StringComparison.OrdinalIgnoreCase);
+            string scope;
+            using (var hash = SHA256.Create())
+                scope = BitConverter.ToString(hash.ComputeHash(Encoding.UTF8.GetBytes(space.ToUpperInvariant()))).Replace("-", "").ToLowerInvariant();
+            return SessionId + ":" + (model ? "m" : "p") + ":"
+                + (model ? Revision : ProfileRevision).ToString(CultureInfo.InvariantCulture) + ":" + scope;
+        }
         internal static DrawingRevision For(Document document)
         {
             if (document == null) throw new ArgumentNullException(nameof(document));

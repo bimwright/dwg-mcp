@@ -61,10 +61,10 @@ namespace Bimwright.Dwg.Plugin
             catch (Exception ex) when (ex is ArgumentException || ex is FormatException || ex is JsonException
                 || ex is OverflowException || ex is InvalidOperationException)
             { throw Invalid(); }
-            if (!string.Equals(payload.Value<string>("snapshot"), expectedSnapshot, StringComparison.Ordinal))
-                throw new InvalidOperationException("QUERY_CHANGED: the drawing lifetime or revision changed; restart the query without a cursor.");
             if (!string.Equals(payload.Value<string>("query_hash"), queryHash, StringComparison.Ordinal))
                 throw new InvalidOperationException("CURSOR_QUERY_MISMATCH: filters, space, bounds or fields changed; restart the query without a cursor.");
+            if (!string.Equals(payload.Value<string>("snapshot"), expectedSnapshot, StringComparison.Ordinal))
+                throw new InvalidOperationException("QUERY_CHANGED: the drawing lifetime or revision changed; restart the query without a cursor.");
             return after;
         }
 

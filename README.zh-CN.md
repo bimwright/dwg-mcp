@@ -186,15 +186,15 @@ development 默认启动暴露 45 个工具：query（含 `dwg_get_drawing_profi
 
 只使用原有query/count参数的调用仍扫描模型空间。旧query保留参数顺序、结果字段、遍历顺序和 `include_geometry` 输出；limit默认500，限制在1–5000。`dwg_select_by_layer` 和 `dwg_select_by_type` 保留模型空间handle列表契约，不改变pickfirst选择。四个type过滤器按实际managed短名称或完整名称进行不区分大小写的匹配，并增加 `TEXT` → `DBText`、`INSERT` → `BlockReference`、`LWPOLYLINE` → `Polyline`；不从 `POLYLINE` 推断额外的DXF类型。
 
-读取大型图纸时，先调用 `dwg_get_drawing_profile()`（`section="summary"`、`offset=0`）。它扫描模型空间和所有布局的顶层实体，不展开块定义或xref内容；一个块参照计为一个实体。使用总数前先检查source、scope和完整性。type按准确的运行时完整名称分组，layer和space也有各自的计数。已观察但不完整的计数以及不可用值会明确标注或返回 `null`，不会当作完整总数。
+读取大型图纸时，先调用 `dwg_get_drawing_profile()`（`section="summary"`、`offset=0`）。它默认扫描模型空间和所有布局的顶层实体，不展开块定义或xref内容；一个块参照计为一个实体。可选第五参数 `space` 可设为 `all`（默认）、不读取布局定义的 `model`，或精确指定一个命名布局的 `layout:<name>`。使用总数前先检查source、scope和完整性。type按准确的运行时完整名称分组，layer和space也有各自的计数。已观察但不完整的计数以及不可用值会明确标注或返回 `null`，不会当作完整总数。
 
-按照 `output.next_calls` 分页读取 `types`、`layers` 或 `spaces`；建议调用包含 `section`、`offset`、`expected_snapshot` 和 `max_output_bytes`。第一页可省略 `expected_snapshot`，但 `offset>0` 时必须提供；snapshot变化会返回 `PROFILE_CHANGED`，此时应重新读取summary。结果中的独立 `document_id` 也应保留。每页都会重新扫描图纸，不使用缓存。`max_output_bytes` 默认16384（4096–65536），与全局response budget共同限制最终MCP结果序列化后的大小，不限制扫描时间。
+按照 `output.next_calls` 分页读取 `types`、`layers` 或 `spaces`；建议调用包含 `section`、`offset`、`expected_snapshot`、`max_output_bytes` 和 `space`。第一页可省略 `expected_snapshot`，但 `offset>0` 时必须提供；snapshot变化会返回 `PROFILE_CHANGED`，此时应重新读取summary。结果中的独立 `document_id` 也应保留。每页都会重新扫描图纸，不使用缓存。`max_output_bytes` 默认16384（4096–65536），与全局response budget共同限制最终MCP结果序列化后的大小，不限制扫描时间。snapshot绑定所选scope：model query/count/profile忽略仅viewport的变化，而all/命名layout profile及layout query也检测这些变化。改变scope时应省略旧 `expected_snapshot` 并重新读取summary。指定scope的profile响应必须标明 `scope.requested_space`；忽略scope的旧plugin会以 `PROFILE_SCOPE_UNSUPPORTED` 被拒绝。
 
 | 工具 | 用途 |
 |------|------|
 | `dwg_health` | host/runtime identity 与可选 stable release 检查；默认离线、只读 |
 | `dwg_get_drawing_info` | 读取当前图纸名称、当前图层、当前空间/布局，以及单位标量 |
-| `dwg_get_drawing_profile` | 只读汇总模型和布局的顶层实体，按type/layer/space分页计数，检查snapshot并限制最终response字节数 |
+| `dwg_get_drawing_profile` | 只读计数all（默认）、仅model或一个命名layout的顶层entity，检查带scope的snapshot并限制最终response字节数 |
 | `dwg_get_entity_properties` | 读取由 AutoCAD 十六进制 handle 标识的实体属性 |
 | `dwg_list_layers` | 列出当前图纸中的图层及其颜色和状态标志 |
 | `dwg_query_entities` | 旧模型空间查询，或选择范围/投影字段分页读取，使用签名续页及最终response字节上限 |

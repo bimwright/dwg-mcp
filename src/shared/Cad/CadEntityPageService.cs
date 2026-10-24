@@ -23,7 +23,7 @@ namespace Bimwright.Dwg.Plugin.Cad
         {
             if (document == null) throw new InvalidOperationException(DrawingSessionContract.NoActiveDocument);
             var revision = DrawingRevision.For(document);
-            var snapshot = Snapshot(revision);
+            var snapshot = revision.Snapshot(options.Space);
             var after = options.Cursor == null ? 0UL : EntityQueryCursor.Read(options.Cursor, snapshot, options.Fingerprint);
             var database = document.Database;
             var stats = new ScanStats();
@@ -123,7 +123,7 @@ namespace Bimwright.Dwg.Plugin.Cad
                 }
                 transaction.Commit();
             }
-            if (!string.Equals(snapshot, Snapshot(revision), StringComparison.Ordinal))
+            if (!string.Equals(snapshot, revision.Snapshot(options.Space), StringComparison.Ordinal))
                 throw new InvalidOperationException("QUERY_CHANGED: the drawing lifetime or revision changed during enumeration; restart without a cursor.");
             return result;
         }
@@ -241,9 +241,6 @@ namespace Bimwright.Dwg.Plugin.Cad
             catch { result["insunits"] = null; result["insunits_code"] = null; result["unavailable"] = true; }
             return result;
         }
-
-        private static string Snapshot(DrawingRevision revision)
-            => revision.SessionId + ":" + revision.ProfileRevision.ToString(CultureInfo.InvariantCulture);
 
         private sealed class Candidate
         {

@@ -108,7 +108,7 @@ namespace Bimwright.Dwg.Plugin
                 }
 
                 if (EntityQueryOptions.RequiresDirectCall(cmd, item?["params"]))
-                    return CommandResult.Fail("PAGED_QUERY_DIRECT_TOOL_ONLY: call dwg_query_entities or dwg_count_entities directly; verified final MCP delivery is required. The batch was not started.");
+                    return CommandResult.Fail("PAGED_QUERY_DIRECT_TOOL_ONLY: call spatial/scoped/paged read tools directly; verified final MCP delivery is required. The batch was not started.");
 
                 // Reject the entire batch before any earlier item can mutate the
                 // drawing. Direct run_lisp is also blocked; do not suggest a bypass.

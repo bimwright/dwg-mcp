@@ -24,7 +24,7 @@ namespace Bimwright.Dwg.Server.Tools
         }
 
         [McpServerTool(Name = "dwg_get_drawing_profile", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false), Description(
-            "Profile the active drawing with a full read-only enumeration of top-level model-space and all layout entities. " +
+            "Profile top-level entities in all spaces (default), model only or one named layout. " +
             "Reports exact managed runtime type, layer and per-space counts with source/coverage; incomplete reads report observed counts and null exact totals. " +
             "Block inserts count once; nested block contents, uninserted definitions and xref contents are not expanded. " +
             "The default final MCP output cap is 16384 UTF-8 bytes, independent of the global response budget. " +
@@ -34,16 +34,19 @@ namespace Bimwright.Dwg.Server.Tools
             [Description("summary (default), types, layers or spaces. Summary starts all tables at offset zero.")] string section = "summary",
             [Description("Ordinal group offset for the selected table, default 0; positive offsets require expected_snapshot.")] int offset = 0,
             [Description("Maximum final MCP result bytes, default 16384; supported range 4096..65536. A smaller global budget still applies.")] int max_output_bytes = DrawingProfileOptions.DefaultMaxOutputBytes,
-            [Description("Snapshot token from a previous profile result. Required for positive offsets; mismatches require restarting at offset zero.")] string expected_snapshot = null)
+            [Description("Snapshot token from a previous profile result. Required for positive offsets; mismatches require restarting at offset zero.")] string expected_snapshot = null,
+            [Description("all (default), model or layout:<exact layout name>. Model snapshots ignore viewport navigation; layout/all snapshots track it.")] string space = "all")
         {
-            try { DrawingProfileOptions.Create(section, offset, max_output_bytes, expected_snapshot); }
+            DrawingProfileOptions options;
+            try { options = DrawingProfileOptions.Create(section, offset, max_output_bytes, expected_snapshot, space); }
             catch (ArgumentException ex)
             {
                 return DrawingProfileResponse.FromJson(JsonConvert.SerializeObject(new { ok = false, error = ex.Message }), DrawingProfileOptions.DefaultMaxOutputBytes);
             }
             var request = new JObject { ["section"] = section, ["offset"] = offset, ["max_output_bytes"] = max_output_bytes };
             if (expected_snapshot != null) request["expected_snapshot"] = expected_snapshot;
-            return DrawingProfileResponse.FromJson(await ToolGateway.LoggedCall("get_drawing_profile", request, request), max_output_bytes);
+            if (options.Space != "all") request["space"] = options.Space;
+            return DrawingProfileResponse.FromJson(await ToolGateway.LoggedCall("get_drawing_profile", request, request), max_output_bytes, options.Space);
         }
 
         [McpServerTool(Name = "dwg_get_entity_properties", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false), Description(
@@ -91,7 +94,7 @@ namespace Bimwright.Dwg.Server.Tools
             "Requires matching plugin support; unconfirmed legacy replies are refused. Call directly, outside batches, for paged reads. " +
             "Use fields=[\"handle\"] for paged spatial handles without changing selection.")]
         public static Task<string> QueryEntities(
-            [Description("Optional entity type filter such as Line, Circle, Polyline, DBText, MText, BlockReference, Hatch, Arc, or Ellipse. Case-insensitive.")] string entity_type = null,
+            [Description("Optional managed type name, case-insensitive. TEXT/INSERT/LWPOLYLINE aliases are supported. Exact uppercase POLYLINE is refused; use Polyline/LWPOLYLINE, Polyline2d or Polyline3d explicitly.")] string entity_type = null,
             [Description("Optional layer name filter. Case-insensitive.")] string layer = null,
             [Description("Optional ACI color index filter. Valid range: 1-256.")] int? color_index = null,
             [Description("Optional maximum number of returned entities. The plugin clamps this to 1-5000.")] int? limit = null,
@@ -104,6 +107,8 @@ namespace Bimwright.Dwg.Server.Tools
             [Description("Opaque cursor from output.next_calls. Echo the same matching/field options; changed snapshots refuse continuation.")] string cursor = null,
             [Description("Paged final MCP byte cap, default 16384, range4096..65536; lower global cap still applies.")] int? max_output_bytes = null)
         {
+            var typeError = ValidateEntityType(entity_type);
+            if (typeError != null) return ToolInputError(typeError);
             var request = BuildEntityQueryRequest(entity_type, layer, color_index, limit);
             request["include_geometry"] = include_geometry;
             if (paged || bbox != null || bbox_mode != null || space != null || fields != null || cursor != null || max_output_bytes.HasValue)
@@ -129,13 +134,15 @@ namespace Bimwright.Dwg.Server.Tools
             "Incomplete spatial counts return null count/exact_match_count plus observed matched_count; no estimated count is invented. " +
             "Spatial counts require matching plugin support and direct calls outside batches.")]
         public static Task<string> CountEntities(
-            [Description("Optional entity type filter such as Line, Circle, Polyline, DBText, MText, BlockReference, Hatch, Arc, or Ellipse. Case-insensitive.")] string entity_type = null,
+            [Description("Optional managed type name, case-insensitive. TEXT/INSERT/LWPOLYLINE aliases are supported. Exact uppercase POLYLINE is refused; use Polyline/LWPOLYLINE, Polyline2d or Polyline3d explicitly.")] string entity_type = null,
             [Description("Optional layer name filter. Case-insensitive.")] string layer = null,
             [Description("Optional ACI color index filter. Valid range: 1-256.")] int? color_index = null,
             [Description("JSON object {min:[x,y,z],max:[x,y,z]} in WCS drawing units.")] string bbox = null,
             [Description("intersects (default with bbox) or contains; inclusive AABB test, requires bbox.")] string bbox_mode = null,
             [Description("model or layout:<exact human layout name>; no fallback to another space.")] string space = null)
         {
+            var typeError = ValidateEntityType(entity_type);
+            if (typeError != null) return ToolInputError(typeError);
             var request = BuildEntityQueryRequest(entity_type, layer, color_index, limit: null);
             if (bbox != null || bbox_mode != null || space != null)
             {
@@ -151,10 +158,12 @@ namespace Bimwright.Dwg.Server.Tools
             "This does not change AutoCAD pickfirst selection.")]
         public static Task<string> SelectByLayer(
             [Description("Required layer name filter. Case-insensitive.")] string layer,
-            [Description("Optional entity type filter. Case-insensitive.")] string entity_type = null,
+            [Description("Optional managed type name, case-insensitive. Exact uppercase POLYLINE is refused; use Polyline/LWPOLYLINE, Polyline2d or Polyline3d explicitly.")] string entity_type = null,
             [Description("Optional ACI color index filter. Valid range: 1-256.")] int? color_index = null,
             [Description("Optional maximum number of returned handles. The plugin clamps this to 1-5000.")] int? limit = null)
         {
+            var typeError = ValidateEntityType(entity_type);
+            if (typeError != null) return ToolInputError(typeError);
             var request = BuildEntityQueryRequest(entity_type, layer, color_index, limit);
             return ToolGateway.LoggedCall("select_by_layer", request, request);
         }
@@ -163,11 +172,13 @@ namespace Bimwright.Dwg.Server.Tools
             "Return handles for model-space entities of a required type, with optional layer/color filters. " +
             "This does not change AutoCAD pickfirst selection.")]
         public static Task<string> SelectByType(
-            [Description("Required entity type filter such as Line, Circle, Polyline, DBText, MText, BlockReference, Hatch, Arc, or Ellipse. Case-insensitive.")] string entity_type,
+            [Description("Required managed type name, case-insensitive. TEXT/INSERT/LWPOLYLINE aliases are supported. Exact uppercase POLYLINE is refused; use Polyline/LWPOLYLINE, Polyline2d or Polyline3d explicitly.")] string entity_type,
             [Description("Optional layer name filter. Case-insensitive.")] string layer = null,
             [Description("Optional ACI color index filter. Valid range: 1-256.")] int? color_index = null,
             [Description("Optional maximum number of returned handles. The plugin clamps this to 1-5000.")] int? limit = null)
         {
+            var typeError = ValidateEntityType(entity_type);
+            if (typeError != null) return ToolInputError(typeError);
             var request = BuildEntityQueryRequest(entity_type, layer, color_index, limit);
             return ToolGateway.LoggedCall("select_by_type", request, request);
         }
@@ -236,6 +247,12 @@ namespace Bimwright.Dwg.Server.Tools
             if (bbox != null) request["bbox"] = JObject.Parse(bbox);
             if (mode != null) request["bbox_mode"] = mode;
             if (space != null) request["space"] = space;
+        }
+
+        private static string ValidateEntityType(string entityType)
+        {
+            try { EntityQueryOptions.NormalizeType(entityType); return null; }
+            catch (ArgumentException ex) { return ex.Message; }
         }
 
         private static JObject BuildEntityQueryRequest(

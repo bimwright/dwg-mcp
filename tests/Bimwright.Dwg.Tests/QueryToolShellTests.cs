@@ -177,6 +177,7 @@ namespace Bimwright.Dwg.Tests
         [Theory]
         [InlineData("query_entities", "{\"paged\":true}")]
         [InlineData("count_entities", "{\"space\":\"model\"}")]
+        [InlineData("get_drawing_profile", "{\"space\":\"model\"}")]
         public async Task Extended_reads_in_a_batch_are_refused_before_any_gateway_send(string command, string parameters)
         {
             var commands = new JArray(new JObject { ["cmd"] = "update_texts", ["params"] = new JObject() },

@@ -227,7 +227,7 @@ public sealed class EntityQueryPageTests : IDisposable
     [InlineData("filter", "CURSOR_QUERY_MISMATCH:")]
     [InlineData("bbox", "CURSOR_QUERY_MISMATCH:")]
     [InlineData("space", "CURSOR_QUERY_MISMATCH:")]
-    [InlineData("viewport", "QUERY_CHANGED:")]
+    [InlineData("entity", "QUERY_CHANGED:")]
     [InlineData("document_lifetime", "QUERY_CHANGED:")]
     public void Signed_cursor_rejects_changed_context_before_database_access(string change, string prefix)
     {
@@ -242,7 +242,7 @@ public sealed class EntityQueryPageTests : IDisposable
             case "filter": next["layer"] = "OTHER"; break;
             case "bbox": next["bbox"] = Box(-1, -1, -1, 2, 2, 2); break;
             case "space": next["space"] = "layout:Layout A"; break;
-            case "viewport": f.Database.Raise("modified", new Viewport()); break;
+            case "entity": f.Database.Raise("modified", new Line()); break;
             case "document_lifetime": document = new Document { Name = f.Document.Name, Database = f.Database }; break;
         }
         f.Database.ProfileResetMetrics();
@@ -257,7 +257,7 @@ public sealed class EntityQueryPageTests : IDisposable
     {
         var f = new Fixture(); for (var i = 0; i < 8; i++) f.Add(new Line(), i + 15);
         var raised = false;
-        f.Spaces[0].ProfileOnMoveNext = index => { if (index == 3 && !raised) { raised = true; f.Database.Raise("modified", new Viewport()); } };
+        f.Spaces[0].ProfileOnMoveNext = index => { if (index == 3 && !raised) { raised = true; f.Database.Raise("modified", new Line()); } };
         var result = Execute(f, Paged("handle"));
         Assert.True(raised); Assert.False(result.Ok); Assert.StartsWith("QUERY_CHANGED:", result.Error);
         Assert.Null(result.Result);

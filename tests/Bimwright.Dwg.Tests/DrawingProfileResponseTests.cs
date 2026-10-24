@@ -9,6 +9,17 @@ namespace Bimwright.Dwg.Tests;
 
 public class DrawingProfileResponseTests
 {
+    [Fact]
+    public void Incomplete_histogram_does_not_offer_offset_continuation_but_complete_tables_still_do()
+    {
+        var profile = DrawingProfileProtocolTests.FixtureProfile();
+        profile["histograms"]["layers"]["counts_complete"] = false;
+        var data = Body(Fit(profile))["result"];
+        Assert.DoesNotContain(data["output"]["next_calls"], next => next["arguments"].Value<string>("section") == "layers");
+        Assert.Contains(data["output"]["blocked_sections"], blocked => blocked.Value<string>("section") == "layers" && blocked.Value<string>("reason").StartsWith("scan_incomplete"));
+        Assert.Contains(data["output"]["next_calls"], next => next["arguments"].Value<string>("section") == "types");
+        Assert.False(data["output"].Value<bool>("complete"));
+    }
     private static JObject Body(CallToolResult result) => JObject.Parse(result.Content.OfType<TextContentBlock>().First().Text);
     private static CallToolResult Fit(JObject profile, int cap = 16384)
         => DrawingProfileResponse.FromJson(new JObject { ["ok"] = true, ["result"] = profile }.ToString(Formatting.None), cap);

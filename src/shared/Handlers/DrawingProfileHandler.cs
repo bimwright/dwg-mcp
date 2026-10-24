@@ -1,5 +1,5 @@
 using System;
-using System.Globalization;
+using System.Collections.Generic;
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
 using Bimwright.Dwg.Plugin.View;
@@ -25,7 +25,7 @@ namespace Bimwright.Dwg.Plugin.Handlers
                 options = DrawingProfileOptions.Create(values?.Value<string>("section") ?? "summary",
                     values?.Value<int?>("offset") ?? 0,
                     values?.Value<int?>("max_output_bytes") ?? DrawingProfileOptions.DefaultMaxOutputBytes,
-                    values?.Value<string>("expected_snapshot"));
+                    values?.Value<string>("expected_snapshot"), values?.Value<string>("space") ?? "all");
             }
             catch (Exception ex) when (ex is ArgumentException || ex is OverflowException)
             { return CommandResult.Fail("INVALID_ARGUMENT: " + ex.Message); }
@@ -34,11 +34,11 @@ namespace Bimwright.Dwg.Plugin.Handlers
             try
             {
                 var revision = DrawingRevision.For(doc);
-                var snapshot = Snapshot(revision);
+                var snapshot = revision.Snapshot(options.Space);
                 if (options.ExpectedSnapshot != null && !string.Equals(options.ExpectedSnapshot, snapshot, StringComparison.Ordinal))
                     return CommandResult.Fail("PROFILE_CHANGED: the drawing lifetime or revision changed; restart the profile at offset=0.");
-                var profile = Collect(doc.Database);
-                if (!string.Equals(snapshot, Snapshot(revision), StringComparison.Ordinal))
+                var profile = Collect(doc.Database, options.Space);
+                if (!string.Equals(snapshot, revision.Snapshot(options.Space), StringComparison.Ordinal))
                     return CommandResult.Fail("PROFILE_CHANGED: the drawing changed during enumeration; restart the profile at offset=0.");
                 return CommandResult.Success(profile.ToJson(DocumentTargetGuard.Id(doc), snapshot, options));
             }
@@ -46,10 +46,7 @@ namespace Bimwright.Dwg.Plugin.Handlers
             { return CommandResult.Fail("Could not inspect the active drawing: " + ErrorSanitizer.Sanitize(ex.Message)); }
         }
 
-        private static string Snapshot(DrawingRevision revision)
-            => revision.SessionId + ":" + revision.ProfileRevision.ToString(CultureInfo.InvariantCulture);
-
-        private static DrawingProfile Collect(Database database)
+        private static DrawingProfile Collect(Database database, string spaceSelector)
         {
             var profile = new DrawingProfile();
             try
@@ -58,7 +55,7 @@ namespace Bimwright.Dwg.Plugin.Handlers
                 {
                     var blocks = (BlockTable)transaction.GetObject(database.BlockTableId, OpenMode.ForRead);
                     var modelId = blocks[BlockTableRecord.ModelSpace];
-                    foreach (ObjectId recordId in blocks)
+                    foreach (ObjectId recordId in SpaceRecords(blocks, modelId, transaction, spaceSelector))
                     {
                         BlockTableRecord record;
                         try
@@ -130,8 +127,25 @@ namespace Bimwright.Dwg.Plugin.Handlers
                     transaction.Commit();
                 }
             }
-            catch { profile.FailedEnumeration(); }
+            catch when (spaceSelector == "all" || spaceSelector == "model") { profile.FailedEnumeration(); }
             return profile;
+        }
+
+        private static IEnumerable<ObjectId> SpaceRecords(BlockTable blocks, ObjectId modelId, Transaction transaction, string space)
+        {
+            if (space == "model") { yield return modelId; yield break; }
+            if (space == "all") { foreach (ObjectId id in blocks) yield return id; yield break; }
+            var found = new List<ObjectId>();
+            foreach (ObjectId id in blocks)
+            {
+                if (id == modelId || id.IsErased) continue;
+                var record = (BlockTableRecord)transaction.GetObject(id, OpenMode.ForRead);
+                if (!record.IsLayout) continue;
+                var layout = (Layout)transaction.GetObject(record.LayoutId, OpenMode.ForRead);
+                if (string.Equals(layout.LayoutName, space.Substring(7), StringComparison.OrdinalIgnoreCase)) found.Add(id);
+            }
+            if (found.Count != 1) throw new InvalidOperationException("PROFILE_SPACE_UNAVAILABLE: the named layout could not be resolved uniquely; no fallback was used.");
+            yield return found[0];
         }
     }
 }

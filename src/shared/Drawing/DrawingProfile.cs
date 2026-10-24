@@ -14,16 +14,17 @@ namespace Bimwright.Dwg.Plugin
         public const int MaxMaxOutputBytes = 65536;
         public const int MaxCandidateRows = 128;
 
-        private DrawingProfileOptions(string section, int offset, int maxOutputBytes, string expectedSnapshot)
-        { Section = section; Offset = offset; MaxOutputBytes = maxOutputBytes; ExpectedSnapshot = expectedSnapshot; }
+        private DrawingProfileOptions(string section, int offset, int maxOutputBytes, string expectedSnapshot, string space)
+        { Section = section; Offset = offset; MaxOutputBytes = maxOutputBytes; ExpectedSnapshot = expectedSnapshot; Space = space; }
 
         public string Section { get; }
         public int Offset { get; }
         public int MaxOutputBytes { get; }
         public string ExpectedSnapshot { get; }
+        public string Space { get; }
 
         public static DrawingProfileOptions Create(string section = "summary", int offset = 0,
-            int maxOutputBytes = DefaultMaxOutputBytes, string expectedSnapshot = null)
+            int maxOutputBytes = DefaultMaxOutputBytes, string expectedSnapshot = null, string space = "all")
         {
             if (section != "summary" && section != "types" && section != "layers" && section != "spaces")
                 throw new ArgumentException("section must be summary, types, layers, or spaces.", nameof(section));
@@ -36,7 +37,12 @@ namespace Bimwright.Dwg.Plugin
                 throw new ArgumentException("expected_snapshot must be nonempty when supplied.", nameof(expectedSnapshot));
             if (offset > 0 && expectedSnapshot == null)
                 throw new ArgumentException("offset>0 requires expected_snapshot from the previous profile.", nameof(expectedSnapshot));
-            return new DrawingProfileOptions(section, offset, maxOutputBytes, expectedSnapshot);
+            if (string.Equals(space, "all", StringComparison.OrdinalIgnoreCase)) space = "all";
+            else if (string.Equals(space, "model", StringComparison.OrdinalIgnoreCase)) space = "model";
+            else if (space != null && space.StartsWith("layout:", StringComparison.OrdinalIgnoreCase)
+                && !string.IsNullOrWhiteSpace(space.Substring(7)) && space.Length <= 1024) space = "layout:" + space.Substring(7);
+            else throw new ArgumentException("space must be all, model or layout:<exact layout name>.", nameof(space));
+            return new DrawingProfileOptions(section, offset, maxOutputBytes, expectedSnapshot, space);
         }
     }
 
@@ -103,7 +109,8 @@ namespace Bimwright.Dwg.Plugin
                 },
                 ["scope"] = new JObject
                 {
-                    ["spaces"] = "model_and_layout_top_level", ["block_expansion"] = false,
+                    ["spaces"] = options.Space == "all" ? "model_and_layout_top_level" : options.Space == "model" ? "model_top_level" : "named_layout_top_level",
+                    ["requested_space"] = options.Space, ["block_expansion"] = false,
                     ["xref_traversal"] = false, ["erased"] = "excluded", ["proxy_type"] = "actual_managed_wrapper"
                 },
                 ["coverage"] = new JObject
@@ -135,7 +142,7 @@ namespace Bimwright.Dwg.Plugin
                         ["observed_count"] = s.Count, ["complete"] = s.Complete
                     }), spaces.Count, populationComplete && spaces.All(s => s.Complete), options)
                 },
-                ["request"] = new JObject { ["section"] = options.Section, ["offset"] = options.Offset, ["max_output_bytes"] = options.MaxOutputBytes },
+                ["request"] = new JObject { ["section"] = options.Section, ["offset"] = options.Offset, ["max_output_bytes"] = options.MaxOutputBytes, ["space"] = options.Space },
                 ["summary"] = "Observed " + entitiesRead.ToString(CultureInfo.InvariantCulture) + " top-level entities in "
                     + spaces.Count.ToString(CultureInfo.InvariantCulture) + " spaces; profile " + (complete ? "complete." : "incomplete; counts are observed facts, not an estimate of unreadable data.")
             };

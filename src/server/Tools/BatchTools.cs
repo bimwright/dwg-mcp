@@ -23,7 +23,7 @@ namespace Bimwright.Dwg.Server.Tools
                 if (EntityQueryOptions.RequiresDirectCall(item?["cmd"]?.Value<string>(), item?["params"]))
                     return Task.FromResult(JsonConvert.SerializeObject(new
                     {
-                        ok = false, error = "PAGED_QUERY_DIRECT_TOOL_ONLY: call dwg_query_entities or dwg_count_entities directly for spatial/paged reads. The batch was not sent or started."
+                        ok = false, error = "PAGED_QUERY_DIRECT_TOOL_ONLY: call spatial/scoped/paged read tools directly. The batch was not sent or started."
                     }));
             var request = new JObject { ["commands"] = parsed };
             return ToolGateway.LoggedCall("batch_execute", request, request);

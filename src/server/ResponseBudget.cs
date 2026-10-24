@@ -35,12 +35,13 @@ internal static class ResponseBudget
             }
             var profile = request.Params?.Name == "dwg_get_drawing_profile";
             var profileLimit = profile ? Math.Min(DrawingProfileResponse.ReadRequestedCap(request.Params), config.ResponseBudgetBytesOrDefault) : 0;
-            if (profile) result = DrawingProfileResponse.Fit(result, profileLimit);
+            var profileSpace = profile ? DrawingProfileResponse.ReadRequestedSpace(request.Params) : "all";
+            if (profile) result = DrawingProfileResponse.Fit(result, profileLimit, profileSpace);
             result = Apply(result, config,
                 (request.MatchedPrimitive as McpServerTool)?.ProtocolTool.Annotations?.ReadOnlyHint == true,
                 request.Params?.Name);
             // Argument warnings and global warning metadata must also fit the tool's cap.
-            return profile ? DrawingProfileResponse.Fit(result, profileLimit) : result;
+            return profile ? DrawingProfileResponse.Fit(result, profileLimit, profileSpace) : result;
         }));
 
     internal static bool IsEntityQueryExtendedRequest(CallToolRequestParams request)

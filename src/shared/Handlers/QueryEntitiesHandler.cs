@@ -13,6 +13,7 @@ namespace Bimwright.Dwg.Plugin.Handlers
 
         public CommandResult Execute(Document doc, JToken parameters)
         {
+            if (!QueryHandlerInput.TryValidateEntityType(parameters, out var typeError)) return CommandResult.Fail(typeError);
             if (EntityQueryOptions.IsExtended(parameters))
             {
                 try { return CommandResult.Success(CadEntityPageService.Query(doc, EntityQueryOptions.Create(parameters))); }
@@ -44,6 +45,13 @@ namespace Bimwright.Dwg.Plugin.Handlers
 
     internal static class QueryHandlerInput
     {
+        internal static bool TryValidateEntityType(JToken parameters, out string error)
+        {
+            error = null;
+            try { EntityQueryOptions.NormalizeType(ReadOptionalString(parameters, "entity_type")); return true; }
+            catch (ArgumentException ex) { error = ex.Message; return false; }
+        }
+
         internal static bool TryCreateOptions(
             JToken parameters,
             bool includeGeometry,

@@ -36,6 +36,12 @@ namespace Bimwright.Dwg.Plugin
 
         public static bool RequiresDirectCall(string command, JToken parameters)
         {
+            if (command == "get_drawing_profile")
+            {
+                var space = (parameters as JObject)?["space"];
+                return space != null && space.Type != JTokenType.Null
+                    && (space.Type != JTokenType.String || !string.Equals(space.Value<string>(), "all", StringComparison.OrdinalIgnoreCase));
+            }
             if (command != "query_entities" && command != "count_entities") return false;
             if (IsExtended(parameters)) return true;
             var paged = (parameters as JObject)?["paged"];
@@ -100,6 +106,8 @@ namespace Bimwright.Dwg.Plugin
         public static string NormalizeType(string value)
         {
             var normalized = Normalize(value);
+            if (normalized == "POLYLINE")
+                throw new ArgumentException("AMBIGUOUS_ENTITY_TYPE: uppercase POLYLINE is an ambiguous DXF token. Use LWPOLYLINE or Polyline for lightweight polylines; use Polyline2d, Polyline3d or an explicit qualified managed name for other types. No mesh or polyline family is inferred.");
             if (string.Equals(normalized, "TEXT", StringComparison.OrdinalIgnoreCase)) return "DBText";
             if (string.Equals(normalized, "INSERT", StringComparison.OrdinalIgnoreCase)) return "BlockReference";
             if (string.Equals(normalized, "LWPOLYLINE", StringComparison.OrdinalIgnoreCase)) return "Polyline";
