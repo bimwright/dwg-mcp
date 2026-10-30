@@ -46,6 +46,9 @@ jobs:
       - name: Check plugin dependencies without AutoCAD
         run: ./tests/installer/plugin-payload.Tests.ps1 -ResultPath plugin-payload-tests.json
 
+      - name: Run installer upgrade and rollback tests
+        run: ./tests/installer/upgrade.Tests.ps1 -ResultPath upgrade-tests.json
+
       - name: Upload installer test results
         if: always()
         uses: actions/upload-artifact@v4
@@ -54,11 +57,14 @@ jobs:
           path: |
             installer-tests.json
             plugin-payload-tests.json
+            upgrade-tests.json
           if-no-files-found: warn
 
+  # Windows, like the rest of the family: the gateway only runs beside AutoCAD, and
+  # process identity, file locking and pipe tests rely on Windows semantics.
   server:
     name: server
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
 
