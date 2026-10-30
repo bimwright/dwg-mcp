@@ -32,7 +32,7 @@ internal static class ToastHistoryTests
             var notifier = new McpToastNotifier(host, () => false);
             notifier.OnCompleted("send_code", "{\"ok\":false,\"error\":\"compile error\"}", true, null, null, 21);
             var entry = host.History.Snapshot().Single();
-            if (entry.Success || entry.DurationMs != 21 || !entry.Summary.Contains("compile error")
+            if (entry.Success || entry.DurationMs != 21 || entry.Output != ActivityHistoryDetails.CodeOutputOmitted
                 || Field<McpToastManager>(host, "_manager") != null || Directory.Exists(sandbox))
                 throw new Exception("Toast off must retain compact History without creating a window or persistent files.");
             notifier.DismissAll();
@@ -69,7 +69,7 @@ internal static class ToastHistoryTests
     {
         var history = new ActivityHistory();
         history.Record(ToastContentBuilder.BuildCompleted("list_layers", "{\"count\":2}", true, null, null, 10));
-        history.Record(ToastContentBuilder.BuildCompleted("send_code", "{\"ok\":false,\"error\":\"compile error\"}", true, null, null, 20));
+        history.Record(ToastContentBuilder.BuildCompleted("create_line", null, false, "compile error", null, 20));
         var window = new HistoryWindow(history, "dwg-mcp 2024");
         try
         {
@@ -81,7 +81,7 @@ internal static class ToastHistoryTests
             if (!window.Title.Contains("dwg-mcp 2024") || grid.Columns.Count != 6 || grid.Items.Count != 2)
                 throw new Exception("History must show the instance identity and RVT-style outcome table.");
             grid.SelectedIndex = 0;
-            if (!Field<TextBlock>(window, "_summary").Text.Contains("compile error")
+            if (!Field<TextBox>(window, "_what").Text.Contains("compile error")
                 || Field<Border>(window, "_detail").Visibility != Visibility.Visible)
                 throw new Exception("Selecting a failed call must show its compact outcome.");
             search.Text = "compile";
@@ -100,7 +100,7 @@ internal static class ToastHistoryTests
                 .Invoke(window, new object[] { false });
             if (grid.Items.Count != 3) throw new Exception("History did not pick up a new completion.");
             var toolbar = (WrapPanel)((Grid)window.Content).Children[0];
-            toolbar.Children.OfType<Button>().Single().RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            toolbar.Children.OfType<Button>().Single(b => (string)b.Content == "New session").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             if (grid.Items.Count != 0 || history.Snapshot().Length != 0
                 || Field<Border>(window, "_detail").Visibility != Visibility.Collapsed)
                 throw new Exception("New session must clear the table and its stale detail.");

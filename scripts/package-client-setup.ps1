@@ -17,6 +17,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'plugin-payload.ps1')
+. (Join-Path $PSScriptRoot 'setup-validation.ps1')
 
 if (-not $RepoRoot) { $RepoRoot = Split-Path -Parent $PSScriptRoot }
 $RepoRoot = (Resolve-Path $RepoRoot).Path
@@ -112,6 +113,7 @@ $manifestXml.Save((Join-Path $bundleStage 'PackageContents.xml'))
 
 Copy-Item (Join-Path $RepoRoot 'scripts\install.ps1') (Join-Path $stageRoot 'install.ps1') -Force
 Copy-Item (Join-Path $RepoRoot 'scripts\plugin-payload.ps1') (Join-Path $stageRoot 'plugin-payload.ps1') -Force
+Copy-Item (Join-Path $RepoRoot 'scripts\setup-validation.ps1') (Join-Path $stageRoot 'setup-validation.ps1') -Force
 Copy-Item (Join-Path $RepoRoot 'scripts\uninstall-all.ps1') (Join-Path $stageRoot 'uninstall.ps1') -Force
 Copy-Item (Join-Path $RepoRoot 'scripts\uninstall-all.ps1') (Join-Path $stageRoot 'uninstall-all.ps1') -Force
 Copy-Item (Join-Path $RepoRoot 'README.md') (Join-Path $stageRoot 'README.md') -Force
@@ -149,6 +151,7 @@ $manifest = [ordered]@{
     files = $files
 }
 $manifest | ConvertTo-Json -Depth 20 | Set-Content (Join-Path $stageRoot 'manifest.json') -Encoding UTF8
+Assert-SetupManifest -Root $stageRoot -Manifest ([pscustomobject]$manifest)
 
 $setupZip = Join-Path $OutputDir ("DwgMcp.Setup-{0}-win-x64.zip" -f $displayVersion)
 if (Test-Path $setupZip) { Remove-Item $setupZip -Force }

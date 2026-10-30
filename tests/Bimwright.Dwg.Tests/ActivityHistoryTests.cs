@@ -26,7 +26,8 @@ namespace Bimwright.Dwg.Tests
             Assert.False(entries[0].Success);
             Assert.Equal(ToolActivityKind.Write, entries[0].Kind);
             Assert.Equal(23, entries[0].DurationMs);
-            Assert.Contains("compile error", entries[0].Summary);
+            Assert.DoesNotContain("compile error", entries[0].Summary);
+            Assert.Equal(ActivityHistoryDetails.CodeOutputOmitted, entries[0].Output);
         }
 
         [Fact]

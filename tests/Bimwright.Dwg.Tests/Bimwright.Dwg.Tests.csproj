@@ -61,6 +61,7 @@
     <Compile Include="..\..\src\shared\Views\Toast\McpToastViewModel.cs" LinkBase="Shared\Views\Toast" />
     <Compile Include="..\..\src\shared\Views\Toast\ToolActivityClassifier.cs" LinkBase="Shared\Views\Toast" />
     <Compile Include="..\..\src\shared\Views\Toast\ActivityHistory.cs" LinkBase="Shared\Views\Toast" />
+    <Compile Include="..\..\src\shared\Views\Toast\ActivityHistoryDetails.cs" LinkBase="Shared\Views\Toast" />
     <Compile Include="..\..\src\shared\Security\PathAllowlist.cs" LinkBase="Shared\Security" />
     <Compile Include="..\..\src\shared\Localization\L.cs" LinkBase="Shared\Localization" />
     <Compile Include="..\..\src\shared\Config\PluginSettings.cs" LinkBase="Shared\Config" />

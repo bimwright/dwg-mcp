@@ -44,6 +44,9 @@
     <Compile Include="..\shared\Transport\TransportFraming.cs" LinkBase="Shared\Transport" />
     <Compile Include="..\shared\Transport\TransportDiscovery.cs" LinkBase="Shared\Transport" />
     <Compile Include="..\shared\Infrastructure\RuntimeIdentity.cs" LinkBase="Shared\Infrastructure" />
+    <Compile Include="..\shared\Infrastructure\OutputArtifactStore.cs" LinkBase="Shared\Infrastructure" />
+    <Compile Include="..\shared\Infrastructure\FileOutputReceipt.cs" LinkBase="Shared\Infrastructure" />
+    <Compile Include="..\shared\Infrastructure\OutputReceiptFacts.cs" LinkBase="Shared\Infrastructure" />
     <Compile Include="..\shared\Infrastructure\TargetContract.cs" LinkBase="Shared\Infrastructure" />
     <Compile Include="..\shared\Drawing\DrawingSessionContract.cs" LinkBase="Shared\Drawing" />
     <Compile Include="..\shared\Drawing\DrawingProfile.cs" LinkBase="Shared\Drawing" />

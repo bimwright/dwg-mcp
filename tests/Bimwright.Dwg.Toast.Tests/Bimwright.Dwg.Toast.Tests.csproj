@@ -32,6 +32,9 @@
     <Compile Include="../../src/shared/Views/Toast/McpToastViewModel.cs" Link="McpToastViewModel.cs" />
     <Compile Include="../../src/shared/Views/Toast/ToolActivityClassifier.cs" Link="ToolActivityClassifier.cs" />
     <Compile Include="../../src/shared/Views/Toast/ActivityHistory.cs" Link="ActivityHistory.cs" />
+    <Compile Include="../../src/shared/Views/Toast/ActivityHistoryDetails.cs" Link="ActivityHistoryDetails.cs" />
+    <Compile Include="../../src/shared/Security/BakeRedactor.cs" Link="BakeRedactor.cs" />
+    <Compile Include="../../src/shared/Security/ErrorSanitizer.cs" Link="ErrorSanitizer.cs" />
     <Compile Include="../../src/shared/Views/HistoryWindow.cs" Link="HistoryWindow.cs" />
     <Compile Include="../../src/shared/Views/Settings/SettingsWindow.cs" Link="SettingsWindow.cs" />
     <Compile Include="../../src/shared/ToolCatalog/ToolCatalogStore.cs" Link="ToolCatalogStore.cs" />

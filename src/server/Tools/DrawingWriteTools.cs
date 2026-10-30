@@ -25,7 +25,7 @@ namespace Bimwright.Dwg.Server.Tools
         }
 
         [McpServerTool(Name = "dwg_save_drawing", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false), Description(
-            "Save the current drawing. If output_path is omitted, saves the current drawing file (requires confirm=true)." +
+            "Save the current drawing. If output_path is omitted, saves the current drawing file (requires confirm=true). Check file_receipt for bytes/hash and new/changed content; unchanged/unavailable is not verified fresh output." +
             " Writes DWG bytes and may overwrite the active file or an explicitly allowed destination. AutoCAD UNDO does not restore overwritten file bytes; keep and restore a backup. Delete a newly created copy if it is no longer needed.")]
         public static Task<string> SaveDrawing(
             [Description("Optional absolute path to save the drawing to. If specified, behaves like SaveAs.")] string output_path = null,

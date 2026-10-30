@@ -19,6 +19,7 @@ namespace Bimwright.Dwg.Plugin
         internal static JObject Capture(Document document) => new JObject
         {
             ["protocol"] = 1,
+            ["acad_year"] = int.Parse(PluginTarget.AutoCadYear, System.Globalization.CultureInfo.InvariantCulture),
             ["target_id"] = "acad-" + PluginTarget.AutoCadYear + "-" + Pid,
             ["pid"] = Pid, ["process_start_utc"] = StartUtc,
             ["document_id"] = Id(document), ["document_title"] = document?.Name

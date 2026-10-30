@@ -117,23 +117,28 @@ $tag = (Invoke-RestMethod https://api.github.com/repos/bimwright/dwg-mcp/release
 $zip = "$env:TEMP\DwgMcp.Setup-$tag-win-x64.zip"
 $dir = "$env:TEMP\DwgMcp.Setup-$tag-win-x64"
 Invoke-WebRequest "https://github.com/bimwright/dwg-mcp/releases/download/$tag/DwgMcp.Setup-$tag-win-x64.zip" -OutFile $zip
-Expand-Archive $zip -DestinationPath $dir -Force
+Invoke-WebRequest "https://github.com/bimwright/dwg-mcp/releases/download/$tag/DwgMcp.Setup-$tag-win-x64.zip.sha256" -OutFile "$zip.sha256"
+$expected = ((Get-Content "$zip.sha256" -Raw).Trim() -split '\s+')[0]
+if ($expected -notmatch '^[a-fA-F0-9]{64}$' -or (Get-FileHash $zip -Algorithm SHA256).Hash -ne $expected) { throw 'Setup ZIP checksum mismatch' }
+if (Test-Path -LiteralPath $dir) { throw 'Use a fresh extraction directory; existing files were preserved.' }
+Expand-Archive $zip -DestinationPath $dir
 
-powershell -ExecutionPolicy Bypass -File "$dir\install.ps1" -WhatIf
-powershell -ExecutionPolicy Bypass -File "$dir\install.ps1"
+# Choose an included/installed year; use the exact health tag for an update.
+powershell -ExecutionPolicy Bypass -File "$dir\install.ps1" -WhatIf -Years 2024 -Client none -SetupZip $zip -ReleaseTag $tag
+powershell -ExecutionPolicy Bypass -File "$dir\install.ps1" -Years 2024 -Client none -SetupZip $zip -ReleaseTag $tag
 ```
 
 The installer:
 
 - detects installed AutoCAD years (a year counts when its `acad.exe` exists) and installs every packed year that matches; `-Years 2024,2027` forces an explicit list;
-- requires AutoCAD to be closed, and rolls every change back on error;
+- requires AutoCAD to be closed; caught errors trigger hash-verified recovery of recorded server/plugin/client-config replacements, with retained backup paths reported if restoration is incomplete;
 - deploys `%APPDATA%\Autodesk\ApplicationPlugins\Bimwright.Dwg.bundle\` (removing stale bundles with the same ProductCode) and the server at the fixed path `%LOCALAPPDATA%\Bimwright\dwg-mcp\server\current\dwg-mcp.exe`;
 - seeds `%LOCALAPPDATA%\Bimwright\dwg-mcp\dwgmcp.config.json` with `"toolsets": ["all"]` on a fresh install — an existing `toolsets` key is kept;
-- wires every detected MCP client by default (`-Client <names>` limits it, `-Client none` skips it); config edits keep JSONC comments and get a `<config>.bak` backup. The entry name is `dwg-mcp`.
+- wires clients selected by `-Client <names>` (`none` skips edits; omission still selects detected clients). Use an explicit scope in both preview/apply. Routes without a verified CLI recovery path, currently Grok, stop before replacement. Config edits keep JSONC comments; existing `.bak` files are preserved and a unique backup is created instead. Existing Codex entries receive command-only repoints so args/env/other TOML tables survive. The entry name is `dwg-mcp`.
 
 Restart AutoCAD, then restart wired MCP clients to load `dwg-mcp`.
 
-**Updating:** close AutoCAD and run the new ZIP's `install.ps1` the same way — no need to uninstall first. The server path stays `server\current\`, so clients only need a restart.
+**Updating:** keep the exact reviewed release tag, verify its ZIP/sidecar and complete extracted manifest, then preview/apply the same explicit year/client scope. Close AutoCAD and affected clients first. The server path stays `server\current\`. The installer preserves settings, ToolBaker data and captures. Ambiguous legacy/current roots stop without merging; a committed DWG migration marker permits retaining both separately. Recovery covers caught errors; process crashes/power loss and actual client reconnect still require separate verification. Uninstall is not upgrade rollback.
 
 **Uninstall:** `uninstall.ps1` removes the bundle, the server copies, discovery files and caches under `%LOCALAPPDATA%\Bimwright\dwg-mcp\` (settings, config, logs and captures are kept; `-Purge` removes those too). Client config entries are never touched — remove the `dwg-mcp` entry yourself, or run `install.ps1 -Uninstall -Client <names>` first.
 
@@ -143,7 +148,7 @@ Do **not** `dotnet tool install -g Bimwright.Dwg.Server` — that package is not
 
 ### 3. Wire up your MCP client
 
-The installer already did this for detected clients (Step `Client :` lines in its summary). To wire by hand, add to your MCP client config (e.g., `.mcp.json`):
+Check the selected clients' `Client :` summary lines. The example above uses `-Client none`, so wiring remains a separate step: preview/apply the intended client selection or wire by hand in that client's supported config (e.g., `.mcp.json`):
 
 ```json
 {
@@ -189,11 +194,17 @@ MCP response budgets count the final serialized UTF-8 tool result, including tex
 
 Precedence is JSON → environment → CLI; the last occurrence of each byte-count CLI option wins. Provided environment/CLI values must contain only ASCII decimal digits within a 32-bit signed integer's nonnegative range: signs, whitespace, units and overflow are rejected, even if a later setting would override that token. After precedence, the effective budget must be at least 4096 bytes and `0 < warn <= strong <= budget`. Unset warning thresholds default to the smaller of their listed default and the configured budget; explicit thresholds are not clamped. Numeric bounds are checked on the effective settings, so a syntactically valid lower-priority value may be replaced before those checks.
 
-Warnings use MCP `_meta["bimwright/dwg-mcp/response_budget"]` when they fit alongside the original result. Oversized results become a bounded JSON receipt with `_response_budget`, retained reported statuses/effect facts and explicit omissions. Reads receive narrowing guidance; writes receive outcome-inspection guidance without replay. The original nullable MCP `isError` is preserved, and an outer `ok:true` does not establish that every script or batch item succeeded. The existing plugin 10 MiB truncation still applies independently; this budget cannot recover output already truncated by the plugin. No spill file or cleanup service is added.
+Warnings use MCP `_meta["bimwright/dwg-mcp/response_budget"]` when they fit alongside the original result. Oversized results become a bounded receipt retaining reported statuses/effect facts and explicit omissions. Before the plugin's 10 MiB cutoff, complete result JSON is written as `output_artifact` with `scope=plugin_result`, absolute path, byte count, SHA-256 and preview. The final MCP budget may write a second complete snapshot with `scope=mcp_tool_result`, including text/images/structured content and metadata received by the gateway. This snapshot cannot recover content already omitted by an older plugin; follow any upstream artifact reference. The original nullable MCP `isError` is preserved. Storage failure or the artifact size cap reports `complete=false` with unavailable identity; inspect outcome/files and never replay a mutation to recover output.
+
+Artifacts contain full returned output, which may include sensitive data or code echoed by a script. They are separate from opt-in call logging and sanitized session History: inputs/auth/code requests are not added to the artifact. UTF-8 JSON files live under `%LOCALAPPDATA%\Bimwright\dwg-mcp\outputs`, with a 128 MiB per-file cap, 256 MiB group cap, 64-file cap and 7-day maximum age. Verify bytes/hash before reading and copy needed artifacts elsewhere before expiry; capacity can evict older files sooner. Files publish atomically; receipts are returned after hash/readback. Failed retention prevents growth. Only exact generated file names are pruned, on writes and background startup maintenance; arbitrary files, drawings, settings and captures are excluded. Linked paths are refused. Retention is enforced when the product runs, not by an external scheduled service. Under extreme final-budget pressure, preview or a long escaped path can be omitted explicitly (`path_omitted`); the full file and its real hash remain, and a shortened fake path is never returned.
+
+Batch receipts keep each step's zero-based `index`, `command_ok`, effective `ok`, `outcome` and nullable `mutation_applied`. `send_code` checks its execution status separately from its wrapper; a malformed/missing status stays unknown, and user DTO fields are not treated as execution status. File-producing steps expose `output_verified`; DXF/Save use before/after byte hashes and distinguish new, changed, unchanged and unavailable readback in `file_receipt`. Capture hashes the newly written image while its stream is exclusive. A returned command alone does not verify fresh file output. Full per-step details remain in the artifact when inline receipts are compacted. AutoCAD batches remain sequential logical batches: no group rollback is claimed, and errors may follow committed effects.
 
 Call logging is **off by default**. Use `--enable-call-log` / `--disable-call-log` (JSON `enableCallLog`; env `BIMWRIGHT_DWG_ENABLE_CALL_LOG`) to opt in/out. Precedence is JSON → environment → CLI; the last occurrence of each enable/disable pair wins. When off, the server creates/appends no call log or call journal. When on, `%LOCALAPPDATA%\Bimwright\dwg-mcp\dwg-mcp-calls.jsonl` records redacted parameters and timing/outcome metadata, never results. Code fields, including nested batch code, contain only character length and SHA-256 of the original UTF-8 body; code-related error text is omitted because it may echo source. No code-body cache or body journal is implemented. ToolBaker adaptive usage, diagnostic logs and session-only History are separate from this switch; the plugin has no persistent call-log writer.
 
 New call-log segments rotate before the next UTF-8 record would exceed 5 MiB; each generated group retains at most 100 MiB for 30 days. Startup applies retention even when recording is off. Recent oversized legacy segments are preserved intact within that group budget. Diagnostics use a background writer with a 10 MiB active file and one backup, with repeated messages summarized. Maintenance only handles known generated logs in the current and legacy DWG data roots; settings, drawings, captures and ToolBaker state are preserved.
+
+Maintenance retries only file sharing/lock violations and log-mutex timeouts, with at most three attempts and a one-second background backoff. Only failed transient operations are retried; access-denied, linked-path and other failures stop. Startup never waits for this work, and the diagnostics worker continues processing queued logs between retries. Bounded status/reason records are best effort in diagnostics; `DiagnosticLog.MaintenanceStatus` also retains the latest worker status in memory when the log sink is unavailable. File scopes and size/retention limits remain unchanged.
 
 Local transport accepts requests up to 16 MiB and responses up to 32 MiB. Each gateway admits up to eight concurrent calls; the TCP listener admits up to eight clients and the AutoCAD API queue up to 16 requests. Idle/incomplete input and blocked writes have 30-second deadlines, separate from host execution and the longer `dwg_open_drawing` response wait. Stop closes the endpoint and old connections and skips queued work that has not started. A running operation can still complete after a timeout or disconnect; inspect its outcome before retrying a write.
 
@@ -203,9 +214,13 @@ Activity toasts are on by default. Finished tool calls update one card in the Au
 
 ---
 
-`MCPHISTORY` opens the same modeless History window. It keeps the latest 1,000 compact outcomes of plugin-processed calls in memory, including when toasts are off, with search, Success/Failed and Read/Write filters, duration and selection details. Closing a card does not clear History; **New session** clears its list. History adds no persistent call-log writer and retains no raw inputs, code bodies or JSON results. Server-only tool notifications are not yet included.
+`MCPHISTORY` or **Open session History** in Settings opens the same modeless window. It keeps the latest 1,000 plugin-processed calls in memory, including when toasts are off, with search, Success/Failed and Read/Write filters and duration. Select a row to view/copy **What**, **Input** and **Output**; each sanitized detail is limited to 4,096 characters, with explicit omission markers. Code fields retain only original character length/SHA-256; output/errors of code-capable calls are omitted because they may echo source. Secret fields and local paths are redacted, and binary payloads are omitted. Copy uses the stored sanitized text, without display wrapping. **Refresh** retains a visible selection and scroll position; **New session** clears the in-memory entries and details. Closing/reopening retains the session; closed windows release their refresh timers. History adds no persistent writer or rerun action, and call logging remains opt-in. Server-only tool notifications are not yet included.
+
+The AutoCAD plugin starts its listener by default. Set `"autoStartTransport": false` in `%LOCALAPPDATA%\Bimwright\dwg-mcp\settings.json` to load without a listener or discovery publication. The plugin resolves default → JSON → `BIMWRIGHT_DWG_AUTO_START_TRANSPORT` (`true/false`, `1/0`, `yes/no`, `on/off`); the environment wins at each launch. `MCPSTART`/`MCPSTOP` and Settings On/Off save the explicit choice while preserving other settings, even when already on/off. Failed saves keep the current listener state and report the error in Settings and the command line; repeat the command after correcting the file to retry. Settings shows the next-startup value and source separately from the running listener. Normal AutoCAD shutdown does not change the saved choice. This plugin setting has no gateway CLI switch; gateway configuration keeps its existing precedence.
 
 ## Health runtime and update checks (Unreleased)
+
+Host-observed responses include a top-level `_target` receipt with PID, process start, target ID, `acad_year`, and drawing lifetime ID/title when observed. Drawing calls capture the locked drawing before the guard/handler; session calls capture the active drawing after the operation. Guard refusals can report an observed changed drawing without executing the handler. Missing receipts mean observation is unavailable; gateway/pre-dispatch failures do not invent one. The receipt does not prove success or all effects of arbitrary code/batches. Final MCP budgets include it; compaction preserves bounded identity fields exactly and marks omitted titles/fields explicitly. Subagents inherit the parent's verified binding and must report needed target changes to the parent.
 
 `dwg_health()` is offline and read-only. At session start, select the intended target and call `dwg_health(check_updates=true)` once; later routine probes remain offline. It reports host/document state without requiring or locking a drawing, and loaded server/plugin versions, build IDs and alignment. No target preserves gateway identity with `ok:false`, `host_connected:false`. A responding legacy plugin can return `HEALTH_UNSUPPORTED`: connection responsiveness is not verified health or loaded-plugin identity. A busy UI retains plugin identity but marks document state unavailable. Health is excluded from operation toasts and cannot be nested in drawing batches.
 

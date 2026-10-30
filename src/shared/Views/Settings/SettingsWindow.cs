@@ -22,6 +22,8 @@ namespace Bimwright.Dwg.Plugin.Views.Settings
         private readonly ComboBox _idle;
         private readonly TextBlock _transportText;
         private readonly TextBlock _clientText;
+        private readonly TextBlock _startupText;
+        private readonly TextBlock _startupSaveNote;
         private readonly TextBlock _copiedText;
         private readonly TextBlock _applyNote;
         private readonly TextBlock _brandingNote;
@@ -51,7 +53,7 @@ namespace Bimwright.Dwg.Plugin.Views.Settings
 
             _savedIdle = PluginSettings.LoadToastIdleSeconds();
             var tabs = new TabControl { Margin = new Thickness(12, 12, 12, 0) };
-            tabs.Items.Add(Page(L.T("settings.tab.general"), BuildGeneral(out _transportText, out _clientText, out _copiedText, out _copyPort, out _listener)));
+            tabs.Items.Add(Page(L.T("settings.tab.general"), BuildGeneral(out _transportText, out _clientText, out _copiedText, out _copyPort, out _listener, out _startupText, out _startupSaveNote)));
             tabs.Items.Add(Page(L.T("settings.tab.toast"), BuildToast(out _toastEnabled, out _showBranding, out _idle, out _brandingNote)));
             tabs.Items.Add(Page(L.T("settings.tab.tools"), BuildTools(out _search, out _toolsStatus, out _tools)));
             tabs.Items.Add(Page(L.T("settings.tab.about"), BuildAbout()));
@@ -100,7 +102,9 @@ namespace Bimwright.Dwg.Plugin.Views.Settings
             out TextBlock client,
             out TextBlock copied,
             out Button copy,
-            out Button listener)
+            out Button listener,
+            out TextBlock startup,
+            out TextBlock startupSaveNote)
         {
             var panel = new StackPanel { Margin = new Thickness(8) };
             panel.Children.Add(Heading(L.T("settings.general.connection")));
@@ -140,6 +144,16 @@ namespace Bimwright.Dwg.Plugin.Views.Settings
             row.Children.Add(copy);
             row.Children.Add(copied);
             panel.Children.Add(row);
+            startup = Body();
+            panel.Children.Add(startup);
+            panel.Children.Add(Help(L.T("settings.general.startup.help")));
+            startupSaveNote = Body();
+            startupSaveNote.Foreground = McpToastTheme.Error;
+            panel.Children.Add(startupSaveNote);
+            var history = new Button { Content = L.T("settings.general.history"), HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 12, 0, 0), Padding = new Thickness(8, 3, 8, 3) };
+            history.Click += (_, __) => App.ShowOrFocusHistory();
+            panel.Children.Add(history);
+            panel.Children.Add(Help(L.T("settings.general.history.help")));
             return panel;
         }
 
@@ -294,6 +308,11 @@ namespace Bimwright.Dwg.Plugin.Views.Settings
             _listener.Content = running
                 ? L.T("settings.general.listener.off")
                 : L.T("settings.general.listener.on");
+            _startupText.Text = L.T("settings.general.startup",
+                ("state", L.T(App.AutoStartTransport ? "settings.general.listener.on" : "settings.general.listener.off")),
+                ("source", App.AutoStartSource));
+            _startupSaveNote.Text = string.IsNullOrEmpty(App.AutoStartSaveError) ? string.Empty
+                : L.T("settings.general.startup.saveFailed") + " " + App.AutoStartSaveError;
             var canCopy = running && !pipe && port.HasValue;
             _copyPort.IsEnabled = canCopy;
             _copyPort.ToolTip = canCopy ? null : L.T("settings.general.copy.disabled");

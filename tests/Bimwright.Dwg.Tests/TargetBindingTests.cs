@@ -193,10 +193,28 @@ namespace Bimwright.Dwg.Tests
         {
             using var host = new Host(100) { Legacy = true };
             var client = Client(host);
-            await Assert.ThrowsAsync<InvalidOperationException>(() => client.SwitchTargetAsync("pid:100"));
+            var pairing = await Assert.ThrowsAsync<InvalidOperationException>(() => client.SwitchTargetAsync("pid:100"));
+            Assert.StartsWith("PAIRING_REQUIRED:", pairing.Message);
             Assert.Equal("none", client.CurrentTarget.Value<string>("state"));
             Assert.True((await client.SendAsync("get_drawing_info", new { })).Ok);
             await Assert.ThrowsAsync<InvalidOperationException>(() => client.SendAsync("send_code", new { }));
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task Missing_guard_capability_refuses_pairing_and_preserves_confirmed_binding(bool healthUnsupported)
+        {
+            using var first = new Host(100);
+            using var legacy = new Host(200) { Legacy = true, Refusal = healthUnsupported ? "unknown command: health" : null };
+            var client = Client(first, legacy);
+            await client.SwitchTargetAsync("pid:100");
+            var before = client.CurrentTarget;
+            var error = await Assert.ThrowsAsync<InvalidOperationException>(() => client.SwitchTargetAsync("pid:200", rebind: true));
+            Assert.StartsWith("PAIRING_REQUIRED:", error.Message);
+            Assert.True(JToken.DeepEquals(before, client.CurrentTarget));
+            Assert.True((await client.SendAsync("send_code", new { })).Ok);
+            Assert.Equal(1, legacy.Requests);
         }
 
         [Fact]
@@ -657,6 +675,31 @@ namespace Bimwright.Dwg.Tests
             Assert.Equal(0, second.Requests);
         }
 
+        [Fact]
+        public async Task Late_response_receipt_keeps_executed_target_after_parent_switches_binding()
+        {
+            using var first = new Host(100) { EmitReceipt = true };
+            using var second = new Host(200) { EmitReceipt = true };
+            using var entered = new ManualResetEventSlim();
+            using var release = new ManualResetEventSlim();
+            var client = Client(first, second);
+            await client.SwitchTargetAsync("pid:100");
+            first.BeforeReply = () => { entered.Set(); Assert.True(release.Wait(TimeSpan.FromSeconds(5))); };
+            var pending = client.SendAsync("get_drawing_info", new { });
+            try
+            {
+                Assert.True(entered.Wait(TimeSpan.FromSeconds(5)));
+                await client.SwitchTargetAsync("pid:200", rebind: true);
+            }
+            finally { release.Set(); }
+            var oldResponse = await pending;
+            var newResponse = await client.SendAsync("get_drawing_info", new { });
+            Assert.Equal(100, oldResponse.Target.Value<int>("pid"));
+            Assert.Equal("doc-100", oldResponse.Target.Value<string>("document_id"));
+            Assert.Equal(200, newResponse.Target.Value<int>("pid"));
+            Assert.Equal(200, client.CurrentTarget.Value<int>("pid"));
+        }
+
         private static PluginClient Client(Host first, Host second = null)
             => new PluginClient(() => first.Info,
                 selector => selector == "pid:200" || selector == "id:acad-2024-200" ? second.Info : first.Info, _ => Start);
@@ -678,7 +721,9 @@ namespace Bimwright.Dwg.Tests
                             ["protocol"] = 1, ["pid"] = 100, ["process_start_utc"] = Start,
                             ["document_id"] = "pipe-document"
                         }
-                    }
+                    },
+                    ["_target"] = new JObject { ["protocol"] = 1, ["pid"] = 100, ["process_start_utc"] = Start,
+                        ["acad_year"] = 2027, ["target_id"] = "acad-2027-100", ["document_id"] = "pipe-document" }
                 }.ToString(Newtonsoft.Json.Formatting.None);
             });
             var info = new DiscoveryInfo { Pid = 100, Target = "2027", TargetId = "acad-2027-100",
@@ -690,6 +735,7 @@ namespace Bimwright.Dwg.Tests
             Assert.Equal(100, last["target"].Value<int>("pid"));
             Assert.Equal("pipe-document", last["target"].Value<string>("document_id"));
             Assert.True(last["target"].Value<bool>("selection_confirmed"));
+            Assert.Equal("pipe-document", result.Target.Value<string>("document_id"));
         }
 
         private sealed class Host : IDisposable
@@ -699,7 +745,7 @@ namespace Bimwright.Dwg.Tests
             internal int Requests => requests;
             internal DiscoveryInfo Info { get; }
             internal JObject LastRequest;
-            internal bool VerifiedHealth = true, Legacy;
+            internal bool VerifiedHealth = true, Legacy, EmitReceipt;
             internal string DocumentId;
             internal string Refusal;
             internal Action BeforeReply;
@@ -723,7 +769,10 @@ namespace Bimwright.Dwg.Tests
                                 ["protocol"] = 1, ["pid"] = pid, ["process_start_utc"] = Start,
                                 ["document_id"] = DocumentId, ["document_title"] = "sample.dwg"
                             }
-                        } : new JObject { ["pid"] = pid }
+                        } : new JObject { ["pid"] = pid },
+                        ["_target"] = EmitReceipt ? new JObject { ["protocol"] = 1, ["pid"] = pid,
+                            ["process_start_utc"] = Start, ["target_id"] = "acad-2024-" + pid, ["acad_year"] = 2024,
+                            ["document_id"] = DocumentId, ["document_title"] = "sample.dwg" } : null
                     }.ToString(Newtonsoft.Json.Formatting.None);
                 });
                 Info = new DiscoveryInfo { Target = "2024", TargetId = "acad-2024-" + pid, Pid = pid,

@@ -18,6 +18,17 @@ internal static class Program
         DiagnosticLog.LocalAppDataOverride = diagnosticsRoot;
         try
         {
+            if (args.Length == 1 && args[0] == "--history-native-clipboard")
+            {
+                HistoryDetailsVisualTests.CheckNativeClipboardCopy();
+                return 0;
+            }
+            if (args.Length >= 1 && (args[0] == "--history" || args[0] == "--history-details"))
+            {
+                if (args[0] == "--history") ToastHistoryTests.Run();
+                HistoryDetailsVisualTests.Run(args.Length > 1 ? args[1] : null);
+                return 0;
+            }
             if (args.Length == 1 && args[0] == "--settings-idle")
             {
                 SettingsIdleVisualTests.Run();

@@ -65,7 +65,8 @@ namespace Bimwright.Dwg.Server.Tools
             var paths = ToolBakerTools.PathsOverride ?? new BakePaths();
             using var db = new BakeDb(paths);
             db.Migrate();
-            return await AcceptBakeSuggestionHandler.HandleAsync(
+            JObject actualTarget = null;
+            var result = await AcceptBakeSuggestionHandler.HandleAsync(
                 db,
                 id,
                 name,
@@ -74,6 +75,7 @@ namespace Bimwright.Dwg.Server.Tools
                 pluginApply: async request =>
                 {
                     var response = await ToolGateway.SendRaw("apply_bake", request);
+                    actualTarget = response.Target;
                     if (!response.Ok)
                     {
                         return new JObject
@@ -85,6 +87,10 @@ namespace Bimwright.Dwg.Server.Tools
                     }
                     return JObject.FromObject(response.Result ?? new { });
                 });
+            if (actualTarget == null) return result;
+            var envelope = JObject.Parse(result);
+            envelope["_target"] = actualTarget;
+            return envelope.ToString(Formatting.None);
         }
 
         [McpServerTool(Name = "dwg_dismiss_bake_suggestion", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false), Description(

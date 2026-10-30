@@ -100,6 +100,7 @@ namespace Bimwright.Dwg.Plugin
             string id = null;
             string cmd = null;
             JToken parameters = null;
+            JObject actualTarget = null;
             var elapsed = System.Diagnostics.Stopwatch.StartNew();
             try
             {
@@ -129,19 +130,20 @@ namespace Bimwright.Dwg.Plugin
                     if (parameters != null && parameters.Type != JTokenType.Null
                         && (parameters is not JObject healthParams || healthParams.Count != 0))
                         return ErrorJson(id, "health does not accept plugin-side parameters");
-                    return SerializeResponse(id, cmd, HealthHandler.Read(_healthIdentity));
+                    var health = HealthHandler.Read(_healthIdentity);
+                    return SerializeResponse(id, cmd, health, (health.Result as JObject)?["target"] as JObject);
                 }
 
                 var preflight = ValidateCommand(cmd, parameters, out var preflightHandler);
                 if (!preflight.Ok)
                 {
-                    NotifyCompleted(cmd, null, false, preflight.Error, preflightHandler?.Description, elapsed.ElapsedMilliseconds);
+                    NotifyCompleted(cmd, null, false, preflight.Error, preflightHandler?.Description, elapsed.ElapsedMilliseconds, parameters);
                     return SerializeResponse(id, cmd, preflight);
                 }
 
                 var result = preflightHandler is IAcadSessionCommand sessionCommand
-                    ? DocumentInvoker.InvokeSession(() => sessionCommand.ExecuteSession(parameters), _isAccepting)
-                    : DocumentInvoker.Invoke(doc => ExecuteCommand(doc, cmd, parameters), _isAccepting, expectedTarget, cmd);
+                    ? DocumentInvoker.InvokeSession(() => sessionCommand.ExecuteSession(parameters), _isAccepting, target => actualTarget = target)
+                    : DocumentInvoker.Invoke(doc => ExecuteCommand(doc, cmd, parameters), _isAccepting, expectedTarget, cmd, target => actualTarget = target);
 
                 string resultJson = null;
                 if (result.Ok)
@@ -149,19 +151,20 @@ namespace Bimwright.Dwg.Plugin
                     try
                     {
                         var filtered = McpResponsePrivacy.FilterResult(cmd, result.Result);
+                        result.Result = filtered; // Reuse the same spill receipt for History and wire delivery.
                         if (filtered != null)
                             resultJson = JsonConvert.SerializeObject(filtered);
                     }
                     catch { }
                 }
 
-                NotifyCompleted(cmd, resultJson, result.Ok, result.Error, preflightHandler?.Description, elapsed.ElapsedMilliseconds);
-                return SerializeResponse(id, cmd, result);
+                NotifyCompleted(cmd, resultJson, result.Ok, result.Error, preflightHandler?.Description, elapsed.ElapsedMilliseconds, parameters);
+                return SerializeResponse(id, cmd, result, actualTarget, resultPrepared: true);
             }
             catch (Exception ex)
             {
-                NotifyCompleted(cmd, null, false, ex.Message, null, elapsed.ElapsedMilliseconds);
-                return ErrorJson(id, ex.Message);
+                NotifyCompleted(cmd, null, false, ex.Message, null, elapsed.ElapsedMilliseconds, parameters);
+                return ErrorJson(id, ex.Message, actualTarget);
             }
         }
 
@@ -170,7 +173,7 @@ namespace Bimwright.Dwg.Plugin
         /// (same policy as the wire response) — never raw result data.
         /// </summary>
         private static void NotifyCompleted(string cmd, string resultJson,
-            bool success, string error, string description, long durationMs)
+            bool success, string error, string description, long durationMs, JToken parameters)
         {
             var notifier = App.ToastNotifier;
             if (notifier == null)
@@ -183,7 +186,8 @@ namespace Bimwright.Dwg.Plugin
                     success,
                     success ? null : McpResponsePrivacy.SanitizeError(error),
                     description,
-                    durationMs);
+                    durationMs,
+                    parameters);
             }
             catch (Exception ex)
             {
@@ -220,18 +224,25 @@ namespace Bimwright.Dwg.Plugin
             return CommandResult.Success(null);
         }
 
-        private static string SerializeResponse(string id, string cmd, CommandResult result)
+        private static string SerializeResponse(string id, string cmd, CommandResult result, JObject actualTarget = null, bool resultPrepared = false)
         {
-            return JsonConvert.SerializeObject(new
+            return SerializeEnvelope(new
             {
                 id,
                 ok = result.Ok,
-                result = result.Ok ? McpResponsePrivacy.FilterResult(cmd, result.Result) : null,
+                result = result.Ok ? (resultPrepared ? result.Result : McpResponsePrivacy.FilterResult(cmd, result.Result)) : null,
                 error = result.Ok ? null : McpResponsePrivacy.SanitizeError(result.Error)
-            });
+            }, actualTarget);
         }
 
-        public static string ErrorJson(string id, string error) =>
-            JsonConvert.SerializeObject(new { id, ok = false, error = McpResponsePrivacy.SanitizeError(error) });
+        public static string ErrorJson(string id, string error, JObject actualTarget = null) =>
+            SerializeEnvelope(new { id, ok = false, error = McpResponsePrivacy.SanitizeError(error) }, actualTarget);
+
+        private static string SerializeEnvelope(object response, JObject actualTarget)
+        {
+            var envelope = JObject.FromObject(response);
+            if (actualTarget != null) envelope["_target"] = actualTarget;
+            return envelope.ToString(Formatting.None);
+        }
     }
 }

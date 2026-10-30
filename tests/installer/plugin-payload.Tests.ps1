@@ -3,6 +3,7 @@
 [CmdletBinding()]
 param([string]$ResultPath, [string]$TestRootParent = [IO.Path]::GetTempPath())
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot '../../scripts/setup-validation.ps1')
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 $testRoot = Join-Path $TestRootParent ('dwg-plugin-payload-' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $testRoot -Force | Out-Null

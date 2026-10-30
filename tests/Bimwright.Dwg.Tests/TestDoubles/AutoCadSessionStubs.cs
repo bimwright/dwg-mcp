@@ -12,8 +12,14 @@ namespace Autodesk.AutoCAD.ApplicationServices
         public bool IsReadOnly { get; set; }
         public string CommandInProgress { get; set; } = "";
         public int LockCount { get; private set; }
-        public IDisposable LockDocument() { LockCount++; return new TestLock(); }
-        private sealed class TestLock : IDisposable { public void Dispose() { } }
+        public int ActiveLockCount { get; private set; }
+        public IDisposable LockDocument() { LockCount++; ActiveLockCount++; return new TestLock(this); }
+        private sealed class TestLock : IDisposable
+        {
+            private readonly Document owner;
+            public TestLock(Document owner) { this.owner = owner; }
+            public void Dispose() { owner.ActiveLockCount--; }
+        }
     }
 
     public partial class DocumentCollection : IEnumerable

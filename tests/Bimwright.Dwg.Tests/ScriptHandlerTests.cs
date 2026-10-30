@@ -18,6 +18,22 @@ namespace Bimwright.Dwg.Tests
     [Collection("Script handlers")]
     public class ScriptHandlerTests
     {
+        [Fact]
+        public async Task Large_real_script_stdout_is_preserved_before_plugin_truncation_without_reexecution()
+        {
+            using var scope = new OutputArtifactTestScope();
+            var doc = new Document();
+            var result = await Task.Run(() => new SendCodeHandler().Execute(doc,
+                JObject.FromObject(new { code = "doc.MutationCount++; Console.Write(new string('中', 4 * 1024 * 1024)); return new { done = true };" })));
+            Assert.True(result.Ok); Assert.Equal(1, doc.MutationCount);
+            var delivered = JObject.FromObject(ResponseSizeGuard.ApplyResult(result.Result));
+            Assert.True(delivered.Value<bool>("truncated")); Assert.True(delivered.Value<bool>("ok"));
+            var artifact = delivered["output_artifact"]; Assert.True(artifact.Value<bool>("complete"));
+            var full = JObject.Parse(File.ReadAllText(artifact.Value<string>("path")));
+            Assert.Equal(new string('中', 4 * 1024 * 1024), full.Value<string>("stdout"));
+            Assert.True(full["result"].Value<bool>("done")); Assert.Equal(1, doc.MutationCount);
+            Assert.Equal(new FileInfo(artifact.Value<string>("path")).Length, artifact.Value<long>("bytes"));
+        }
         [Theory]
         [InlineData("doc.MutationCount++;")]
         [InlineData("await System.Threading.Tasks.Task.Delay(10); doc.MutationCount++;")]

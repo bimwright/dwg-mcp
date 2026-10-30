@@ -21,7 +21,7 @@ using Xunit;
 namespace Bimwright.Dwg.Tests;
 
 /// <summary>Final result bytes over the real SDK stream transport, with per-test tools and no CAD/file logging.</summary>
-public class ResponseBudgetProtocolTests
+public class ResponseBudgetProtocolTests : OutputArtifactTestScope
 {
     [Fact]
     public async Task Actual_wire_measurement_includes_unicode_structured_content_and_existing_metadata()
@@ -97,6 +97,12 @@ public class ResponseBudgetProtocolTests
         Assert.Contains("Do not replay", guidance, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Inspect", guidance, StringComparison.OrdinalIgnoreCase);
         Assert.Equal(1, h.Tools.Calls);
+        var artifact = body["output_artifact"];
+        Assert.True(artifact.Value<bool>("complete"));
+        Assert.StartsWith(ArtifactRoot, artifact.Value<string>("path"));
+        var stored = JObject.Parse(File.ReadAllText(artifact.Value<string>("path")));
+        Assert.Equal(failed, stored.Value<bool>("isError"));
+        Assert.Equal(!failed, JObject.Parse(stored["content"][0].Value<string>("text")).Value<bool>("ok"));
         Assert.False(h.HasFiles);
     }
 

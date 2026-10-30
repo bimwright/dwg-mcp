@@ -17,6 +17,7 @@ namespace Bimwright.Dwg.Server
         [JsonProperty("ok")] public bool Ok { get; set; }
         [JsonProperty("result")] public object Result { get; set; }
         [JsonProperty("error")] public string Error { get; set; }
+        [JsonProperty("_target", NullValueHandling = NullValueHandling.Ignore)] public Newtonsoft.Json.Linq.JObject Target { get; set; }
     }
 
     public class UpdateTextItem

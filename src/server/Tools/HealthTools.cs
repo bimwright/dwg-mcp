@@ -74,6 +74,7 @@ namespace Bimwright.Dwg.Server.Tools
                     health = (JObject)result.DeepClone();
                     health["ok"] = status.Value<bool>();
                     health["health_supported"] = true;
+                    if (response.Target != null) health["_target"] = response.Target.DeepClone();
                 }
                 else
                     health = Failure("INVALID_HEALTH_RESPONSE", "The plugin returned invalid health data.");

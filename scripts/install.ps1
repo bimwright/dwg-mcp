@@ -51,6 +51,13 @@
   current\ after a successful install. Repoint clients that still use them
   first.
 
+.PARAMETER SetupZip
+  Verify this release ZIP and its matching .sha256 sidecar, and bind the
+  extracted manifest to it. Requires -ReleaseTag with the exact reviewed tag.
+
+.PARAMETER ReleaseTag
+  Exact v-prefixed release tag for -SetupZip; never resolves another release.
+
 .EXAMPLE
   pwsh .\install.ps1 -WhatIf
   pwsh .\install.ps1                        # bundle, server, every detected MCP client
@@ -74,11 +81,15 @@ param(
         'zed', 'cherry-studio')]
     [string[]]$Client = @(),
     [string]$ServerInstallRoot,
+    [string]$SetupZip,
+    [string]$ReleaseTag,
     [switch]$PruneOldServers
 )
 
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'plugin-payload.ps1')
+. (Join-Path $PSScriptRoot 'setup-validation.ps1')
+if ([bool]$SetupZip -ne [bool]$ReleaseTag) { throw 'Use -SetupZip and -ReleaseTag together for a pinned release.' }
 
 $bundleName = 'Bimwright.Dwg.bundle'
 $bundleTargetRoot = Join-Path $env:APPDATA "Autodesk\ApplicationPlugins\$bundleName"
@@ -223,8 +234,18 @@ function Find-MachineWideDuplicates {
 # template (the package's own manifest when present, else the repo's
 # scripts\PackageContents.xml). XmlWriter to file keeps the utf-8
 # declaration honest - StringWriter would mislabel it utf-16.
-function Save-BundleManifest([string]$OutPath, [int[]]$CoverYears, [string]$TemplatePath) {
+function Save-BundleManifest([string]$OutPath, [int[]]$CoverYears, [string]$TemplatePath, [string]$ExistingPath) {
     [xml]$xml = Get-Content -LiteralPath $TemplatePath -Raw
+    if ($ExistingPath -and [IO.File]::Exists($ExistingPath)) {
+        [xml]$existing = [IO.File]::ReadAllText($ExistingPath)
+        foreach ($component in @($existing.ApplicationPackage.Components)) {
+            $module = [string]$component.ComponentEntry.ModuleName
+            if ($module -match '(\d{4})[\\/][^\\/]+\.dll' -and $CoverYears -contains [int]$Matches[1] -and
+                @($xml.ApplicationPackage.Components | Where-Object { [string]$_.ComponentEntry.ModuleName -eq $module }).Count -eq 0) {
+                [void]$xml.ApplicationPackage.AppendChild($xml.ImportNode($component, $true))
+            }
+        }
+    }
     $toRemove = @()
     foreach ($comp in @($xml.ApplicationPackage.Components)) {
         $mod = [string]$comp.ComponentEntry.ModuleName
@@ -245,6 +266,7 @@ function Save-BundleManifest([string]$OutPath, [int[]]$CoverYears, [string]$Temp
 # unless it is a recorded target of this transaction or our unique staging area.
 function Remove-InstallPath([string]$Path) {
     $full = [IO.Path]::GetFullPath($Path)
+    Assert-SetupPlainPath $full
     $allowed = @($script:installStage)
     foreach ($change in $script:installChanges) { $allowed += $change.Path; $allowed += $change.Backup }
     if ($full -notin $allowed -or $full.TrimEnd('\') -eq [IO.Path]::GetPathRoot($full).TrimEnd('\')) {
@@ -255,23 +277,89 @@ function Remove-InstallPath([string]$Path) {
 
 function Set-InstallPath([string]$Source, [string]$Destination) {
     $full = [IO.Path]::GetFullPath($Destination)
+    Assert-SetupPlainPath $Source
+    Assert-SetupPlainPath $full
     if ($full.TrimEnd('\') -eq [IO.Path]::GetPathRoot($full).TrimEnd('\')) { throw 'Cannot install into a drive root.' }
     $parent = Split-Path -Parent $full
     New-Item -ItemType Directory -Path $parent -Force | Out-Null
     $backup = $null
+    $snapshot = @()
     if (Test-Path -LiteralPath $full) {
+        $snapshot = @(Get-InstallSnapshot $full)
         $backup = $full + '.dwgmcp-rollback-' + [guid]::NewGuid().ToString('N')
         Move-Item -LiteralPath $full -Destination $backup
     }
-    $script:installChanges.Add([pscustomobject]@{Path=$full;Backup=$backup})
+    $script:installChanges.Add([pscustomobject]@{Path=$full;Backup=$backup;Snapshot=$snapshot})
     Move-Item -LiteralPath $Source -Destination $full
 }
 
 function Move-ToRollback([string]$Path) {
     $full = [IO.Path]::GetFullPath($Path)
+    Assert-SetupPlainPath $full
+    $snapshot = @(Get-InstallSnapshot $full)
     $backup = $full + '.dwgmcp-rollback-' + [guid]::NewGuid().ToString('N')
     Move-Item -LiteralPath $full -Destination $backup
-    $script:installChanges.Add([pscustomobject]@{Path=$full;Backup=$backup})
+    $script:installChanges.Add([pscustomobject]@{Path=$full;Backup=$backup;Snapshot=$snapshot})
+}
+
+function Get-InstallSnapshot([string]$Path) {
+    Assert-SetupPlainPath $Path
+    if ([IO.File]::Exists($Path)) { return 'file|' + (Get-SetupSha256 $Path) }
+    $prefix = [IO.Path]::GetFullPath($Path).TrimEnd('\') + '\'
+    foreach ($file in @(Get-SetupFiles $Path | Sort-Object)) { $file.Substring($prefix.Length) + '|' + (Get-SetupSha256 $file) }
+}
+
+function Assert-InstallSnapshot([string]$Path, [object[]]$Snapshot) {
+    if ((@(Get-InstallSnapshot $Path) -join "`n") -cne ($Snapshot -join "`n")) { throw "Recovery checksum mismatch; preserve both target and backup: $Path" }
+}
+
+# File snapshots do not move an active config out of place. Preserve bytes and
+# attributes, and keep unique recovery copies until the whole install succeeds.
+function Register-InstallFile([string]$Path) {
+    if ($null -eq $script:installChanges) { return }
+    $full = [IO.Path]::GetFullPath($Path)
+    Assert-SetupPlainPath $full
+    if (@($script:installChanges | Where-Object { $_.Kind -eq 'File' -and $_.Path -eq $full }).Count) { return }
+    $backup = $null; $hash = $null; $attributes = $null
+    if (Test-Path -LiteralPath $full) {
+        if (-not [IO.File]::Exists($full)) { throw "Expected a config file: $full" }
+        $backup = $full + '.dwgmcp-rollback-' + [guid]::NewGuid().ToString('N')
+        Copy-Item -LiteralPath $full -Destination $backup
+        $hash = Get-SetupSha256 $backup
+        $attributes = [IO.File]::GetAttributes($full)
+    }
+    $script:installChanges.Add([pscustomobject]@{Kind='File';Path=$full;Backup=$backup;Hash=$hash;Attributes=$attributes})
+}
+
+function Write-InstallText([string]$Path, [string]$Text) {
+    $full = [IO.Path]::GetFullPath($Path)
+    Assert-SetupPlainPath $full
+    Register-InstallFile $full
+    New-Item -ItemType Directory -Path (Split-Path -Parent $full) -Force | Out-Null
+    $temporary = $full + '.tmp-' + [guid]::NewGuid().ToString('N')
+    try {
+        [IO.File]::WriteAllText($temporary, $Text, (New-Object Text.UTF8Encoding($false)))
+        if ([IO.File]::Exists($full)) { [IO.File]::Replace($temporary, $full, [System.Management.Automation.Language.NullString]::Value) }
+        else { [IO.File]::Move($temporary, $full) }
+    } finally { if ([IO.File]::Exists($temporary)) { Remove-Item -LiteralPath $temporary -Force } }
+}
+
+function Test-LegacyMigrationMarker([string]$OldRoot, [string]$NewRoot) {
+    $path = Join-Path $NewRoot '.migrated-from-dwg-v1.json'
+    Assert-SetupPlainPath $path
+    if (-not [IO.File]::Exists($path)) { return $false }
+    try { $marker = [IO.File]::ReadAllText($path) | ConvertFrom-Json } catch { return $false }
+    return $marker.product -eq 'dwg-mcp' -and $marker.schema -eq 1 -and $marker.completed -eq $true -and
+        $marker.legacy_root -eq [IO.Path]::GetFullPath($OldRoot) -and $marker.current_root -eq [IO.Path]::GetFullPath($NewRoot)
+}
+
+function Complete-LegacyMigration {
+    if (-not $script:legacyRootRelocated) { return }
+    $old = Join-Path $env:LOCALAPPDATA 'Bimwright\Dwg'
+    $current = Join-Path $env:LOCALAPPDATA 'Bimwright\dwg-mcp'
+    $path = Join-Path $current '.migrated-from-dwg-v1.json'
+    if (Test-Path -LiteralPath $path) { throw "Migration marker already exists; retained without overwriting: $path" }
+    Write-InstallText $path ([ordered]@{product='dwg-mcp';schema=1;completed=$true;legacy_root=[IO.Path]::GetFullPath($old);current_root=[IO.Path]::GetFullPath($current)} | ConvertTo-Json)
 }
 
 # Pre-rename installs kept every per-user file under %LOCALAPPDATA%\Bimwright\Dwg\.
@@ -286,8 +374,14 @@ function Move-LegacyProductRoot {
     param([string]$LocalAppData = $env:LOCALAPPDATA)
     $oldRoot = Join-Path $LocalAppData 'Bimwright\Dwg'
     $newRoot = Join-Path $LocalAppData 'Bimwright\dwg-mcp'
+    Assert-SetupPlainPath $oldRoot
+    Assert-SetupPlainPath $newRoot
     if (-not (Test-Path -LiteralPath $oldRoot -PathType Container)) { return }
     if (Test-Path -LiteralPath $newRoot) {
+        if (Test-LegacyMigrationMarker $oldRoot $newRoot) {
+            Write-Host '[migrate] verified DWG migration marker; keeping current data and legacy recovery files separately.'
+            return
+        }
         throw "Both $oldRoot and $newRoot exist. Move or remove one of them manually, then run the installer again - nothing was changed."
     }
     $closeHint = 'Close AutoCAD and any MCP clients using dwg-mcp, then run the installer again.'
@@ -299,21 +393,29 @@ function Move-LegacyProductRoot {
     $createdFamilyParent = -not (Test-Path -LiteralPath $familyParent)
     New-Item -ItemType Directory -Path $familyParent -Force | Out-Null
     try {
-        Move-Item -LiteralPath $oldRoot -Destination $newRoot
+        [IO.Directory]::Move($oldRoot, $newRoot)
     } catch {
         throw ("Could not move {0} to {1}: {2} {3} Nothing was changed." -f $oldRoot, $newRoot, $_.Exception.Message, $closeHint)
     }
     $script:installChanges.Add([pscustomobject]@{Kind='Relocate'; From=$oldRoot; To=$newRoot; CreatedParent=$(if ($createdFamilyParent) { $familyParent } else { $null })})
+    $script:legacyRootRelocated = $true
     Write-Host ("[migrate] moved {0} -> {1}" -f $oldRoot, $newRoot)
 }
 
 function Undo-InstallChanges {
     $failures = @()
+    $failedPaths = @()
     for ($i = $script:installChanges.Count - 1; $i -ge 0; $i--) {
         $change = $script:installChanges[$i]
         try {
             if ($change.PSObject.Properties['Kind'] -and $change.Kind -eq 'Relocate') {
-                if (Test-Path -LiteralPath $change.To) { Move-Item -LiteralPath $change.To -Destination $change.From }
+                $prefix = $change.To.TrimEnd('\') + '\'
+                if (@($failedPaths | Where-Object { $_ -and $_.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase) }).Count) {
+                    throw "Relocated root retained at $($change.To) because it contains recovery data; do not merge it into $($change.From)."
+                }
+                Assert-SetupPlainPath $change.From
+                Assert-SetupPlainPath $change.To
+                if (Test-Path -LiteralPath $change.To) { [IO.Directory]::Move($change.To, $change.From) }
                 # Roll back a family parent we created once it is empty again;
                 # sibling products or pre-existing content keep it alive.
                 if ($change.PSObject.Properties['CreatedParent'] -and $change.CreatedParent -and
@@ -321,11 +423,26 @@ function Undo-InstallChanges {
                     @(Get-ChildItem -LiteralPath $change.CreatedParent -Force -ErrorAction SilentlyContinue).Count -eq 0) {
                     Remove-Item -LiteralPath $change.CreatedParent -Recurse -Force
                 }
+            } elseif ($change.PSObject.Properties['Kind'] -and $change.Kind -eq 'File') {
+                Assert-SetupPlainPath $change.Path
+                if ($change.Backup) {
+                    Assert-SetupPlainPath $change.Backup
+                    if ((Get-SetupSha256 $change.Backup) -ne $change.Hash) { throw 'Recovery backup checksum mismatch; target was not overwritten.' }
+                    if (-not [IO.File]::Exists($change.Path) -or (Get-SetupSha256 $change.Path) -ne $change.Hash) {
+                        Copy-Item -LiteralPath $change.Backup -Destination $change.Path -Force
+                    }
+                    [IO.File]::SetAttributes($change.Path, $change.Attributes)
+                    if ((Get-SetupSha256 $change.Path) -ne $change.Hash) { throw 'Restored file hash mismatch.' }
+                    Remove-InstallPath $change.Backup
+                } else { Remove-InstallPath $change.Path }
             } else {
+                if ($change.Backup -and $change.PSObject.Properties['Snapshot']) { Assert-InstallSnapshot $change.Backup $change.Snapshot }
                 Remove-InstallPath $change.Path
                 if ($change.Backup) { Move-Item -LiteralPath $change.Backup -Destination $change.Path }
+                if ($change.PSObject.Properties['Snapshot'] -and $change.Backup) { Assert-InstallSnapshot $change.Path $change.Snapshot }
             }
         } catch {
+            $failedPaths += $change.Path; $failedPaths += $change.Backup
             if ($change.PSObject.Properties['Kind'] -and $change.Kind -eq 'Relocate') {
                 $failures += "$($change.To): $_ (restore to $($change.From))"
             } else {
@@ -343,26 +460,6 @@ function Assert-AutoCadClosed {
 }
 
 # --- package validation ---------------------------------------------------
-
-function Assert-SetupManifest([string]$Root, $Manifest) {
-    if (-not $Manifest) { return } # Repo/dev layout has no manifest.
-    if (-not $Manifest.files) { throw 'Setup manifest has no file checksums.' }
-    $prefix = [IO.Path]::GetFullPath($Root).TrimEnd('\') + '\'
-    foreach ($file in $Manifest.files) {
-        $path = [IO.Path]::GetFullPath((Join-Path $Root $file.path))
-        if (-not $path.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase)) { throw "Invalid manifest path: $($file.path)" }
-        if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "Setup file missing: $($file.path)" }
-        # Get-FileHash's provider reads honor inherited WhatIf in Windows
-        # PowerShell 5.1. Hash directly so previews still validate actual bytes.
-        $stream = [IO.File]::OpenRead($path)
-        $sha = [Security.Cryptography.SHA256]::Create()
-        try { $hash = [BitConverter]::ToString($sha.ComputeHash($stream)).Replace('-', '') }
-        finally { $sha.Dispose(); $stream.Dispose() }
-        if ($hash -ne $file.sha256) {
-            throw "Setup checksum failed: $($file.path). Download and extract the setup ZIP again."
-        }
-    }
-}
 
 function Get-StreamSha256($Stream) {
     $sha = [Security.Cryptography.SHA256]::Create()
@@ -412,6 +509,7 @@ function Assert-InstalledPlugin([int[]]$InstallYears, [string]$BundleDir) {
         if (-not (Test-Path -LiteralPath $dll -PathType Leaf)) { throw "$prefix missing file $dll" }
         Assert-PluginPayload -PayloadDir (Split-Path -Parent $dll) -Year $year
         if ($script:bundleSourceDir -and (Test-Path -LiteralPath (Join-Path $script:bundleSourceDir "Contents\$year"))) {
+            if ($script:manifest) { Assert-InstalledPayload -Prefix "bundle/Contents/$year/" -Destination (Join-Path $BundleDir "Contents\$year") }
             $expectedStream = [IO.File]::OpenRead((Join-Path $script:bundleSourceDir "Contents\$year\Bimwright.Dwg.Plugin.Acad$("{0:D2}" -f ($year - 2000)).dll"))
             try { $expected = Get-StreamSha256 $expectedStream } finally { $expectedStream.Dispose() }
             $actualStream = [IO.File]::OpenRead($dll)
@@ -419,6 +517,25 @@ function Assert-InstalledPlugin([int[]]$InstallYears, [string]$BundleDir) {
             if ($expected -ne $actual) { throw "$prefix $dll differs from the package" }
         }
     }
+}
+
+function Assert-InstalledPayload([string]$Prefix, [string]$Destination) {
+    foreach ($file in $script:manifest.files | Where-Object { $_.path.StartsWith($Prefix, [StringComparison]::OrdinalIgnoreCase) }) {
+        $path = Join-Path $Destination $file.path.Substring($Prefix.Length)
+        Assert-SetupPlainPath $path
+        if (-not [IO.File]::Exists($path) -or (Get-Item -LiteralPath $path).Length -ne $file.bytes -or (Get-SetupSha256 $path) -ne $file.sha256) {
+            throw "Installed payload verification failed: $path"
+        }
+    }
+}
+
+function Assert-InstallOwnership {
+    Assert-SetupPlainPath $script:bundleTargetRoot
+    Assert-SetupPlainPath $script:ServerInstallRoot
+    if ((Test-Path -LiteralPath $script:bundleTargetRoot) -and @(Get-ChildItem -LiteralPath $script:bundleTargetRoot -Force).Count -and
+        -not (Test-DwgMcpBundle $script:bundleTargetRoot)) { throw 'Existing bundle root is foreign/unreadable; no replacement is allowed.' }
+    if ((Test-Path -LiteralPath $script:ServerInstallRoot) -and @(Get-ChildItem -LiteralPath $script:ServerInstallRoot -Force).Count -and
+        -not (Test-ServerCopy $script:ServerInstallRoot)) { throw 'Existing server root has no recognized dwg-mcp executable; data was preserved.' }
 }
 
 # --- server ----------------------------------------------------------------
@@ -546,9 +663,10 @@ function Remove-StaleServerVersions {
 # %USERPROFILE%/%APPDATA%/%LOCALAPPDATA% so tests can sandbox them.
 function Get-McpClientSpecs {
     $up = $env:USERPROFILE; $la = $env:LOCALAPPDATA; $ra = $env:APPDATA
+    $codexRoot = if ($env:CODEX_HOME) { $env:CODEX_HOME } else { Join-Path $up '.codex' }
     @(
         [pscustomobject]@{ Name='claude';    Kind='cli'; Cli='claude'; DetectPaths=@((Join-Path $up '.claude.json')); Paths=@((Join-Path $up '.claude.json')); RootKey='mcpServers'; EntryKind='standard' }
-        [pscustomobject]@{ Name='codex';     Kind='cli'; Cli='codex';  DetectPaths=@((Join-Path $up '.codex')) }
+        [pscustomobject]@{ Name='codex';     Kind='cli'; Cli='codex'; Paths=@((Join-Path $codexRoot 'config.toml')); DetectPaths=@($codexRoot) }
         [pscustomobject]@{ Name='grok';      Kind='cli'; Cli='grok';   DetectPaths=@((Join-Path $up '.grok')) }
         # claude-desktop: MSIX keeps its virtualized Roaming under the package
         # LocalCache - the package family name varies by install channel, so
@@ -736,14 +854,16 @@ function ConvertFrom-JsoncText([string]$Text) {
 # Back up, write, and parse-verify a config edit; a failed parse restores
 # the .bak so a bad edit can never leave a broken client config behind.
 function Save-McpConfigText([string]$Path, [string]$NewText, [string]$OldText) {
+    $null = ConvertFrom-JsoncText $NewText
+    Assert-SetupPlainPath $Path
+    if ([IO.File]::ReadAllText($Path) -cne $OldText) { throw "Client config changed since it was read; no edit applied: $Path" }
     $bak = "$Path.bak"
-    Copy-Item -LiteralPath $Path -Destination $bak -Force
-    try { $null = ConvertFrom-JsoncText $NewText }
-    catch {
-        Copy-Item -LiteralPath $bak -Destination $Path -Force
-        throw "Edit produced invalid JSON for $Path - restored backup. ($($_.Exception.Message))"
-    }
-    [IO.File]::WriteAllText($Path, $NewText)
+    if (Test-Path -LiteralPath $bak) { $bak += '.' + [guid]::NewGuid().ToString('N') }
+    Assert-SetupPlainPath $bak
+    Register-InstallFile $Path
+    Register-InstallFile $bak
+    Copy-Item -LiteralPath $Path -Destination $bak
+    Write-InstallText $Path $NewText
 }
 
 # True when the config's top-level <RootKey> object has a dwg-mcp member.
@@ -777,7 +897,7 @@ function Set-McpConfigEntry {
         $body = '{ "' + $RootKey + '": { "dwg-mcp": ' + $entryText + ' } }'
         if ($PSCmdlet.ShouldProcess($full, 'Wire dwg-mcp into client config')) {
             New-Item -ItemType Directory -Path (Split-Path -Parent $full) -Force | Out-Null
-            [IO.File]::WriteAllText($full, $body)
+            Write-InstallText $full $body
             return 'created'
         }
         return 'previewed'
@@ -912,6 +1032,39 @@ function Read-CodexEntryArgs([string]$TomlPath) {
     return @([regex]::Matches($a.Groups[1].Value, '"((?:[^"\\]|\\.)*)"') | ForEach-Object { $_.Groups[1].Value -replace '\\(.)', '$1' })
 }
 
+function Set-CodexConfigCommand {
+    [CmdletBinding(SupportsShouldProcess=$true)]
+    param([string]$Path, [string]$Exe)
+    if (-not [IO.File]::Exists($Path)) { return $null }
+    $text = [IO.File]::ReadAllText($Path)
+    $table = [regex]::Match($text, '(?ms)^\[mcp_servers\.dwg-mcp\][ \t]*\r?$\r?\n(?<body>.*?)(?=^\[|\z)')
+    if (-not $table.Success) {
+        # Quoted/inline TOML tables need a parser; never replace a possible
+        # existing entry via `mcp add` just because this minimal edit cannot read it.
+        if ($text -match 'dwg-mcp') { return 'custom' }
+        return $null
+    }
+    $commands = [regex]::Matches($table.Groups['body'].Value, '(?m)^[ \t]*command[ \t]*=[ \t]*(?<value>"(?:[^"\\]|\\.)*"|''[^'']*'')[ \t]*(?:#.*)?\r?$')
+    if ($commands.Count -ne 1) { return 'custom' }
+    $value = $commands[0].Groups['value']
+    $command = if ($value.Value.StartsWith('"')) { $value.Value | ConvertFrom-Json } else { $value.Value.Substring(1, $value.Value.Length - 2) }
+    if ($command -eq $Exe) { return 'already' }
+    if ($command -notmatch '(?i)[\\/]Bimwright[\\/](?:Dwg|dwg-mcp)[\\/]server[\\/][^\\/]+[\\/]dwg-mcp\.exe$') { return 'custom' }
+    if (-not $PSCmdlet.ShouldProcess($Path, 'Repoint only the Codex dwg-mcp command; keep args/env/other tables')) { return 'previewed' }
+    $offset = $table.Groups['body'].Index + $value.Index
+    Write-InstallText $Path ($text.Remove($offset, $value.Length).Insert($offset, ($Exe | ConvertTo-Json -Compress)))
+    return 'repointed'
+}
+
+function Assert-ClientRecoveryScope([string[]]$Clients) {
+    $specs = @(Get-McpClientSpecs)
+    $names = @($Clients | Where-Object { $_ -and $_ -ne 'none' })
+    if (@($names | Where-Object { $_ -in @('auto','all') }).Count) { $names = @($specs | Where-Object { Test-McpClientDetected $_ } | ForEach-Object Name) }
+    foreach ($spec in $specs | Where-Object { $names -contains $_.Name }) {
+        if ($spec.Kind -eq 'cli' -and -not $spec.Paths) { throw "Client $($spec.Name) has no verified config recovery path. Use -Client none and wire it separately after review." }
+    }
+}
+
 # Fresh installs default the server to the full tool surface: seed
 # dwgmcp.config.json with toolsets=["all"]. An existing toolsets key is the
 # user's explicit choice and is kept; --toolsets/--read-only args and
@@ -961,13 +1114,13 @@ function Test-McpClientDetected($spec) {
 # stderr line into a terminating error, so the best-effort remove on a fresh
 # machine failed the whole wiring. Run them with Continue; lines come back as text.
 function Invoke-ClientCli {
-    param([string]$Cli, [string[]]$Arguments)
+    param([string]$Cli, [string[]]$Arguments, [switch]$AllowFailure)
     $ErrorActionPreference = 'Continue'
     & $Cli @Arguments 2>&1 | ForEach-Object { "$_" }
+    if ($LASTEXITCODE -ne 0 -and -not $AllowFailure -and $null -ne $script:installChanges) { throw "Client CLI $Cli failed (exit $LASTEXITCODE)." }
 }
 
-# Per-client failures are collected, never thrown - a bad client edit must
-# not roll back an otherwise-good install.
+# Caught client write/CLI errors participate in the same install recovery plan.
 function Invoke-McpClientWiring {
     [CmdletBinding(SupportsShouldProcess = $true)]
     param([string[]]$Clients, [string]$Exe, [ValidateSet('Add', 'Remove')][string]$Mode)
@@ -1000,10 +1153,16 @@ function Invoke-McpClientWiring {
                     }
                     if (-not $cli) { $report.Add("$($spec.Name): $($spec.Cli) CLI not on PATH"); continue }
                     if ($Mode -eq 'Add') {
+                        if ($spec.Name -eq 'codex') {
+                            $status = Set-CodexConfigCommand -Path $spec.Paths[0] -Exe $Exe
+                            if ($status) { $report.Add("codex: $status -> $($spec.Paths[0])"); continue }
+                        }
                         if (-not $PSCmdlet.ShouldProcess($spec.Name, 'wire dwg-mcp via client CLI')) { $report.Add("$($spec.Name): previewed"); continue }
+                        if (-not $spec.Paths) { throw 'CLI client has no verified recovery path.' }
+                        foreach ($path in $spec.Paths) { Register-InstallFile $path }
                         switch ($spec.Name) {
                             'claude' {
-                                $null = Invoke-ClientCli claude @('mcp', 'remove', 'dwg-mcp', '-s', 'local')  # drop any project-local shadow
+                                $null = Invoke-ClientCli claude @('mcp', 'remove', 'dwg-mcp', '-s', 'local') -AllowFailure
                                 $out = Invoke-ClientCli claude @('mcp', 'add', '-s', 'user', 'dwg-mcp', '--', $Exe)
                                 $verify = Invoke-ClientCli claude @('mcp', 'get', 'dwg-mcp')
                             }
@@ -1067,6 +1226,7 @@ function Invoke-McpClientWiring {
                 }
             }
         } catch {
+            if ($null -ne $script:installChanges) { throw "Client $($spec.Name) failed: $($_.Exception.Message)" }
             $report.Add("$($spec.Name): failed - $($_.Exception.Message)")
         }
     }
@@ -1135,13 +1295,19 @@ $wiredClients = @()
 $ownServerRoot = -not $PSBoundParameters.ContainsKey('ServerInstallRoot')
 $Years = @($Years | Sort-Object -Unique)
 $script:installChanges = New-Object System.Collections.Generic.List[object]
+if ($Uninstall) { $script:installChanges = $null }
 $script:installStage = $null
+$script:legacyRootRelocated = $false
 
 try {
     # Validate every selected payload before replacing any installed file.
     if (-not $WhatIfPreference) { Assert-AutoCadClosed }
     if (-not $Uninstall) {
-        Assert-SetupManifest -Root $SourceDir -Manifest $manifest
+        Write-Host ("[scope] years={0}; clients={1}; server={2}; bundle={3}" -f ($Years -join ','), ($Client -join ','), $ServerInstallRoot, $bundleTargetRoot)
+        Assert-InstallOwnership
+        Assert-ClientRecoveryScope $Client
+        if ($SetupZip) { Assert-SetupArchive -ZipPath $SetupZip -ReleaseTag $ReleaseTag -Root $SourceDir }
+        elseif ($hasSetupLayout) { Assert-SetupManifest -Root $SourceDir -Manifest $manifest }
         if ($bundleSourceDir) {
             Assert-BundlePackage -BundleDir $bundleSourceDir -InstallYears $Years
         } else {
@@ -1193,6 +1359,7 @@ try {
         # Relocate the pre-rename %LOCALAPPDATA%\Bimwright\Dwg\ tree before the
         # first write under the new product root (server deploy, config seeding).
         Move-LegacyProductRoot -LocalAppData $env:LOCALAPPDATA
+        Assert-InstallOwnership
     }
 
     $duplicates = @(Get-DuplicateBundleItems -KeepBundle $bundleTargetRoot)
@@ -1233,7 +1400,7 @@ try {
             $template = if ($bundleSourceDir) { Join-Path $bundleSourceDir 'PackageContents.xml' } else { Join-Path $PSScriptRoot 'PackageContents.xml' }
             $manifestDir = Join-Path $script:installStage 'manifest-out'
             New-Item -ItemType Directory -Path $manifestDir -Force | Out-Null
-            Save-BundleManifest -OutPath (Join-Path $manifestDir 'PackageContents.xml') -CoverYears $coverYears -TemplatePath $template
+            Save-BundleManifest -OutPath (Join-Path $manifestDir 'PackageContents.xml') -CoverYears $coverYears -TemplatePath $template -ExistingPath (Join-Path $bundleTargetRoot 'PackageContents.xml')
             Set-InstallPath -Source (Join-Path $manifestDir 'PackageContents.xml') -Destination (Join-Path $bundleTargetRoot 'PackageContents.xml')
         }
 
@@ -1254,6 +1421,7 @@ try {
             }
         }
         if ($serverCommand -and -not $WhatIfPreference) {
+            if ($manifest) { Assert-InstalledPayload -Prefix 'server/' -Destination $ServerInstallRoot }
             # A browser-downloaded ZIP extracted by Explorer marks every file as
             # coming from the Internet; Copy-Item/Move-Item keep that mark.
             Get-ChildItem -LiteralPath $ServerInstallRoot -Recurse -File | Unblock-File
@@ -1278,6 +1446,7 @@ try {
         if (-not $WhatIfPreference) {
             Assert-InstalledPlugin -InstallYears $Years -BundleDir $bundleTargetRoot
             $verified += ($Years | ForEach-Object { "Acad$_" })
+            Complete-LegacyMigration
         }
     }
     if ($Uninstall -and @($Client | Where-Object { $_ -ne 'none' }).Count) {

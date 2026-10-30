@@ -28,6 +28,7 @@ namespace Bimwright.Dwg.Plugin
 
             var results = new List<object>();
             var partialFailure = false;
+            var index = 0;
 
             foreach (var item in commands)
             {
@@ -46,14 +47,28 @@ namespace Bimwright.Dwg.Plugin
 
                 var itemOk = result.Ok;
                 var itemError = result.Error;
+                var outcome = itemOk ? "succeeded" : "failed";
+                bool? outputVerified = null;
+                if (itemOk && (cmd == "export_dxf" || cmd == "save_drawing" || cmd == "capture_view_image" || cmd == "inspect_view_region" || cmd == "restore_view"))
+                {
+                    var output = result.Result == null ? null : JToken.FromObject(result.Result) as JObject;
+                    outputVerified = (output?["file_receipt"] as JObject)?.Value<bool?>("verified");
+                    if (outputVerified != true) outcome = "completed_output_unverified";
+                }
                 // send_code keeps execution errors and stdout inside its payload.
                 // Its successful command wrapper does not mean the C# succeeded.
-                if (itemOk && string.Equals(cmd, "send_code", StringComparison.Ordinal) && result.Result != null)
+                if (itemOk && string.Equals(cmd, "send_code", StringComparison.Ordinal))
                 {
-                    var script = JObject.FromObject(result.Result);
-                    if (script.Value<bool?>("ok") == false)
+                    var script = result.Result == null ? null : JToken.FromObject(result.Result) as JObject;
+                    if (script?["ok"]?.Type != JTokenType.Boolean)
+                    {
+                        itemOk = false; outcome = "unknown";
+                        itemError = "send_code did not report a boolean execution status; inspect effects before retrying";
+                    }
+                    else if (script.Value<bool>("ok") == false)
                     {
                         itemOk = false;
+                        outcome = "failed";
                         itemError = script.Value<string>("error") ?? "send_code execution failed";
                     }
                 }
@@ -65,8 +80,13 @@ namespace Bimwright.Dwg.Plugin
 
                 results.Add(new
                 {
+                    index = index++,
                     cmd,
+                    command_ok = result.Ok,
                     ok = itemOk,
+                    outcome,
+                    output_verified = outputVerified,
+                    mutation_applied = (bool?)null, // A handler error does not prove rollback of earlier effects.
                     result = result.Ok ? result.Result : null,
                     error = itemOk ? null : ErrorSanitizer.Sanitize(itemError)
                 });

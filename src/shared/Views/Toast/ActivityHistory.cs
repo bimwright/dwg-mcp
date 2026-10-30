@@ -1,10 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Newtonsoft.Json.Linq;
 
 namespace Bimwright.Dwg.Plugin.Views.Toast
 {
-    /// <summary>Bounded in-memory UI history. No raw params, code bodies, JSON results or disk writer.</summary>
+    /// <summary>Bounded sanitized in-memory UI history. No code bodies or disk writer.</summary>
     public sealed class ActivityHistory
     {
         public const int DefaultCapacity = 1000;
@@ -22,12 +23,12 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
 
         public long Version { get { lock (_gate) return _version; } }
 
-        public void Record(McpToastViewModel outcome)
+        public void Record(McpToastViewModel outcome, JToken parameters = null, string resultJson = null, string error = null, string description = null)
         {
             if (outcome == null) throw new ArgumentNullException(nameof(outcome));
             lock (_gate)
             {
-                _entries.Enqueue(new ActivityHistoryEntry(++_lastIndex, outcome));
+                _entries.Enqueue(new ActivityHistoryEntry(++_lastIndex, outcome, parameters, resultJson, error, description));
                 while (_entries.Count > _capacity) _entries.Dequeue();
                 _version++;
             }
@@ -51,15 +52,21 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
 
     public sealed class ActivityHistoryEntry
     {
-        internal ActivityHistoryEntry(long index, McpToastViewModel outcome)
+        internal ActivityHistoryEntry(long index, McpToastViewModel outcome, JToken parameters, string resultJson, string error, string description)
         {
             Index = index;
             Timestamp = DateTimeOffset.Now;
-            ToolName = Clip(outcome.Title, 160);
-            Summary = Clip(outcome.Body, 240);
+            var code = ActivityHistoryDetails.MayEchoCode(outcome.CommandName, parameters);
+            var body = code ? (outcome.Success ? "Code-capable call completed." : "Code-capable call failed.") : ActivityHistoryDetails.Text(outcome.Body);
+            ToolName = Clip(ActivityHistoryDetails.Text(outcome.Title), 160);
+            Summary = Clip(body, 240);
             Success = outcome.Success;
             Kind = outcome.Kind;
             DurationMs = Math.Max(0, outcome.DurationMs);
+            What = ActivityHistoryDetails.Text(ToolName + " · " + KindLabel + " · " + StatusLabel + " · " + DurationMs + " ms\n\n" + body + "\n\n" + description);
+            Input = ActivityHistoryDetails.Json(parameters);
+            Output = code ? ActivityHistoryDetails.CodeOutputOmitted : outcome.Success
+                ? ActivityHistoryDetails.Result(resultJson) : ActivityHistoryDetails.Text(error ?? outcome.Summary);
             ImagePath = outcome.Success && ToastContentBuilder.IsSafeImagePath(outcome.ThumbnailPath)
                 ? outcome.ThumbnailPath : null;
         }
@@ -75,6 +82,9 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
         public string StatusLabel => Success ? "✓" : "✗";
         public long DurationMs { get; }
         public string ImagePath { get; }
+        public string What { get; }
+        public string Input { get; }
+        public string Output { get; }
 
         private static string Clip(string text, int max) => string.IsNullOrEmpty(text)
             ? string.Empty : text.Length <= max ? text : text.Substring(0, max - 1) + "…";

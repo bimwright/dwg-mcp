@@ -14,7 +14,8 @@ namespace Bimwright.Dwg.Server.Tools
         [McpServerTool(Name = "dwg_batch_execute", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false), Description(
             "Run multiple internal DWG commands sequentially as a logical batch. commands must be a JSON array of {cmd, params}. " +
             "run_lisp is blocked in this build, including batches; use dwg_inspect_lisp for analysis only." +
-            " May change drawing data or files; disabled in read-only mode even when a particular batch only contains reads. Commands are sequential, not one atomic transaction: earlier effects can remain after a later failure. Use AutoCAD UNDO for drawing edits and backups for file changes.")]
+            " Each step reports index, command_ok, effective ok, outcome and nullable mutation_applied; file-output steps also report output_verified. Read nested results/file_receipt and output_artifact for omitted details. " +
+            "May change drawing data or files; disabled in read-only mode even when a particular batch only contains reads. Commands are sequential, not one atomic transaction: earlier effects can remain after a later failure. Use AutoCAD UNDO for drawing edits and backups for file changes.")]
         public static Task<string> BatchExecute(
             [Description("JSON array: [{\"cmd\":\"get_selected_texts\",\"params\":{}}]. Wire command names are unprefixed.")] string commands)
         {

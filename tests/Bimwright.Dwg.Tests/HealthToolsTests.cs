@@ -34,6 +34,7 @@ namespace Bimwright.Dwg.Tests
                 return new JObject
                 {
                     ["id"] = request["id"], ["ok"] = true,
+                    ["_target"] = new JObject { ["pid"] = 123, ["acad_year"] = 2027, ["document_id"] = null },
                     ["result"] = new JObject
                     {
                         ["ok"] = true, ["autocad_year"] = 2027, ["has_active_document"] = false,
@@ -55,6 +56,7 @@ namespace Bimwright.Dwg.Tests
             Assert.Equal("match", health["mcp"].Value<string>("version_alignment"));
             Assert.Equal("unknown", health["mcp"].Value<string>("revision_alignment"));
             Assert.Equal("not_checked", health["update"].Value<string>("status"));
+            Assert.Equal(123, health["_target"].Value<int>("pid"));
         }
 
         [Theory]
@@ -70,6 +72,7 @@ namespace Bimwright.Dwg.Tests
             Assert.True(reply.IsError);
             var health = Data(reply);
             Assert.False(health.Value<bool>("host_connected"));
+            Assert.Null(health["_target"]);
             Assert.Equal("NO_TARGET", health["error"].Value<string>("code"));
             Assert.Equal("0.2.2", health["mcp"].Value<string>("server_version"));
             Assert.Null(health["mcp"].Value<string>("plugin_version"));
@@ -118,13 +121,14 @@ namespace Bimwright.Dwg.Tests
         [Fact]
         public async Task Wrong_response_id_does_not_verify_the_intended_host()
         {
-            using var server = new FakePluginServer(_ => "{\"id\":\"foreign\",\"ok\":true,\"result\":{\"healthy\":true}}");
+            using var server = new FakePluginServer(_ => "{\"id\":\"foreign\",\"ok\":true,\"result\":{\"healthy\":true},\"_target\":{\"pid\":999}}");
             using var http = new HttpClient(new ReleaseUpdateCheckTests.Handler());
             var reply = await new HealthTools(new PluginClient(() => new DiscoveryInfo { Port = server.Port }),
                 new ReleaseUpdateCheck(http), Gateway()).Health();
             Assert.True(reply.IsError);
             Assert.False(Data(reply).Value<bool>("host_connected"));
             Assert.Equal("INVALID_HEALTH_RESPONSE", Data(reply)["error"].Value<string>("code"));
+            Assert.Null(Data(reply)["_target"]);
         }
 
         [Theory]

@@ -38,7 +38,7 @@ internal static class EntityQueryResponse
         try { body = JObject.Parse(text?.Text ?? ""); }
         catch (JsonReaderException) { return textRead && result.IsError != true ? Unsupported(cap, true) : BoundOther(result, cap, textRead); }
         if (textRead && body["ok"]?.Type != JTokenType.Boolean)
-            return result.IsError == true ? BoundOther(result, cap, true) : Unsupported(cap, true);
+            return result.IsError == true ? BoundOther(result, cap, true) : Unsupported(cap, true, body);
         if (textRead && body.Value<bool?>("ok") == false) return BoundOther(result, cap, true);
         // Older plugins accept unknown query parameters and may silently ignore
         // bbox/space/paging. Never present that legacy result as a filtered read.
@@ -46,9 +46,9 @@ internal static class EntityQueryResponse
         {
             var data = body["result"] as JObject;
             if (countOnly)
-                return Count(data?["query_count_version"]) == 1 ? BoundOther(result, cap) : Unsupported(cap);
+                return Count(data?["query_count_version"]) == 1 ? BoundOther(result, cap) : Unsupported(cap, original: body);
             if (Count(data?[versionKey]) != 1 || data?[collection] is not JArray)
-                return Unsupported(cap, textRead);
+                return Unsupported(cap, textRead, body);
         }
         if (body["result"] is not JObject page || Count(page[versionKey]) != 1 || page[collection] is not JArray rows)
             return BoundOther(result, cap, textRead);
@@ -172,27 +172,32 @@ internal static class EntityQueryResponse
             Refresh();
             bytes = ResponseBudget.Measure(fitted);
         }
-        return bytes <= cap ? fitted : CoreTooLarge(page, cap, collection, versionKey, identityField, textRead);
+        return bytes <= cap ? fitted : CoreTooLarge(page, cap, collection, versionKey, identityField, textRead, body);
     }
 
     private static long? Count(JToken value)
         => value?.Type == JTokenType.Integer && long.TryParse(value.ToString(Formatting.None), NumberStyles.None, CultureInfo.InvariantCulture, out var count)
             && count >= 0 ? count : null;
 
-    private static CallToolResult Unsupported(int cap, bool textRead = false) => Text(new JObject
+    private static CallToolResult Unsupported(int cap, bool textRead = false, JObject original = null)
     {
-        ["ok"] = false,
-        ["error"] = textRead
-            ? "TEXT_FEATURE_UNSUPPORTED: the plugin did not confirm the requested bounded text-read contract. Update gateway and plugin together."
-            : "QUERY_FEATURE_UNSUPPORTED: the plugin did not confirm the requested spatial/paged contract. Update gateway and plugin together.",
-        ["result"] = new JObject { ["output"] = new JObject
+        var body = new JObject
         {
-            ["budget_bytes"] = cap, ["complete"] = false, ["next_calls"] = new JArray(),
-            ["note"] = textRead
-                ? "Unverified legacy selection data and writable cluster IDs were discarded: handles, bbox, space and cursor semantics were not confirmed. No cluster count, clusters or continuation are claimed."
-                : "Unverified legacy data was discarded: bbox, space, fields and cursor semantics were not confirmed. No count, entity rows or continuation are claimed."
-        }}
-    }, true);
+            ["ok"] = false,
+            ["error"] = textRead
+                ? "TEXT_FEATURE_UNSUPPORTED: the plugin did not confirm the requested bounded text-read contract. Update gateway and plugin together."
+                : "QUERY_FEATURE_UNSUPPORTED: the plugin did not confirm the requested spatial/paged contract. Update gateway and plugin together.",
+            ["result"] = new JObject { ["output"] = new JObject
+            {
+                ["budget_bytes"] = cap, ["complete"] = false, ["next_calls"] = new JArray(),
+                ["note"] = textRead
+                    ? "Unverified legacy selection data and writable cluster IDs were discarded: handles, bbox, space and cursor semantics were not confirmed. No cluster count, clusters or continuation are claimed."
+                    : "Unverified legacy data was discarded: bbox, space, fields and cursor semantics were not confirmed. No count, entity rows or continuation are claimed."
+            }}
+        };
+        ResponseBudget.RetainTarget(original, body);
+        return BoundOther(Text(body, true), cap, textRead);
+    }
 
     private static string TextGuidance(int cap, bool hostPayloadBlocked, bool scanComplete)
         => (scanComplete ? "Only retained whole clusters were delivered. omitted_clusters counts complete-scope clusters after the input cursor, not text entities. "
@@ -269,7 +274,7 @@ internal static class EntityQueryResponse
         return ResponseBudget.Measure(candidate) <= cap ? candidate : bounded;
     }
 
-    private static CallToolResult CoreTooLarge(JObject page, int cap, string collection, string versionKey, string identityField, bool textRead)
+    private static CallToolResult CoreTooLarge(JObject page, int cap, string collection, string versionKey, string identityField, bool textRead, JObject original)
     {
         var body = new JObject
         {
@@ -306,6 +311,7 @@ internal static class EntityQueryResponse
             if (value != null && value.Length <= 128 && value.All(c => c >= ' ' && c <= '~')) body["result"][key] = value;
             else body["result"][key + "_omitted"] = true;
         }
+        ResponseBudget.RetainTarget(original, body);
         var result = Text(body, true);
         if (textRead && ResponseBudget.Measure(result) > cap)
         {
@@ -313,8 +319,7 @@ internal static class EntityQueryResponse
             foreach (var key in new[] { "snapshot", "document_id" }) { ((JObject)body["result"]).Remove(key); body["result"][key + "_omitted"] = true; }
             result = Text(body, true);
         }
-        System.Diagnostics.Debug.Assert(ResponseBudget.Measure(result) <= cap);
-        return result;
+        return BoundOther(result, cap, textRead);
     }
 
     private static CallToolResult Text(JObject body, bool? failed)

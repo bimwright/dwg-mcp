@@ -44,6 +44,7 @@ public class EntityQueryProtocolTests : IDisposable
             var typed = System.Text.Json.JsonSerializer.Deserialize<CallToolResult>(gateway.LastRawResult, McpJsonUtilities.DefaultOptions);
             Assert.Equal(Encoding.UTF8.GetByteCount(gateway.LastRawResult), ResponseBudget.Measure(typed));
             var body = Body(reply); Assert.True(body.Value<bool>("ok")); var page = body["result"];
+            Assert.Equal(DocumentTargetGuard.Id(document), body["_target"].Value<string>("document_id"));
             var handles = page["entities"].Select(x => x.Value<string>("handle")).ToArray();
             Assert.NotEmpty(handles); Assert.Equal(handles.Length, page.Value<int>("count")); all.AddRange(handles);
             Assert.DoesNotContain("_checkpoints", gateway.LastRawResult); Assert.DoesNotContain("_continuation_allowed", gateway.LastRawResult);
@@ -162,6 +163,7 @@ public class EntityQueryProtocolTests : IDisposable
             using var owner = Process.GetCurrentProcess();
             var ownerId = owner.Id;
             var startTime = owner.StartTime.ToUniversalTime();
+            var observedTarget = DocumentTargetGuard.Capture(document);
             host = new FakePluginServer(line =>
             {
                 var request = JObject.Parse(line);
@@ -187,7 +189,8 @@ public class EntityQueryProtocolTests : IDisposable
                         : new JObject { ["count"] = 40 });
                 }
                 return new JObject { ["id"] = request["id"], ["ok"] = result.Ok,
-                    ["result"] = result.Result == null ? JValue.CreateNull() : JToken.FromObject(result.Result), ["error"] = result.Error }.ToString(Formatting.None);
+                    ["result"] = result.Result == null ? JValue.CreateNull() : JToken.FromObject(result.Result), ["error"] = result.Error,
+                    ["_target"] = legacyReply ? null : observedTarget.DeepClone() }.ToString(Formatting.None);
             });
             var profile = Path.Combine(root, "Bimwright", "dwg-mcp");
             Directory.CreateDirectory(profile);

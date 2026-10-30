@@ -33,20 +33,21 @@ namespace Bimwright.Dwg.Plugin
         }
 
         /// <summary>Standalone session operations share the CAD queue, but do not require or lock a document.</summary>
-        internal static T InvokeSession<T>(Func<T> action, Func<bool> isAccepting = null)
+        internal static T InvokeSession<T>(Func<T> action, Func<bool> isAccepting = null, Action<JObject> observeTarget = null)
         {
             var executor = mainThread ?? throw new InvalidOperationException("AutoCAD main-thread executor is not initialized.");
             return DwgApiExecutor.Invoke(() => executor.Invoke(() =>
             {
                 EnsureAccepting(isAccepting);
-                return action();
+                try { return action(); }
+                finally { ObserveTarget(() => Application.DocumentManager.MdiActiveDocument, observeTarget); }
             }));
         }
 
         /// <summary>
         /// Serializes AutoCAD API access, locks the active document, and runs the action.
         /// </summary>
-        public static T Invoke<T>(Func<Document, T> action, Func<bool> isAccepting = null, JObject expectedTarget = null, string command = null)
+        public static T Invoke<T>(Func<Document, T> action, Func<bool> isAccepting = null, JObject expectedTarget = null, string command = null, Action<JObject> observeTarget = null)
         {
             var executor = mainThread ?? throw new InvalidOperationException("AutoCAD main-thread executor is not initialized.");
             return DwgApiExecutor.Invoke(() => executor.Invoke(() =>
@@ -56,11 +57,19 @@ namespace Bimwright.Dwg.Plugin
                     ?? throw new InvalidOperationException(DrawingSessionContract.NoActiveDocument);
                 using (doc.LockDocument())
                 {
+                    ObserveTarget(() => doc, observeTarget);
                     // Validate after queueing and under the document lock, before any handler.
                     if (command != null) DocumentTargetGuard.CheckDocument(expectedTarget, doc, command);
                     return action(doc);
                 }
             }));
+        }
+
+        private static void ObserveTarget(Func<Document> document, Action<JObject> observeTarget)
+        {
+            if (observeTarget == null) return;
+            try { observeTarget(DocumentTargetGuard.Capture(document())); }
+            catch (Exception ex) { PluginLog.Debug("Target receipt unavailable: " + ex.Message); }
         }
 
         private static void EnsureAccepting(Func<bool> isAccepting)

@@ -38,6 +38,9 @@ namespace Bimwright.Dwg.Plugin
         internal static bool ListenerRunning => _server != null && _server.IsRunning;
         internal static bool ListenerUsesPipe => _server != null && _server.Kind == TransportKind.Pipe;
         internal static int? ListenerPort => ListenerRunning ? _server.Port : null;
+        internal static bool AutoStartTransport { get; private set; } = PluginSettings.DefaultAutoStartTransport;
+        internal static string AutoStartSource { get; private set; } = "default";
+        internal static string AutoStartSaveError { get; private set; }
 
         internal static bool ClientRecentlyPresent =>
             _lastClientActivityUtc != System.DateTime.MinValue
@@ -46,8 +49,16 @@ namespace Bimwright.Dwg.Plugin
         public void Initialize()
         {
             DiagnosticLog.MaintainLegacyLogs();
+            OutputArtifactStore.MaintainInBackground();
+            LoadStartupPreference();
             try
             {
+                InitializeToast();
+                if (!AutoStartTransport)
+                {
+                    WriteLine("Bimwright DWG loaded; auto-start is off. Run MCPSTART to start listening.");
+                    return;
+                }
                 StartServerInternal();
                 WriteLine($"Bimwright DWG loaded and listening on {DescribeTransport(_server)}.");
             }
@@ -80,6 +91,7 @@ namespace Bimwright.Dwg.Plugin
             if (_server != null && _server.IsRunning)
             {
                 WriteLine($"Bimwright DWG already running on {DescribeTransport(_server)}.");
+                SaveStartupPreference(true);
                 return;
             }
             try
@@ -90,18 +102,34 @@ namespace Bimwright.Dwg.Plugin
             catch (System.Exception ex)
             {
                 WriteLine($"Bimwright DWG start failed: {ex.Message}");
+                return;
             }
+            SaveStartupPreference(true);
         }
 
         [CommandMethod("MCPSTOP", CommandFlags.Session)]
         public static void McpStop()
         {
-            if (_server == null || !_server.IsRunning)
-            {
-                WriteLine("Bimwright DWG not running.");
-                return;
-            }
             StopListener(closeSettings: true);
+        }
+
+        private static void LoadStartupPreference()
+        {
+            AutoStartTransport = PluginSettings.LoadAutoStartTransport(out var source);
+            AutoStartSource = source;
+        }
+
+        private static void SaveStartupPreference(bool enabled)
+        {
+            PluginSettings.SaveAutoStartTransport(enabled, out var error);
+            AutoStartSaveError = error;
+            LoadStartupPreference();
+            if (error != null)
+                WriteLine("Startup preference could not be saved; the listener keeps its current state. " + error);
+            else
+                WriteLine("Startup preference saved: " + (enabled ? "on." : "off."));
+            if (AutoStartSource == PluginSettings.EnvAutoStartTransport)
+                WriteLine(PluginSettings.EnvAutoStartTransport + " overrides the saved preference at next launch.");
         }
 
         [CommandMethod("MCPTOAST", CommandFlags.Session)]
@@ -184,6 +212,7 @@ namespace Bimwright.Dwg.Plugin
             }
             ToolCatalogStore.Clear();
             ToastNotifier?.DismissAll();
+            SaveStartupPreference(false);
             if (closeSettings)
                 CloseSettings();
             WriteLine("Bimwright DWG stopped.");

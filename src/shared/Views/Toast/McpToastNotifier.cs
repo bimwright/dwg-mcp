@@ -1,6 +1,7 @@
 using System;
 using System.Runtime.InteropServices;
 using Bimwright.Dwg.Plugin.Localization;
+using Newtonsoft.Json.Linq;
 
 namespace Bimwright.Dwg.Plugin.Views.Toast
 {
@@ -52,7 +53,8 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
             bool success,
             string errorMessage,
             string toolDescription,
-            long durationMs = 0)
+            long durationMs = 0,
+            JToken parameters = null)
         {
             var vm = ToastContentBuilder.BuildCompleted(
                 toolName,
@@ -63,8 +65,8 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
                 durationMs);
 
             // History is session UI state, independent of toast visibility and of
-            // persistent call logging. Only the compact, filtered outcome is retained.
-            _host.History.Record(vm);
+            // persistent call logging. Retain bounded sanitized display copies only.
+            _host.History.Record(vm, parameters, resultJson, errorMessage, toolDescription);
             if (!_isEnabled())
                 return;
 

@@ -29,8 +29,8 @@ namespace Bimwright.Dwg.Server.Tools
             "filesystem writes are outside it, and the gateway does not roll back earlier committed transactions after a later script error. " +
             "Default namespaces: System, System.Collections.Generic, System.Linq, Autodesk.AutoCAD.ApplicationServices, " +
             "Autodesk.AutoCAD.DatabaseServices, Autodesk.AutoCAD.EditorInput, Autodesk.AutoCAD.Geometry. " +
-            "result/stdout are returned inline; output above the current 10 MiB plugin limit is truncated, with no full-output spill file. " +
-            "The configured final MCP response budget may further compact output after execution. " +
+            "Large result/stdout is stored as complete UTF-8 JSON before the 10 MiB plugin cutoff, with output_artifact path/bytes/SHA-256/preview when storage permits. " +
+            "The final MCP budget may store a second artifact of the full MCP result it received; inspect scope and upstream truncation. Artifact retention is 7 days, 256 MiB total, 64 files; files above 128 MiB are unavailable. " +
             "Keep results small and never repeat a drawing mutation just to recover output.")]
         public static Task<string> SendCode(
             [Description("C# code to execute")] string code)

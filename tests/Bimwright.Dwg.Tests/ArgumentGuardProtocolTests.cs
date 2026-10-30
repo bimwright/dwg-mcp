@@ -31,6 +31,7 @@ public class ArgumentGuardProtocolTests
         var body = Body(reply);
         Assert.False(body.Value<bool>("ok"));
         Assert.StartsWith("INVALID_ARGUMENT:", body.Value<string>("error"));
+        Assert.Null(body["_target"]);
         Assert.Contains("handles", body["invalid_arguments"]["missing"].Values<string>());
         Assert.DoesNotContain(Marker, reply.ToString());
         Assert.Empty(h.Requests);
@@ -67,6 +68,7 @@ public class ArgumentGuardProtocolTests
         var reply = await h.CallRawAsync("{\"name\":\"dwg_send_code\",\"arguments\":" + arguments + "}");
         Assert.True(reply["result"].Value<bool>("isError"));
         Assert.StartsWith("INVALID_ARGUMENT:", Body(reply).Value<string>("error"));
+        Assert.Null(Body(reply)["_target"]);
         Assert.Empty(h.Requests);
         Assert.DoesNotContain(Marker, reply.ToString());
     }
@@ -96,6 +98,19 @@ public class ArgumentGuardProtocolTests
         Assert.NotNull(Body(reply)["_ignored_arguments"]);
         Assert.Single(h.Requests.Where(x => x.Value<string>("cmd") == "send_code"));
         Assert.DoesNotContain(Marker, reply.ToString());
+    }
+
+    [Fact]
+    public async Task Host_receipt_survives_actual_SDK_and_cannot_be_spoofed_by_an_argument()
+    {
+        await using var h = await Gateway.StartAsync();
+        var reply = await h.CallAsync("dwg_get_drawing_info", new JObject { ["_target"] = new JObject { ["pid"] = -1 } });
+        var body = Body(reply);
+        Assert.True(body.Value<bool>("ok"));
+        Assert.Equal(Environment.ProcessId, body["_target"].Value<int>("pid"));
+        Assert.Equal("argument-guard-document", body["_target"].Value<string>("document_id"));
+        var dispatched = Assert.Single(h.Requests.Where(request => request.Value<string>("cmd") == "get_drawing_info"));
+        Assert.Null(dispatched["params"]?["_target"]);
     }
 
     private static JObject Body(JObject reply) => JObject.Parse(reply["result"]["content"].OfType<JObject>()
@@ -134,7 +149,10 @@ public class ArgumentGuardProtocolTests
                         ["document_id"] = "argument-guard-document"
                     }
                 } : new JObject { ["ok"] = true };
-                return new JObject { ["id"] = request["id"], ["ok"] = true, ["result"] = result }.ToString(Formatting.None);
+                return new JObject { ["id"] = request["id"], ["ok"] = true, ["result"] = result,
+                    ["_target"] = new JObject { ["protocol"] = 1, ["pid"] = ownerId, ["process_start_utc"] = startTime,
+                        ["acad_year"] = 2024, ["target_id"] = "acad-2024-" + ownerId, ["document_id"] = "argument-guard-document" }
+                }.ToString(Formatting.None);
             });
             var profile = Path.Combine(root, "Bimwright", "dwg-mcp");
             Directory.CreateDirectory(profile);

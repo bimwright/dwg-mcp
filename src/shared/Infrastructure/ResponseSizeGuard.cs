@@ -1,5 +1,6 @@
 using Newtonsoft.Json;
 using System.Text;
+using Newtonsoft.Json.Linq;
 
 namespace Bimwright.Dwg.Plugin
 {
@@ -16,14 +17,18 @@ namespace Bimwright.Dwg.Plugin
                 return result;
             }
 
-            return new
-            {
-                truncated = true,
-                original_length = json.Length,
-                original_size_bytes = sizeBytes,
-                hint = "Response exceeded the 10MB serialized payload limit; narrow the selection or request smaller batches.",
-                preview = Utf8Preview(json, maxSerializedBytes)
-            };
+            var data = JToken.Parse(json);
+            var receipt = OutputReceiptFacts.Compact(data as JObject);
+            var artifact = OutputArtifactStore.Write(json, "plugin_result");
+            receipt["truncated"] = true;
+            receipt["original_length"] = json.Length;
+            receipt["original_size_bytes"] = sizeBytes;
+            receipt["output_artifact"] = artifact;
+            receipt["hint"] = artifact.Value<bool>("complete")
+                ? "Full plugin result JSON is in output_artifact; verify bytes/hash before reading. Do not replay a write to recover output."
+                : "Full output could not be retained. Inspect drawing/files and the reported outcome; do not replay a write to recover output.";
+            receipt["preview"] = Utf8Preview(json, System.Math.Min(512, maxSerializedBytes));
+            return receipt;
         }
 
         private static string Utf8Preview(string json, int maxBytes)
@@ -35,14 +40,16 @@ namespace Bimwright.Dwg.Plugin
 
             var used = 0;
             var builder = new StringBuilder();
-            foreach (var ch in json)
+            for (var i = 0; i < json.Length; i++)
             {
-                var size = Encoding.UTF8.GetByteCount(new[] { ch });
+                var count = char.IsHighSurrogate(json[i]) && i + 1 < json.Length && char.IsLowSurrogate(json[i + 1]) ? 2 : 1;
+                var size = Encoding.UTF8.GetByteCount(json.Substring(i, count));
                 if (used + size > maxBytes)
                 {
                     break;
                 }
-                builder.Append(ch);
+                builder.Append(json, i, count);
+                i += count - 1;
                 used += size;
             }
 

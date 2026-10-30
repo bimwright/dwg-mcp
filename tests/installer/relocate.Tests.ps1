@@ -21,6 +21,7 @@ if ($env:USERPROFILE -ne $sandboxUserProfile -or $env:APPDATA -ne $sandboxAppDat
     throw 'Profile env redirection failed'
 }
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot '../..')
+. (Join-Path $repoRoot 'scripts/setup-validation.ps1')
 $installer = Join-Path $repoRoot 'scripts\install.ps1'
 $uninstaller = Join-Path $repoRoot 'scripts\uninstall-all.ps1'
 foreach ($script in @($installer, $uninstaller)) {

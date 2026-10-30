@@ -65,7 +65,9 @@ public sealed class ReleaseNotificationTests
         Assert.False(guidance.Value<bool>("automatic_update_supported"));
         Assert.Contains("install.ps1 -WhatIf", guidance["steps"]!.ToString());
         Assert.Contains("Back up the installed bundle, server and client configuration", guidance["steps"]!.ToString());
-        Assert.Contains("does not provide atomic bundle+server rollback", guidance["steps"]!.ToString());
+        Assert.Contains("verifies rollback on caught errors", guidance["steps"]!.ToString());
+        Assert.Contains("retaining recovery backups", guidance["steps"]!.ToString());
+        Assert.Contains("-ReleaseTag <exact-tag>", guidance["steps"]!.ToString());
     }
 
     [Theory]

@@ -11,8 +11,13 @@ namespace Bimwright.Dwg.Plugin
         public static bool ListenerUsesPipe => false;
         public static int? ListenerPort => null;
         public static bool ClientRecentlyPresent => false;
+        public static bool AutoStartTransport => PluginSettings.LoadAutoStartTransport(out _);
+        public static string AutoStartSource { get { PluginSettings.LoadAutoStartTransport(out var source); return source; } }
+        public static string AutoStartSaveError => null;
         public static void SetToastEnabled(bool enabled) => ToastEnabled = enabled;
         public static void StartListener() { }
+        public static int HistoryOpenCount { get; private set; }
+        public static void ShowOrFocusHistory() => HistoryOpenCount++;
         public static void StopListener(bool closeSettings = true) { }
     }
 }

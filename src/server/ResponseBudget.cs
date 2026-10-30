@@ -7,6 +7,7 @@ using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using Bimwright.Dwg.Plugin;
 
 namespace Bimwright.Dwg.Server;
 
@@ -86,6 +87,7 @@ internal static class ResponseBudget
         // Output delivery is limited AFTER the tool returns. Neither annotation nor
         // outer ok proves native success, rollback, or absence of earlier effects.
         var data = Parse(result.Content?.OfType<TextContentBlock>().FirstOrDefault()?.Text);
+        var artifact = OutputArtifactStore.Write(System.Text.Json.JsonSerializer.Serialize(result, McpJsonUtilities.DefaultOptions), "mcp_tool_result");
         var budgetInfo = new JObject
         {
             ["status"] = "compacted", ["original_bytes"] = bytes, ["budget_bytes"] = limit,
@@ -93,12 +95,13 @@ internal static class ResponseBudget
             ["original_is_error"] = result.IsError,
             ["outcome"] = "Only retained tool-reported facts are known; omitted output does not establish success, rollback, or no effects.",
             ["guidance"] = readOnly
-                ? "Narrow the selection or request fewer fields/smaller batches. No full-output file was written."
-                : "Do not replay this operation to recover output. Inspect drawing/files and tool-reported outcome first; effects may already exist. No full-output file was written."
+                ? "Read output_artifact if available; otherwise narrow future reads. Completeness applies to the MCP result received, not output already omitted upstream."
+                : "Do not replay this operation to recover output. Read output_artifact if available and inspect drawing/files; effects may already exist. Completeness applies to this MCP result, not output already omitted upstream."
         };
         foreach (var textLimit in new[] { 256, 64, 0, -1 })
         {
             var receipt = Facts(data, textLimit);
+            RetainTarget(data, receipt, Math.Max(0, textLimit));
             if (data == null && result.Content?.OfType<TextContentBlock>().FirstOrDefault() is TextContentBlock plain)
             {
                 receipt["message"] = plain.Text.Substring(0, Math.Min(Math.Max(0, textLimit), plain.Text.Length));
@@ -116,6 +119,7 @@ internal static class ResponseBudget
             if (result.Content?.OfType<ImageContentBlock>().Any() == true)
                 receipt["image_delivery"] = new JObject { ["ok"] = false, ["omitted"] = true, ["reason"] = "final_response_budget" };
             receipt["_response_budget"] = budgetInfo.DeepClone();
+            receipt["output_artifact"] = OutputReceiptFacts.Receipt(artifact, Math.Max(0, textLimit));
             var compact = new CallToolResult
             {
                 IsError = result.IsError,
@@ -126,17 +130,48 @@ internal static class ResponseBudget
         // Arbitrary diagnostic/numeric values must never turn a completed call into
         // a generic SDK exception. This fixed vocabulary fits the 4 KiB minimum.
         var minimal = MinimalFacts(data);
+        RetainTarget(data, minimal, 0);
         if (data?["result"] is JObject innerData) minimal["result"] = MinimalFacts(innerData);
         if (data?["image_delivery"] is JObject imageData) minimal["image_delivery"] = MinimalFacts(imageData);
         if (result.Content?.OfType<ImageContentBlock>().Any() == true)
             minimal["image_delivery"] = new JObject { ["ok"] = false, ["omitted"] = true };
         budgetInfo["minimal_receipt"] = true;
         minimal["_response_budget"] = budgetInfo;
+        minimal["output_artifact"] = OutputReceiptFacts.Receipt(artifact, 0);
         var fallback = new CallToolResult { IsError = result.IsError,
             Content = new[] { new TextContentBlock { Text = minimal.ToString(Formatting.None) } } };
         var finalBytes = Measure(fallback);
+        if (finalBytes > limit)
+        {
+            // A long/escaped local identity must not break the final byte cap.
+            // Keep the real hash and full file; never return a shortened fake path.
+            var pointer = (JObject)minimal["output_artifact"];
+            pointer["path"] = null; pointer["path_omitted"] = true;
+            pointer["reason"] = "artifact_path_exceeds_response_budget";
+            fallback.Content = new[] { new TextContentBlock { Text = minimal.ToString(Formatting.None) } };
+            finalBytes = Measure(fallback);
+        }
         System.Diagnostics.Debug.Assert(finalBytes <= limit);
         return fallback;
+    }
+
+    // Retain only observed envelope metadata. Never use request/binding data or
+    // a user's nested result._target, and never shorten an identity into another one.
+    internal static void RetainTarget(JObject source, JObject destination, int titleLimit = 0)
+    {
+        if (source?["_target"] is not JObject target) return;
+        var receipt = new JObject();
+        foreach (var key in new[] { "protocol", "target_id", "pid", "process_start_utc", "acad_year", "document_id", "document_title" })
+        {
+            var value = target[key];
+            if (value == null) continue;
+            var cap = key == "document_title" ? titleLimit : 256;
+            if (value is JValue && (value.Type is JTokenType.String or JTokenType.Integer or JTokenType.Date or JTokenType.Null)
+                && (value.Type == JTokenType.Null || System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(value.ToString(Formatting.None), McpJsonUtilities.DefaultOptions).Length <= cap))
+                receipt[key] = value.DeepClone();
+            else receipt[key + "_omitted"] = true;
+        }
+        destination["_target"] = receipt;
     }
 
     private static JObject MinimalFacts(JObject data)
@@ -144,10 +179,10 @@ internal static class ResponseBudget
         var facts = new JObject();
         if (data == null) return facts;
         foreach (var key in new[] { "ok", "success", "blocked", "execution_authorized", "partial_failure",
-            "transactional", "truncated", "mutation_applied" })
+            "transactional", "truncated", "mutation_applied", "output_verified" })
             if (data[key]?.Type is JTokenType.Boolean or JTokenType.Null) facts[key] = data[key].DeepClone();
         var outcome = data["outcome"]?.Type == JTokenType.String ? data.Value<string>("outcome") : null;
-        if (new[] { "unknown", "partial", "success", "succeeded", "failed", "not_started", "completed", "cancelled", "running", "refused" }.Contains(outcome))
+        if (new[] { "unknown", "partial", "success", "succeeded", "failed", "not_started", "completed", "completed_output_unverified", "cancelled", "running", "refused" }.Contains(outcome))
             facts["outcome"] = outcome;
         else if (data["outcome"] != null) facts["outcome_omitted"] = true;
         var code = data["error_code"] ?? (data["error"] as JObject)?["code"];
@@ -174,7 +209,7 @@ internal static class ResponseBudget
         foreach (var key in new[] { "ok", "success", "blocked", "error_code", "error", "message",
             "execution_authorized", "partial_failure", "transactional", "rollback", "truncated",
             "original_length", "original_size_bytes", "outcome", "mutation_applied", "effects",
-            "id", "cmd", "tool_name", "state", "handle", "new_handle", "erased", "name", "created", "value",
+            "index", "command_ok", "output_verified", "id", "cmd", "tool_name", "state", "handle", "new_handle", "erased", "name", "created", "value",
             "layer", "output_path", "saved_path", "path", "title", "read_only", "opened", "was_already_open",
             "activated", "active_document", "style_created", "font_downloaded", "font_path",
             "reassigned_count", "dry_run", "purged_count", "count", "deleted_count", "created_count", "modified_count", "sha256" })
@@ -226,6 +261,8 @@ internal static class ResponseBudget
             else facts[key + "_omitted"] = true;
         }
         if (data["created_handles"] is JArray handles) facts["created_handles_reported_count"] = handles.Count;
+        foreach (var key in new[] { "output_artifact", "file_receipt" })
+            if (data[key] is JObject receipt) facts[key] = OutputReceiptFacts.Receipt(receipt, Math.Max(0, textLimit));
         return facts;
     }
 
@@ -233,12 +270,14 @@ internal static class ResponseBudget
     {
         facts["items_reported"] = items.Count;
         facts["items_reported_ok"] = items.OfType<JObject>().Count(x => x["ok"]?.Type == JTokenType.Boolean && x.Value<bool>("ok"));
-        facts["items_reported_failed"] = items.OfType<JObject>().Count(x => x["ok"]?.Type == JTokenType.Boolean && !x.Value<bool>("ok"));
-        facts["items_without_status"] = items.Count - facts.Value<int>("items_reported_ok") - facts.Value<int>("items_reported_failed");
+        facts["items_reported_unknown"] = items.OfType<JObject>().Count(x => x["ok"]?.Type == JTokenType.Boolean && !x.Value<bool>("ok") && x.Value<string>("outcome") == "unknown");
+        facts["items_reported_failed"] = items.OfType<JObject>().Count(x => x["ok"]?.Type == JTokenType.Boolean && !x.Value<bool>("ok") && x.Value<string>("outcome") != "unknown");
+        facts["items_output_unverified"] = items.OfType<JObject>().Count(x => x.Value<string>("outcome") == "completed_output_unverified");
+        facts["items_without_status"] = items.Count - facts.Value<int>("items_reported_ok") - facts.Value<int>("items_reported_failed") - facts.Value<int>("items_reported_unknown");
         facts["item_details_omitted"] = true;
         if (textLimit > 0)
             facts["failed_item_sample"] = new JArray(items.Select((item, index) => (item, index))
-                .Where(x => x.item is JObject o && o["ok"]?.Type == JTokenType.Boolean && !o.Value<bool>("ok"))
+                .Where(x => x.item is JObject o && o["ok"]?.Type == JTokenType.Boolean && !o.Value<bool>("ok") && o.Value<string>("outcome") != "unknown")
                 .Take(3).Select(x => { var sample = Facts((JObject)x.item, textLimit); sample["index"] = x.index; return sample; }));
     }
 }

@@ -38,6 +38,7 @@ namespace Bimwright.Dwg.Plugin.View
                 // Do not publish an image with metadata from a different view/document.
                 CaptureViewContract.EnsureUnchanged(before, ReadContext(doc));
                 string hash;
+                long bytes;
                 using (var stream = new FileStream(outputPath,
                     overwriteExisting ? FileMode.Create : FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None))
                 {
@@ -45,11 +46,16 @@ namespace Bimwright.Dwg.Plugin.View
                     stream.Position = 0;
                     using (var sha = SHA256.Create())
                         hash = BitConverter.ToString(sha.ComputeHash(stream)).Replace("-", "").ToLowerInvariant();
+                    bytes = stream.Length;
                 }
 
-                return CaptureViewContract.BuildResult(before, outputPath,
+                var result = CaptureViewContract.BuildResult(before, outputPath,
                     Path.GetExtension(outputPath).TrimStart('.').ToLowerInvariant(), bitmap.Width, bitmap.Height,
                     width, height, hash, capturedAt, watch.ElapsedMilliseconds);
+                result["file_receipt"] = new JObject { ["status"] = "verified_written", ["verified"] = true,
+                    ["path"] = outputPath, ["bytes"] = bytes, ["sha256"] = hash,
+                    ["new_or_changed"] = !overwriteExisting ? new JValue(true) : JValue.CreateNull() };
+                return result;
             }
         }
 

@@ -37,8 +37,9 @@ namespace Bimwright.Dwg.Plugin.Handlers
 
             try
             {
+                var before = FileOutputReceipt.Observe(normalizedPath);
                 doc.Database.DxfOut(normalizedPath, 16, DwgVersion.Current);
-                return CommandResult.Success(new { output_path = normalizedPath });
+                return CommandResult.Success(new { output_path = normalizedPath, file_receipt = FileOutputReceipt.Verify(normalizedPath, before) });
             }
             catch (Exception ex)
             {

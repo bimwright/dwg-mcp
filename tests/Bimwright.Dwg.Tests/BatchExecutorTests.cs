@@ -6,6 +6,43 @@ namespace Bimwright.Dwg.Tests
 {
     public class BatchExecutorTests
     {
+        [Theory]
+        [InlineData(true, "succeeded")]
+        [InlineData(false, "completed_output_unverified")]
+        [InlineData(null, "completed_output_unverified")]
+        public void File_output_status_does_not_claim_verified_artifacts_from_command_success_alone(bool? verified, string outcome)
+        {
+            var result = BatchExecutor.Run(JObject.Parse("{\"commands\":[{\"cmd\":\"export_dxf\"}]}"),
+                (_, _) => CommandResult.Success(new { output_path = "file.dxf", file_receipt = new { verified } }));
+            var step = JObject.FromObject(result.Result)["results"][0];
+            Assert.True(step.Value<bool>("command_ok")); Assert.Equal(outcome, step.Value<string>("outcome"));
+            Assert.Equal(verified, step.Value<bool?>("output_verified"));
+        }
+        [Fact]
+        public void Per_step_status_preserves_prior_effects_after_errors_without_claiming_atomic_rollback()
+        {
+            var effects = new System.Collections.Generic.List<string>();
+            var result = BatchExecutor.Run(JObject.Parse("{\"commands\":[{\"cmd\":\"first\"},{\"cmd\":\"throw\"},{\"cmd\":\"last\"}]}"),
+                (cmd, _) => { effects.Add(cmd); if (cmd == "throw") throw new System.Exception("after committed effect"); return CommandResult.Success(new { handle = cmd }); });
+            Assert.Equal(new[] { "first", "throw", "last" }, effects);
+            var batch = JObject.FromObject(result.Result); Assert.True(batch.Value<bool>("partial_failure")); Assert.False(batch.Value<bool>("transactional"));
+            Assert.Equal("succeeded", batch["results"][0].Value<string>("outcome")); Assert.Equal("failed", batch["results"][1].Value<string>("outcome"));
+            Assert.Equal("succeeded", batch["results"][2].Value<string>("outcome")); Assert.Equal(2, batch["results"][2].Value<int>("index"));
+            Assert.Equal(JTokenType.Null, batch["results"][1]["mutation_applied"].Type);
+        }
+
+        [Theory]
+        [InlineData("{\"ok\":false,\"error\":\"script failed\"}", "failed")]
+        [InlineData("{\"ok\":true,\"result\":{\"ok\":false}}", "succeeded")]
+        [InlineData("{\"ok\":\"true\"}", "unknown")]
+        [InlineData("null", "unknown")]
+        public void Script_wrapper_and_execution_status_are_separate_and_unknown_status_stays_unknown(string payload, string expected)
+        {
+            var batch = JObject.FromObject(BatchExecutor.Run(JObject.Parse("{\"commands\":[{\"cmd\":\"send_code\"}]}"),
+                (_, _) => CommandResult.Success(JToken.Parse(payload))).Result);
+            var step = batch["results"][0]; Assert.True(step.Value<bool>("command_ok")); Assert.Equal(expected, step.Value<string>("outcome"));
+            Assert.Equal(expected == "succeeded", step.Value<bool>("ok"));
+        }
         [Fact]
         public void Paged_query_is_rejected_before_any_batch_item_but_legacy_query_is_unchanged()
         {

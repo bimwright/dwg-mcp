@@ -1,5 +1,7 @@
 using System;
 using System.Diagnostics;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -24,17 +26,30 @@ namespace Bimwright.Dwg.Plugin.Views
         private readonly ComboBox _status = new ComboBox { Width = 95 };
         private readonly ComboBox _kind = new ComboBox { Width = 95 };
         private readonly CollectionViewSource _view = new CollectionViewSource();
+        private readonly ObservableCollection<ActivityHistoryEntry> _entries = new ObservableCollection<ActivityHistoryEntry>();
         private readonly TextBlock _summary = new TextBlock { TextWrapping = TextWrapping.Wrap };
+        private readonly TextBox _what = DetailText();
+        private readonly TextBox _input = DetailText();
+        private readonly TextBox _output = DetailText();
+        private readonly Button _copyWhat;
+        private readonly Button _copyInput;
+        private readonly Button _copyOutput;
+        private readonly TextBlock _copyNote = new TextBlock { Margin = new Thickness(4), Foreground = McpToastTheme.TextSecondary };
         private readonly TextBlock _footer = new TextBlock { Foreground = McpToastTheme.TextSecondary, FontSize = 11 };
         private readonly Button _openImage = new Button { Visibility = Visibility.Collapsed, Margin = new Thickness(0, 8, 0, 0) };
         private readonly Border _detail;
         private readonly RowDefinition _detailRow;
         private readonly DispatcherTimer _refresh;
+        private readonly Action<string> _copyText;
         private long _version = -1;
 
         public HistoryWindow(ActivityHistory history, string instanceIdentity = null)
+            : this(history, instanceIdentity, Clipboard.SetText) { }
+
+        internal HistoryWindow(ActivityHistory history, string instanceIdentity, Action<string> copyText)
         {
             _history = history ?? throw new ArgumentNullException(nameof(history));
+            _copyText = copyText ?? throw new ArgumentNullException(nameof(copyText));
             Title = L.T("history.title", ("identity", instanceIdentity ?? BrandAssets.ProductName));
             Width = 900; Height = 600; MinWidth = 720; MinHeight = 420;
             WindowStartupLocation = WindowStartupLocation.CenterOwner;
@@ -51,6 +66,7 @@ namespace Bimwright.Dwg.Plugin.Views
             root.Children.Add(BuildToolbar());
 
             _view.Filter += Filter;
+            _view.Source = _entries;
             _grid = new DataGrid
             {
                 IsReadOnly = true, AutoGenerateColumns = false,
@@ -59,6 +75,7 @@ namespace Bimwright.Dwg.Plugin.Views
                 GridLinesVisibility = DataGridGridLinesVisibility.Horizontal,
                 Margin = new Thickness(4), CanUserAddRows = false
             };
+            _grid.ItemsSource = _view.View;
             var header = new Style(typeof(DataGridColumnHeader));
             header.Setters.Add(new Setter(Control.FontWeightProperty, FontWeights.Bold));
             header.Setters.Add(new Setter(Control.HorizontalContentAlignmentProperty, HorizontalAlignment.Center));
@@ -89,17 +106,23 @@ namespace Bimwright.Dwg.Plugin.Views
             _grid.SelectionChanged += (_, __) => ShowSelected();
             Grid.SetRow(_grid, 1); root.Children.Add(_grid);
 
-            var detailBody = new StackPanel { Margin = new Thickness(8) };
-            detailBody.Children.Add(_summary);
+            var detailBody = new DockPanel { Margin = new Thickness(8) };
+            DockPanel.SetDock(_summary, Dock.Top); detailBody.Children.Add(_summary);
             _openImage.Content = L.T("toast.activity.open_image");
             _openImage.HorizontalAlignment = HorizontalAlignment.Left;
             _openImage.Click += (_, __) => OpenSelectedImage();
-            detailBody.Children.Add(_openImage);
+            DockPanel.SetDock(_openImage, Dock.Top); detailBody.Children.Add(_openImage);
+            DockPanel.SetDock(_copyNote, Dock.Bottom); detailBody.Children.Add(_copyNote);
+            var tabs = new TabControl();
+            tabs.Items.Add(DetailTab(L.T("history.what"), _what, out _copyWhat));
+            tabs.Items.Add(DetailTab(L.T("history.input"), _input, out _copyInput));
+            tabs.Items.Add(DetailTab(L.T("history.output"), _output, out _copyOutput));
+            detailBody.Children.Add(tabs);
             _detail = new Border
             {
                 Margin = new Thickness(4), BorderThickness = new Thickness(0, 1, 0, 0),
                 BorderBrush = McpToastTheme.MutedAccent, Visibility = Visibility.Collapsed,
-                Child = new ScrollViewer { Content = detailBody, VerticalScrollBarVisibility = ScrollBarVisibility.Auto }
+                Child = detailBody
             };
             Grid.SetRow(_detail, 2); root.Children.Add(_detail);
             _footer.Margin = new Thickness(12, 8, 12, 12);
@@ -110,10 +133,43 @@ namespace Bimwright.Dwg.Plugin.Views
             _status.SelectionChanged += (_, __) => RefreshEntries(true);
             _kind.SelectionChanged += (_, __) => RefreshEntries(true);
             _refresh = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
-            _refresh.Tick += (_, __) => RefreshEntries();
-            Loaded += (_, __) => { RefreshEntries(true); _refresh.Start(); };
-            Closed += (_, __) => _refresh.Stop();
+            _refresh.Tick += OnRefresh;
+            Loaded += OnLoaded;
+            Closed += OnClosed;
             RefreshEntries(true);
+        }
+
+        private void OnRefresh(object sender, EventArgs e) => RefreshEntries();
+        private void OnLoaded(object sender, RoutedEventArgs e) { RefreshEntries(true); _refresh.Start(); }
+        private void OnClosed(object sender, EventArgs e)
+        {
+            _refresh.Stop();
+            _refresh.Tick -= OnRefresh;
+            Loaded -= OnLoaded;
+            _view.Filter -= Filter;
+            _grid.ItemsSource = null;
+            _view.Source = null;
+            _entries.Clear();
+        }
+
+        private static TextBox DetailText() => new TextBox
+        {
+            IsReadOnly = true, TextWrapping = TextWrapping.Wrap, AcceptsReturn = true,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Margin = new Thickness(4),
+            FontFamily = new FontFamily("Consolas"), FontSize = 12
+        };
+
+        private TabItem DetailTab(string title, TextBox text, out Button copy)
+        {
+            var body = new DockPanel();
+            copy = new Button { Content = L.T("history.copy"), IsEnabled = false, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(4), Padding = new Thickness(8, 2, 8, 2) };
+            copy.Click += (_, __) =>
+            {
+                try { _copyText(text.Text); _copyNote.Text = L.T("history.copied"); }
+                catch { _copyNote.Text = L.T("history.copyFailed"); }
+            };
+            DockPanel.SetDock(copy, Dock.Top); body.Children.Add(copy); body.Children.Add(text);
+            return new TabItem { Header = title, Content = body };
         }
 
         private UIElement BuildToolbar()
@@ -139,6 +195,9 @@ namespace Bimwright.Dwg.Plugin.Views
             _kind.Items.Add(L.T("history.write"));
             _kind.SelectedIndex = 0;
             Add(L.T("history.kind"), _kind);
+            var refresh = new Button { Content = L.T("history.refresh"), Padding = new Thickness(8, 3, 8, 3), Margin = new Thickness(0, 0, 8, 0) };
+            refresh.Click += (_, __) => RefreshEntries(true);
+            toolbar.Children.Add(refresh);
             var clear = new Button { Content = L.T("history.newSession"), Padding = new Thickness(8, 3, 8, 3) };
             clear.Click += (_, __) => { _history.Clear(); RefreshEntries(true); };
             toolbar.Children.Add(clear);
@@ -166,22 +225,55 @@ namespace Bimwright.Dwg.Plugin.Views
             _version = version;
             var selected = _grid.SelectedItem as ActivityHistoryEntry;
             var entries = _history.Snapshot();
-            _view.Source = entries;
-            _grid.ItemsSource = _view.View;
-            if (selected != null && _view.View.Contains(selected))
-                _grid.SelectedItem = selected;
+            var scroll = FindScroll(_grid);
+            var vertical = scroll?.VerticalOffset ?? 0;
+            var horizontal = scroll?.HorizontalOffset ?? 0;
+            var anchor = scroll?.CanContentScroll == true && vertical > 0 && (int)vertical < _grid.Items.Count
+                ? _grid.Items[(int)vertical] : null;
+            var keep = new HashSet<ActivityHistoryEntry>(entries);
+            for (var i = _entries.Count - 1; i >= 0; i--)
+                if (!keep.Contains(_entries[i])) _entries.RemoveAt(i);
+            for (var i = 0; i < entries.Length; i++)
+                if (i >= _entries.Count || !ReferenceEquals(_entries[i], entries[i])) _entries.Insert(i, entries[i]);
+            if (force) _view.View.Refresh();
+            _grid.SelectedItem = selected != null && _view.View.Contains(selected) ? selected : null;
+            if (scroll != null)
+            {
+                _grid.UpdateLayout();
+                if (anchor != null && _grid.Items.Contains(anchor)) vertical += _grid.Items.IndexOf(anchor) - (int)vertical;
+                scroll.ScrollToVerticalOffset(vertical);
+                scroll.ScrollToHorizontalOffset(horizontal);
+            }
             ShowSelected();
             _footer.Text = L.T("history.footer", ("count", entries.Length));
+        }
+
+        private static ScrollViewer FindScroll(DependencyObject root)
+        {
+            if (root is ScrollViewer scroll) return scroll;
+            for (var i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+            {
+                var found = FindScroll(VisualTreeHelper.GetChild(root, i));
+                if (found != null) return found;
+            }
+            return null;
         }
 
         private void ShowSelected()
         {
             var entry = _grid.SelectedItem as ActivityHistoryEntry;
             _detail.Visibility = entry == null ? Visibility.Collapsed : Visibility.Visible;
-            _detailRow.Height = entry == null ? new GridLength(0) : new GridLength(150);
+            _detailRow.Height = entry == null ? new GridLength(0) : new GridLength(240);
             _summary.Text = entry == null ? string.Empty : entry.ToolName + " · " + entry.KindLabel + " · "
-                + (entry.Success ? L.T("toast.activity.success") : L.T("toast.activity.failed")) + "\n\n" + entry.Summary;
+                + (entry.Success ? L.T("toast.activity.success") : L.T("toast.activity.failed")) + " · " + entry.DurationMs + " ms";
             _openImage.Visibility = entry?.ImagePath != null ? Visibility.Visible : Visibility.Collapsed;
+            _what.Text = entry?.What ?? string.Empty;
+            _input.Text = entry?.Input ?? string.Empty;
+            _output.Text = entry?.Output ?? string.Empty;
+            _copyWhat.IsEnabled = _what.Text.Length > 0;
+            _copyInput.IsEnabled = _input.Text.Length > 0;
+            _copyOutput.IsEnabled = _output.Text.Length > 0;
+            _copyNote.Text = string.Empty;
         }
 
         private void OpenSelectedImage()

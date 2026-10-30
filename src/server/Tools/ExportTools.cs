@@ -9,7 +9,7 @@ namespace Bimwright.Dwg.Server.Tools
     public class ExportTools
     {
         [McpServerTool(Name = "dwg_export_dxf", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false), Description(
-            "Export the drawing to a DXF file." +
+            "Export the drawing to a DXF file. Check file_receipt for readback bytes/hash and verified new/changed content; command success alone does not verify a fresh artifact." +
             " Writes DXF bytes and may overwrite the destination when overwrite_existing=true. AutoCAD UNDO cannot restore overwritten files; restore a backup or delete a new export.")]
         public static Task<string> ExportDxf(
             [Description("Absolute path where the output DXF will be saved.")] string output_path,

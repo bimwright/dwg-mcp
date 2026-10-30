@@ -9,7 +9,7 @@ using Xunit;
 
 namespace Bimwright.Dwg.Tests;
 
-public class ResponseBudgetTests
+public class ResponseBudgetTests : OutputArtifactTestScope
 {
     private static readonly DwgMcpConfig Small = new() { ResponseBudgetBytes = 4096 };
     private static CallToolResult Result(JObject data, bool? isError = null)

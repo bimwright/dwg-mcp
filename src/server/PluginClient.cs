@@ -50,6 +50,9 @@ namespace Bimwright.Dwg.Server
                 var response = await SendToAsync(candidate, "health", new JObject(), id, TimeSpan.FromSeconds(20), false);
                 var health = response?.Result as JObject;
                 stamp = health?["target"] as JObject;
+                if (response?.Id == id && (response.Ok && health?.Value<bool?>("ok") == true && stamp?.Value<int?>("protocol") != 1
+                    || !response.Ok && response.Error == "unknown command: health"))
+                    throw new InvalidOperationException("PAIRING_REQUIRED: gateway and plugin must both support target/document guards. Update them together; previous binding was preserved.");
                 if (response?.Id != id || response.Ok != true || health?.Value<bool?>("ok") != true || stamp?.Value<int?>("protocol") != 1)
                     throw new InvalidOperationException("TARGET_VERIFICATION_FAILED: health/document identity was not verified. Update gateway and plugin together if the target protocol is missing. Previous binding was preserved.");
                 TargetContract.CheckInstance(stamp, candidate.Discovery.Pid, candidate.Discovery.ProcessStartUtc ?? DateTime.MinValue, false);

@@ -13,6 +13,8 @@ namespace Bimwright.Dwg.Plugin
     public static partial class PluginSettings
     {
         public const string EnvEnableToast = "BIMWRIGHT_DWG_ENABLE_TOAST";
+        public const string EnvAutoStartTransport = "BIMWRIGHT_DWG_AUTO_START_TRANSPORT";
+        public const bool DefaultAutoStartTransport = true;
         public const bool DefaultEnableToast = true;
         public const int DefaultToastIdleSeconds = 20;
         public const bool DefaultShowBranding = false;
@@ -28,6 +30,34 @@ namespace Bimwright.Dwg.Plugin
 
         private static string FilePath =>
             string.IsNullOrWhiteSpace(FilePathOverride) ? DefaultFilePath : FilePathOverride;
+
+        public static bool LoadAutoStartTransport(out string source)
+        {
+            var env = ParseBool(Environment.GetEnvironmentVariable(EnvAutoStartTransport));
+            if (env.HasValue)
+            {
+                source = EnvAutoStartTransport;
+                return env.Value;
+            }
+
+            try
+            {
+                var value = JObject.Parse(File.ReadAllText(FilePath))["autoStartTransport"];
+                if (value?.Type == JTokenType.Boolean)
+                {
+                    source = "settings.json";
+                    return value.Value<bool>();
+                }
+            }
+            catch { }
+            source = "default";
+            return DefaultAutoStartTransport;
+        }
+
+        public static bool SaveAutoStartTransport(bool enabled, out string error)
+        {
+            return TryUpdate(root => root["autoStartTransport"] = enabled, "SaveAutoStartTransport", out error);
+        }
 
         public static bool LoadToastEnabled()
         {
@@ -82,10 +112,15 @@ namespace Bimwright.Dwg.Plugin
         private static readonly object WriteGate = new object();
         private static bool TryUpdate(Action<JObject> mutate, string operation)
         {
-            lock (WriteGate) return TryUpdateLocked(mutate, operation);
+            return TryUpdate(mutate, operation, out _);
         }
-        private static bool TryUpdateLocked(Action<JObject> mutate, string operation)
+        private static bool TryUpdate(Action<JObject> mutate, string operation, out string error)
         {
+            lock (WriteGate) return TryUpdateLocked(mutate, operation, out error);
+        }
+        private static bool TryUpdateLocked(Action<JObject> mutate, string operation, out string error)
+        {
+            error = null;
             var path = FilePath;
             try
             {
@@ -100,6 +135,7 @@ namespace Bimwright.Dwg.Plugin
                         catch { root = null; }
                         if (root == null)
                         {
+                            error = "Settings file must contain a valid JSON object.";
                             PluginLog.Debug("PluginSettings." + operation + " skipped: settings file is not a JSON object.");
                             return false;
                         }
@@ -123,6 +159,7 @@ namespace Bimwright.Dwg.Plugin
             }
             catch (Exception ex)
             {
+                error = ex.Message;
                 PluginLog.Debug("PluginSettings." + operation + " failed: " + ex.Message);
                 return false;
             }

@@ -47,7 +47,11 @@ internal static class DrawingProfileResponse
         catch (JsonReaderException) { return BoundOther(result, cap); }
         if (!string.Equals(space, "all", StringComparison.OrdinalIgnoreCase) && body.Value<bool?>("ok") == true
             && !string.Equals(body["result"]?["scope"]?.Value<string>("requested_space"), space, StringComparison.OrdinalIgnoreCase))
-            return Text(new JObject { ["ok"] = false, ["error"] = "PROFILE_SCOPE_UNSUPPORTED: the plugin did not confirm the requested profile space. Update gateway and plugin together; no profile counts were accepted." }, true);
+        {
+            var refusal = new JObject { ["ok"] = false, ["error"] = "PROFILE_SCOPE_UNSUPPORTED: the plugin did not confirm the requested profile space. Update gateway and plugin together; no profile counts were accepted." };
+            ResponseBudget.RetainTarget(body, refusal);
+            return BoundOther(Text(refusal, true), cap);
+        }
         if (body["result"] is not JObject profile || Count(profile["profile_version"]) != 1
             || profile["histograms"] is not JObject histograms
             || Sections.Any(section => histograms[section] is not JObject table || table["rows"] is not JArray))
@@ -105,7 +109,7 @@ internal static class DrawingProfileResponse
             Refresh();
             bytes = ResponseBudget.Measure(fitted);
         }
-        return bytes <= cap ? fitted : CoreTooLarge(profile, cap);
+        return bytes <= cap ? fitted : CoreTooLarge(profile, cap, body);
     }
 
     private static void SetOutput(JObject profile, int cap)
@@ -209,7 +213,7 @@ internal static class DrawingProfileResponse
         return ResponseBudget.Measure(candidate) <= cap ? candidate : bounded;
     }
 
-    private static CallToolResult CoreTooLarge(JObject profile, int cap)
+    private static CallToolResult CoreTooLarge(JObject profile, int cap, JObject original)
     {
         // Host source/scope are normally finite literals. A malformed oversized
         // core gets an explicit delivery error, never invented counts or IDs.
@@ -238,9 +242,8 @@ internal static class DrawingProfileResponse
             if (value != null && value.Length <= 128 && value.All(c => c is >= ' ' and <= '~')) body["result"][key] = value;
             else body["result"][key + "_omitted"] = true;
         }
-        var result = Text(body, true);
-        System.Diagnostics.Debug.Assert(ResponseBudget.Measure(result) <= cap);
-        return result;
+        ResponseBudget.RetainTarget(original, body);
+        return BoundOther(Text(body, true), cap);
     }
 
     private static CallToolResult Text(JObject body, bool? failed)

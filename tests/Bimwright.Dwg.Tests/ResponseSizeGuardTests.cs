@@ -4,7 +4,7 @@ using Xunit;
 
 namespace Bimwright.Dwg.Tests
 {
-    public class ResponseSizeGuardTests
+    public class ResponseSizeGuardTests : OutputArtifactTestScope
     {
         [Fact]
         public void DefaultLimit_IsTenMegabytes()

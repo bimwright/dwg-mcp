@@ -113,13 +113,14 @@ namespace Bimwright.Dwg.Plugin.Handlers
 
             try
             {
+                var before = FileOutputReceipt.Observe(string.IsNullOrWhiteSpace(outputPath) ? doc.Name : outputPath);
                 var savedPath = DrawingSaveService.Save(doc, outputPath, confirm, overwriteExisting, allowRepoOutput, out var error);
                 if (savedPath == null)
                 {
                     return CommandResult.Fail(error);
                 }
 
-                return CommandResult.Success(new { saved_path = savedPath });
+                return CommandResult.Success(new { saved_path = savedPath, file_receipt = FileOutputReceipt.Verify(savedPath, before) });
             }
             catch (Exception ex)
             {
