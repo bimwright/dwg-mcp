@@ -112,7 +112,9 @@ AIエージェントは、「選択したすべてのテキストをベトナム
 
 [GitHub Releases](https://github.com/bimwright/dwg-mcp/releases/latest) から setup ZIP（`DwgMcp.Setup-*-win-x64.zip`）を入手してください。同梱する年次バージョンは、ダウンロードしたZIP内の `manifest.json` の `packedAutocadYears` と bundle の `PackageContents.xml` で確認し、実行中のAutoCADで検証済みの年次バージョンはリリースノートで確認してください。ソースには2022–2027のシェルがありますが、同梱プラグインと実ホストの検証範囲はリリースごとに異なります。未同梱の年次バージョンは、対応するAutoCAD SDKでソースからビルドします。展開して `install.ps1` を実行してください（全文は英語 README）。
 
-`dotnet tool install -g Bimwright.Dwg.Server` は使わないでください。
+**NuGet（ゲートウェイのみ）:** `dotnet tool install --global Bimwright.Dwg.Server --version 2.1.1` は .NET 8 が必要です。AutoCAD プラグインは同じバージョンの Setup ZIP から別途インストールしてください。
+
+**Claude Desktop:** 同じリリースの `dwg-mcp-desktop-2.1.1.mcpb` とチェックサムを取得し、Settings → Extensions → Advanced settings からインストールします。拡張機能は Setup 2.1.1 の特定の実行ファイルだけを起動し、ゲートウェイやプラグインをインストールしません。NuGet/PATH へのフォールバックはなく、override も同じ SHA-256 が必要です。
 
 **開発者:** ビルド後 `pwsh scripts/install.ps1 -Version 2024`、または Debug DLL を `NETLOAD`。
 
@@ -168,7 +170,7 @@ PID、またはインスタンスが一つだけの4桁年で初期ターゲッ�
 
 ---
 
-## Health と更新確認（Unreleased）
+## Health と更新確認（v2.1.1）
 
 `dwg_health()` は既定でオフライン・読み取り専用です。セッション開始時に対象を選び、`dwg_health(check_updates=true)` を一度実行します。図面を要求・ロックせず、host/document 状態とロード済み server/plugin の version/build/alignment を返します。接続先がなくても gateway identity を保持します。旧 plugin の `HEALTH_UNSUPPORTED` や不足した identity は未確認であり、破損とはみなしません。UI がビジーでも plugin identity は保持されます。操作 toast や drawing batch の対象外です。
 
@@ -176,11 +178,11 @@ GitHub 確認は同じ stable release/tag に両 component を照合し、共有
 
 両 `update.components`、notification 全文、`lookup_reason`、`protected_component_reasons`、`unobserved_components` を確認します。`UPDATE_CHECK_UNAVAILABLE` は外部 lookup の失敗であり runtime 障害ではありません。`LOCAL_VERSION_AHEAD` は情報通知で、downgrade しません。`prepare_update` と `bundle_update_proposal_allowed=true` の場合だけ更新提案を行い、インストールには承認が必要です。health は package の取得・インストール、client config の変更、図面の save/close、process restart を行いません。
 
-reconnect 後、同じ接続の新しい initialize と `tools/list` の `_meta["bimwright/dwg-mcp/runtime"]`・schema・annotations を `client_verification` と比較します。server 自体は client cache refresh を証明できません。read-only でも利用可能で、GitHub option のため `openWorldHint=true` です。[agent guide](AGENTS.md)。公開 v2.0.1 には未収録です。host-free protocol と plugin 2024/2027 build は検証済みですが、実ホスト受入は未完了です。
+reconnect 後、同じ接続の新しい initialize と `tools/list` の `_meta["bimwright/dwg-mcp/runtime"]`・schema・annotations を `client_verification` と比較します。server 自体は client cache refresh を証明できません。read-only でも利用可能で、GitHub option のため `openWorldHint=true` です。[agent guide](AGENTS.md)。v2.1.1 で利用できます。gateway と plugin は同じリリースから更新してください。CI は AutoCAD 2022–2027 の全6プラグインをビルド済みです。検証範囲はリリースノートを参照してください。
 
 ## ツール
 
-development のデフォルト起動では45のツール（クエリ（`dwg_get_drawing_profile` と `dwg_inspect_lisp` 含む）、変更、メタ（`dwg_send_code`/`dwg_run_lisp` 含む）、ビュー、およびデフォルト有効の `dwg_capture_view_image`）が公開されます。オプショナルのToolBaker、注釈、ブロック、寸法、エクスポート、作図ツールセットは `--toolsets` で有効にでき、MCPサーフェス全体は69ツールになります。 登録数には拒否のみを返す `dwg_run_lisp` が含まれます。スキャン判定は実行を許可しません。
+2.1.1 のデフォルト起動では45のツール（クエリ（`dwg_get_drawing_profile` と `dwg_inspect_lisp` 含む）、変更、メタ（`dwg_send_code`/`dwg_run_lisp` 含む）、ビュー、およびデフォルト有効の `dwg_capture_view_image`）が公開されます。オプショナルのToolBaker、注釈、ブロック、寸法、エクスポート、作図ツールセットは `--toolsets` で有効にでき、MCPサーフェス全体は69ツールになります。 登録数には拒否のみを返す `dwg_run_lisp` が含まれます。スキャン判定は実行を許可しません。
 
 一般的なCADツールは、選択されたAutoCADターゲットの現在アクティブなドキュメントに対して動作します。エンティティ入力と返されるエンティティIDは、`7F5AD` のようなAutoCAD 16進ハンドルを使用します。作成、コピー、オフセット、および変更の応答は、生成または変更されたエンティティを16進ハンドルで識別します。
 

@@ -1,6 +1,13 @@
 # Changelog
 
-## 2.1.1 — Unreleased
+## 2.1.1 — 2026-10-30
+
+### Distribution and upgrading
+
+- Ship Setup payloads for all six AutoCAD years, 2022–2027, with an exact file inventory and SHA-256 sidecar. Source, gateway and plugins are tied to the release commit.
+- Publish the server-only `Bimwright.Dwg.Server` NuGet tool (requires .NET 8) alongside the Setup ZIP. AutoCAD plugins still come from Setup.
+- Ship the Claude Desktop MCPB with the current 69-tool catalog and an exact SHA-256 pin to the Setup gateway. It does not install the gateway/plugins or fall back to another executable.
+- Upgrade gateway and plugins together. Writes require verified PID/process and drawing binding; `--target` alone selects reads only. Existing settings and personal data are preserved by the installer.
 
 ### Rewrite height receipts
 
@@ -56,7 +63,7 @@
 - Add `dwg_list_recent_drawings` and `dwg_open_drawing` on default `meta`, usable without an active drawing. Recent reads the connected product's HKCU MRU list using the Autodesk-reported registry root, returns up to 50 DWGs with existence/pinned metadata, and supports a case-insensitive filename filter before the limit. Ask the user to choose before opening.
 - Open uses `DocumentCollectionExtension.Open` on the main thread in application context without a document lock. Requires an absolute drive/UNC DWG path and idle multi-document mode; optionally requests file read-only access and preserves the previous active drawing. Reuses already-open drawings, refuses access-mode mismatches, and never calls Save/Close or overwrites files. Native dialogs remain user-handled; response wait defaults to 600 seconds (1–900), and a timeout does not cancel running host work.
 - Keep recent available in gateway read-only mode; exclude/refuse open even when file `read_only=true`. Refuse session commands during batch preflight before earlier drawing mutations; document/baked contexts cannot execute them. No-document errors now guide agents to recent → choose → open.
-- Current development counts are 45 default / 69 all-enabled / 17 default read-only / 23 all-enabled read-only. Add production-handler tests with explicit Autodesk doubles, MRU/path/timeout regressions and stdio discovery/permission checks. Installed-host Start-page/native-dialog acceptance remains pending. See [drawing session tools](README.md#drawing-session-tools).
+- Release counts are 45 default / 69 all-enabled / 17 default read-only / 23 all-enabled read-only. Existing production-handler tests with explicit Autodesk doubles, MRU/path/timeout regressions and stdio discovery/permission checks are retained. See [drawing session tools](README.md#drawing-session-tools).
 
 ### Bounded logs and transport lifecycle
 
