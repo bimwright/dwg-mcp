@@ -72,6 +72,7 @@
 - Run main-thread executor tests on dedicated workers so ThreadPool contention in parallel CI does not consume their five-second host-pump deadline.
 - Start toast cleanup checks with real animation clocks attached synchronously, avoiding a race to observe a short animation through hover timers and render frames; keep the separate motion checks and post-close cleanup assertions.
 - Create the output-artifact junction fixture with `cmd /c mklink`, as the log tests do, instead of starting PowerShell within its five-second setup deadline.
+- Isolate the output-artifact storage test collection from parallel suites so its real background-maintenance and file-mutex timing checks retain their original deadlines without competing for ThreadPool workers.
 - Add a public-tree CI check with positive/negative path fixtures. Move internal release checklists and WPF harness notes out of the public product tree.
 
 ### Setup integrity

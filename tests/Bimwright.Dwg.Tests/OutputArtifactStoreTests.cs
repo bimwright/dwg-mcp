@@ -14,6 +14,11 @@ using Xunit;
 
 namespace Bimwright.Dwg.Tests
 {
+    [CollectionDefinition("Output artifact storage", DisableParallelization = true)]
+    public sealed class OutputArtifactStorageCollection { }
+
+    // The background-maintenance timing checks need the real ThreadPool and file mutex.
+    [Collection("Output artifact storage")]
     public class OutputArtifactStoreTests : OutputArtifactTestScope
     {
         private static readonly DateTime Now = new DateTime(2026, 10, 25, 0, 0, 0, DateTimeKind.Utc);
