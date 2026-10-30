@@ -127,9 +127,10 @@ namespace Bimwright.Dwg.Tests
             var target = Path.Combine(ArtifactRoot, "target"); Directory.CreateDirectory(target);
             var personal = Path.Combine(target, "personal.json"); File.WriteAllText(personal, "keep");
             var link = Path.Combine(ArtifactRoot, "linked");
-            var start = new ProcessStartInfo("powershell") { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
-            foreach (var arg in new[] { "-NoProfile", "-NonInteractive", "-Command", "New-Item -ItemType Junction -Path '" + link.Replace("'", "''") + "' -Target '" + target.Replace("'", "''") + "' | Out-Null" }) start.ArgumentList.Add(arg);
-            using (var process = Process.Start(start)) { Assert.True(process.WaitForExit(5000)); Assert.Equal(0, process.ExitCode); }
+            // Match the log tests' lightweight junction fixture without starting PowerShell.
+            var start = new ProcessStartInfo("cmd.exe") { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
+            foreach (var arg in new[] { "/d", "/c", "mklink", "/J", link, target }) start.ArgumentList.Add(arg);
+            using (var process = Process.Start(start)) { Assert.True(process.WaitForExit(5000), "Junction fixture did not complete within five seconds."); Assert.Equal(0, process.ExitCode); }
             try
             {
                 var receipt = OutputArtifactStore.Write("payload", "test", link, Now, 2048, 4096, 4);
