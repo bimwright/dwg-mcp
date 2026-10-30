@@ -171,22 +171,29 @@ internal static class RecentActivityVisualTests
         foreach (var closeWhileHiding in new[] { false, true })
         {
             var cursor = new Point(10, 10);
+            var motion = !closeWhileHiding;
             var window = new McpToastWindow(Snapshot(), null, null, null, null, null,
-                () => cursor, () => true);
+                () => cursor, () => motion);
             try
             {
                 window.CapturePointerBaseline(); window.Show();
-                cursor = new Point(20, 10); Raise(window, Mouse.MouseEnterEvent);
                 var row = Field<Border>(window, "_detailsRow");
                 var panel = Field<ToastActivityPanel>(window, "_detailsPanel");
                 var shift = Field<TranslateTransform>(window, "_detailsShift");
-                Sample(() => row.Height, () => row.HasAnimatedProperties && row.Height > 0);
+                // Attach the real clocks synchronously: cleanup must not depend on
+                // catching a short animation between hover timers and render frames.
+                typeof(McpToastWindow).GetMethod("BeginDetailsReveal", BindingFlags.Instance | BindingFlags.NonPublic)
+                    .Invoke(window, null);
                 if (closeWhileHiding)
                 {
-                    Pump(350);
-                    cursor = new Point(90, 90); Raise(window, Mouse.MouseLeaveEvent);
-                    Sample(() => row.Height, () => row.HasAnimatedProperties);
+                    if (row.Height <= 0 || row.HasAnimatedProperties)
+                        throw new Exception("The cleanup test must start closing from settled open details.");
+                    motion = true;
+                    typeof(McpToastWindow).GetMethod("HideDetails", BindingFlags.Instance | BindingFlags.NonPublic)
+                        .Invoke(window, new object[] { false });
                 }
+                if (!row.HasAnimatedProperties || !panel.HasAnimatedProperties || !shift.HasAnimatedProperties)
+                    throw new Exception("The cleanup test must close while all three detail clocks are attached.");
                 window.CloseImmediate(); Pump(300);
                 if (row.HasAnimatedProperties || panel.HasAnimatedProperties || shift.HasAnimatedProperties
                     || Field<ActivitySnapshot>(window, "_lastSnapshot") != null

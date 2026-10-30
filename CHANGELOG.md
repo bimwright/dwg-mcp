@@ -70,6 +70,7 @@
 - Run the server tests on Windows, like the rest of the family. The gateway only runs beside AutoCAD; on the Linux runner, repeated `Process.StartTime` reads of one process differed by microseconds, breaking the exact process-identity checks, and file-lock, junction and pipe tests need Windows. `WindowsFact` tests, previously skipped, now run in CI.
 - Make the plugin dependency test independent of earlier builds (it runs `PrepareForBuild` with an isolated intermediate directory) so it passes on a fresh checkout, and run `upgrade.Tests.ps1` in the installer matrix. Installer test scripts exit 0 explicitly when every case passes: GitHub's PowerShell steps otherwise return the exit code of the last native command, which some cases intentionally fail.
 - Run main-thread executor tests on dedicated workers so ThreadPool contention in parallel CI does not consume their five-second host-pump deadline.
+- Start toast cleanup checks with real animation clocks attached synchronously, avoiding a race to observe a short animation through hover timers and render frames; keep the separate motion checks and post-close cleanup assertions.
 - Add a public-tree CI check with positive/negative path fixtures. Move internal release checklists and WPF harness notes out of the public product tree.
 
 ### Setup integrity
