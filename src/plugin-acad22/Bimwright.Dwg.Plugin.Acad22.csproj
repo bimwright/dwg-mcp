@@ -8,32 +8,20 @@
     <LangVersion>latest</LangVersion>
     <AutoCadVersionYear>2022</AutoCadVersionYear>
     <DefineConstants>$(DefineConstants);ACAD2022</DefineConstants>
-    <AutoCad2022Dir Condition="'$(AutoCad2022Dir)' == ''">C:\Program Files\Autodesk\AutoCAD 2022</AutoCad2022Dir>
   </PropertyGroup>
-
-  <Target Name="ValidateAutoCadReferences" BeforeTargets="ResolveReferences">
-    <Error Condition="!Exists('$(AutoCad2022Dir)\accoremgd.dll') or !Exists('$(AutoCad2022Dir)\acdbmgd.dll') or !Exists('$(AutoCad2022Dir)\acmgd.dll')"
-           Text="AutoCAD 2022 managed assemblies were not found under '$(AutoCad2022Dir)'. Install AutoCAD 2022 or build with /p:AutoCad2022Dir=&quot;C:\Path\To\AutoCAD 2022&quot;." />
-  </Target>
 
   <ItemGroup>
     <Compile Include="..\plugin-acad24\App.cs" Link="App.cs" />
     <Compile Include="..\shared\**\*.cs" LinkBase="Shared" />
   </ItemGroup>
 
+  <!-- AutoCAD 2022 (R24.1) managed assemblies come from Autodesk's AutoCAD.NET package.
+       Compile-time only: AutoCAD loads its own copies, so they are never redistributed. -->
   <ItemGroup>
-    <Reference Include="accoremgd">
-      <HintPath>$(AutoCad2022Dir)\accoremgd.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="acdbmgd">
-      <HintPath>$(AutoCad2022Dir)\acdbmgd.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="acmgd">
-      <HintPath>$(AutoCad2022Dir)\acmgd.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
+    <PackageReference Include="AutoCAD.NET" Version="24.1.51000" ExcludeAssets="runtime" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Reference Include="System.Drawing" />
     <Reference Include="PresentationCore" />
     <Reference Include="PresentationFramework" />

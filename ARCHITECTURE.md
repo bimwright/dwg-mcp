@@ -256,4 +256,4 @@ The repo contains shell projects for AutoCAD 2022-2027:
 | `src/plugin-acad26` | `net8.0-windows` |
 | `src/plugin-acad27` | `net10.0-windows` |
 
-The normal solution build includes the available local 2024 shell. Release packaging for another AutoCAD year requires a prepared machine with that year's Autodesk managed assemblies and should build the matching shell explicitly.
+Each shell compiles against Autodesk's `AutoCAD.NET` NuGet reference package for its year (compile-time only, never redistributed), so release packaging and CI build all six shells without an AutoCAD install.

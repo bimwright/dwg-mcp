@@ -424,14 +424,14 @@ rewrite成功时，`final_text_height` 表示 `new_handle` 对应entity的实际
 
 | 版本 | ObjectARX 发布 | Plugin TFM | 状态 |
 |------|----------------|------------|------|
-| AutoCAD 2022 | 24.1 | `net48` | 已搭建 shell 脚手架；发布构建需要本地 Autodesk 引用 |
-| AutoCAD 2023 | 24.2 | `net48` | 已搭建 shell 脚手架；发布构建需要本地 Autodesk 引用 |
+| AutoCAD 2022 | 24.1 | `net48` | 已搭建 shell 脚手架；基于 Autodesk 的 `AutoCAD.NET` 包构建 |
+| AutoCAD 2023 | 24.2 | `net48` | 已搭建 shell 脚手架；基于 Autodesk 的 `AutoCAD.NET` 包构建 |
 | AutoCAD 2024 | 24.3 | `net48` | 默认支持的 shell 与常规 solution 构建 |
-| AutoCAD 2025 | 25.0 | `net8.0-windows` | 已搭建 shell 脚手架；发布构建需要本地 Autodesk 引用 |
+| AutoCAD 2025 | 25.0 | `net8.0-windows` | 已搭建 shell 脚手架；基于 Autodesk 的 `AutoCAD.NET` 包构建 |
 | AutoCAD 2026 | 25.1 | `net8.0-windows` | 已搭建 shell 脚手架；与 2025 二进制兼容，但作为独立 shell 构建 |
 | AutoCAD 2027 | 26.0 | `net10.0-windows` | 已搭建 shell 脚手架；与 2025/2026 不二进制兼容 |
 
-Server 和测试不需要每个 AutoCAD shell 都完成发布构建即可通过。要发布某个 AutoCAD 年份，需要在装有对应 Autodesk 托管程序集的就绪机器上构建该 shell。
+所有 shell 都针对 nuget.org 上 Autodesk 的 `AutoCAD.NET` 引用包编译，因此装有 .NET 8 和 .NET 10 SDK 的机器无需安装 AutoCAD 即可构建全部六个年份。这些包仅在编译时使用；Autodesk DLL 永远不会被复制到插件输出或 Setup ZIP 中。构建成功并不能证明插件在该 AutoCAD 年份中可以正常工作。
 
 ---
 

@@ -9,32 +9,17 @@
     <LangVersion>latest</LangVersion>
     <AutoCadVersionYear>2026</AutoCadVersionYear>
     <DefineConstants>$(DefineConstants);ACAD2026;ACAD2025_OR_GREATER;ACAD2026_OR_GREATER</DefineConstants>
-    <AutoCad2026Dir Condition="'$(AutoCad2026Dir)' == ''">C:\Program Files\Autodesk\AutoCAD 2026</AutoCad2026Dir>
   </PropertyGroup>
-
-  <Target Name="ValidateAutoCadReferences" BeforeTargets="ResolveReferences">
-    <Error Condition="!Exists('$(AutoCad2026Dir)\accoremgd.dll') or !Exists('$(AutoCad2026Dir)\acdbmgd.dll') or !Exists('$(AutoCad2026Dir)\acmgd.dll')"
-           Text="AutoCAD 2026 managed assemblies were not found under '$(AutoCad2026Dir)'. Install AutoCAD 2026 or build with /p:AutoCad2026Dir=&quot;C:\Path\To\AutoCAD 2026&quot;." />
-  </Target>
 
   <ItemGroup>
     <Compile Include="..\plugin-acad24\App.cs" Link="App.cs" />
     <Compile Include="..\shared\**\*.cs" LinkBase="Shared" />
   </ItemGroup>
 
+  <!-- AutoCAD 2026 (R25.1) managed assemblies come from Autodesk's AutoCAD.NET package.
+       Compile-time only: AutoCAD loads its own copies, so they are never redistributed. -->
   <ItemGroup>
-    <Reference Include="accoremgd">
-      <HintPath>$(AutoCad2026Dir)\accoremgd.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="acdbmgd">
-      <HintPath>$(AutoCad2026Dir)\acdbmgd.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="acmgd">
-      <HintPath>$(AutoCad2026Dir)\acmgd.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
+    <PackageReference Include="AutoCAD.NET" Version="25.1.0" ExcludeAssets="runtime" />
   </ItemGroup>
 
   <ItemGroup>

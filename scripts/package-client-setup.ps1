@@ -1,7 +1,7 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-  Build the end-user dwg-mcp setup ZIP (self-contained server + AutoCAD plugins that compile here).
+  Build the end-user dwg-mcp setup ZIP (self-contained server + AutoCAD 2022-2027 plugins).
 #>
 [CmdletBinding()]
 param(
@@ -74,10 +74,8 @@ foreach ($y in $years) {
     $csproj = Join-Path $RepoRoot ("src\plugin-acad{0}\Bimwright.Dwg.Plugin.Acad{0}.csproj" -f $y.Suffix)
     Write-Host "[plugin] AutoCAD $($y.Year)"
     & dotnet build $csproj -c $Config --nologo -v q
-    if ($LASTEXITCODE -ne 0) {
-        Write-Warning "Skipping AutoCAD $($y.Year) (SDK/refs missing or build failed)."
-        continue
-    }
+    # References come from NuGet, so a failed year is a real error, not a missing local install.
+    if ($LASTEXITCODE -ne 0) { throw "AutoCAD $($y.Year) plugin build failed: $LASTEXITCODE" }
     $outDir = Join-Path $RepoRoot ("src\plugin-acad{0}\bin\{1}\{2}" -f $y.Suffix, $Config, $y.Tfm)
     $dll = Join-Path $outDir ("Bimwright.Dwg.Plugin.Acad{0}.dll" -f $y.Suffix)
     if (-not (Test-Path $dll)) { throw "Built but missing $dll" }

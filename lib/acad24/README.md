@@ -2,24 +2,14 @@
 
 Do not commit Autodesk binaries to this repository.
 
-The plugin project references these managed assemblies from a local AutoCAD
-2024 installation:
+The plugin projects get these managed assemblies from Autodesk's `AutoCAD.NET`
+NuGet package (AutoCAD 2024: version 24.3.0):
 
 - `acmgd.dll`
 - `accoremgd.dll`
 - `acdbmgd.dll`
 
-Default local path:
-
-```text
-C:\Program Files\Autodesk\AutoCAD 2024
-```
-
-Override the path when building:
-
-```powershell
-dotnet build src/plugin-acad24/Bimwright.Dwg.Plugin.Acad24.csproj -p:AutoCad2024Dir="D:\Path\To\AutoCAD 2024"
-```
-
-GitHub-hosted runners do not include AutoCAD. CI skips the plugin build unless
-the required local assemblies are present.
+The reference is compile-time only (`ExcludeAssets="runtime"`): AutoCAD loads
+its own copies, and the DLLs are not copied into the build output or the Setup
+ZIP. No local AutoCAD install is needed to build, and GitHub-hosted CI builds
+every shell.

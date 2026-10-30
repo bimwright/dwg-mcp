@@ -516,14 +516,14 @@ Two steps from the agent's perspective: read, then write.
 
 | Version | ObjectARX release | Plugin TFM | Status |
 |---------|-------------------|------------|--------|
-| AutoCAD 2022 | 24.1 | `net48` | Shell scaffolded; release build requires local Autodesk refs |
-| AutoCAD 2023 | 24.2 | `net48` | Shell scaffolded; release build requires local Autodesk refs |
+| AutoCAD 2022 | 24.1 | `net48` | Shell scaffolded; builds from Autodesk's `AutoCAD.NET` package |
+| AutoCAD 2023 | 24.2 | `net48` | Shell scaffolded; builds from Autodesk's `AutoCAD.NET` package |
 | AutoCAD 2024 | 24.3 | `net48` | Default supported shell and normal solution build |
-| AutoCAD 2025 | 25.0 | `net8.0-windows` | Shell scaffolded; release build requires local Autodesk refs |
+| AutoCAD 2025 | 25.0 | `net8.0-windows` | Shell scaffolded; builds from Autodesk's `AutoCAD.NET` package |
 | AutoCAD 2026 | 25.1 | `net8.0-windows` | Shell scaffolded; binary-compatible with 2025 but built as its own shell |
 | AutoCAD 2027 | 26.0 | `net10.0-windows` | Shell scaffolded; not binary-compatible with 2025/2026 |
 
-The server and tests can pass without every AutoCAD shell being release-built. Shipping an AutoCAD year requires building that shell on a prepared machine with the matching Autodesk managed assemblies.
+Every shell compiles against Autodesk's `AutoCAD.NET` reference packages from nuget.org, so a machine with the .NET 8 and .NET 10 SDKs builds all six years without AutoCAD installed. The packages are compile-time only; Autodesk DLLs are never copied into the plugin output or the Setup ZIP. A successful build does not prove the plugin works in that AutoCAD year.
 
 ---
 

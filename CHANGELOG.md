@@ -73,6 +73,11 @@
 
 - Write a SHA-256 sidecar next to each Setup ZIP and align the Autodesk bundle template version with the gateway. Product documentation points to each package's manifest for included AutoCAD years and its release notes for host validation coverage.
 
+### Plugin builds
+
+- All six AutoCAD shells (2022–2027) compile against Autodesk's `AutoCAD.NET` reference packages from nuget.org (24.1.51000, 24.2.0, 24.3.0, 25.0.1, 25.1.0, 26.0.0) instead of a local AutoCAD install, so the Setup ZIP and CI build every year. The packages are compile-time only; no Autodesk DLL is copied into the plugin output or the ZIP. A build does not verify the plugin in a running AutoCAD of that year.
+- `package-client-setup.ps1` fails when a plugin year does not build instead of skipping it with a warning, and the CI plugin matrix no longer skips years without a local AutoCAD.
+
 ### Documentation
 
 - Document exact read-only permission rules in all four README languages and check them against tool annotations. Correct capture/navigation tools that write image files being described as available in read-only mode.

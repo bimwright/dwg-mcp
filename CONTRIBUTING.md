@@ -14,7 +14,7 @@ Contributions are welcome. This document covers the basics.
 
 The plugin requires AutoCAD 2024 for integration testing. Unit tests cover pure logic (clustering, rewriting, metrics) and run without AutoCAD.
 
-Do not commit Autodesk DLLs. The plugin project references the local AutoCAD 2024 install by default at `C:\Program Files\Autodesk\AutoCAD 2024`; pass `/p:AutoCad2024Dir=<path>` when your install is elsewhere. GitHub-hosted CI skips the plugin build when those proprietary assemblies are not available.
+Do not commit Autodesk DLLs. The plugin projects reference Autodesk's `AutoCAD.NET` NuGet packages at compile time only (`ExcludeAssets="runtime"`), so every AutoCAD year builds without a local install, and GitHub-hosted CI builds all six shells.
 
 ## Pull Requests
 

@@ -46,7 +46,7 @@ function New-PayloadFixture([string]$Path) {
 }
 try {
     foreach ($year in 2025..2027) {
-        Test "AutoCAD ${year}: real SDK copy includes scripting dependencies" {
+        Test "AutoCAD ${year}: real SDK copy includes scripting dependencies, not Autodesk DLLs" {
             $suffix = $year - 2000
             $project = Join-Path $repoRoot "src/plugin-acad$suffix/Bimwright.Dwg.Plugin.Acad$suffix.csproj"
             $caseDir = Join-Path $testRoot "$year"
@@ -62,6 +62,9 @@ try {
             Assert ($LASTEXITCODE -eq 0) "Dependency copy failed: $output"
             $missing = @($runtimeDlls | Where-Object { -not (Test-Path -LiteralPath (Join-Path $payload $_) -PathType Leaf) })
             Assert ($missing.Count -eq 0) "Missing runtime DLLs: $($missing -join ', ')"
+            # AutoCAD.NET is compile-time only; AutoCAD loads its own managed assemblies.
+            $autodesk = @(Get-ChildItem -LiteralPath $payload -File | Where-Object { $_.Name -match '^(Ac|Ad)\w*\.dll$' } | ForEach-Object Name)
+            Assert ($autodesk.Count -eq 0) "Autodesk DLLs copied: $($autodesk -join ', ')"
             Assert (($output | ConvertFrom-Json).Properties.CopyLocalLockFileAssemblies -eq 'true') 'SDK disabled dependency copying'
         }
     }

@@ -418,14 +418,14 @@ Với rewrite thành công, `final_text_height` là property chiều cao thực 
 
 | Phiên bản | ObjectARX release | Plugin TFM | Trạng thái |
 |-----------|-------------------|------------|-----------|
-| AutoCAD 2022 | 24.1 | `net48` | Đã scaffold shell; release build cần Autodesk refs tương ứng |
-| AutoCAD 2023 | 24.2 | `net48` | Đã scaffold shell; release build cần Autodesk refs tương ứng |
+| AutoCAD 2022 | 24.1 | `net48` | Đã scaffold shell; build từ package `AutoCAD.NET` của Autodesk |
+| AutoCAD 2023 | 24.2 | `net48` | Đã scaffold shell; build từ package `AutoCAD.NET` của Autodesk |
 | AutoCAD 2024 | 24.3 | `net48` | Shell mặc định và normal solution build |
-| AutoCAD 2025 | 25.0 | `net8.0-windows` | Đã scaffold shell; release build cần Autodesk refs tương ứng |
+| AutoCAD 2025 | 25.0 | `net8.0-windows` | Đã scaffold shell; build từ package `AutoCAD.NET` của Autodesk |
 | AutoCAD 2026 | 25.1 | `net8.0-windows` | Đã scaffold shell; binary-compatible với 2025 nhưng build thành shell riêng |
 | AutoCAD 2027 | 26.0 | `net10.0-windows` | Đã scaffold shell; không binary-compatible với 2025/2026 |
 
-Server và tests có thể pass khi chưa build release tất cả shell. Muốn ship một năm AutoCAD thì phải build shell đó trên máy đã có managed assemblies Autodesk tương ứng.
+Mọi shell đều build với các package tham chiếu `AutoCAD.NET` của Autodesk trên nuget.org, nên máy có .NET 8 và .NET 10 SDK build được cả sáu năm mà không cần cài AutoCAD. Package chỉ dùng lúc compile; DLL của Autodesk không bao giờ được copy vào output plugin hay Setup ZIP. Build thành công không chứng minh plugin chạy đúng trên năm AutoCAD đó.
 
 ---
 

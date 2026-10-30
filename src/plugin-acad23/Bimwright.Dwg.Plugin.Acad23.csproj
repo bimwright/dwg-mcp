@@ -8,32 +8,20 @@
     <LangVersion>latest</LangVersion>
     <AutoCadVersionYear>2023</AutoCadVersionYear>
     <DefineConstants>$(DefineConstants);ACAD2023</DefineConstants>
-    <AutoCad2023Dir Condition="'$(AutoCad2023Dir)' == ''">C:\Program Files\Autodesk\AutoCAD 2023</AutoCad2023Dir>
   </PropertyGroup>
-
-  <Target Name="ValidateAutoCadReferences" BeforeTargets="ResolveReferences">
-    <Error Condition="!Exists('$(AutoCad2023Dir)\accoremgd.dll') or !Exists('$(AutoCad2023Dir)\acdbmgd.dll') or !Exists('$(AutoCad2023Dir)\acmgd.dll')"
-           Text="AutoCAD 2023 managed assemblies were not found under '$(AutoCad2023Dir)'. Install AutoCAD 2023 or build with /p:AutoCad2023Dir=&quot;C:\Path\To\AutoCAD 2023&quot;." />
-  </Target>
 
   <ItemGroup>
     <Compile Include="..\plugin-acad24\App.cs" Link="App.cs" />
     <Compile Include="..\shared\**\*.cs" LinkBase="Shared" />
   </ItemGroup>
 
+  <!-- AutoCAD 2023 (R24.2) managed assemblies come from Autodesk's AutoCAD.NET package.
+       Compile-time only: AutoCAD loads its own copies, so they are never redistributed. -->
   <ItemGroup>
-    <Reference Include="accoremgd">
-      <HintPath>$(AutoCad2023Dir)\accoremgd.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="acdbmgd">
-      <HintPath>$(AutoCad2023Dir)\acdbmgd.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="acmgd">
-      <HintPath>$(AutoCad2023Dir)\acmgd.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
+    <PackageReference Include="AutoCAD.NET" Version="24.2.0" ExcludeAssets="runtime" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Reference Include="System.Drawing" />
     <Reference Include="PresentationCore" />
     <Reference Include="PresentationFramework" />

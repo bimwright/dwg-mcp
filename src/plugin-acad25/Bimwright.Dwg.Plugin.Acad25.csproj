@@ -9,32 +9,17 @@
     <LangVersion>latest</LangVersion>
     <AutoCadVersionYear>2025</AutoCadVersionYear>
     <DefineConstants>$(DefineConstants);ACAD2025;ACAD2025_OR_GREATER</DefineConstants>
-    <AutoCad2025Dir Condition="'$(AutoCad2025Dir)' == ''">C:\Program Files\Autodesk\AutoCAD 2025</AutoCad2025Dir>
   </PropertyGroup>
-
-  <Target Name="ValidateAutoCadReferences" BeforeTargets="ResolveReferences">
-    <Error Condition="!Exists('$(AutoCad2025Dir)\accoremgd.dll') or !Exists('$(AutoCad2025Dir)\acdbmgd.dll') or !Exists('$(AutoCad2025Dir)\acmgd.dll')"
-           Text="AutoCAD 2025 managed assemblies were not found under '$(AutoCad2025Dir)'. Install AutoCAD 2025 or build with /p:AutoCad2025Dir=&quot;C:\Path\To\AutoCAD 2025&quot;." />
-  </Target>
 
   <ItemGroup>
     <Compile Include="..\plugin-acad24\App.cs" Link="App.cs" />
     <Compile Include="..\shared\**\*.cs" LinkBase="Shared" />
   </ItemGroup>
 
+  <!-- AutoCAD 2025 (R25.0) managed assemblies come from Autodesk's AutoCAD.NET package.
+       Compile-time only: AutoCAD loads its own copies, so they are never redistributed. -->
   <ItemGroup>
-    <Reference Include="accoremgd">
-      <HintPath>$(AutoCad2025Dir)\accoremgd.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="acdbmgd">
-      <HintPath>$(AutoCad2025Dir)\acdbmgd.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="acmgd">
-      <HintPath>$(AutoCad2025Dir)\acmgd.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
+    <PackageReference Include="AutoCAD.NET" Version="25.0.1" ExcludeAssets="runtime" />
   </ItemGroup>
 
   <ItemGroup>

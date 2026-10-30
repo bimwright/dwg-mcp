@@ -8,34 +8,20 @@
     <LangVersion>latest</LangVersion>
     <AutoCadVersionYear>2024</AutoCadVersionYear>
     <DefineConstants>$(DefineConstants);ACAD2024</DefineConstants>
-    <AutoCad2024Dir Condition="'$(AutoCad2024Dir)' == ''">C:\Program Files\Autodesk\AutoCAD 2024</AutoCad2024Dir>
   </PropertyGroup>
-
-  <Target Name="ValidateAutoCadReferences" BeforeTargets="ResolveReferences">
-    <Error Condition="!Exists('$(AutoCad2024Dir)\accoremgd.dll') or !Exists('$(AutoCad2024Dir)\acdbmgd.dll') or !Exists('$(AutoCad2024Dir)\acmgd.dll')"
-           Text="AutoCAD 2024 managed assemblies were not found under '$(AutoCad2024Dir)'. Install AutoCAD 2024 or build with /p:AutoCad2024Dir=&quot;C:\Path\To\AutoCAD 2024&quot;." />
-  </Target>
 
   <!-- Glob-include shared source -->
   <ItemGroup>
     <Compile Include="..\shared\**\*.cs" LinkBase="Shared" />
   </ItemGroup>
 
-  <!-- AutoCAD 2024 managed assemblies are referenced from the local AutoCAD install.
-       They are not committed or redistributed with this repo. -->
+  <!-- AutoCAD 2024 (R24.3) managed assemblies come from Autodesk's AutoCAD.NET package.
+       Compile-time only: AutoCAD loads its own copies, so they are never redistributed. -->
   <ItemGroup>
-    <Reference Include="accoremgd">
-      <HintPath>$(AutoCad2024Dir)\accoremgd.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="acdbmgd">
-      <HintPath>$(AutoCad2024Dir)\acdbmgd.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="acmgd">
-      <HintPath>$(AutoCad2024Dir)\acmgd.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
+    <PackageReference Include="AutoCAD.NET" Version="24.3.0" ExcludeAssets="runtime" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Reference Include="System.Drawing" />
     <Reference Include="PresentationCore" />
     <Reference Include="PresentationFramework" />
