@@ -11,12 +11,18 @@ namespace Bimwright.Dwg.Tests
 #pragma warning disable xUnit1031
     public class MainThreadExecutorTests
     {
+        // These workers block until the host pumps. Give them dedicated threads
+        // so unrelated parallel tests cannot consume their pump deadline.
+        private static readonly TaskFactory Workers = new TaskFactory(
+            CancellationToken.None, TaskCreationOptions.LongRunning,
+            TaskContinuationOptions.None, TaskScheduler.Default);
+
         [Fact]
         public void Worker_request_runs_on_host_thread_and_propagates_result()
         {
             var executor = new MainThreadExecutor();
             int host = Thread.CurrentThread.ManagedThreadId;
-            var task = Task.Run(() => executor.Invoke(() => Thread.CurrentThread.ManagedThreadId));
+            var task = Workers.StartNew(() => executor.Invoke(() => Thread.CurrentThread.ManagedThreadId));
             PumpUntilCompleted(executor, task);
             Assert.Equal(host, task.GetAwaiter().GetResult());
         }
@@ -26,7 +32,7 @@ namespace Bimwright.Dwg.Tests
         {
             var executor = new MainThreadExecutor(10);
             int mutations = 0;
-            var task = Task.Run(() => executor.Invoke(() => ++mutations));
+            var task = Workers.StartNew(() => executor.Invoke(() => ++mutations));
             Assert.Throws<TimeoutException>(() => task.GetAwaiter().GetResult());
             executor.RunPending();
             Assert.Equal(0, mutations);
@@ -36,10 +42,10 @@ namespace Bimwright.Dwg.Tests
         public void Exceptions_propagate_and_next_request_can_run()
         {
             var executor = new MainThreadExecutor();
-            var task = Task.Run(() => executor.Invoke<int>(() => throw new InvalidOperationException("boom")));
+            var task = Workers.StartNew(() => executor.Invoke<int>(() => throw new InvalidOperationException("boom")));
             PumpUntilCompleted(executor, task);
             Assert.Throws<InvalidOperationException>(() => task.GetAwaiter().GetResult());
-            var next = Task.Run(() => executor.Invoke(() => 42));
+            var next = Workers.StartNew(() => executor.Invoke(() => 42));
             PumpUntilCompleted(executor, next);
             Assert.Equal(42, next.GetAwaiter().GetResult());
         }
@@ -49,12 +55,13 @@ namespace Bimwright.Dwg.Tests
         {
             var executor = new MainThreadExecutor();
             Assert.Equal(42, executor.Invoke(() => 42));
-            Assert.Throws<InvalidOperationException>(() => Task.Run(() => executor.RunPending()).GetAwaiter().GetResult());
+            Assert.Throws<InvalidOperationException>(() => Workers.StartNew(() => executor.RunPending()).GetAwaiter().GetResult());
         }
 
         private static void PumpUntilCompleted(MainThreadExecutor executor, Task task)
         {
-            Assert.True(SpinWait.SpinUntil(() => { executor.RunPending(); return task.IsCompleted; }, 5000));
+            Assert.True(SpinWait.SpinUntil(() => { executor.RunPending(); return task.IsCompleted; }, 5000),
+                "Worker did not complete while pumping the initialized host thread.");
         }
     }
 }

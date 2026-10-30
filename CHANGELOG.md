@@ -69,6 +69,7 @@
 - Fix installer matrix shell selection by resolving it through job defaults; Windows PowerShell and PowerShell 7 remain separate jobs.
 - Run the server tests on Windows, like the rest of the family. The gateway only runs beside AutoCAD; on the Linux runner, repeated `Process.StartTime` reads of one process differed by microseconds, breaking the exact process-identity checks, and file-lock, junction and pipe tests need Windows. `WindowsFact` tests, previously skipped, now run in CI.
 - Make the plugin dependency test independent of earlier builds (it runs `PrepareForBuild` with an isolated intermediate directory) so it passes on a fresh checkout, and run `upgrade.Tests.ps1` in the installer matrix. Installer test scripts exit 0 explicitly when every case passes: GitHub's PowerShell steps otherwise return the exit code of the last native command, which some cases intentionally fail.
+- Run main-thread executor tests on dedicated workers so ThreadPool contention in parallel CI does not consume their five-second host-pump deadline.
 - Add a public-tree CI check with positive/negative path fixtures. Move internal release checklists and WPF harness notes out of the public product tree.
 
 ### Setup integrity
