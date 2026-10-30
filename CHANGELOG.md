@@ -118,6 +118,8 @@
 
 ### Fixed
 
+- **Toast and History no longer drop calls with structured results** — a `send_code` script returning an object or array, or any tool result whose display field had an unexpected JSON type, threw `Cannot cast Newtonsoft.Json.Linq.JObject to Newtonsoft.Json.Linq.JToken` in `McpToastNotifier.OnCompleted`, so that call was missing from the toast and History. Scalar script results are still shown; other values use the generic completion text.
+- **`-Years` and `-Client` lists work under `powershell -File`** — `install.ps1 -Years 2024,2025` arrived as one string and failed with "20242025 … greater than the maximum allowed range of 2027"; `-Client cursor,claude` failed the client name check. Comma or space lists are now split and validated the same way for `-File` and in-session calls.
 - **`dwg_set_system_variable` accepts values again** — the `value` argument was declared as a Newtonsoft `JToken`, which the MCP SDK's System.Text.Json binder cannot create, so every call failed before reaching AutoCAD (since 1.0.0). Its published schema also required an array. `value` now binds any JSON number or string, the schema no longer restricts it to arrays, and the plugin wire format is unchanged.
 
 ## 2.0.1 — 2026-09-28

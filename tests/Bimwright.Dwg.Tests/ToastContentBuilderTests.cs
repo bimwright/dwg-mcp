@@ -116,6 +116,37 @@ namespace Bimwright.Dwg.Tests
             Assert.Equal("3 circles created", vm.Summary);
         }
 
+        [Theory]
+        [InlineData("{\"ok\":true,\"result\":{\"circles\":3},\"stdout\":\"\",\"error\":null}")]
+        [InlineData("{\"ok\":true,\"result\":[1,2,3],\"stdout\":\"\",\"error\":null}")]
+        public void BuildCompleted_send_code_structured_result_uses_finished_copy(string result)
+        {
+            var vm = ToastContentBuilder.BuildCompleted("send_code", result, true, null, null);
+
+            Assert.True(vm.Success);
+            Assert.Equal("Script finished", vm.Summary);
+        }
+
+        [Fact]
+        public void BuildCompleted_send_code_scalar_result_is_shown()
+        {
+            var vm = ToastContentBuilder.BuildCompleted("send_code", "{\"ok\":true,\"result\":42}", true, null, null);
+
+            Assert.Equal("42", vm.Summary);
+        }
+
+        [Theory]
+        [InlineData("get_drawing_profile", "{\"summary\":{\"entities\":12}}")]
+        [InlineData("count_entities", "{\"total\":{\"model\":3}}")]
+        [InlineData("get_drawing_info", "{\"drawing_name\":{\"value\":\"plan.dwg\"}}")]
+        public void BuildCompleted_unexpected_field_types_fall_back_to_generic_copy(string tool, string result)
+        {
+            var vm = ToastContentBuilder.BuildCompleted(tool, result, true, null, null);
+
+            Assert.True(vm.Success);
+            Assert.Equal("Completed successfully", vm.Summary);
+        }
+
         [Fact]
         public void BuildCompleted_send_code_inner_error_surfaces()
         {

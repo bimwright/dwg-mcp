@@ -229,6 +229,26 @@ try {
         Assert ((Read-BundleManifest $script:bundleTargetRoot).Years -contains 2027) 'Lost unselected installed year in XML'
         Assert (([IO.File]::ReadAllText((Join-Path $script:bundleTargetRoot 'Contents/2027/Bimwright.Dwg.Plugin.Acad27.dll'))) -eq 'preserve-unselected27') 'Touched unselected payload'
     }
+    Test 'Comma and space lists bind the same years/clients as arrays' {
+        foreach ($years in @('2024,2027', '2024 2027', @(2024, 2027), @('2024', '2027'))) {
+            $got=@(Resolve-YearsArgument $years)
+            Assert (($got -join '|') -eq '2024|2027' -and $got[0] -is [int]) "Years '$years' -> '$($got -join '|')'"
+        }
+        Assert ((@(Resolve-ClientArgument 'cursor,cline') -join '|') -eq 'cursor|cline') 'Client comma list'
+        Assert (@(Resolve-YearsArgument $null).Count -eq 0 -and @(Resolve-ClientArgument @()).Count -eq 0) 'Empty lists'
+        $null=Throws {Resolve-YearsArgument '2024,2028'} "2022-2027; got '2028'"
+        $null=Throws {Resolve-YearsArgument '20242027'} "got '20242027'"
+        $null=Throws {Resolve-ClientArgument 'cursor,nope'} 'Unknown -Client value\(s\): nope'
+    }
+    Test 'powershell -File splits -Years and -Client lists before binding fails' {
+        # Windows PowerShell 5.1 turns redirected native stderr into a terminating error under Stop.
+        $ErrorActionPreference='Continue'
+        New-Fixture; $shell=(Get-Process -Id $PID).Path; $script=Join-Path $script:SourceDir 'install.ps1'
+        $years=& $shell -NoProfile -ExecutionPolicy Bypass -File $script -Years '2024,2028' -Client none -WhatIf 2>&1 | Out-String
+        Assert ($years -match "2022-2027; got '2028'" -and $years -notmatch '20242028') "Years not split: $years"
+        $clients=& $shell -NoProfile -ExecutionPolicy Bypass -File $script -Years 2024 -Client 'cursor,nope' -WhatIf 2>&1 | Out-String
+        Assert ($clients -match 'Unknown -Client value\(s\): nope' -and $clients -notmatch 'does not belong to the set') "Client not split: $clients"
+    }
     Test 'WhatIf previews exact years/clients and changes no files' {
         New-Fixture $true; $script:Client=@('cursor'); $before=Tree $script:caseRoot
         $preview=Invoke-FixtureInstall -WhatIf 6>&1 | Out-String

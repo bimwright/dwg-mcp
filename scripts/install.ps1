@@ -70,16 +70,11 @@
 param(
     [string]$SourceDir,
     [switch]$Uninstall,
-    [ValidateRange(2022, 2027)][int[]]$Years,
+    [object[]]$Years,   # 2022-2027; validated by Resolve-YearsArgument
     [ValidateSet("2022", "2023", "2024", "2025", "2026", "2027")]
     [string]$Version,   # legacy single-year alias for -Years
     [ValidateSet('Debug', 'Release')][string]$Config = 'Debug',
-    [ValidateSet('none', 'auto', 'all',
-        'claude', 'claude-desktop', 'codex', 'grok',
-        'cursor', 'cline', 'gemini', 'antigravity', 'devin', 'lmstudio',
-        'kiro', 'qwen', 'windsurf', 'opencode', 'kilo', 'vscode', 'kun',
-        'zed', 'cherry-studio')]
-    [string[]]$Client = @(),
+    [string[]]$Client = @(),   # validated by Resolve-ClientArgument
     [string]$ServerInstallRoot,
     [string]$SetupZip,
     [string]$ReleaseTag,
@@ -1242,7 +1237,38 @@ function Get-InstallGuidePath([string]$ScriptRoot) {
     return 'https://github.com/bimwright/dwg-mcp/blob/master/README.md'
 }
 
+# `powershell -File` passes "-Years 2024,2027" and "-Client cursor,claude" as one
+# string, which [int[]] read as 20242027 and ValidateSet rejected. Split comma or
+# space lists here so -File and in-session calls bind the same values.
+function Split-ListArgument([object[]]$Values) {
+    return @($Values | ForEach-Object { "$_" -split '[,\s]+' } | Where-Object { $_ })
+}
+
+function Resolve-YearsArgument([object[]]$Values) {
+    return @(foreach ($year in (Split-ListArgument $Values)) {
+        if ($year -notmatch '^\d{4}$' -or [int]$year -lt 2022 -or [int]$year -gt 2027) {
+            throw "-Years accepts AutoCAD years 2022-2027; got '$year'."
+        }
+        [int]$year
+    })
+}
+
+function Resolve-ClientArgument([object[]]$Values) {
+    $known = @('none', 'auto', 'all',
+        'claude', 'claude-desktop', 'codex', 'grok',
+        'cursor', 'cline', 'gemini', 'antigravity', 'devin', 'lmstudio',
+        'kiro', 'qwen', 'windsurf', 'opencode', 'kilo', 'vscode', 'kun',
+        'zed', 'cherry-studio')
+    $names = @(Split-ListArgument $Values)
+    $unknown = @($names | Where-Object { $known -notcontains $_ })
+    if ($unknown.Count) { throw "Unknown -Client value(s): $($unknown -join ', '). Valid: $($known -join ', ')." }
+    return $names
+}
+
 # --- main ------------------------------------------------------------------
+
+$Years = @(Resolve-YearsArgument $Years)
+$Client = @(Resolve-ClientArgument $Client)
 
 if (-not $Years -or $Years.Count -eq 0) {
     if ($Version) {

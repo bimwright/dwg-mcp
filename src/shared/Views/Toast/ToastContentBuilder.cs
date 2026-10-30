@@ -64,22 +64,31 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
 
             var resultObj = result as JObject;
 
-            switch (toolName)
+            try
             {
-                case "capture_view_image":
-                case "inspect_view_region":
-                case "restore_view":
-                    return BuildCaptureImageSuccess(resultObj);
-                case "get_drawing_info":
-                    return BuildDrawingInfoSuccess(resultObj);
-                case "send_code":
-                    return BuildSendCodeSuccess(resultObj);
-                case "translate_and_rewrite":
-                case "collapse_and_rewrite":
-                case "update_texts":
-                    return BuildRewriteSuccess(result);
-                default:
-                    return BuildGenericSuccess(toolName, result);
+                switch (toolName)
+                {
+                    case "capture_view_image":
+                    case "inspect_view_region":
+                    case "restore_view":
+                        return BuildCaptureImageSuccess(resultObj);
+                    case "get_drawing_info":
+                        return BuildDrawingInfoSuccess(resultObj);
+                    case "send_code":
+                        return BuildSendCodeSuccess(resultObj);
+                    case "translate_and_rewrite":
+                    case "collapse_and_rewrite":
+                    case "update_texts":
+                        return BuildRewriteSuccess(result);
+                    default:
+                        return BuildGenericSuccess(toolName, result);
+                }
+            }
+            catch (Exception ex) when (ex is InvalidCastException || ex is FormatException || ex is OverflowException)
+            {
+                // Result fields are untyped tool/script JSON. A field of an unexpected
+                // type must not keep the call out of the toast and History.
+                return new ToastContent(L.T("toast.generic.completed"), ToolNameFormatter.Format(toolName));
             }
         }
 
@@ -135,7 +144,8 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
 
         private static ToastContent BuildSendCodeSuccess(JObject result)
         {
-            var text = result?.Value<string>("result");
+            // Scripts may return objects/arrays; only a scalar result is shown as text.
+            var text = result?["result"] is JValue value ? value.Value<string>() : null;
             var summary = string.IsNullOrWhiteSpace(text) ? L.T("toast.sendCode.finished") : Truncate(FirstLine(text), 100);
             return new ToastContent(summary, L.T("toast.sendCode.detail"));
         }
