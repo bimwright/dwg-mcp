@@ -226,3 +226,5 @@ try {
     Remove-Item -LiteralPath $resolved -Recurse -Force
 }
 if (@($results | Where-Object { -not $_.passed }).Count) { throw 'Installer relocation regression tests failed' }
+# Exit from the results alone; GitHub's PowerShell steps otherwise return the last native exit code.
+exit 0

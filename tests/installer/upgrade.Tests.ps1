@@ -360,3 +360,5 @@ try {
     Write-Host "Fixtures retained: $testRoot"
 }
 if (@($results | Where-Object {-not $_.passed}).Count) { exit 1 }
+# Exit from the results alone; GitHub's PowerShell steps otherwise return the last native exit code.
+exit 0
