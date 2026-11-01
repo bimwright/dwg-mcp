@@ -142,9 +142,9 @@ Restart AutoCAD, then restart wired MCP clients to load `dwg-mcp`.
 
 **Uninstall:** `uninstall.ps1` removes the bundle, the server copies, discovery files and caches under `%LOCALAPPDATA%\Bimwright\dwg-mcp\` (settings, config, logs and captures are kept; `-Purge` removes those too). Client config entries are never touched — remove the `dwg-mcp` entry yourself, or run `install.ps1 -Uninstall -Client <names>` first.
 
-**NuGet (gateway only):** `dotnet tool install --global Bimwright.Dwg.Server --version 2.1.1` installs the framework-dependent gateway and requires .NET 8. Install the matching AutoCAD plugins from the Setup ZIP separately; the NuGet package does not install plugins.
+**NuGet (gateway only):** `dotnet tool install --global Bimwright.Dwg.Server --version 2.2.0` installs the framework-dependent gateway and requires .NET 8. Install the matching AutoCAD plugins from the Setup ZIP separately; the NuGet package does not install plugins.
 
-**Claude Desktop:** download `dwg-mcp-desktop-2.1.1.mcpb` and its checksum from the same release, then install it through Settings → Extensions → Advanced settings. It launches the exact gateway executable supplied by the 2.1.1 Setup ZIP; it does not install the gateway or plugins and does not fall back to a NuGet/PATH copy. An executable override must have the same SHA-256.
+**Claude Desktop:** download `dwg-mcp-desktop-2.2.0.mcpb` and its checksum from the same release, then install it through Settings → Extensions → Advanced settings. It launches the exact gateway executable supplied by the 2.2.0 Setup ZIP; it does not install the gateway or plugins and does not fall back to a NuGet/PATH copy. An executable override must have the same SHA-256.
 
 **Developer (local SDK):** `dotnet build` the year you have, then `pwsh scripts/install.ps1 -Years 2024` from the repo (copies that year’s `bin` output). `NETLOAD` remains available for Debug DLLs.
 
@@ -214,6 +214,14 @@ Activity toasts are on by default. Finished tool calls update one card in the Au
 
 `dwg_send_code` accepts inline synchronous snippets only: `async`/`await` and `#load` directives are rejected before execution. Keep AutoCAD API calls on the calling thread; do not offload them to `Task.Run` or other threads. Return JSON-safe DTOs; AutoCAD/COM objects are rejected even when nested. LISP inspection is available through `dwg_inspect_lisp`: sources over 2,000,000 characters are reported uninspectable/dangerous, and the 200-finding display cap does not stop severity detection. Regex matching has a timeout; timed-out scans are reported as incomplete/dangerous, never clean.
 
+`dwg_send_code(code, data?, compile_only=false)` accepts separate JSON inputs. Put changing values in `data`, exposed as a Newtonsoft `JToken`; any JSON root is accepted up to 512 KiB UTF-8 (depth 64, unique keys, finite numbers). JSON null is treated as omitted, and date strings stay strings. For example:
+
+```json
+{"code":"return (double)data[\"width\"] * (double)data[\"height\"];","data":{"width":12.5,"height":4},"compile_only":false}
+```
+
+Set `compile_only=true` to compile without invoking statements or producing script stdout. A confirmed target and active drawing are still required. Inspect the inner `result.ok` and `compiled`/`executed` flags: compiler errors include `diagnostics` with source, one-based line/column, code, message and severity; runtime errors may include `location`. Input values never become source text, so line numbers match the submitted code. Enhanced calls need the matching gateway/plugin and must be direct calls outside batches/baked tools; an older plugin is refused before code is sent. Existing code-only calls remain supported. Input data values are excluded from call logs and shown only as length/hash metadata in History.
+
 ---
 
 `MCPHISTORY` or **Open session History** in Settings opens the same modeless window. It keeps the latest 1,000 plugin-processed calls in memory, including when toasts are off, with search, Success/Failed and Read/Write filters and duration. Select a row to view/copy **What**, **Input** and **Output**; each sanitized detail is limited to 4,096 characters, with explicit omission markers. Code fields retain only original character length/SHA-256; output/errors of code-capable calls are omitted because they may echo source. Secret fields and local paths are redacted, and binary payloads are omitted. Copy uses the stored sanitized text, without display wrapping. **Refresh** retains a visible selection and scroll position; **New session** clears the in-memory entries and details. Closing/reopening retains the session; closed windows release their refresh timers. History adds no persistent writer or rerun action, and call logging remains opt-in. Server-only tool notifications are not yet included.
@@ -234,7 +242,7 @@ After reconnect, compare fresh `initialize.serverInfo` and the health tool's `_m
 
 ## Tools
 
-Version 2.1.1 exposes 45 tools at default startup: query (including `dwg_get_drawing_profile` and `dwg_inspect_lisp`), modify, meta (including `dwg_send_code`/`dwg_run_lisp`), view, and default-on `dwg_capture_view_image`. Optional ToolBaker, annotation, block, dimension, export, and drawing toolsets, enabled through `--toolsets`, bring the backed MCP surface to 69 tools. The registered counts include `dwg_run_lisp`, which only returns a refusal; no scan verdict authorizes execution.
+Version 2.2.0 exposes 45 tools at default startup: query (including `dwg_get_drawing_profile` and `dwg_inspect_lisp`), modify, meta (including `dwg_send_code`/`dwg_run_lisp`), view, and default-on `dwg_capture_view_image`. Optional ToolBaker, annotation, block, dimension, export, and drawing toolsets, enabled through `--toolsets`, bring the backed MCP surface to 69 tools. The registered counts include `dwg_run_lisp`, which only returns a refusal; no scan verdict authorizes execution.
 
 With no drawing open, use `dwg_list_recent_drawings` → user chooses → `dwg_open_drawing(path)`. Both are standalone `meta` tools; recent is available under `--read-only`, open is not (even with file `read_only=true`). Native dialogs may require the user; timeouts do not cancel an Open already running. See [drawing session tools](#drawing-session-tools) for parameters, API references and verification limits.
 

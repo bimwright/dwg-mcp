@@ -1,4 +1,6 @@
 using System.ComponentModel;
+using System;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Bimwright.Dwg.Plugin;
 using ModelContextProtocol.Server;
@@ -21,6 +23,10 @@ namespace Bimwright.Dwg.Server.Tools
             "JSON-safe DTO value in the result field; AutoCAD/COM objects, including nested objects, are rejected. " +
             "Only inline synchronous snippets are supported: async/await and #load directives are rejected before execution. " +
             "Do not move AutoCAD API calls to Task.Run or other threads. Use System.Console.WriteLine for stdout output. " +
+            "Optional data is JSON (512 KiB UTF-8 maximum), exposed as data (Newtonsoft JToken); null is omitted. Keep literals, coordinates and lists in data instead of code. " +
+            "compile_only=true compiles without invoking script statements; an active drawing is still required. " +
+            "Results add compiled, executed, compile_only, diagnostics[{source,line,column,code,message,severity}] and optional runtime location. Read result.ok for script success. " +
+            "Enhanced calls require a matching plugin and must be direct calls, outside batch/baked tools; unsupported plugins are refused before code is sent. " +
             "Execution has cooperative 30s cancellation. " +
             "An active drawing is required: when none is open, use dwg_list_recent_drawings and dwg_open_drawing first; the host refuses before executing code. " +
             "doc, db and ed are supplied from that active drawing. " +
@@ -33,8 +39,21 @@ namespace Bimwright.Dwg.Server.Tools
             "The final MCP budget may store a second artifact of the full MCP result it received; inspect scope and upstream truncation. Artifact retention is 7 days, 256 MiB total, 64 files; files above 128 MiB are unavailable. " +
             "Keep results small and never repeat a drawing mutation just to recover output.")]
         public static Task<string> SendCode(
-            [Description("C# code to execute")] string code)
-            => ToolGateway.LoggedCall("send_code", new { code }, new { code });
+            [Description("C# code to execute")] string code,
+            [Description("Optional JSON input, up to 512 KiB UTF-8. Available as data (JToken); null is treated as omitted.")] JsonElement? data = null,
+            [Description("Compile and return diagnostics without executing any script statement.")] bool compile_only = false)
+        {
+            var json = data.HasValue && data.Value.ValueKind != JsonValueKind.Null && data.Value.ValueKind != JsonValueKind.Undefined
+                ? data.Value.GetRawText() : null;
+            if (json == null && !compile_only) return ToolGateway.LoggedCall("send_code", new { code }, new { code });
+            try { ScriptInputContract.ParseData(json); }
+            catch (ArgumentException ex) { return Task.FromResult(JsonConvert.SerializeObject(new McpResponse { Ok = false, Error = ex.Message })); }
+            var request = new Newtonsoft.Json.Linq.JObject {
+                ["code"] = code, ["compile_only"] = compile_only, ["script_inputs_version"] = ScriptInputContract.Version
+            };
+            if (json != null) request["data_json"] = json;
+            return ToolGateway.LoggedCall("send_code", new { code, compile_only, data_bytes = json == null ? 0 : System.Text.Encoding.UTF8.GetByteCount(json) }, request);
+        }
 
         [McpServerTool(Name = "dwg_run_lisp", ReadOnly = false, Destructive = false, Idempotent = true, OpenWorld = false), Description(
             "Unavailable: LISP execution is blocked in this build. Retained for compatibility; " +

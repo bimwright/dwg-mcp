@@ -15,7 +15,8 @@ namespace Bimwright.Dwg.Plugin
                 ["process_id"] = identity["process_id"]?.DeepClone(),
                 ["setup_plugin"] = identity.DeepClone(),
                 ["has_active_document"] = JValue.CreateNull(),
-                ["state_probe"] = "unavailable"
+                ["state_probe"] = "unavailable",
+                ["script_inputs_version"] = ScriptInputContract.Version
             };
             try
             {

@@ -127,6 +127,12 @@ jobs:
       - name: Build plugin
         run: dotnet build src/plugin-acad${{ matrix.acad }}/Bimwright.Dwg.Plugin.Acad${{ matrix.acad }}.csproj -c Release
 
+      - name: Verify complete plugin payload
+        shell: pwsh
+        run: |
+          . ./scripts/plugin-payload.ps1
+          Assert-PluginPayload "src/plugin-acad${{ matrix.acad }}/bin/Release/${{ matrix.targetFramework }}" (2000 + [int]'${{ matrix.acad }}')
+
       - name: Upload plugin artifact
         uses: actions/upload-artifact@v4
         with:

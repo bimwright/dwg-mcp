@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><LangVersion>latest</LangVersion></PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../src/shared/Scripting/IsolatedScriptRuntime.cs" Link="IsolatedScriptRuntime.cs" />
+    <ProjectReference Include="../../src/scripting/Bimwright.Dwg.Scripting.csproj" ReferenceOutputAssembly="false" />
+    <PackageDownload Include="Microsoft.CodeAnalysis.Common" Version="[4.0.1]" />
+    <PackageDownload Include="Microsoft.CodeAnalysis.CSharp" Version="[4.0.1]" />
+  </ItemGroup>
+  <Target Name="CopyProbeDependencies" AfterTargets="Build">
+    <ItemGroup>
+      <EnginePayload Include="../../src/scripting/bin/$(Configuration)/net8.0/*.dll" />
+      <HostCompiler Include="$(NuGetPackageRoot)microsoft.codeanalysis.common/4.0.1/lib/netstandard2.0/Microsoft.CodeAnalysis.dll" />
+      <HostCompiler Include="$(NuGetPackageRoot)microsoft.codeanalysis.csharp/4.0.1/lib/netstandard2.0/Microsoft.CodeAnalysis.CSharp.dll" />
+    </ItemGroup>
+    <Copy SourceFiles="@(EnginePayload)" DestinationFolder="$(OutDir)engine" />
+    <Copy SourceFiles="@(HostCompiler)" DestinationFolder="$(OutDir)host" />
+  </Target>
+</Project>

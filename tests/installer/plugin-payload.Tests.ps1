@@ -36,7 +36,7 @@ $runtimeDlls = @('Microsoft.CodeAnalysis.dll', 'Microsoft.CodeAnalysis.CSharp.dl
     'Microsoft.CodeAnalysis.Scripting.dll', 'Microsoft.CodeAnalysis.CSharp.Scripting.dll', 'Newtonsoft.Json.dll')
 function New-PayloadFixture([string]$Path) {
     New-Item -ItemType Directory -Path $Path -Force | Out-Null
-    foreach ($dll in @($runtimeDlls) + @('Bimwright.Dwg.Plugin.Acad27.dll', 'System.Collections.Immutable.dll')) {
+    foreach ($dll in @($runtimeDlls) + @('Bimwright.Dwg.Plugin.Acad27.dll', 'Bimwright.Dwg.Scripting.dll', 'System.Collections.Immutable.dll')) {
         Set-Content -LiteralPath (Join-Path $Path $dll) -Value 'presence-check fixture'
     }
     $deps = @{runtimeTarget=@{name='.NETCoreApp,Version=v10.0'}; targets=@{
@@ -90,6 +90,13 @@ try {
         try { Assert-Throws { Assert-RepoPayload $fixtureRepo 2027 Release } 'deps.json' }
         finally { Set-Content -LiteralPath $path -Value $contents }
     }
+    Test 'Modern payload requires the private scripting engine' {
+        $path = Join-Path $repoPayload 'Bimwright.Dwg.Scripting.dll'
+        $contents = Get-Content -LiteralPath $path -Raw
+        Remove-Item -LiteralPath $path
+        try { Assert-Throws { Assert-RepoPayload $fixtureRepo 2027 Release } 'Bimwright.Dwg.Scripting.dll' }
+        finally { Set-Content -LiteralPath $path -Value $contents }
+    }
     $bundle = Join-Path $testRoot 'bundle'
     $bundlePayload = Join-Path $bundle 'Contents/2027'
     New-PayloadFixture $bundlePayload
@@ -111,7 +118,7 @@ try {
     }
     $legacyPayload = Join-Path $testRoot 'net48'
     New-Item -ItemType Directory -Path $legacyPayload -Force | Out-Null
-    $legacyDlls = @($runtimeDlls) + @('Bimwright.Dwg.Plugin.Acad24.dll', 'System.Buffers.dll',
+    $legacyDlls = @($runtimeDlls) + @('Bimwright.Dwg.Plugin.Acad24.dll', 'Bimwright.Dwg.Scripting.dll', 'System.Buffers.dll',
         'System.Collections.Immutable.dll', 'System.Memory.dll', 'System.Numerics.Vectors.dll',
         'System.Reflection.Metadata.dll', 'System.Runtime.CompilerServices.Unsafe.dll',
         'System.Text.Encoding.CodePages.dll', 'System.Threading.Tasks.Extensions.dll')

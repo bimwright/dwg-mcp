@@ -80,7 +80,7 @@ function New-Fixture([bool]$Legacy=$false) {
     }
     New-Item -ItemType Directory -Path $script:bundleSourceDir -Force | Out-Null
     Save-BundleManifest -OutPath (Join-Path $script:bundleSourceDir 'PackageContents.xml') -CoverYears @(2024) -TemplatePath (Join-Path $repo 'scripts/PackageContents.xml')
-    foreach ($dll in @('Bimwright.Dwg.Plugin.Acad24.dll','Microsoft.CodeAnalysis.dll','Microsoft.CodeAnalysis.CSharp.dll',
+    foreach ($dll in @('Bimwright.Dwg.Plugin.Acad24.dll','Bimwright.Dwg.Scripting.dll','Microsoft.CodeAnalysis.dll','Microsoft.CodeAnalysis.CSharp.dll',
         'Microsoft.CodeAnalysis.Scripting.dll','Microsoft.CodeAnalysis.CSharp.Scripting.dll','Newtonsoft.Json.dll',
         'System.Buffers.dll','System.Collections.Immutable.dll','System.Memory.dll','System.Numerics.Vectors.dll',
         'System.Reflection.Metadata.dll','System.Runtime.CompilerServices.Unsafe.dll','System.Text.Encoding.CodePages.dll','System.Threading.Tasks.Extensions.dll')) {

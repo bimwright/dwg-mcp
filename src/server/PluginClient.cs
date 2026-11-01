@@ -83,6 +83,14 @@ namespace Bimwright.Dwg.Server
                 var call = pinned ?? Capture(cmd);
                 try
                 {
+                    if (cmd == "send_code" && ScriptInputContract.IsEnhanced(parameters as JToken ?? (parameters == null ? null : JToken.FromObject(parameters))))
+                    {
+                        var healthId = Guid.NewGuid().ToString("N");
+                        var health = await SendToAsync(call, "health", new JObject(), healthId, Timeout, true);
+                        if (health?.Id != healthId || health.Ok != true ||
+                            (health.Result as JObject)?.Value<int?>("script_inputs_version") != ScriptInputContract.Version)
+                            return Error(requestId, "SCRIPT_INPUTS_UNSUPPORTED: the plugin did not confirm data/compile_only support. No script was sent or executed. Update gateway and plugin together.");
+                    }
                     var response = await SendToAsync(call, cmd, parameters, requestId, readTimeout, true);
                     if (ServerState.IsReadOnly && response?.Ok == false
                         && (response.Error?.StartsWith("TARGET_LOST:", StringComparison.Ordinal) == true

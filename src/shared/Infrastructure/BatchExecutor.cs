@@ -106,6 +106,8 @@ namespace Bimwright.Dwg.Plugin
             foreach (var item in commands)
             {
                 var cmd = item?["cmd"]?.Value<string>();
+                if (ScriptInputContract.RequiresDirectCall(cmd, item?["params"]))
+                    return CommandResult.Fail("SCRIPT_INPUTS_DIRECT_TOOL_ONLY: call enhanced send_code directly. The batch was not started.");
                 if (string.IsNullOrWhiteSpace(cmd))
                 {
                     return CommandResult.Fail("batch command missing required field 'cmd'");

@@ -738,6 +738,23 @@ namespace Bimwright.Dwg.Tests
             Assert.Equal("pipe-document", result.Target.Value<string>("document_id"));
         }
 
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task Enhanced_scripts_probe_capability_before_sending_code(bool supported)
+        {
+            using var host = new Host(100) { ScriptInputsVersion = supported ? 1 : (int?)null };
+            var client = Client(host);
+            await client.SwitchTargetAsync("pid:100");
+            var result = await client.SendAsync("send_code", new { code = "must-not-run-on-legacy", compile_only = true, script_inputs_version = 1 });
+            Assert.Equal(supported, result.Ok);
+            Assert.Equal(supported ? 3 : 2, host.Requests);
+            Assert.Equal(supported ? "send_code" : "health", host.LastRequest.Value<string>("cmd"));
+            if (!supported) Assert.Contains("SCRIPT_INPUTS_UNSUPPORTED", result.Error);
+        }
+
+
         private sealed class Host : IDisposable
         {
             private readonly FakePluginServer server;
@@ -746,6 +763,7 @@ namespace Bimwright.Dwg.Tests
             internal DiscoveryInfo Info { get; }
             internal JObject LastRequest;
             internal bool VerifiedHealth = true, Legacy, EmitReceipt;
+            internal int? ScriptInputsVersion;
             internal string DocumentId;
             internal string Refusal;
             internal Action BeforeReply;
@@ -764,6 +782,7 @@ namespace Bimwright.Dwg.Tests
                         ["result"] = LastRequest.Value<string>("cmd") == "health" ? new JObject
                         {
                             ["ok"] = VerifiedHealth,
+                            ["script_inputs_version"] = ScriptInputsVersion,
                             ["target"] = Legacy ? null : new JObject
                             {
                                 ["protocol"] = 1, ["pid"] = pid, ["process_start_utc"] = Start,

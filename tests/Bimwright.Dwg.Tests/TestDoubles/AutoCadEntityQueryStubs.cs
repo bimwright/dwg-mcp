@@ -137,8 +137,10 @@ namespace Autodesk.AutoCAD.DatabaseServices
         public Scale3d ScaleFactors { get; set; }
         public AttributeCollection AttributeCollection { get; } = new();
     }
+    public enum ContentType { NoneContent, BlockContent, MTextContent, ToleranceContent }
     public partial class MLeader : Entity
     {
+        public ContentType ContentType { get; set; } = ContentType.MTextContent;
         private MText mtext;
         public MText MText { get { TextReadCloneReads++; return TextReadMTextFactory == null ? mtext : TextReadMTextFactory(); } set => mtext = value; }
         public double TextHeight { get; set; }

@@ -142,7 +142,6 @@ namespace Bimwright.Dwg.Plugin.Annotation
                     created.ContentType = ContentType.MTextContent;
                     created.TextHeight = DefaultTextHeight;
                     var textLocation = ToPoint3d(points[points.Count - 1]);
-                    created.TextLocation = textLocation;
                     using (var leaderText = new MText())
                     {
                         leaderText.SetDatabaseDefaults();
@@ -151,6 +150,11 @@ namespace Bimwright.Dwg.Plugin.Annotation
                         leaderText.TextHeight = DefaultTextHeight;
                         created.MText = leaderText;
                     }
+                    created.TextLocation = textLocation;
+                }
+                else
+                {
+                    created.ContentType = ContentType.NoneContent;
                 }
 
                 return TransferToCaller(created, out entity, ref ownsEntity);

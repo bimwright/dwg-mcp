@@ -14,10 +14,10 @@
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>bimwright-dwg</ToolCommandName>
     <PackageId>Bimwright.Dwg.Server</PackageId>
-    <Version>2.1.1</Version>
+    <Version>2.2.0</Version>
     <IncludeSourceRevisionInInformationalVersion>true</IncludeSourceRevisionInInformationalVersion>
     <Authors>Khoa Le</Authors>
-    <Description>MCP gateway for AutoCAD 2022-2027 DWG workflows: text reading, translation rewriting, target routing, optional ToolBaker, and opt-in code execution.</Description>
+    <Description>MCP gateway for AutoCAD 2022-2027: DWG text, entities, target routing, ToolBaker and C# scripting with JSON inputs and compile diagnostics.</Description>
     <PackageProjectUrl>https://github.com/bimwright/dwg-mcp</PackageProjectUrl>
     <RepositoryUrl>https://github.com/bimwright/dwg-mcp</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
@@ -48,6 +48,7 @@
     <Compile Include="..\shared\Infrastructure\FileOutputReceipt.cs" LinkBase="Shared\Infrastructure" />
     <Compile Include="..\shared\Infrastructure\OutputReceiptFacts.cs" LinkBase="Shared\Infrastructure" />
     <Compile Include="..\shared\Infrastructure\TargetContract.cs" LinkBase="Shared\Infrastructure" />
+    <Compile Include="..\shared\Infrastructure\ScriptInputContract.cs" LinkBase="Shared\Infrastructure" />
     <Compile Include="..\shared\Drawing\DrawingSessionContract.cs" LinkBase="Shared\Drawing" />
     <Compile Include="..\shared\Drawing\DrawingProfile.cs" LinkBase="Shared\Drawing" />
     <Compile Include="..\shared\Drawing\EntityQueryOptions.cs" LinkBase="Shared\Drawing" />

@@ -4,7 +4,7 @@
     <EnableDynamicLoading>true</EnableDynamicLoading>
     <RootNamespace>Bimwright.Dwg.Plugin</RootNamespace>
     <AssemblyName>Bimwright.Dwg.Plugin.Acad25</AssemblyName>
-    <Version>2.1.1</Version>
+    <Version>2.2.0</Version>
     <IncludeSourceRevisionInInformationalVersion>true</IncludeSourceRevisionInInformationalVersion>
     <LangVersion>latest</LangVersion>
     <AutoCadVersionYear>2025</AutoCadVersionYear>
@@ -33,5 +33,8 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <TargetPath>Fonts\OpenSans-CondensedLight.ttf</TargetPath>
     </Content>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\scripting\Bimwright.Dwg.Scripting.csproj" />
   </ItemGroup>
 </Project>

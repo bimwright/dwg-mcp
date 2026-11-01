@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.2.0 — 2026-11-01
+
+- Add optional JSON `data` and `compile_only` to `dwg_send_code`, with structured compiler diagnostics and runtime source locations. Enhanced calls verify plugin support before dispatch and are refused inside batches/baked tools; code-only calls remain compatible.
+- Keep script input values out of session History and call logs; History retains only input length and SHA-256.
+- Fix issue #5 C# scripting on modern AutoCAD hosts that load an older Roslyn compiler: isolate the matching scripting/compiler set while sharing Autodesk types and retaining main-thread execution.
+- Initialize leader MText before setting its location; use no-content leaders for omitted text and avoid text-only getters when describing non-text leaders.
+- Require the scripting engine in plugin payloads and add a process-level compiler-conflict regression plus non-text leader readback coverage.
+- Upgrade the gateway and AutoCAD plugins together to use the new script inputs. `modules` and `task_v1` result contracts are not part of this release.
+
 ## 2.1.1 — 2026-10-30
 
 ### Distribution and upgrading

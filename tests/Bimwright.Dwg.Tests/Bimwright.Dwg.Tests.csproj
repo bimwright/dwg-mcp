@@ -21,6 +21,8 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\server\Bimwright.Dwg.Server.csproj" />
+    <ProjectReference Include="..\..\src\scripting\Bimwright.Dwg.Scripting.csproj" />
+    <ProjectReference Include="..\Bimwright.Dwg.Scripting.Probe\Bimwright.Dwg.Scripting.Probe.csproj" ReferenceOutputAssembly="false" />
   </ItemGroup>
   <!-- Include shared source that doesn't depend on AutoCAD API -->
   <ItemGroup>
@@ -96,4 +98,8 @@
     <Compile Include="..\..\src\shared\Infrastructure\PluginTarget.cs" LinkBase="Shared\Infrastructure" />
     <Compile Include="..\..\src\shared\Handlers\Drawing\SessionDrawingHandlers.cs" LinkBase="Shared\Handlers\Drawing" />
   </ItemGroup>
+  <Target Name="CopyScriptingProbe" AfterTargets="Build">
+    <ItemGroup><ScriptingProbeFiles Include="../Bimwright.Dwg.Scripting.Probe/bin/$(Configuration)/net8.0/**/*" /></ItemGroup>
+    <Copy SourceFiles="@(ScriptingProbeFiles)" DestinationFiles="@(ScriptingProbeFiles->'$(OutDir)script-probe/%(RecursiveDir)%(Filename)%(Extension)')" />
+  </Target>
 </Project>

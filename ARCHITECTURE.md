@@ -19,6 +19,16 @@ AutoCAD .NET API  (ObjectARX 2022-2027)
 
 **Plugin** is an `IExtensionApplication` loaded by AutoCAD. Its background listener authenticates and dispatches requests. `DwgApiExecutor` serializes document/session work, and `MainThreadExecutor` queues that work for AutoCAD's `Application.Idle` callback. `DocumentInvoker` then acquires the active document lock before invoking a document handler. Document locking alone is not the main-thread dispatch mechanism. Mutation handlers own their transactions; the dispatcher does not supply a universal transaction around every command. Plugin-side C# execution is enabled when the listener starts; `MCPDISABLECODE` disables it for the current plugin session and `MCPENABLECODE` re-enables it.
 
+## C# scripting dependencies
+
+`Bimwright.Dwg.Scripting` owns syntax validation and synchronous Roslyn evaluation. AutoCAD 2025–2027 load this engine and its four matching Roslyn libraries in a private `AssemblyLoadContext`, so a host-loaded compiler cannot replace part of the scripting dependency set. Autodesk assemblies and the plugin's globals remain shared with the host; API execution stays on the caller's main thread under the existing document lock. AutoCAD 2022–2024 call the same engine through normal .NET Framework references.
+
+`dwg_send_code(code, data?, compile_only=false)` keeps JSON input separate from source. Non-null data (any JSON root, maximum 512 KiB UTF-8, depth 64, unique keys and finite numbers) travels as `data_json` text and becomes a `Newtonsoft.Json.Linq.JToken` global; date-looking strings remain strings. No source prelude is inserted, preserving source line numbers. Code-only requests retain their original wire shape and globals. Enhanced requests carry `script_inputs_version=1`; the gateway first checks this capability through health on the same pinned target, refusing an older plugin before sending code. Both batch preflights refuse enhanced scripts before any step starts, including baked tools.
+
+The engine compiles first and returns `compiled`, `executed`, `compile_only`, up to 20 error `diagnostics` (`source`, one-based `line`/`column`, compiler `code`, `message`, `severity`), and optional runtime `location`. `compile_only=true` never invokes the script, requires the normal confirmed target/active drawing, and returns no statement stdout. This is compiler validation, not a sandbox or proof that a future run is safe. Normal execution preserves `ok`, `result`, `error` and `stdout` inside the command result; callers must inspect the inner `ok`. Script data values are omitted from call logs and replaced by length/hash metadata in session History.
+
+The engine selects one metadata reference per assembly name and uses its own Roslyn instances, excluding conflicting compiler copies from other contexts. The payload validator requires the engine DLL alongside the compiler dependencies. Layering the engine does not change send-code permissions, async/#load refusals, cancellation or DTO serialization.
+
 ## Discovery
 
 After its listener is ready, the plugin publishes a per-instance descriptor and a legacy year alias:

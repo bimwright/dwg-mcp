@@ -68,7 +68,7 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
                     if (remaining <= 0) { copy["_history_omitted"] = Omitted; break; }
                     var key = Key(property.Name);
                     var label = Text(property.Name);
-                    if (IsCode(key)) copy[label] = BodyMetadata(property.Value);
+                    if (IsCode(key) || key == "datajson") copy[label] = BodyMetadata(property.Value);
                     else if (key.Contains("password") || key.Contains("secret") || key.EndsWith("token", StringComparison.Ordinal)
                         || key.EndsWith("apikey", StringComparison.Ordinal) || key == "authorization" || key == "credential" || key.Contains("cookie")) copy[label] = "<secret>";
                     else if (key.Contains("base64") || key == "imagedata") copy[label] = "[binary omitted]";

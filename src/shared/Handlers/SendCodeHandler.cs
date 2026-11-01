@@ -6,10 +6,9 @@ using Bimwright.Dwg.Plugin;
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.EditorInput;
-using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp;
-using Microsoft.CodeAnalysis.CSharp.Scripting;
-using Microsoft.CodeAnalysis.Scripting;
+#if ACAD2025_OR_GREATER
+using Bimwright.Dwg.Plugin.Scripting;
+#endif
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json.Serialization;
@@ -19,6 +18,15 @@ namespace Bimwright.Dwg.Plugin.Handlers
     public class SendCodeHandler : IAcadCommand
     {
         private const int ExecutionTimeoutMilliseconds = 30000;
+        private static readonly string[] Imports = {
+            "System", "System.Collections.Generic", "System.Linq",
+            "Autodesk.AutoCAD.ApplicationServices", "Autodesk.AutoCAD.DatabaseServices",
+            "Autodesk.AutoCAD.EditorInput", "Autodesk.AutoCAD.Geometry"
+        };
+#if ACAD2025_OR_GREATER
+        private static readonly Lazy<IsolatedScriptRuntime> Runtime = new Lazy<IsolatedScriptRuntime>(() =>
+            new IsolatedScriptRuntime(Path.GetDirectoryName(typeof(SendCodeHandler).Assembly.Location)));
+#endif
 
         public string Name => "send_code";
         public string Description => "Execute C# code against the AutoCAD API.";
@@ -31,107 +39,70 @@ namespace Bimwright.Dwg.Plugin.Handlers
             public Editor ed;
         }
 
+        public class GlobalsWithData : Globals
+        {
+            public JToken data;
+        }
+
         public CommandResult Execute(Document doc, JToken parameters)
         {
             var code = (string)parameters?["code"];
-            if (string.IsNullOrWhiteSpace(code))
-                return CommandResult.Fail("code parameter is required");
+            if (string.IsNullOrWhiteSpace(code)) return CommandResult.Fail("code parameter is required");
+            JToken data;
+            bool compileOnly;
+            try
+            {
+                ScriptInputContract.Validate(parameters);
+                data = ScriptInputContract.ParseData(parameters?["data_json"]?.Value<string>());
+                compileOnly = parameters?.Value<bool?>("compile_only") ?? false;
+            }
+            catch (ArgumentException ex) { return CommandResult.Fail(ex.Message); }
 
-            // A blocking wait on EvaluateAsync does not keep script continuations on
-            // the thread that owns DocumentLock. Reject before executing any statement.
-            var syntax = CSharpSyntaxTree.ParseText(code, CSharpParseOptions.Default.WithKind(SourceCodeKind.Script));
-            // Loaded sources are outside this syntax tree and could resume after await
-            // on a thread that does not own DocumentLock. Accept inline source only.
-            if (syntax.GetRoot().DescendantNodes(descendIntoTrivia: true).Any(n => n.IsKind(SyntaxKind.LoadDirectiveTrivia)))
-                return CommandResult.Fail("send_code does not support #load; provide the complete synchronous snippet inline.");
-            if (syntax.GetRoot().DescendantTokens().Any(t => t.IsKind(SyntaxKind.AwaitKeyword) || t.IsKind(SyntaxKind.AsyncKeyword)))
-                return CommandResult.Fail("send_code requires synchronous code; async/await is not supported. Keep AutoCAD API calls on the calling thread.");
+#if ACAD2025_OR_GREATER
+            var validationError = Runtime.Value.Validate(code);
+#else
+            var validationError = Bimwright.Dwg.Scripting.ScriptEngine.Validate(code);
+#endif
+            if (validationError != null) return CommandResult.Fail(validationError);
 
+            Globals globals = data == null ? new Globals() : new GlobalsWithData { data = data };
+            globals.doc = doc; globals.db = doc.Database; globals.ed = doc.Editor;
+            var imports = data == null ? Imports : Imports.Concat(new[] { "Newtonsoft.Json.Linq" }).ToArray();
             var originalOut = Console.Out;
             var captured = new StringWriter();
             Console.SetOut(captured);
-
+            System.Collections.Generic.Dictionary<string, object> payload = null;
             try
             {
                 var refs = AppDomain.CurrentDomain.GetAssemblies()
-                    .Where(a => !a.IsDynamic && !string.IsNullOrEmpty(a.Location))
-                    .ToArray();
-                var options = ScriptOptions.Default
-                    .WithSourceResolver(null)
-                    .WithReferences(refs)
-                    .WithImports(
-                        "System",
-                        "System.Collections.Generic",
-                        "System.Linq",
-                        "Autodesk.AutoCAD.ApplicationServices",
-                        "Autodesk.AutoCAD.DatabaseServices",
-                        "Autodesk.AutoCAD.EditorInput",
-                        "Autodesk.AutoCAD.Geometry");
-
-                var globals = new Globals { doc = doc, db = doc.Database, ed = doc.Editor };
-
-                object result;
+                    .Where(a => !a.IsDynamic && !string.IsNullOrEmpty(a.Location)).ToArray();
                 using (var cts = new CancellationTokenSource(ExecutionTimeoutMilliseconds))
                 {
-                    try
-                    {
-                        // Run on the calling thread: Document.LockDocument() is
-                        // thread-affine, so a worker thread would not hold the lock
-                        // and DB writes would fail with eLockViolation. The token is
-                        // cooperative — a script blocked in a native call keeps the
-                        // executor queued until it returns (same posture as rvt-mcp).
-                        result = CSharpScript.EvaluateAsync(code, options, globals, cancellationToken: cts.Token)
-                            .GetAwaiter()
-                            .GetResult();
-                    }
-                    catch (OperationCanceledException)
-                    {
-                        return CommandResult.Fail("execution cancelled after 30s");
-                    }
+#if ACAD2025_OR_GREATER
+                    payload = Runtime.Value.Execute(code, globals, refs, imports, compileOnly, cts.Token);
+#else
+                    payload = Bimwright.Dwg.Scripting.ScriptEngine.Execute(code, globals, refs, imports, compileOnly, cts.Token);
+#endif
                 }
-
-                return CommandResult.Success(new
-                {
-                    ok = true,
-                    result = SerializeResult(result),
-                    stdout = captured.ToString(),
-                    error = (string)null
-                });
+                payload["result"] = SerializeResult(payload["result"]);
+                if (payload["error"] is string error) payload["error"] = ErrorSanitizer.Sanitize(error);
+                if (payload["diagnostics"] is System.Collections.Generic.Dictionary<string, object>[] diagnostics)
+                    foreach (var diagnostic in diagnostics)
+                        diagnostic["message"] = ErrorSanitizer.Sanitize((string)diagnostic["message"]);
             }
-            catch (CompilationErrorException ex)
-            {
-                return CommandResult.Success(new
-                {
-                    ok = false,
-                    result = (object)null,
-                    stdout = captured.ToString(),
-                    error = ErrorSanitizer.Sanitize("compile error: " + string.Join("\n", ex.Diagnostics))
-                });
-            }
-            catch (AggregateException ex) when (ex.InnerException != null)
-            {
-                return CommandResult.Success(new
-                {
-                    ok = false,
-                    result = (object)null,
-                    stdout = captured.ToString(),
-                    error = ErrorSanitizer.Sanitize($"{ex.InnerException.GetType().Name}: {ex.InnerException.Message}")
-                });
-            }
+            catch (OperationCanceledException) { return CommandResult.Fail("execution cancelled after 30s"); }
             catch (Exception ex)
             {
-                return CommandResult.Success(new
-                {
-                    ok = false,
-                    result = (object)null,
-                    stdout = captured.ToString(),
-                    error = ErrorSanitizer.Sanitize($"{ex.GetType().Name}: {ex.Message}")
-                });
+                var inner = ex is AggregateException && ex.InnerException != null ? ex.InnerException : ex;
+                payload = payload ?? new System.Collections.Generic.Dictionary<string, object>();
+                payload["ok"] = false;
+                payload["result"] = null;
+                payload["error"] = ErrorSanitizer.Sanitize(inner.GetType().Name + ": " + inner.Message);
             }
-            finally
-            {
-                Console.SetOut(originalOut);
-            }
+            finally { Console.SetOut(originalOut); }
+            payload["stdout"] = captured.ToString();
+            payload["script_inputs_version"] = ScriptInputContract.Version;
+            return CommandResult.Success(payload);
         }
 
         private static object SerializeResult(object value)
