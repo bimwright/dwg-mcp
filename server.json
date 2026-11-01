@@ -3,7 +3,7 @@
   "name": "io.github.bimwright/dwg-mcp",
   "title": "Bimwright DWG",
   "description": "MCP gateway for AutoCAD 2022-2027: DWG text, layers, entities, views and automation.",
-  "version": "2.2.0",
+  "version": "2.1.2",
   "repository": {
     "url": "https://github.com/bimwright/dwg-mcp",
     "source": "github"
@@ -14,7 +14,7 @@
     {
       "registryType": "nuget",
       "identifier": "Bimwright.Dwg.Server",
-      "version": "2.2.0",
+      "version": "2.1.2",
       "transport": {
         "type": "stdio"
       }

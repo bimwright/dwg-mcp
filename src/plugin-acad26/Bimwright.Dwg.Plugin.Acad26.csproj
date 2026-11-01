@@ -4,7 +4,7 @@
     <EnableDynamicLoading>true</EnableDynamicLoading>
     <RootNamespace>Bimwright.Dwg.Plugin</RootNamespace>
     <AssemblyName>Bimwright.Dwg.Plugin.Acad26</AssemblyName>
-    <Version>2.2.0</Version>
+    <Version>2.1.2</Version>
     <IncludeSourceRevisionInInformationalVersion>true</IncludeSourceRevisionInInformationalVersion>
     <LangVersion>latest</LangVersion>
     <AutoCadVersionYear>2026</AutoCadVersionYear>

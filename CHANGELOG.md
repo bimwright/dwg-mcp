@@ -1,6 +1,6 @@
 # Changelog
 
-## 2.2.0 — 2026-11-01
+## 2.1.2 — 2026-11-01
 
 - Add optional JSON `data` and `compile_only` to `dwg_send_code`, with structured compiler diagnostics and runtime source locations. Enhanced calls verify plugin support before dispatch and are refused inside batches/baked tools; code-only calls remain compatible.
 - Keep script input values out of session History and call logs; History retains only input length and SHA-256.
