@@ -25,7 +25,7 @@ namespace Bimwright.Dwg.Server.Tools
             "Do not move AutoCAD API calls to Task.Run or other threads. Use System.Console.WriteLine for stdout output. " +
             "Optional data is JSON (512 KiB UTF-8 maximum), exposed as data (Newtonsoft JToken); null is omitted. Keep literals, coordinates and lists in data instead of code. " +
             "compile_only=true compiles without invoking script statements; an active drawing is still required. " +
-            "Results add compiled, executed, compile_only, diagnostics[{source,line,column,code,message,severity}] and optional runtime location. Read result.ok for script success. " +
+            "Results add compiled, executed, compile_only, diagnostics[{source,line,column,code,message,severity,excerpt[{line,text,marker?,truncated?}]}] and optional runtime location; excerpt shows the error line ±2 with a ^ marker under the column, at most 200 chars per line. Read result.ok for script success. " +
             "result_contract=task_v1 imports McpTaskResult: return McpTaskResult.Pass(value) when the task is done or McpTaskResult.Fail(\"CODE\", \"message\", details) when it is not; " +
             "ok is then true only for Pass without a script error, result holds the Pass value or Fail details, and _task{contract,status=passed|failed|not_reported,error?} reports the outcome. " +
             "usage_context=project|test labels real work versus testing in the gateway call log only. " +
