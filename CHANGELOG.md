@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Add optional `atomic=true` to `dwg_batch_execute`: the batch runs in one outer AutoCAD transaction, a failed step aborts it (`rolled_back=true`, `mutation_applied=false`) and later steps are `skipped`. Only drawing reads and database edits are accepted; other commands are refused before any step runs. The default stays `atomic=false`.
+- Plugin health reports `atomic_batch_version`; the gateway refuses atomic batches to plugins that do not confirm it, so an older plugin never runs one non-atomically.
+
 ## 2.1.2 — 2026-11-01
 
 - Add optional JSON `data` and `compile_only` to `dwg_send_code`, with structured compiler diagnostics and runtime source locations. Enhanced calls verify plugin support before dispatch and are refused inside batches/baked tools; code-only calls remain compatible.

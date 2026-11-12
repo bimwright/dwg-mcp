@@ -91,6 +91,15 @@ namespace Bimwright.Dwg.Server
                             (health.Result as JObject)?.Value<int?>("script_inputs_version") != ScriptInputContract.Version)
                             return Error(requestId, "SCRIPT_INPUTS_UNSUPPORTED: the plugin did not confirm data/compile_only support. No script was sent or executed. Update gateway and plugin together.");
                     }
+                    // Older plugins ignore unknown keys and would run an atomic batch non-atomically.
+                    if (cmd == "batch_execute" && BatchContract.IsAtomic(parameters as JToken ?? (parameters == null ? null : JToken.FromObject(parameters))))
+                    {
+                        var healthId = Guid.NewGuid().ToString("N");
+                        var health = await SendToAsync(call, "health", new JObject(), healthId, Timeout, true);
+                        if (health?.Id != healthId || health.Ok != true ||
+                            (health.Result as JObject)?.Value<int?>("atomic_batch_version") != BatchContract.AtomicVersion)
+                            return Error(requestId, "ATOMIC_BATCH_UNSUPPORTED: the plugin did not confirm atomic batch support. No command was sent or executed. Update gateway and plugin together.");
+                    }
                     var response = await SendToAsync(call, cmd, parameters, requestId, readTimeout, true);
                     if (ServerState.IsReadOnly && response?.Ok == false
                         && (response.Error?.StartsWith("TARGET_LOST:", StringComparison.Ordinal) == true

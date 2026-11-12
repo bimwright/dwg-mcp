@@ -409,7 +409,8 @@ namespace Bimwright.Dwg.Plugin
             SchemaProperty.Optional("final_scale", JTokenType.Float, JTokenType.Integer));
 
         public static readonly CommandSchema BatchExecute = CommandSchema.Object(
-            SchemaProperty.Required("commands", JTokenType.Array));
+            SchemaProperty.Required("commands", JTokenType.Array),
+            SchemaProperty.Optional("atomic", JTokenType.Boolean));
 
         public static readonly CommandSchema RunBakedTool = CommandSchema.Object(
             SchemaProperty.Required("name", JTokenType.String),

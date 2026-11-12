@@ -4,9 +4,17 @@ using Newtonsoft.Json.Linq;
 
 namespace Bimwright.Dwg.Plugin
 {
+    /// <summary>Outer drawing transaction for an atomic batch; disposing without Commit aborts it.</summary>
+    public interface IBatchTransaction : IDisposable
+    {
+        void Commit();
+        void Abort();
+    }
+
     public static class BatchExecutor
     {
-        public static CommandResult Run(JToken parameters, Func<string, JToken, CommandResult> execute)
+        public static CommandResult Run(JToken parameters, Func<string, JToken, CommandResult> execute,
+            Func<IBatchTransaction> beginTransaction = null)
         {
             if (execute == null)
             {
@@ -26,6 +34,48 @@ namespace Bimwright.Dwg.Plugin
                 return preflight;
             }
 
+            var atomic = BatchContract.IsAtomic(parameters);
+            if (!atomic)
+                return RunSteps(commands, execute, false, out _);
+
+            var unsupported = new List<string>();
+            foreach (var item in commands)
+            {
+                var cmd = item?["cmd"]?.Value<string>();
+                if (!BatchContract.SupportsAtomic(cmd) && !unsupported.Contains(cmd)) unsupported.Add(cmd);
+            }
+            if (unsupported.Count > 0)
+                return CommandResult.Fail("ATOMIC_UNSUPPORTED_COMMANDS: " + string.Join(", ", unsupported) +
+                    " cannot run inside one AutoCAD transaction. Use atomic=false or call them separately. The batch was not started.");
+            if (beginTransaction == null)
+                return CommandResult.Fail("ATOMIC_BATCH_UNAVAILABLE: this host cannot open an outer transaction. The batch was not started.");
+
+            IBatchTransaction transaction;
+            try { transaction = beginTransaction() ?? throw new InvalidOperationException("no transaction returned"); }
+            catch (Exception ex)
+            {
+                return CommandResult.Fail("ATOMIC_BATCH_UNAVAILABLE: " + ErrorSanitizer.Sanitize(ex.Message) + ". The batch was not started.");
+            }
+
+            using (transaction)
+            {
+                var steps = RunSteps(commands, execute, true, out var failed);
+                try
+                {
+                    if (failed) transaction.Abort();
+                    else transaction.Commit();
+                }
+                catch (Exception ex)
+                {
+                    return CommandResult.Fail((failed ? "ATOMIC_BATCH_ABORT_FAILED: " : "ATOMIC_BATCH_COMMIT_FAILED: ") +
+                        ErrorSanitizer.Sanitize(ex.Message) + ". Drawing state is unknown; inspect it before retrying.");
+                }
+                return failed ? MarkRolledBack(steps) : steps;
+            }
+        }
+
+        private static CommandResult RunSteps(JArray commands, Func<string, JToken, CommandResult> execute, bool atomic, out bool partialFailureOut)
+        {
             var results = new List<object>();
             var partialFailure = false;
             var index = 0;
@@ -34,6 +84,16 @@ namespace Bimwright.Dwg.Plugin
             {
                 var cmd = item?["cmd"]?.Value<string>();
                 var itemParams = item?["params"] ?? new JObject();
+                if (atomic && partialFailure)
+                {
+                    results.Add(new
+                    {
+                        index = index++, cmd, command_ok = false, ok = false, outcome = "skipped",
+                        output_verified = (bool?)null, mutation_applied = (bool?)false, result = (object)null,
+                        error = "not run: an earlier step failed in this atomic batch"
+                    });
+                    continue;
+                }
 
                 CommandResult result;
                 try
@@ -92,13 +152,43 @@ namespace Bimwright.Dwg.Plugin
                 });
             }
 
+            partialFailureOut = partialFailure;
+            if (atomic)
+                return CommandResult.Success(new
+                {
+                    transactional = true,
+                    atomic = true,
+                    rolled_back = false,
+                    rollback = "one outer AutoCAD transaction; a failed step aborts it and later steps are skipped",
+                    partial_failure = partialFailure,
+                    results
+                });
             return CommandResult.Success(new
             {
                 transactional = false,
-                rollback = "logical batch only; AutoCAD undo grouping is not enabled in this build",
+                rollback = "logical batch only; atomic=false, earlier effects remain after a later failure",
                 partial_failure = partialFailure,
                 results
             });
+        }
+
+        // After Abort every executed step's drawing effect is undone, including steps that succeeded.
+        private static CommandResult MarkRolledBack(CommandResult steps)
+        {
+            var batch = JObject.FromObject(steps.Result);
+            batch["rolled_back"] = true;
+            foreach (var step in (JArray)batch["results"])
+            {
+                if (step.Value<string>("outcome") == "skipped") continue;
+                step["mutation_applied"] = false;
+                if (step.Value<bool>("ok"))
+                {
+                    step["ok"] = false;
+                    step["outcome"] = "rolled_back";
+                    step["error"] = "rolled back: a later step failed in this atomic batch";
+                }
+            }
+            return CommandResult.Success(batch);
         }
 
         private static CommandResult PreflightCommands(JArray commands)

@@ -754,6 +754,27 @@ namespace Bimwright.Dwg.Tests
             if (!supported) Assert.Contains("SCRIPT_INPUTS_UNSUPPORTED", result.Error);
         }
 
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task Atomic_batches_probe_capability_before_sending_commands(bool supported)
+        {
+            using var host = new Host(100) { AtomicBatchVersion = supported ? 1 : (int?)null };
+            var client = Client(host);
+            await client.SwitchTargetAsync("pid:100");
+            var commands = new JArray { new JObject { ["cmd"] = "create_line", ["params"] = new JObject() } };
+            var result = await client.SendAsync("batch_execute", new JObject { ["commands"] = commands, ["atomic"] = true });
+            Assert.Equal(supported, result.Ok);
+            Assert.Equal(supported ? 3 : 2, host.Requests);
+            Assert.Equal(supported ? "batch_execute" : "health", host.LastRequest.Value<string>("cmd"));
+            if (!supported) Assert.Contains("ATOMIC_BATCH_UNSUPPORTED", result.Error);
+
+            // Non-atomic batches never need the extra probe.
+            var before = host.Requests;
+            await client.SendAsync("batch_execute", new JObject { ["commands"] = commands });
+            Assert.Equal(before + 1, host.Requests);
+        }
+
 
         private sealed class Host : IDisposable
         {
@@ -764,6 +785,7 @@ namespace Bimwright.Dwg.Tests
             internal JObject LastRequest;
             internal bool VerifiedHealth = true, Legacy, EmitReceipt;
             internal int? ScriptInputsVersion;
+            internal int? AtomicBatchVersion;
             internal string DocumentId;
             internal string Refusal;
             internal Action BeforeReply;
@@ -783,6 +805,7 @@ namespace Bimwright.Dwg.Tests
                         {
                             ["ok"] = VerifiedHealth,
                             ["script_inputs_version"] = ScriptInputsVersion,
+                            ["atomic_batch_version"] = AtomicBatchVersion,
                             ["target"] = Legacy ? null : new JObject
                             {
                                 ["protocol"] = 1, ["pid"] = pid, ["process_start_utc"] = Start,
