@@ -39,6 +39,8 @@ namespace Bimwright.Dwg.Plugin.Views.Settings
         private bool _suppressToastEvents;
         private string _toolsSignature;
 
+        internal event Action<bool> ReleaseNotificationsChanged;
+
         public SettingsWindow()
         {
             Title = L.T("settings.title");
@@ -154,7 +156,30 @@ namespace Bimwright.Dwg.Plugin.Views.Settings
             history.Click += (_, __) => App.ShowOrFocusHistory();
             panel.Children.Add(history);
             panel.Children.Add(Help(L.T("settings.general.history.help")));
-            return panel;
+            var updates = new CheckBox
+            {
+                Content = L.T("settings.general.releaseNotifications"),
+                IsChecked = PluginSettings.LoadReleaseNotifications(),
+                Margin = new Thickness(0, 12, 0, 0)
+            };
+            var updatesError = Body();
+            updatesError.Foreground = McpToastTheme.Error;
+            updates.Click += (_, __) =>
+            {
+                var enabled = updates.IsChecked == true;
+                if (!PluginSettings.SaveReleaseNotifications(enabled))
+                {
+                    updates.IsChecked = !enabled;
+                    updatesError.Text = L.T("settings.general.releaseNotifications.saveFailed");
+                    return;
+                }
+                updatesError.Text = string.Empty;
+                ReleaseNotificationsChanged?.Invoke(enabled);
+            };
+            panel.Children.Add(updates);
+            panel.Children.Add(Help(L.T("settings.general.releaseNotifications.help")));
+            panel.Children.Add(updatesError);
+            return new ScrollViewer { Content = panel, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
         }
 
         private void SetShowBranding(bool show)

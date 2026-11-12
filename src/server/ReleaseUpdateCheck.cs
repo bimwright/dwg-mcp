@@ -2,24 +2,21 @@
 using System;
 using System.IO;
 using System.Net.Http;
-using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using Bimwright.Dwg.Plugin;
 
 namespace Bimwright.Dwg.Server;
 
 internal sealed class ReleaseUpdateCheck
 {
-    internal const int MaxResponseBytes = 256 * 1024;
-    private const string RepositoryApi = "https://api.github.com/repos/bimwright/dwg-mcp";
-    private static readonly HttpClient SharedClient = new(new HttpClientHandler { AllowAutoRedirect = false });
-    private readonly HttpClient _client;
+    internal const int MaxResponseBytes = ReleaseMetadataClient.MaxResponseBytes;
+    private readonly ReleaseMetadataClient _metadata;
 
-    internal ReleaseUpdateCheck() : this(SharedClient) { }
-    internal ReleaseUpdateCheck(HttpClient client) => _client = client;
+    internal ReleaseUpdateCheck(HttpClient? client = null) => _metadata = new ReleaseMetadataClient(Program.ServerVersion, client);
 
     internal static JObject NotChecked(JObject gateway, JObject? plugin) => new()
     {
@@ -42,29 +39,21 @@ internal sealed class ReleaseUpdateCheck
         }
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
         // One shared budget covers latest release, tag ref and (at most one) annotated tag.
-        timeout.CancelAfter(TimeSpan.FromSeconds(5));
+        timeout.CancelAfter(ReleaseMetadataClient.Timeout);
         try
         {
-            var release = await GetMetadataAsync("/releases/latest", timeout.Token);
-            if (release["draft"]?.Type != JTokenType.Boolean || release["prerelease"]?.Type != JTokenType.Boolean
-                || release.Value<bool>("draft") || release.Value<bool>("prerelease")
-                || release["tag_name"]?.Type != JTokenType.String)
-                throw new InvalidDataException("The API did not return a published stable release.");
-            var tag = release.Value<string>("tag_name")!;
-            var latest = tag.StartsWith('v') ? tag.Substring(1) : tag;
-            if (!TryVersion(latest, out var latestVersion))
-                throw new InvalidDataException("Release version is not a supported semantic version.");
+            var release = await _metadata.GetLatestAsync(timeout.Token);
             result["status"] = "checked";
-            result["latest_version"] = latest;
+            result["latest_version"] = release.VersionText;
             // Never forward API-provided URLs, release notes or target_commitish (which may be a branch).
-            result["release_url"] = "https://github.com/bimwright/dwg-mcp/releases/tag/" + tag;
+            result["release_url"] = release.Url;
             string? revision = null;
-            try { revision = await ReleaseRevisionAsync(tag, timeout.Token); }
+            try { revision = await ReleaseRevisionAsync(release.Tag, timeout.Token); }
             catch (OperationCanceledException) when (!ct.IsCancellationRequested) { result["build_reason"] = "timeout"; }
             catch (Exception ex) when (IsMetadataFailure(ex)) { result["build_reason"] = FailureReason(ex); }
             result["release_revision"] = revision;
-            Compare((JObject)result["components"]!["server"]!, gateway, latestVersion!, revision);
-            Compare((JObject)result["components"]!["plugin"]!, plugin, latestVersion!, revision);
+            Compare((JObject)result["components"]!["server"]!, gateway, release.Version, revision);
+            Compare((JObject)result["components"]!["plugin"]!, plugin, release.Version, revision);
             var server = (JObject)result["components"]!["server"]!;
             var addin = (JObject)result["components"]!["plugin"]!;
             // A missing plugin or an unmatched development build cannot yield a blanket "up to date".
@@ -174,7 +163,7 @@ internal sealed class ReleaseUpdateCheck
         var informational = HealthRuntimeInfo.Text(identity, "assembly_informational_version");
         var version = HealthRuntimeInfo.VersionOf(informational);
         component["comparison_reason"] = identity is null ? "runtime_identity_not_observed" : "runtime_version_unavailable";
-        if (version is null || !TryVersion(version.Split('-')[0], out var current)) return;
+        if (version is null || !StableRelease.TryVersion(version.Split('-')[0], out var current)) return;
         var older = latest > current || latest == current && version.Contains('-');
         component["version_status"] = older ? "older" : latest == current ? "match" : "newer";
         component["update_available"] = older; // A newer local version never recommends a downgrade.
@@ -190,12 +179,12 @@ internal sealed class ReleaseUpdateCheck
 
     private async Task<string> ReleaseRevisionAsync(string tag, CancellationToken ct)
     {
-        var reference = await GetMetadataAsync("/git/ref/tags/" + tag, ct);
+        var reference = await _metadata.GetAsync("/git/ref/tags/" + tag, ct);
         if (HealthRuntimeInfo.Text(reference, "ref") != "refs/tags/" + tag) throw new InvalidDataException("Unexpected tag reference.");
         var target = reference["object"] as JObject;
         if (HealthRuntimeInfo.Text(target, "type") == "tag")
         {
-            var tagObject = await GetMetadataAsync("/git/tags/" + ValidRevision(target), ct);
+            var tagObject = await _metadata.GetAsync("/git/tags/" + ValidRevision(target), ct);
             if (HealthRuntimeInfo.Text(tagObject, "tag") != tag) throw new InvalidDataException("Unexpected annotated tag.");
             target = tagObject["object"] as JObject;
         }
@@ -210,39 +199,8 @@ internal sealed class ReleaseUpdateCheck
             ? sha.ToLowerInvariant() : throw new InvalidDataException("Invalid tag revision.");
     }
 
-    private async Task<JObject> GetMetadataAsync(string path, CancellationToken ct)
-    {
-        using var request = new HttpRequestMessage(HttpMethod.Get, RepositoryApi + path);
-        request.Headers.UserAgent.ParseAdd("dwg-mcp/" + Program.ServerVersion);
-        request.Headers.Accept.ParseAdd("application/vnd.github+json");
-        request.Headers.Add("X-GitHub-Api-Version", "2022-11-28");
-        using var response = await _client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
-        if (!response.IsSuccessStatusCode) throw new HttpRequestException("Release API failed.", null, response.StatusCode);
-        if (response.Content.Headers.ContentLength > MaxResponseBytes) throw new InvalidDataException("Metadata exceeds the response limit.");
-        using var stream = await response.Content.ReadAsStreamAsync(ct);
-        using var bytes = new MemoryStream();
-        var buffer = new byte[4096];
-        int count;
-        while ((count = await stream.ReadAsync(buffer, ct)) > 0)
-        {
-            if (bytes.Length + count > MaxResponseBytes) throw new InvalidDataException("Metadata exceeds the response limit.");
-            bytes.Write(buffer, 0, count);
-        }
-        using var reader = new JsonTextReader(new StringReader(Encoding.UTF8.GetString(bytes.ToArray())))
-            { MaxDepth = 32, DateParseHandling = DateParseHandling.None };
-        var metadata = JObject.Load(reader, new JsonLoadSettings { DuplicatePropertyNameHandling = DuplicatePropertyNameHandling.Error });
-        if (reader.Read()) throw new InvalidDataException("Trailing metadata.");
-        return metadata;
-    }
-
     private static bool IsMetadataFailure(Exception ex) => ex is HttpRequestException or IOException or InvalidDataException or JsonException;
     private static string FailureReason(Exception ex) => ex is HttpRequestException http
         ? http.StatusCode is { } code ? "http_" + (int)code : "network_unavailable" : "invalid_release_metadata";
 
-    private static bool TryVersion(string value, out Version? version)
-    {
-        version = null;
-        return Regex.IsMatch(value, "\\A(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\z")
-            && Version.TryParse(value, out version);
-    }
 }

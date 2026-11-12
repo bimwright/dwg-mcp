@@ -4,6 +4,7 @@ using Bimwright.Dwg.Plugin.ToolCatalog;
 using Bimwright.Dwg.Plugin.Views;
 using Bimwright.Dwg.Plugin.Views.Settings;
 using Bimwright.Dwg.Plugin.Views.Toast;
+using Bimwright.Dwg.Plugin.Views.Update;
 
 [assembly: ExtensionApplication(typeof(Bimwright.Dwg.Plugin.App))]
 [assembly: CommandClass(typeof(Bimwright.Dwg.Plugin.App))]
@@ -25,6 +26,7 @@ namespace Bimwright.Dwg.Plugin
         // burst of activity instead of once per call.
         private static readonly System.TimeSpan ClientPresenceGap = System.TimeSpan.FromSeconds(30);
         private static SettingsWindow _settings;
+        private static ReleaseNoticeCoordinator _releaseNotice;
         private static HistoryWindow _history;
         private static System.Windows.Threading.Dispatcher _uiDispatcher;
 
@@ -55,6 +57,12 @@ namespace Bimwright.Dwg.Plugin
             LoadStartupPreference();
             try
             {
+                _releaseNotice = new ReleaseNoticeCoordinator();
+                _releaseNotice.SetEnabled(PluginSettings.LoadReleaseNotifications());
+            }
+            catch (System.Exception ex) { PluginLog.Debug("Release check could not start: " + ex.GetType().Name); }
+            try
+            {
                 InitializeToast();
                 if (!AutoStartTransport)
                 {
@@ -80,6 +88,8 @@ namespace Bimwright.Dwg.Plugin
             try { _server?.Stop(); } catch { }
             try { ToolCatalogStore.Clear(); } catch { }
             try { CloseSettings(); } catch { }
+            try { _releaseNotice?.SetEnabled(false); } catch { }
+            _releaseNotice = null;
             try { _history?.Close(); } catch { }
             _history = null;
             try { Reports.Acad.ReportsModule.Shutdown(); } catch { }
@@ -254,6 +264,7 @@ namespace Bimwright.Dwg.Plugin
             }
 
             var window = new SettingsWindow();
+            window.ReleaseNotificationsChanged += enabled => _releaseNotice?.SetEnabled(enabled);
             window.Closed += (_, __) =>
             {
                 if (ReferenceEquals(_settings, window))
@@ -358,6 +369,7 @@ namespace Bimwright.Dwg.Plugin
         /// </summary>
         private static void OnIdleToast(object sender, System.EventArgs args)
         {
+            try { _releaseNotice?.OnIdle(); } catch (System.Exception ex) { PluginLog.Debug("Release notice idle failed: " + ex.GetType().Name); }
             try { Reports.Acad.ReportsModule.OnIdle(); } catch (System.Exception ex) { PluginLog.Debug("Reports idle refresh failed: " + ex.Message); }
             var notifier = ToastNotifier;
             if (notifier == null)

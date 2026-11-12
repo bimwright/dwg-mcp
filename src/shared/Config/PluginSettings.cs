@@ -90,6 +90,20 @@ namespace Bimwright.Dwg.Plugin
             return ReadShowBranding(FilePath) ?? DefaultShowBranding;
         }
 
+        public static bool LoadReleaseNotifications()
+        {
+            try
+            {
+                if (!File.Exists(FilePath)) return true;
+                var value = JObject.Parse(File.ReadAllText(FilePath))["releaseNotificationsEnabled"];
+                return value?.Type != JTokenType.Boolean || value.Value<bool>();
+            }
+            catch { return false; }
+        }
+
+        public static bool SaveReleaseNotifications(bool enabled)
+            => TryUpdate(root => root["releaseNotificationsEnabled"] = enabled, "SaveReleaseNotifications");
+
         /// <summary>Persist only enableToast into the JSON file, preserving other keys.</summary>
         public static bool SaveEnableToast(bool enabled)
         {
