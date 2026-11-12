@@ -70,6 +70,8 @@ namespace Bimwright.Dwg.Plugin
         private bool blockUsageComplete = true;
         private long idsSeen, erasedSkipped, entitiesRead, entityReadFailed, spaceReadFailed, spaceEnumerationFailed;
         private long typeUnknown, layerUnknown, xrefUnknown, blockReferences, xrefInserts;
+        private bool PopulationComplete => entityReadFailed == 0 && spaceReadFailed == 0 && spaceEnumerationFailed == 0;
+        internal bool LayerCountsComplete => PopulationComplete && layerUnknown == 0;
 
         internal DrawingProfile(bool includeTextStats)
         {
@@ -93,15 +95,22 @@ namespace Bimwright.Dwg.Plugin
         internal void FailedEnumeration(Space space = null)
         { spaceEnumerationFailed++; if (space != null) space.Complete = false; }
         internal void FailedEntityRead(Space space)
-        { entityReadFailed++; space.Complete = false; }
+        { entityReadFailed++; if (space != null) space.Complete = false; }
         internal void AddUnusedBlock(string name, string handle) => unusedBlocks.Add((name, handle));
         internal void FailedBlockUsageRead() => blockUsageComplete = false;
 
-        internal void ReadEntity(Space space, string runtimeType, string layer, bool blockReference, bool? xref)
+        internal void ReadLayer(string layer)
+        {
+            if (string.IsNullOrEmpty(layer)) layerUnknown++; else Increment(layers, layer);
+        }
+
+        internal long ObservedLayerCount(string layer)
+            => !string.IsNullOrEmpty(layer) && layers.TryGetValue(layer, out var count) ? count : 0;
+
+        internal void ReadEntity(Space space, string runtimeType, bool blockReference, bool? xref)
         {
             entitiesRead++; space.Count++;
             if (string.IsNullOrEmpty(runtimeType)) typeUnknown++; else Increment(types, runtimeType);
-            if (string.IsNullOrEmpty(layer)) layerUnknown++; else Increment(layers, layer);
             if (!blockReference) return;
             blockReferences++;
             if (xref == null) xrefUnknown++;
@@ -113,7 +122,7 @@ namespace Bimwright.Dwg.Plugin
 
         internal JObject ToJson(string documentId, string snapshot, DrawingProfileOptions options)
         {
-            var populationComplete = entityReadFailed == 0 && spaceReadFailed == 0 && spaceEnumerationFailed == 0;
+            var populationComplete = PopulationComplete;
             var complete = populationComplete && typeUnknown == 0 && layerUnknown == 0 && xrefUnknown == 0;
             var orderedSpaces = spaces.OrderBy(s => s.Name, StringComparer.Ordinal).ThenBy(s => s.Id, StringComparer.Ordinal);
             var result = new JObject
@@ -150,8 +159,7 @@ namespace Bimwright.Dwg.Plugin
                         .Select(p => new JObject { ["name"] = p.Key, ["count"] = p.Value }), types.Count,
                         populationComplete && typeUnknown == 0, options),
                     ["layers"] = Table("layers", layers.OrderBy(p => p.Key, StringComparer.Ordinal)
-                        .Select(p => new JObject { ["name"] = p.Key, ["count"] = p.Value }), layers.Count,
-                        populationComplete && layerUnknown == 0, options),
+                        .Select(p => new JObject { ["name"] = p.Key, ["count"] = p.Value }), layers.Count, LayerCountsComplete, options),
                     ["spaces"] = Table("spaces", orderedSpaces.Select(s => new JObject
                     {
                         ["name"] = s.Name, ["kind"] = s.Kind, ["id"] = s.Id, ["record_name"] = s.RecordName,

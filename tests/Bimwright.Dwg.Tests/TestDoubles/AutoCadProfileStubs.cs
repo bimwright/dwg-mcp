@@ -29,6 +29,7 @@ public readonly struct ObjectId : IEquatable<ObjectId>
 {
     internal readonly ProfileObjectSlot Slot;
     internal ObjectId(ProfileObjectSlot slot) { Slot = slot; }
+    public static ObjectId Null => default;
     public bool IsNull => Slot == null;
     public bool IsErased => Slot?.Erased ?? false;
     public bool IsEffectivelyErased => IsErased || Slot?.Value.OwnerId.IsErased == true;
@@ -60,6 +61,7 @@ public partial class Database
     private TransactionManager profileTransactions;
     private long profileNextHandle = 1;
     public ObjectId BlockTableId { get; internal set; }
+    public ObjectId LayerTableId { get; internal set; }
     public TransactionManager TransactionManager => profileTransactions ??= new TransactionManager(this);
     internal List<ObjectId> ProfileOpenedIds { get; } = new();
     internal List<OpenMode> ProfileOpenModes { get; } = new();
@@ -110,6 +112,7 @@ public sealed class Transaction : IDisposable
         return id.Slot.Value;
     }
     public void Commit() { if (ended) throw new ObjectDisposedException(nameof(Transaction)); database.ProfileTransactionCommits++; }
+    public void AddNewlyCreatedDBObject(DBObject value, bool add) => throw new NotSupportedException("Read-only fixture.");
     public void Dispose()
     {
         if (ended) return;
@@ -143,6 +146,21 @@ public class SymbolTable : DBObject, IEnumerable
 }
 
 public class BlockTable : SymbolTable { }
+
+public class LayerTable : SymbolTable
+{
+    public bool Has(string name) => ProfileNames.ContainsKey(name);
+    public void UpgradeOpen() => throw new NotSupportedException("Read-only fixture.");
+    public ObjectId Add(LayerTableRecord value) => throw new NotSupportedException("Read-only fixture.");
+}
+
+public class LayerTableRecord : SymbolTableRecord
+{
+    public Autodesk.AutoCAD.Colors.Color Color { get; set; } = new Autodesk.AutoCAD.Colors.Color(7);
+    public bool IsLocked { get; set; }
+    public bool IsFrozen { get; set; }
+    public bool IsOff { get; set; }
+}
 
 public sealed class SymbolTableEnumerator : IEnumerator, IDisposable
 {

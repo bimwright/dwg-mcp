@@ -82,11 +82,25 @@ namespace Bimwright.Dwg.Server.Tools
 
         [McpServerTool(Name = "dwg_list_layers", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false), Description(
             "List layers in the current AutoCAD drawing with small scalar properties " +
-            "such as color index, locked/frozen/off state.")]
-        public static Task<string> ListLayers()
+            "such as color index, locked/frozen/off state. Opt in to entity_count for top-level model and layout entities, including zero for empty layers. " +
+            "If counts_complete=false, entity_count is null and observed_entity_count reports the entities that could be counted.")]
+        public static async Task<string> ListLayers(
+            [Description("Include entity counts for each layer across model space and paper-space layouts. Off by default. Block and xref contents are not expanded.")] bool include_counts = false)
         {
-            var request = new { };
-            return ToolGateway.LoggedCall("list_layers", request, request);
+            var request = new JObject();
+            if (include_counts) request["include_counts"] = true;
+            var json = await ToolGateway.LoggedCall("list_layers", request, request);
+            if (!include_counts) return json;
+
+            var response = JObject.Parse(json);
+            if (response.Value<bool?>("ok") != true
+                || (response["result"] as JObject)?["counts_complete"]?.Type == JTokenType.Boolean)
+                return json;
+
+            response["ok"] = false;
+            response["result"] = null;
+            response["error"] = "LAYER_COUNTS_UNSUPPORTED: the plugin did not return the requested layer counts. Update gateway and plugin together.";
+            return response.ToString(Formatting.None);
         }
 
         [McpServerTool(Name = "dwg_query_entities", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false), Description(

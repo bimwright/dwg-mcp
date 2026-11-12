@@ -4,12 +4,13 @@ using System.Linq;
 using System.Reflection;
 using Autodesk.AutoCAD.Colors;
 using Autodesk.AutoCAD.DatabaseServices;
+using Newtonsoft.Json.Linq;
 
 namespace Bimwright.Dwg.Plugin.Cad
 {
     internal static class CadLayerService
     {
-        internal static object[] ListLayers(Database db)
+        internal static object[] ListLayers(Database db, DrawingProfile counts = null)
         {
             if (db == null)
             {
@@ -23,14 +24,25 @@ namespace Bimwright.Dwg.Plugin.Cad
                 foreach (ObjectId layerId in layerTable)
                 {
                     var layer = (LayerTableRecord)tx.GetObject(layerId, OpenMode.ForRead);
-                    layers.Add(new
+                    var metadata = new
                     {
                         name = layer.Name,
                         color_index = (int)layer.Color.ColorIndex,
                         is_locked = layer.IsLocked,
                         is_frozen = layer.IsFrozen,
                         is_off = layer.IsOff
-                    });
+                    };
+                    if (counts == null)
+                    {
+                        layers.Add(metadata);
+                        continue;
+                    }
+
+                    var row = JObject.FromObject(metadata);
+                    var observed = counts.ObservedLayerCount(metadata.name);
+                    row["entity_count"] = counts.LayerCountsComplete ? new JValue(observed) : JValue.CreateNull();
+                    if (!counts.LayerCountsComplete) row["observed_entity_count"] = observed;
+                    layers.Add(row);
                 }
 
                 tx.Commit();

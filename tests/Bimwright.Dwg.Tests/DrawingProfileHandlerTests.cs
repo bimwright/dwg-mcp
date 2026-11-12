@@ -392,6 +392,47 @@ public sealed class DrawingProfileHandlerTests : IDisposable
         if (omitted > 0) Assert.False(boundedProfile["output"].Value<bool>("complete"));
     }
 
+    [Fact]
+    public void List_layers_counts_match_profile_and_incomplete_reads_do_not_claim_zeros()
+    {
+        var fixture = new Fixture(18, 3);
+        var layerTable = new LayerTable();
+        fixture.Database.LayerTableId = fixture.Database.ProfileAdd(layerTable);
+        foreach (var name in fixture.ExpectedLayers.Keys.Append("Empty"))
+        {
+            var id = fixture.Database.ProfileAdd(new LayerTableRecord { Name = name });
+            layerTable.ProfileRecords.Add(id);
+            layerTable.ProfileNames.Add(name, id);
+        }
+        fixture.EntityIds[0].Slot.Erased = true;
+
+        JObject List(bool includeCounts)
+        {
+            var result = new ListLayersHandler().Execute(fixture.Document, new JObject { ["include_counts"] = includeCounts });
+            Assert.True(result.Ok, result.Error);
+            return JObject.FromObject(result.Result);
+        }
+
+        var legacy = List(false);
+        Assert.Null(legacy["counts_complete"]);
+        Assert.All(legacy["layers"], row => Assert.Null(row["entity_count"]));
+        Assert.Equal(0, fixture.Blocks.ProfileEnumerationStarts);
+
+        var counted = List(true);
+        Assert.True(counted.Value<bool>("counts_complete"));
+        Assert.Equal("model_and_layout_top_level", counted.Value<string>("count_scope"));
+        var counts = counted["layers"].ToDictionary(row => row.Value<string>("name"), row => row.Value<long>("entity_count"));
+        Assert.Equal(0, counts["Empty"]);
+        Assert.Equal(17, counts.Values.Sum());
+        Assert.Equal(Histogram(Inspect(fixture), "layers").ToArray(), counts.Where(pair => pair.Value > 0).OrderBy(pair => pair.Key, StringComparer.Ordinal).ToArray());
+
+        fixture.EntityIds[1].Slot.OpenFailure = new InvalidOperationException("simulated read failure");
+        var partial = List(true);
+        Assert.False(partial.Value<bool>("counts_complete"));
+        Assert.All(partial["layers"], row => Assert.Equal(JTokenType.Null, row["entity_count"].Type));
+        Assert.Equal(16, partial["layers"].Sum(row => row.Value<long>("observed_entity_count")));
+    }
+
     private static CommandResult Execute(Fixture fixture, JObject parameters = null)
         => new DrawingProfileHandler().Execute(fixture.Document, parameters ?? new JObject());
 

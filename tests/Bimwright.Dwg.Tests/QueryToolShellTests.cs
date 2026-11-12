@@ -99,6 +99,14 @@ namespace Bimwright.Dwg.Tests
         }
 
         [Fact]
+        public async Task List_layers_forwards_opt_in_counts()
+        {
+            var sent = await Capture.Send(() => QueryTools.ListLayers(include_counts: true));
+            Assert.Equal("list_layers", sent.Command);
+            Assert.True(sent.Json().Value<bool>("include_counts"));
+        }
+
+        [Fact]
         public async Task Get_entity_properties_rejects_blank_handles_without_sending()
         {
             var json = await Capture.Local(() => QueryTools.GetEntityProperties("  "));

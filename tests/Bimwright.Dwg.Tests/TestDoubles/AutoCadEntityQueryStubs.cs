@@ -4,6 +4,18 @@ using System;
 using System.Collections.Generic;
 using Autodesk.AutoCAD.Geometry;
 
+namespace Autodesk.AutoCAD.Colors
+{
+    public enum ColorMethod { ByAci }
+
+    public sealed class Color
+    {
+        internal Color(short colorIndex) => ColorIndex = colorIndex;
+        public short ColorIndex { get; }
+        public static Color FromColorIndex(ColorMethod method, short index) => new Color(index);
+    }
+}
+
 namespace Autodesk.AutoCAD.Geometry
 {
     public partial struct Point3d

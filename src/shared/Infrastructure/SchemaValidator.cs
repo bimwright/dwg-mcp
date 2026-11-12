@@ -174,7 +174,8 @@ namespace Bimwright.Dwg.Plugin
             SchemaProperty.Required("handles", JTokenType.Array),
             SchemaProperty.Optional("include_geometry", JTokenType.Boolean));
 
-        public static readonly CommandSchema ListLayers = CommandSchema.Empty;
+        public static readonly CommandSchema ListLayers = CommandSchema.Object(
+            SchemaProperty.Optional("include_counts", JTokenType.Boolean));
 
         public static readonly CommandSchema QueryEntities = CommandSchema.Object(
             SchemaProperty.Optional("entity_type", JTokenType.String),

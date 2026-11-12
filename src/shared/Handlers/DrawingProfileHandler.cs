@@ -49,7 +49,10 @@ namespace Bimwright.Dwg.Plugin.Handlers
             { return CommandResult.Fail("Could not inspect the active drawing: " + ErrorSanitizer.Sanitize(ex.Message)); }
         }
 
-        private static DrawingProfile Collect(Database database, DrawingProfileOptions options)
+        internal static DrawingProfile CollectLayerCounts(Database database)
+            => Collect(database, DrawingProfileOptions.Create(section: "layers"), layersOnly: true);
+
+        private static DrawingProfile Collect(Database database, DrawingProfileOptions options, bool layersOnly = false)
         {
             var profile = new DrawingProfile(options.IncludeTextStats);
             var textStats = profile.TextStats;
@@ -79,33 +82,7 @@ namespace Bimwright.Dwg.Plugin.Handlers
                             profile.FailedBlockUsageRead();
                             continue;
                         }
-                        var metadataComplete = true;
-                        string id = null, recordName = null, layoutName = null;
-                        try
-                        {
-                            id = record.Handle.ToString();
-                            if (string.IsNullOrEmpty(id)) throw new InvalidOperationException("Space handle is unavailable.");
-                        }
-                        catch { id = null; metadataComplete = false; profile.FailedSpaceRead(); }
-                        try
-                        {
-                            recordName = record.Name;
-                            if (string.IsNullOrEmpty(recordName)) throw new InvalidOperationException("Space record name is unavailable.");
-                        }
-                        catch { recordName = null; metadataComplete = false; profile.FailedSpaceRead(); }
-                        var model = recordId == modelId;
-                        if (!model)
-                        {
-                            try
-                            {
-                                layoutName = ((Layout)transaction.GetObject(record.LayoutId, OpenMode.ForRead)).LayoutName;
-                                if (string.IsNullOrEmpty(layoutName)) throw new InvalidOperationException("Layout name is unavailable.");
-                            }
-                            catch { layoutName = null; metadataComplete = false; profile.FailedSpaceRead(); }
-                        }
-                        var space = profile.AddSpace(id, model ? "Model" : layoutName ?? recordName,
-                            model ? "model" : "layout", recordName, layoutName,
-                            model ? "model" : layoutName == null ? "block_table_record" : "layout", metadataComplete);
+                        var space = layersOnly ? null : DescribeSpace(record, recordId == modelId, transaction, profile);
                         try
                         {
                             foreach (ObjectId entityId in record)
@@ -119,9 +96,13 @@ namespace Bimwright.Dwg.Plugin.Handlers
                                     if (entity == null) throw new InvalidOperationException("Layout record contains a non-entity object.");
                                 }
                                 catch { profile.FailedEntityRead(space); continue; }
-                                string type = null, layer = null;
-                                try { type = entity.GetType().FullName; } catch { }
+                                string layer = null;
                                 try { layer = entity.Layer; } catch { }
+                                profile.ReadLayer(layer);
+                                if (layersOnly) continue;
+
+                                string type = null;
+                                try { type = entity.GetType().FullName; } catch { }
                                 var block = entity as BlockReference;
                                 bool? xref = null;
                                 if (block != null)
@@ -133,7 +114,7 @@ namespace Bimwright.Dwg.Plugin.Handlers
                                     }
                                     catch { }
                                 }
-                                profile.ReadEntity(space, type, layer, block != null, xref);
+                                profile.ReadEntity(space, type, block != null, xref);
                                 if (textStats != null) ReadTextStats(entity, textStats);
                             }
                         }
@@ -148,6 +129,36 @@ namespace Bimwright.Dwg.Plugin.Handlers
                 profile.FailedBlockUsageRead();
             }
             return profile;
+        }
+
+        private static DrawingProfile.Space DescribeSpace(BlockTableRecord record, bool model, Transaction transaction, DrawingProfile profile)
+        {
+            var metadataComplete = true;
+            string id = null, recordName = null, layoutName = null;
+            try
+            {
+                id = record.Handle.ToString();
+                if (string.IsNullOrEmpty(id)) throw new InvalidOperationException("Space handle is unavailable.");
+            }
+            catch { id = null; metadataComplete = false; profile.FailedSpaceRead(); }
+            try
+            {
+                recordName = record.Name;
+                if (string.IsNullOrEmpty(recordName)) throw new InvalidOperationException("Space record name is unavailable.");
+            }
+            catch { recordName = null; metadataComplete = false; profile.FailedSpaceRead(); }
+            if (!model)
+            {
+                try
+                {
+                    layoutName = ((Layout)transaction.GetObject(record.LayoutId, OpenMode.ForRead)).LayoutName;
+                    if (string.IsNullOrEmpty(layoutName)) throw new InvalidOperationException("Layout name is unavailable.");
+                }
+                catch { layoutName = null; metadataComplete = false; profile.FailedSpaceRead(); }
+            }
+            return profile.AddSpace(id, model ? "Model" : layoutName ?? recordName,
+                model ? "model" : "layout", recordName, layoutName,
+                model ? "model" : layoutName == null ? "block_table_record" : "layout", metadataComplete);
         }
 
         private static void ReadUnusedBlock(BlockTableRecord record, Transaction transaction, DrawingProfile profile)

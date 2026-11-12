@@ -37,6 +37,15 @@ namespace Bimwright.Dwg.Tests
             AssertInvalidField("get_drawing_profile", JObject.Parse("{\"include_text_stats\":\"true\"}"), schema, "include_text_stats");
             Assert.False(TargetContract.IsWrite("get_drawing_profile"));
         }
+
+        [Fact]
+        public void List_layers_accepts_only_a_boolean_count_option()
+        {
+            var schema = GetCommandSchema("ListLayers");
+            AssertValid("list_layers", null, schema);
+            AssertValid("list_layers", JObject.Parse("{\"include_counts\":true}"), schema);
+            AssertInvalidField("list_layers", JObject.Parse("{\"include_counts\":\"true\"}"), schema, "include_counts");
+        }
         [Fact]
         public void Validate_QueryEntitiesAcceptsOptionalFilters()
         {
