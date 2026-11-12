@@ -20,7 +20,8 @@ namespace Bimwright.Dwg.Server
         // Tests assign this to record the wire call without opening a socket.
         internal static Func<string, object, Task<McpResponse>> SendOverride;
 
-        internal static async Task<string> LoggedCall(string toolName, object inputParams, object pluginParams)
+        internal static async Task<string> LoggedCall(string toolName, object inputParams, object pluginParams,
+            string reportCommand = null)
         {
             if (ReadOnlyPolicy.IsBlocked(toolName, ServerState.Config))
                 return JsonConvert.SerializeObject(new McpResponse { Ok = false, Error = ServerState.ReadOnlyMessage(toolName) });
@@ -30,7 +31,7 @@ namespace Bimwright.Dwg.Server
 
             var sendOverride = SendOverride;
             if (sendOverride != null)
-                return JsonConvert.SerializeObject(await sendOverride(toolName, pluginParams));
+                return AgentReportReminder.Serialize(reportCommand ?? toolName, await sendOverride(toolName, pluginParams));
 
             var requestId = Guid.NewGuid().ToString("N");
             var sw = Stopwatch.StartNew();
@@ -42,7 +43,7 @@ namespace Bimwright.Dwg.Server
                 var resp = await Client.SendBoundAsync(toolName, pluginParams, requestId, call);
                 sw.Stop();
                 ServerLogger.Default.LogFinish(requestId, toolName, resp.Ok, sw.ElapsedMilliseconds, resp.Error);
-                return JsonConvert.SerializeObject(resp);
+                return AgentReportReminder.Serialize(reportCommand ?? toolName, resp);
             }
             catch (Exception ex)
             {

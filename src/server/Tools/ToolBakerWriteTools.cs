@@ -48,7 +48,8 @@ namespace Bimwright.Dwg.Server.Tools
             return ToolGateway.LoggedCall(
                 "run_baked_tool",
                 new { name, @params = parsed },
-                new { name, @params = parsed, tool_record = JObject.FromObject(record) });
+                new { name, @params = parsed, tool_record = JObject.FromObject(record) },
+                reportCommand: record.Source == "macro" ? "batch_execute" : record.HandlerTool);
         }
 
         [McpServerTool(Name = "dwg_accept_bake_suggestion", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false), Description(

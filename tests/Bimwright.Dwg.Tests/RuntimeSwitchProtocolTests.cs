@@ -76,6 +76,9 @@ namespace Bimwright.Dwg.Tests
                 Assert.Equal(count, names.Length);
                 Assert.Equal(code, names.Contains("dwg_send_code"));
                 Assert.Equal(lisp, names.Contains("dwg_run_lisp"));
+                var instructions = initialize["result"].Value<string>("instructions");
+                Assert.Equal(names.Contains("dwg_report_task_result"),
+                    instructions.Contains(ServerInstructions.Reporting, StringComparison.Ordinal));
                 var config = DwgMcpConfig.Load(flags.Split(' ', StringSplitOptions.RemoveEmptyEntries),
                     Path.Combine(root, "absent-config.json"), _ => null);
                 var previousConfig = ServerState.Config;

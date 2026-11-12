@@ -20,6 +20,7 @@ namespace Bimwright.Dwg.Server
                 WebsiteUrl = "https://github.com/bimwright/dwg-mcp"
             };
             opts.ServerInstructions = ServerInstructions.Text;
+            if (AgentReportReminder.Enabled) opts.ServerInstructions += "\n\n" + ServerInstructions.Reporting;
         }
     }
 }

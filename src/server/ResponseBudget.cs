@@ -14,6 +14,8 @@ namespace Bimwright.Dwg.Server;
 /// <summary>Size of the final MCP result, including content escaping and metadata.</summary>
 internal static class ResponseBudget
 {
+    private static readonly JsonSerializerSettings ReceiptJson = new() { DateParseHandling = DateParseHandling.None };
+
     internal static int Measure(CallToolResult result)
         => System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(result, McpJsonUtilities.DefaultOptions).Length;
 
@@ -68,6 +70,21 @@ internal static class ResponseBudget
         config.ValidateResponseBudget();
         var bytes = Measure(result);
         var limit = config.ResponseBudgetBytesOrDefault;
+        JObject data = null;
+        JToken reminder = null;
+        if (bytes > limit)
+        {
+            var text = result.Content?.OfType<TextContentBlock>().FirstOrDefault();
+            data = Parse(text?.Text);
+            if (data?["_report"]?.Type == JTokenType.String && data.Value<string>("_report") == AgentReportReminder.Text)
+            {
+                // An optional reminder cannot cause an otherwise deliverable result to spill.
+                reminder = data["_report"];
+                data.Remove("_report");
+                text.Text = data.ToString(Formatting.None);
+                bytes = Measure(result);
+            }
+        }
         if (bytes < config.ResponseWarnBytesOrDefault) return result;
         if (bytes <= limit)
         {
@@ -86,7 +103,6 @@ internal static class ResponseBudget
 
         // Output delivery is limited AFTER the tool returns. Neither annotation nor
         // outer ok proves native success, rollback, or absence of earlier effects.
-        var data = Parse(result.Content?.OfType<TextContentBlock>().FirstOrDefault()?.Text);
         var artifact = OutputArtifactStore.Write(System.Text.Json.JsonSerializer.Serialize(result, McpJsonUtilities.DefaultOptions), "mcp_tool_result");
         var budgetInfo = new JObject
         {
@@ -125,7 +141,7 @@ internal static class ResponseBudget
                 IsError = result.IsError,
                 Content = new[] { new TextContentBlock { Text = receipt.ToString(Formatting.None) } }
             };
-            if (Measure(compact) <= limit) return compact;
+            if (Measure(compact) <= limit) return AddReportReminderIfFits(compact, receipt, reminder, limit);
         }
         // Arbitrary diagnostic/numeric values must never turn a completed call into
         // a generic SDK exception. This fixed vocabulary fits the 4 KiB minimum.
@@ -152,7 +168,17 @@ internal static class ResponseBudget
             finalBytes = Measure(fallback);
         }
         System.Diagnostics.Debug.Assert(finalBytes <= limit);
-        return fallback;
+        return AddReportReminderIfFits(fallback, minimal, reminder, limit);
+    }
+
+    private static CallToolResult AddReportReminderIfFits(CallToolResult result, JObject receipt, JToken reminder, int limit)
+    {
+        if (reminder == null) return result;
+        var original = result.Content;
+        receipt["_report"] = reminder;
+        result.Content = new[] { new TextContentBlock { Text = receipt.ToString(Formatting.None) } };
+        if (Measure(result) > limit) result.Content = original;
+        return result;
     }
 
     // Retain only observed envelope metadata. Never use request/binding data or
@@ -196,8 +222,8 @@ internal static class ResponseBudget
 
     private static JObject Parse(string text)
     {
-        try { return JToken.Parse(text ?? "") as JObject; }
-        catch (JsonReaderException) { return null; }
+        try { return JsonConvert.DeserializeObject<JObject>(text ?? "", ReceiptJson); }
+        catch (JsonException) { return null; }
     }
 
     private static JObject Facts(JObject data, int textLimit)
