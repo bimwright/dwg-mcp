@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Autodesk.AutoCAD.DatabaseServices;
+using Newtonsoft.Json.Linq;
 
 namespace Bimwright.Dwg.Plugin.Cad
 {
@@ -85,7 +86,7 @@ namespace Bimwright.Dwg.Plugin.Cad
             return new CadEntityQueryResult(entities, handles);
         }
 
-        internal static int CountEntities(Database db, CadEntityQueryOptions options)
+        internal static int CountEntities(Database db, CadEntityQueryOptions options, CadEntityTypeHint typeHint)
         {
             if (db == null)
             {
@@ -100,11 +101,11 @@ namespace Bimwright.Dwg.Plugin.Cad
                 var modelSpace = OpenModelSpace(db, tx);
                 foreach (ObjectId objectId in modelSpace)
                 {
+                    if (objectId.IsErased) continue;
                     var entity = tx.GetObject(objectId, OpenMode.ForRead) as Entity;
-                    if (entity != null && Matches(entity, options))
-                    {
-                        count++;
-                    }
+                    if (entity == null) continue;
+                    if (Matches(entity, options)) count++;
+                    else if (count == 0) typeHint.Observe(entity.GetType());
                 }
 
                 tx.Commit();
@@ -113,7 +114,7 @@ namespace Bimwright.Dwg.Plugin.Cad
             return count;
         }
 
-        internal static IReadOnlyList<string> QueryHandles(Database db, CadEntityQueryOptions options)
+        internal static IReadOnlyList<string> QueryHandles(Database db, CadEntityQueryOptions options, CadEntityTypeHint typeHint = null)
         {
             if (db == null)
             {
@@ -134,9 +135,12 @@ namespace Bimwright.Dwg.Plugin.Cad
                         break;
                     }
 
+                    if (objectId.IsErased) continue;
                     var entity = tx.GetObject(objectId, OpenMode.ForRead) as Entity;
-                    if (entity == null || !Matches(entity, options))
+                    if (entity == null) continue;
+                    if (!Matches(entity, options))
                     {
+                        if (handles.Count == 0) typeHint?.Observe(entity.GetType());
                         continue;
                     }
 
@@ -196,5 +200,35 @@ namespace Bimwright.Dwg.Plugin.Cad
 
             return true;
         }
+    }
+
+    internal sealed class CadEntityTypeHint
+    {
+        private const int Limit = 20;
+        private readonly SortedSet<string> types = new SortedSet<string>(StringComparer.Ordinal);
+        private bool truncated;
+
+        internal void Observe(Type type)
+        {
+            var name = type.FullName ?? type.Name;
+            if (types.Count == Limit && StringComparer.Ordinal.Compare(name, types.Max) > 0)
+            {
+                truncated = true;
+                return;
+            }
+            if (types.Add(name) && types.Count > Limit)
+            {
+                types.Remove(types.Max);
+                truncated = true;
+            }
+        }
+
+        internal JObject ToJson(string space) => new JObject
+        {
+            ["space"] = space,
+            ["available_types"] = new JArray(types),
+            ["types_truncated"] = truncated,
+            ["message"] = "These are exact managed types observed among top-level entities in the space before applying filters."
+        };
     }
 }

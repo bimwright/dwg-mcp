@@ -27,6 +27,7 @@ namespace Bimwright.Dwg.Plugin.Cad
             var after = options.Cursor == null ? 0UL : EntityQueryCursor.Read(options.Cursor, snapshot, options.Fingerprint);
             var database = document.Database;
             var stats = new ScanStats();
+            var typeHint = countOnly ? new CadEntityTypeHint() : null;
             var candidates = new SortedList<ulong, Candidate>();
             var rows = new JArray();
             var checkpoints = new JArray();
@@ -53,6 +54,7 @@ namespace Bimwright.Dwg.Plugin.Cad
                             stats.EntitiesRead++;
                         }
                         catch { stats.EntityReadFailed++; continue; }
+                        if (stats.Matched == 0) typeHint?.Observe(entity.GetType());
                         try
                         {
                             if (!Matches(entity, options)) continue;
@@ -89,6 +91,8 @@ namespace Bimwright.Dwg.Plugin.Cad
                 catch { stats.EnumerationFailed++; }
 
                 result = Header(database, options, snapshot, DocumentTargetGuard.Id(document), scope, stats, countOnly);
+                if (typeHint != null && stats.MembershipComplete && stats.Matched == 0)
+                    result["hint"] = typeHint.ToJson(options.Space);
                 if (Encoding.UTF8.GetByteCount(result.ToString(Formatting.None)) > MaxRawBytes - 2048)
                     throw new InvalidOperationException("QUERY_OUTPUT_TOO_LARGE: query metadata exceeds the host candidate budget; shorten filter or layout names.");
                 if (!countOnly)
@@ -138,10 +142,10 @@ namespace Bimwright.Dwg.Plugin.Cad
                 ["source"] = new JObject { ["api"] = "AutoCAD managed DatabaseServices", ["method"] = "ForRead top-level BlockTableRecord enumeration",
                     ["counting"] = "full_enumeration", ["sampling"] = false, ["estimated"] = false,
                     ["bbox_basis"] = "WCS_3D_axis_aligned_GeometricExtents_inclusive",
-                    ["type_filter_basis"] = "managed_Name_or_FullName_with_TEXT_INSERT_LWPOLYLINE_aliases" }
+                    ["type_filter_basis"] = "managed_Name_or_FullName_with_AcDb_TEXT_INSERT_LWPOLYLINE_aliases" }
             };
             if (options.EntityType != null && stats.Matched == 0)
-                result["filter_hint"] = "Use an exact managed Name/FullName or TEXT, INSERT, LWPOLYLINE; inspect dwg_get_drawing_profile for observed types. No type family is inferred.";
+                result["filter_hint"] = "Use an exact managed Name/FullName or an AcDb, TEXT, INSERT, or LWPOLYLINE alias; inspect dwg_get_drawing_profile for observed types.";
             if (countOnly)
             {
                 result["query_count_version"] = 1;

@@ -112,7 +112,7 @@ namespace Bimwright.Dwg.Server.Tools
             "Requires matching plugin support; unconfirmed legacy replies are refused. Call directly, outside batches, for paged reads. " +
             "Use fields=[\"handle\"] for paged spatial handles without changing selection.")]
         public static Task<string> QueryEntities(
-            [Description("Optional managed type name, case-insensitive. TEXT/INSERT/LWPOLYLINE aliases are supported. Exact uppercase POLYLINE is refused; use Polyline/LWPOLYLINE, Polyline2d or Polyline3d explicitly.")] string entity_type = null,
+            [Description("Optional exact managed type name or AcDb, TEXT, INSERT, or LWPOLYLINE alias, case-insensitive. Exact uppercase POLYLINE is refused; use Polyline/LWPOLYLINE, Polyline2d or Polyline3d explicitly.")] string entity_type = null,
             [Description("Optional layer name filter. Case-insensitive.")] string layer = null,
             [Description("Optional ACI color index filter. Valid range: 1-256.")] int? color_index = null,
             [Description("Optional maximum number of returned entities. The plugin clamps this to 1-5000.")] int? limit = null,
@@ -150,9 +150,10 @@ namespace Bimwright.Dwg.Server.Tools
             "Count AutoCAD entities matching type/layer/color; legacy calls read model space. " +
             "Optional bbox/space use the same inclusive WCS extents filter as paged query, report INSUNITS and unknown extents separately. " +
             "Incomplete spatial counts return null count/exact_match_count plus observed matched_count; no estimated count is invented. " +
+            "An exact zero returns hint.available_types with up to 20 managed types observed in the whole queried space before applying filters. " +
             "Spatial counts require matching plugin support and direct calls outside batches.")]
         public static Task<string> CountEntities(
-            [Description("Optional managed type name, case-insensitive. TEXT/INSERT/LWPOLYLINE aliases are supported. Exact uppercase POLYLINE is refused; use Polyline/LWPOLYLINE, Polyline2d or Polyline3d explicitly.")] string entity_type = null,
+            [Description("Optional exact managed type name or AcDb, TEXT, INSERT, or LWPOLYLINE alias, case-insensitive. Exact uppercase POLYLINE is refused; use Polyline/LWPOLYLINE, Polyline2d or Polyline3d explicitly.")] string entity_type = null,
             [Description("Optional layer name filter. Case-insensitive.")] string layer = null,
             [Description("Optional ACI color index filter. Valid range: 1-256.")] int? color_index = null,
             [Description("JSON object {min:[x,y,z],max:[x,y,z]} in WCS drawing units.")] string bbox = null,
@@ -176,7 +177,7 @@ namespace Bimwright.Dwg.Server.Tools
             "This does not change AutoCAD pickfirst selection.")]
         public static Task<string> SelectByLayer(
             [Description("Required layer name filter. Case-insensitive.")] string layer,
-            [Description("Optional managed type name, case-insensitive. Exact uppercase POLYLINE is refused; use Polyline/LWPOLYLINE, Polyline2d or Polyline3d explicitly.")] string entity_type = null,
+            [Description("Optional exact managed type name or AcDb, TEXT, INSERT, or LWPOLYLINE alias, case-insensitive. Exact uppercase POLYLINE is refused; use Polyline/LWPOLYLINE, Polyline2d or Polyline3d explicitly.")] string entity_type = null,
             [Description("Optional ACI color index filter. Valid range: 1-256.")] int? color_index = null,
             [Description("Optional maximum number of returned handles. The plugin clamps this to 1-5000.")] int? limit = null)
         {
@@ -188,9 +189,10 @@ namespace Bimwright.Dwg.Server.Tools
 
         [McpServerTool(Name = "dwg_select_by_type", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false), Description(
             "Return handles for model-space entities of a required type, with optional layer/color filters. " +
+            "An empty result returns hint.available_types with up to 20 managed types observed in model space before applying filters. " +
             "This does not change AutoCAD pickfirst selection.")]
         public static Task<string> SelectByType(
-            [Description("Required managed type name, case-insensitive. TEXT/INSERT/LWPOLYLINE aliases are supported. Exact uppercase POLYLINE is refused; use Polyline/LWPOLYLINE, Polyline2d or Polyline3d explicitly.")] string entity_type,
+            [Description("Required exact managed type name or AcDb, TEXT, INSERT, or LWPOLYLINE alias, case-insensitive. Exact uppercase POLYLINE is refused; use Polyline/LWPOLYLINE, Polyline2d or Polyline3d explicitly.")] string entity_type,
             [Description("Optional layer name filter. Case-insensitive.")] string layer = null,
             [Description("Optional ACI color index filter. Valid range: 1-256.")] int? color_index = null,
             [Description("Optional maximum number of returned handles. The plugin clamps this to 1-5000.")] int? limit = null)
@@ -305,7 +307,8 @@ namespace Bimwright.Dwg.Server.Tools
             var request = new JObject();
             if (!string.IsNullOrWhiteSpace(entityType))
             {
-                request["entity_type"] = entityType;
+                request["entity_type"] = entityType.TrimStart().StartsWith("AcDb", StringComparison.OrdinalIgnoreCase)
+                    ? EntityQueryOptions.NormalizeType(entityType) : entityType;
             }
 
             if (!string.IsNullOrWhiteSpace(layer))

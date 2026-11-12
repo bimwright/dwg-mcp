@@ -7,6 +7,7 @@ using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.Geometry;
 using Bimwright.Dwg.Plugin;
+using Bimwright.Dwg.Plugin.Cad;
 using Bimwright.Dwg.Plugin.Handlers;
 using Bimwright.Dwg.Plugin.View;
 using Bimwright.Dwg.Server;
@@ -374,6 +375,66 @@ public sealed class EntityQueryPageTests : IDisposable
     }
 
     private static JObject Paged(params string[] fields) => new() { ["paged"] = true, ["fields"] = new JArray(fields) };
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Legacy_empty_reads_hint_only_live_model_space_types(bool select)
+    {
+        var f = new Fixture();
+        f.Add(new Circle(), 0x10);
+        f.Add(new DBText(), 0x11);
+        var erased = f.Add(new MText(), 0x12);
+        erased.ObjectId.Slot.Erased = true;
+        var layout = f.Add(new Line(), 0x13, space: 1);
+        IAcadCommand handler = select ? new SelectByTypeHandler() : new CountEntitiesHandler();
+
+        var request = new JObject { ["entity_type"] = "AcDbText", ["layer"] = "missing" };
+        var empty = Body(handler.Execute(f.Document, request));
+        Assert.Equal(0, empty.Value<int>("count"));
+        Assert.Equal("model", empty["hint"].Value<string>("space"));
+        Assert.Equal(new[] { typeof(Circle).FullName, typeof(DBText).FullName }, empty["hint"]["available_types"].Values<string>());
+        Assert.DoesNotContain(erased.ObjectId, f.Database.ProfileOpenedIds);
+        Assert.DoesNotContain(layout.ObjectId, f.Database.ProfileOpenedIds);
+        Assert.Equal(1, f.Spaces[0].ProfileEnumerationStarts);
+
+        request.Remove("layer");
+        var match = Body(handler.Execute(f.Document, request));
+        Assert.Equal(1, match.Value<int>("count"));
+        Assert.Null(match["hint"]);
+    }
+
+    [Fact]
+    public void Spatial_zero_hint_describes_the_named_layout_before_bbox_and_requires_an_exact_zero()
+    {
+        var f = new Fixture();
+        f.Add(new Line(), 0x10);
+        var text = f.Add(new DBText(), 0x11, space: 1);
+        f.Add(new MText(), 0x12, space: 1);
+        f.Add(new Circle(), 0x13, space: 2);
+        var request = new JObject { ["entity_type"] = "AcDbText", ["space"] = "layout:Layout A", ["bbox"] = Box(10, 10, 10, 20, 20, 20) };
+        var empty = Count(f, request);
+        Assert.Equal(0, empty.Value<int>("count"));
+        Assert.Equal("layout:Layout A", empty["hint"].Value<string>("space"));
+        Assert.Equal(new[] { typeof(DBText).FullName, typeof(MText).FullName }, empty["hint"]["available_types"].Values<string>());
+
+        text.ObjectId.Slot.OpenFailure = new InvalidOperationException("unavailable entity");
+        var incomplete = Count(f, request);
+        Assert.Equal(JTokenType.Null, incomplete["count"].Type);
+        Assert.Null(incomplete["hint"]);
+    }
+
+    [Fact]
+    public void Type_hint_retains_twenty_distinct_names_in_stable_order()
+    {
+        var types = Enumerable.Range(1, 24).Select(rank => typeof(Line).MakeArrayType(rank)).ToArray();
+        var hint = new CadEntityTypeHint();
+        foreach (var type in Enumerable.Reverse(types).Concat(types)) hint.Observe(type);
+        var result = hint.ToJson("model");
+        Assert.Equal(types.Select(type => type.FullName).OrderBy(name => name, StringComparer.Ordinal).Take(20),
+            result["available_types"].Values<string>());
+        Assert.True(result.Value<bool>("types_truncated"));
+    }
+
     private static JObject Box(double x0, double y0, double z0, double x1, double y1, double z1)
         => new() { ["min"] = new JArray(x0, y0, z0), ["max"] = new JArray(x1, y1, z1) };
     private static CommandResult Execute(Fixture f, JObject request) => new QueryEntitiesHandler().Execute(f.Document, request);
