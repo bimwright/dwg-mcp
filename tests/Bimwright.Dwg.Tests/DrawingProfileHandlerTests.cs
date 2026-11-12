@@ -336,6 +336,62 @@ public sealed class DrawingProfileHandlerTests : IDisposable
         Assert.Null(((JObject)Execute(fixture, new JObject { ["space"] = "model" }).Result)["unused_blocks"]);
     }
 
+    [Fact]
+    public void Text_stats_are_opt_in_scoped_and_bounded_without_losing_counts()
+    {
+        var fixture = new Fixture(0, 1);
+        var model = fixture.Spaces[0];
+        void Add(BlockTableRecord owner, Entity entity, bool erased = false)
+        {
+            entity.Layer = "TEXT";
+            owner.ProfileEntities.Add(fixture.Database.ProfileAdd(entity, erased));
+        }
+
+        Add(model, new DBText { Height = 1, TextString = new string('x', 119) + "😀 tail" });
+        var multiline = Enumerable.Range(0, 10).Select(_ => new MText
+        {
+            TextHeight = 10000, Text = new string('界', 120), Contents = "formatted contents"
+        }).ToArray();
+        foreach (var entity in multiline) Add(model, entity);
+        Add(model, new DBText { Height = double.NaN, TextString = "invalid height" });
+        Add(model, new DBText { Height = 3, TextString = "erased" }, erased: true);
+        Add(model, new AttributeDefinition { Height = 3, TextString = "attribute" });
+        Add(fixture.Spaces[1], new MText { TextHeight = 2, Text = "paper space" });
+        Add(fixture.Definitions[0], new DBText { Height = 2, TextString = "nested definition" });
+
+        Assert.Null(Inspect(fixture)["text_stats"]);
+        Assert.All(multiline, entity => Assert.Equal(0, entity.ProfilePlainTextReads));
+
+        var command = Execute(fixture, new JObject { ["space"] = "model", ["include_text_stats"] = true });
+        Assert.True(command.Ok, command.Error);
+        var stats = ((JObject)command.Result)["text_stats"];
+        Assert.Equal(2, stats.Value<int>("dbtext_count"));
+        Assert.Equal(10, stats.Value<int>("mtext_count"));
+        var heights = stats["height_histogram"];
+        Assert.Equal(1, heights.Value<int>("unknown_count"));
+        var bins = (JArray)heights["bins"];
+        Assert.Equal(20, bins.Count);
+        Assert.Equal(1, bins.Single(bin => bin[0].Value<double>() == 1)[2].Value<int>());
+        Assert.Equal(10, bins.Last[2].Value<int>());
+        Assert.Equal(JTokenType.Null, bins.Last[1].Type);
+        var samples = (JArray)stats["samples"];
+        Assert.Equal(8, samples.Count);
+        Assert.Equal(new string('x', 119), samples[0].Value<string>("text"));
+        Assert.True(samples[0].Value<bool>("truncated"));
+        Assert.Equal(new string('界', 120), samples[1].Value<string>("text"));
+        Assert.Equal(7, multiline.Sum(entity => entity.ProfilePlainTextReads));
+
+        var bounded = Format(command, 4096);
+        Assert.True(FinalBytes(bounded) <= 4096);
+        var boundedProfile = DeliveredProfile(bounded);
+        var delivered = boundedProfile["text_stats"];
+        Assert.Equal(10, delivered.Value<int>("mtext_count"));
+        Assert.Equal(20, ((JArray)delivered["height_histogram"]["bins"]).Count);
+        var omitted = 8 - ((JArray)delivered["samples"]).Count;
+        Assert.Equal(omitted, delivered.Value<int>("samples_omitted_for_budget"));
+        if (omitted > 0) Assert.False(boundedProfile["output"].Value<bool>("complete"));
+    }
+
     private static CommandResult Execute(Fixture fixture, JObject parameters = null)
         => new DrawingProfileHandler().Execute(fixture.Document, parameters ?? new JObject());
 

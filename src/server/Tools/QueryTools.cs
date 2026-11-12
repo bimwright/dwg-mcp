@@ -29,16 +29,18 @@ namespace Bimwright.Dwg.Server.Tools
             "Block inserts count once; nested block contents, uninserted definitions and xref contents are not expanded. " +
             "The default final MCP output cap is 16384 UTF-8 bytes, independent of the global response budget. " +
             "The all-space summary also lists unused block definitions. Follow next_calls for paged tables including unused_blocks. Each page rescans; pass expected_snapshot when offset is positive. " +
+            "Opt in to text_stats for counts of top-level DBText and MText, a fixed 20-bin nominal text-height histogram in drawing units, and a bounded text preview. " +
             "A changed document/revision refuses continuation. No geometry, selection or drawing changes.")]
         public static async Task<CallToolResult> GetDrawingProfile(
             [Description("summary (default), types, layers, spaces, or unused_blocks. Summary starts all tables at offset zero. unused_blocks requires space=all and lists named non-layout definitions with no active direct or nested references.")] string section = "summary",
             [Description("Ordinal group offset for the selected table, default 0; positive offsets require expected_snapshot.")] int offset = 0,
             [Description("Maximum final MCP result bytes, default 16384; supported range 4096..65536. A smaller global budget still applies.")] int max_output_bytes = DrawingProfileOptions.DefaultMaxOutputBytes,
             [Description("Snapshot token from a previous profile result. Required for positive offsets; mismatches require restarting at offset zero.")] string expected_snapshot = null,
-            [Description("all (default), model or layout:<exact layout name>. Model snapshots ignore viewport navigation; layout/all snapshots track it.")] string space = "all")
+            [Description("all (default), model or layout:<exact layout name>. Model snapshots ignore viewport navigation; layout/all snapshots track it.")] string space = "all",
+            [Description("Include text_stats for the selected space. Off by default. Preview reads at most the first 8 text entities and caps each sample at 120 UTF-16 code units.")] bool include_text_stats = false)
         {
             DrawingProfileOptions options;
-            try { options = DrawingProfileOptions.Create(section, offset, max_output_bytes, expected_snapshot, space); }
+            try { options = DrawingProfileOptions.Create(section, offset, max_output_bytes, expected_snapshot, space, include_text_stats); }
             catch (ArgumentException ex)
             {
                 return DrawingProfileResponse.FromJson(JsonConvert.SerializeObject(new { ok = false, error = ex.Message }), DrawingProfileOptions.DefaultMaxOutputBytes);
@@ -46,7 +48,9 @@ namespace Bimwright.Dwg.Server.Tools
             var request = new JObject { ["section"] = section, ["offset"] = offset, ["max_output_bytes"] = max_output_bytes };
             if (expected_snapshot != null) request["expected_snapshot"] = expected_snapshot;
             if (options.Space != "all") request["space"] = options.Space;
-            return DrawingProfileResponse.FromJson(await ToolGateway.LoggedCall("get_drawing_profile", request, request), max_output_bytes, options.Space);
+            if (options.IncludeTextStats) request["include_text_stats"] = true;
+            return DrawingProfileResponse.FromJson(await ToolGateway.LoggedCall("get_drawing_profile", request, request), max_output_bytes,
+                options.Space, options.IncludeTextStats);
         }
 
         [McpServerTool(Name = "dwg_get_entity_properties", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false), Description(

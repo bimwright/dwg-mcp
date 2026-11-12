@@ -67,6 +67,14 @@ namespace Bimwright.Dwg.Tests
             Assert.Equal(JObject.Parse("{\"section\":\"layers\",\"offset\":40,\"max_output_bytes\":8192,\"expected_snapshot\":\"snapshot:12\"}"), sent.Json());
         }
 
+        [Fact]
+        public async Task Drawing_profile_forwards_opt_in_text_stats()
+        {
+            var sent = await Capture.Send(() => ProfileText(QueryTools.GetDrawingProfile(space: "model", include_text_stats: true)));
+            Assert.True(sent.Json().Value<bool>("include_text_stats"));
+            Assert.Equal("model", sent.Json().Value<string>("space"));
+        }
+
         [Theory]
         [InlineData("all", 0, 16384, null)]
         [InlineData("summary", 1, 16384, "snapshot:12")]

@@ -33,6 +33,8 @@ namespace Bimwright.Dwg.Tests
             AssertInvalidField("get_drawing_profile", JObject.Parse("{\"offset\":\"5\"}"), schema, "offset");
             AssertInvalidField("get_drawing_profile", JObject.Parse("{\"max_output_bytes\":16.5}"), schema, "max_output_bytes");
             AssertInvalidField("get_drawing_profile", JObject.Parse("{\"expected_snapshot\":7}"), schema, "expected_snapshot");
+            AssertValid("get_drawing_profile", JObject.Parse("{\"include_text_stats\":true}"), schema);
+            AssertInvalidField("get_drawing_profile", JObject.Parse("{\"include_text_stats\":\"true\"}"), schema, "include_text_stats");
             Assert.False(TargetContract.IsWrite("get_drawing_profile"));
         }
         [Fact]

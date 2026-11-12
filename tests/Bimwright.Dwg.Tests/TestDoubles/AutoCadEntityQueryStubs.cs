@@ -122,7 +122,10 @@ namespace Autodesk.AutoCAD.DatabaseServices
     public partial class MText : Entity, IDisposable
     {
         private string contents;
+        private string plainText;
+        internal int ProfilePlainTextReads;
         public string Contents { get { if (TextReadContentsFailure != null) throw TextReadContentsFailure; return contents; } set => contents = value; }
+        public string Text { get { ProfilePlainTextReads++; return plainText; } set => plainText = value; }
         public Point3d Location { get; set; }
         public double TextHeight { get; set; }
         public double Width { get; set; }

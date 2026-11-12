@@ -167,7 +167,8 @@ namespace Bimwright.Dwg.Plugin
             SchemaProperty.Optional("offset", JTokenType.Integer),
             SchemaProperty.Optional("max_output_bytes", JTokenType.Integer),
             SchemaProperty.Optional("expected_snapshot", JTokenType.String),
-            SchemaProperty.Optional("space", JTokenType.String));
+            SchemaProperty.Optional("space", JTokenType.String),
+            SchemaProperty.Optional("include_text_stats", JTokenType.Boolean));
 
         public static readonly CommandSchema GetEntityProperties = CommandSchema.Object(
             SchemaProperty.Required("handles", JTokenType.Array),

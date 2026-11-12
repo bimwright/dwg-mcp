@@ -27,7 +27,8 @@ namespace Bimwright.Dwg.Plugin.Handlers
                 options = DrawingProfileOptions.Create(values?.Value<string>("section") ?? "summary",
                     values?.Value<int?>("offset") ?? 0,
                     values?.Value<int?>("max_output_bytes") ?? DrawingProfileOptions.DefaultMaxOutputBytes,
-                    values?.Value<string>("expected_snapshot"), values?.Value<string>("space") ?? "all");
+                    values?.Value<string>("expected_snapshot"), values?.Value<string>("space") ?? "all",
+                    values?.Value<bool?>("include_text_stats") ?? false);
             }
             catch (Exception ex) when (ex is ArgumentException || ex is OverflowException)
             { return CommandResult.Fail("INVALID_ARGUMENT: " + ex.Message); }
@@ -50,7 +51,8 @@ namespace Bimwright.Dwg.Plugin.Handlers
 
         private static DrawingProfile Collect(Database database, DrawingProfileOptions options)
         {
-            var profile = new DrawingProfile();
+            var profile = new DrawingProfile(options.IncludeTextStats);
+            var textStats = profile.TextStats;
             var spaceSelector = options.Space;
             try
             {
@@ -132,6 +134,7 @@ namespace Bimwright.Dwg.Plugin.Handlers
                                     catch { }
                                 }
                                 profile.ReadEntity(space, type, layer, block != null, xref);
+                                if (textStats != null) ReadTextStats(entity, textStats);
                             }
                         }
                         catch { profile.FailedEnumeration(space); }
@@ -155,6 +158,26 @@ namespace Bimwright.Dwg.Plugin.Handlers
                     profile.AddUnusedBlock(record.Name, record.Handle.ToString());
             }
             catch { profile.FailedBlockUsageRead(); }
+        }
+
+        private static void ReadTextStats(Entity entity, DrawingProfileTextStats stats)
+        {
+            var type = entity.GetType();
+            var multiline = type == typeof(MText);
+            if (!multiline && type != typeof(DBText)) return;
+
+            double? height;
+            try { height = multiline ? ((MText)entity).TextHeight : ((DBText)entity).Height; }
+            catch { height = null; }
+            stats.Observe(multiline, height);
+            if (!stats.TryStartSample()) return;
+
+            try
+            {
+                var text = multiline ? ((MText)entity).Text : ((DBText)entity).TextString;
+                stats.AddSample(entity.Handle.ToString(), multiline, text);
+            }
+            catch { stats.FailedSampleRead(); }
         }
 
         private static IEnumerable<ObjectId> SpaceRecords(BlockTable blocks, ObjectId modelId, Transaction transaction, string space)

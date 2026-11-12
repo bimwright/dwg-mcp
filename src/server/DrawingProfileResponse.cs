@@ -18,9 +18,16 @@ internal static class DrawingProfileResponse
     internal const int MaximumCap = 64 * 1024;
     private static readonly string[] Sections = { "types", "layers", "spaces" };
 
-    internal static CallToolResult FromJson(string json, int maxOutputBytes, string space = "all")
+    internal static CallToolResult FromJson(string json, int maxOutputBytes, string space = "all", bool includeTextStats = false)
     {
         var body = JObject.Parse(json);
+        if (includeTextStats && body.Value<bool?>("ok") == true
+            && ((body["result"] as JObject)?["text_stats"] is not JObject))
+        {
+            var refusal = new JObject { ["ok"] = false, ["error"] = "PROFILE_TEXT_STATS_UNSUPPORTED: the plugin did not return the requested text statistics. Update gateway and plugin together." };
+            ResponseBudget.RetainTarget(body, refusal);
+            return BoundOther(Text(refusal, true), maxOutputBytes);
+        }
         return Fit(Text(body, body.Value<bool?>("ok") != true), maxOutputBytes, space);
     }
 
@@ -60,6 +67,9 @@ internal static class DrawingProfileResponse
         var tables = Sections.Select(section => (Section: section, Table: (JObject)histograms[section])).ToList();
         if (profile["unused_blocks"] is JObject unused && unused["rows"] is JArray)
             tables.Add(("unused_blocks", unused));
+        var textStats = profile["text_stats"] as JObject;
+        var samples = textStats?["samples"] as JArray;
+        var histogram = textStats?["height_histogram"] as JObject;
 
         // Keep the caller's content/metadata untouched. Repeated final fitting uses
         // the original header offsets, never a previously emitted next_offset.
@@ -75,6 +85,13 @@ internal static class DrawingProfileResponse
         void Refresh()
         {
             SetOutput(profile, tables, cap);
+            if (samples != null && Count(textStats["samples_collected"]) is long collected)
+            {
+                var omitted = Math.Max(0, collected - samples.Count);
+                textStats["samples_omitted_for_budget"] = omitted;
+                if (omitted > 0) profile["output"]["complete"] = false;
+            }
+            if (histogram?.Value<bool?>("bins_omitted_for_budget") == true) profile["output"]["complete"] = false;
             fittedText.Text = body.ToString(Formatting.None);
         }
         Refresh();
@@ -97,7 +114,8 @@ internal static class DrawingProfileResponse
         }
         Refresh();
         var bytes = ResponseBudget.Measure(fitted);
-        var rowLists = tables.Select(entry => (JArray)entry.Table["rows"]).ToArray();
+        var rowLists = tables.Select(entry => (JArray)entry.Table["rows"]).ToList();
+        if (samples != null) rowLists.Add(samples);
         while (bytes > cap && rowLists.Any(rows => rows.Count > 0))
         {
             var excess = bytes - cap;
@@ -110,6 +128,12 @@ internal static class DrawingProfileResponse
                 tail.Rows.RemoveAt(tail.Rows.Count - 1);
                 removed += tail.Bytes;
             } while (removed < excess && rowLists.Any(rows => rows.Count > 0));
+            Refresh();
+            bytes = ResponseBudget.Measure(fitted);
+        }
+        if (bytes > cap && histogram?.Remove("bins") == true)
+        {
+            histogram["bins_omitted_for_budget"] = true;
             Refresh();
             bytes = ResponseBudget.Measure(fitted);
         }
@@ -165,16 +189,15 @@ internal static class DrawingProfileResponse
                 });
                 continue;
             }
-            next.Add(new JObject
+            var arguments = new JObject
             {
-                ["tool"] = "dwg_get_drawing_profile",
-                ["arguments"] = new JObject
-                {
-                    ["section"] = section, ["offset"] = selected ? offset.Value + rows.Count : 0,
-                    ["expected_snapshot"] = snapshot, ["max_output_bytes"] = cap,
-                    ["space"] = profile["request"]?.Value<string>("space") ?? "all"
-                }
-            });
+                ["section"] = section, ["offset"] = selected ? offset.Value + rows.Count : 0,
+                ["expected_snapshot"] = snapshot, ["max_output_bytes"] = cap,
+                ["space"] = profile["request"]?.Value<string>("space") ?? "all"
+            };
+            if (profile["request"]?["include_text_stats"]?.Type == JTokenType.Boolean
+                && profile["request"].Value<bool>("include_text_stats")) arguments["include_text_stats"] = true;
+            next.Add(new JObject { ["tool"] = "dwg_get_drawing_profile", ["arguments"] = arguments });
         }
         output["budget_bytes"] = cap;
         output["complete"] = complete;
