@@ -91,6 +91,8 @@
   <ItemGroup>
     <Compile Include="..\..\src\shared\Handlers\SendCodeHandler.cs" LinkBase="Shared\Handlers" />
     <Compile Include="..\..\src\shared\Handlers\DrawingProfileHandler.cs" LinkBase="Shared\Handlers" />
+    <Compile Include="..\..\src\shared\Handlers\Blocks\ListBlocksHandler.cs" LinkBase="Shared\Handlers" />
+    <Compile Include="..\..\src\shared\Blocks\BlockUsageReader.cs" LinkBase="Shared\Blocks" />
     <Compile Include="..\..\src\shared\Cad\CadQueryService.cs" LinkBase="Shared\Cad" />
     <Compile Include="..\..\src\shared\Cad\CadEntityProperties.cs" LinkBase="Shared\Cad" />
     <Compile Include="..\..\src\shared\Cad\CadEntityPageService.cs" LinkBase="Shared\Cad" />

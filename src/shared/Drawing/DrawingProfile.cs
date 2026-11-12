@@ -22,12 +22,13 @@ namespace Bimwright.Dwg.Plugin
         public int MaxOutputBytes { get; }
         public string ExpectedSnapshot { get; }
         public string Space { get; }
+        internal bool IncludeUnusedBlocks => Space == "all" && (Section == "summary" || Section == "unused_blocks");
 
         public static DrawingProfileOptions Create(string section = "summary", int offset = 0,
             int maxOutputBytes = DefaultMaxOutputBytes, string expectedSnapshot = null, string space = "all")
         {
-            if (section != "summary" && section != "types" && section != "layers" && section != "spaces")
-                throw new ArgumentException("section must be summary, types, layers, or spaces.", nameof(section));
+            if (section != "summary" && section != "types" && section != "layers" && section != "spaces" && section != "unused_blocks")
+                throw new ArgumentException("section must be summary, types, layers, spaces, or unused_blocks.", nameof(section));
             if (offset < 0) throw new ArgumentException("offset must not be negative.", nameof(offset));
             if (section == "summary" && offset != 0)
                 throw new ArgumentException("summary requires offset=0.", nameof(offset));
@@ -42,6 +43,8 @@ namespace Bimwright.Dwg.Plugin
             else if (space != null && space.StartsWith("layout:", StringComparison.OrdinalIgnoreCase)
                 && !string.IsNullOrWhiteSpace(space.Substring(7)) && space.Length <= 1024) space = "layout:" + space.Substring(7);
             else throw new ArgumentException("space must be all, model or layout:<exact layout name>.", nameof(space));
+            if (section == "unused_blocks" && space != "all")
+                throw new ArgumentException("unused_blocks requires space=all to check references across the drawing.", nameof(space));
             return new DrawingProfileOptions(section, offset, maxOutputBytes, expectedSnapshot, space);
         }
     }
@@ -59,6 +62,8 @@ namespace Bimwright.Dwg.Plugin
         private readonly Dictionary<string, long> types = new Dictionary<string, long>(StringComparer.Ordinal);
         private readonly Dictionary<string, long> layers = new Dictionary<string, long>(StringComparer.Ordinal);
         private readonly List<Space> spaces = new List<Space>();
+        private readonly List<(string Name, string Handle)> unusedBlocks = new List<(string, string)>();
+        private bool blockUsageComplete = true;
         private long idsSeen, erasedSkipped, entitiesRead, entityReadFailed, spaceReadFailed, spaceEnumerationFailed;
         private long typeUnknown, layerUnknown, xrefUnknown, blockReferences, xrefInserts;
 
@@ -78,6 +83,8 @@ namespace Bimwright.Dwg.Plugin
         { spaceEnumerationFailed++; if (space != null) space.Complete = false; }
         internal void FailedEntityRead(Space space)
         { entityReadFailed++; space.Complete = false; }
+        internal void AddUnusedBlock(string name, string handle) => unusedBlocks.Add((name, handle));
+        internal void FailedBlockUsageRead() => blockUsageComplete = false;
 
         internal void ReadEntity(Space space, string runtimeType, string layer, bool blockReference, bool? xref)
         {
@@ -98,7 +105,7 @@ namespace Bimwright.Dwg.Plugin
             var populationComplete = entityReadFailed == 0 && spaceReadFailed == 0 && spaceEnumerationFailed == 0;
             var complete = populationComplete && typeUnknown == 0 && layerUnknown == 0 && xrefUnknown == 0;
             var orderedSpaces = spaces.OrderBy(s => s.Name, StringComparer.Ordinal).ThenBy(s => s.Id, StringComparer.Ordinal);
-            return new JObject
+            var result = new JObject
             {
                 ["profile_version"] = 1, ["document_id"] = documentId, ["snapshot"] = snapshot,
                 ["source"] = new JObject
@@ -146,15 +153,24 @@ namespace Bimwright.Dwg.Plugin
                 ["summary"] = "Observed " + entitiesRead.ToString(CultureInfo.InvariantCulture) + " top-level entities in "
                     + spaces.Count.ToString(CultureInfo.InvariantCulture) + " spaces; profile " + (complete ? "complete." : "incomplete; counts are observed facts, not an estimate of unreadable data.")
             };
+            if (options.IncludeUnusedBlocks)
+            {
+                var rows = unusedBlocks.OrderBy(block => block.Name, StringComparer.Ordinal)
+                    .ThenBy(block => block.Handle, StringComparer.Ordinal)
+                    .Select(block => new JObject { ["name"] = block.Name, ["handle"] = block.Handle });
+                result["unused_blocks"] = Table("unused_blocks", rows,
+                    blockUsageComplete ? unusedBlocks.Count : (int?)null, blockUsageComplete, options);
+            }
+            return result;
         }
 
-        private static JObject Table(string section, IEnumerable<JObject> rows, int groups, bool complete, DrawingProfileOptions options)
+        private static JObject Table(string section, IEnumerable<JObject> rows, int? groups, bool complete, DrawingProfileOptions options)
         {
             var selected = options.Section == "summary" || options.Section == section;
             var offset = options.Section == section ? options.Offset : 0;
             return new JObject
             {
-                ["offset"] = offset, ["total_groups"] = groups, ["counts_complete"] = complete,
+                ["offset"] = offset, ["total_groups"] = groups.HasValue ? new JValue(groups.Value) : JValue.CreateNull(), ["counts_complete"] = complete,
                 ["rows"] = selected ? new JArray(rows.Skip(offset).Take(DrawingProfileOptions.MaxCandidateRows)) : new JArray()
             };
         }

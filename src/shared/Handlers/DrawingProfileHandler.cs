@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
+using Bimwright.Dwg.Plugin.Blocks;
 using Bimwright.Dwg.Plugin.View;
 using Newtonsoft.Json.Linq;
 
@@ -37,7 +39,7 @@ namespace Bimwright.Dwg.Plugin.Handlers
                 var snapshot = revision.Snapshot(options.Space);
                 if (options.ExpectedSnapshot != null && !string.Equals(options.ExpectedSnapshot, snapshot, StringComparison.Ordinal))
                     return CommandResult.Fail("PROFILE_CHANGED: the drawing lifetime or revision changed; restart the profile at offset=0.");
-                var profile = Collect(doc.Database, options.Space);
+                var profile = Collect(doc.Database, options);
                 if (!string.Equals(snapshot, revision.Snapshot(options.Space), StringComparison.Ordinal))
                     return CommandResult.Fail("PROFILE_CHANGED: the drawing changed during enumeration; restart the profile at offset=0.");
                 return CommandResult.Success(profile.ToJson(DocumentTargetGuard.Id(doc), snapshot, options));
@@ -46,9 +48,10 @@ namespace Bimwright.Dwg.Plugin.Handlers
             { return CommandResult.Fail("Could not inspect the active drawing: " + ErrorSanitizer.Sanitize(ex.Message)); }
         }
 
-        private static DrawingProfile Collect(Database database, string spaceSelector)
+        private static DrawingProfile Collect(Database database, DrawingProfileOptions options)
         {
             var profile = new DrawingProfile();
+            var spaceSelector = options.Space;
             try
             {
                 using (var transaction = database.TransactionManager.StartTransaction())
@@ -62,9 +65,18 @@ namespace Bimwright.Dwg.Plugin.Handlers
                         {
                             if (recordId.IsErased) continue;
                             record = (BlockTableRecord)transaction.GetObject(recordId, OpenMode.ForRead);
-                            if (!record.IsLayout) continue;
+                            if (!record.IsLayout)
+                            {
+                                if (options.IncludeUnusedBlocks) ReadUnusedBlock(record, transaction, profile);
+                                continue;
+                            }
                         }
-                        catch { profile.FailedSpaceRead(); continue; }
+                        catch
+                        {
+                            profile.FailedSpaceRead();
+                            profile.FailedBlockUsageRead();
+                            continue;
+                        }
                         var metadataComplete = true;
                         string id = null, recordName = null, layoutName = null;
                         try
@@ -127,8 +139,22 @@ namespace Bimwright.Dwg.Plugin.Handlers
                     transaction.Commit();
                 }
             }
-            catch when (spaceSelector == "all" || spaceSelector == "model") { profile.FailedEnumeration(); }
+            catch when (spaceSelector == "all" || spaceSelector == "model")
+            {
+                profile.FailedEnumeration();
+                profile.FailedBlockUsageRead();
+            }
             return profile;
+        }
+
+        private static void ReadUnusedBlock(BlockTableRecord record, Transaction transaction, DrawingProfile profile)
+        {
+            try
+            {
+                if (!record.IsAnonymous && !BlockUsageReader.ActiveReferenceIds(record, transaction).Any())
+                    profile.AddUnusedBlock(record.Name, record.Handle.ToString());
+            }
+            catch { profile.FailedBlockUsageRead(); }
         }
 
         private static IEnumerable<ObjectId> SpaceRecords(BlockTable blocks, ObjectId modelId, Transaction transaction, string space)

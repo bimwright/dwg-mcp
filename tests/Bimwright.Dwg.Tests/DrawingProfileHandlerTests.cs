@@ -276,6 +276,66 @@ public sealed class DrawingProfileHandlerTests : IDisposable
         Assert.Equal(0, fixture.Database.TransactionManager.NumberOfActiveTransactions);
     }
 
+    [Fact]
+    public void Block_usage_counts_direct_nested_and_dynamic_references_and_profiles_only_unused_definitions()
+    {
+        var fixture = new Fixture(18, 3);
+        var definition = fixture.Definitions[0];
+        definition.IsDynamicBlock = true;
+        var variant = fixture.AddBlock(new BlockTableRecord { Name = "*U1", IsAnonymous = true });
+        definition.ProfileAnonymousIds.Add(variant.ObjectId);
+        var variantInsert = fixture.AddReference(fixture.Spaces[2], variant);
+        definition.ProfileReferenceIds.Add(variantInsert); // A reference returned by both records still counts once.
+        fixture.AddReference(fixture.Spaces[0], variant, erased: true);
+        var nestedOnly = fixture.AddBlock(new BlockTableRecord { Name = "NestedOnly" });
+        fixture.AddReference(fixture.Definitions[3], nestedOnly);
+        definition.ProfileEntities.Add(fixture.Database.ProfileAdd(new AttributeDefinition()));
+        var unknown = fixture.AddBlock(new BlockTableRecord { Name = "UnknownBlock", ProfileReferenceFailure = new InvalidOperationException() });
+
+        var listed = new ListBlocksHandler().Execute(fixture.Document, new JObject());
+        Assert.True(listed.Ok, listed.Error);
+        var rows = JObject.FromObject(listed.Result)["blocks"].ToDictionary(row => row.Value<string>("name"));
+        Assert.Equal(2, rows[definition.Name].Value<int>("reference_count"));
+        Assert.Equal(3, rows[definition.Name].Value<int>("nested_reference_count"));
+        Assert.Equal(1, rows[definition.Name].Value<int>("entity_count"));
+        Assert.Equal(1, rows[definition.Name].Value<int>("attribute_definition_count"));
+        Assert.Equal(0, rows[nestedOnly.Name].Value<int>("reference_count"));
+        Assert.Equal(1, rows[nestedOnly.Name].Value<int>("nested_reference_count"));
+        Assert.False(rows[nestedOnly.Name].Value<bool>("unused"));
+        Assert.True(rows["UnusedBlock"].Value<bool>("unused"));
+        Assert.Equal(JTokenType.Null, rows[unknown.Name]["unused"].Type);
+        Assert.DoesNotContain(variant.Name, rows.Keys);
+
+        var unused = Inspect(fixture)["unused_blocks"];
+        Assert.Equal("UnusedBlock", Assert.Single(unused["rows"]).Value<string>("name"));
+        Assert.False(unused.Value<bool>("counts_complete"));
+        Assert.Equal(JTokenType.Null, unused["total_groups"].Type);
+    }
+
+    [Fact]
+    public void Unused_blocks_continue_at_the_delivered_offset_under_the_profile_byte_cap()
+    {
+        const int cap = 4096;
+        var fixture = new Fixture(0, 1);
+        for (var i = 0; i < 140; i++)
+            fixture.AddBlock(new BlockTableRecord { Name = "Unreferenced_" + i.ToString("D3") + new string('x', 65) });
+
+        var first = Format(Execute(fixture, new JObject { ["section"] = "unused_blocks", ["max_output_bytes"] = cap }), cap);
+        Assert.True(FinalBytes(first) <= cap);
+        var page = DeliveredProfile(first);
+        var rows = (JArray)page["unused_blocks"]["rows"];
+        Assert.NotEmpty(rows);
+        var next = Assert.Single(page["output"]["next_calls"].Select(call => (JObject)call["arguments"])
+            .Where(arguments => arguments.Value<string>("section") == "unused_blocks"));
+        Assert.Equal(rows.Count, next.Value<int>("offset"));
+        var second = Format(Execute(fixture, next), cap);
+        Assert.True(FinalBytes(second) <= cap);
+        var secondPage = DeliveredProfile(second);
+        Assert.Equal(page.Value<string>("snapshot"), secondPage.Value<string>("snapshot"));
+        Assert.True(string.CompareOrdinal(rows.Last.Value<string>("name"), secondPage["unused_blocks"]["rows"].First.Value<string>("name")) < 0);
+        Assert.Null(((JObject)Execute(fixture, new JObject { ["space"] = "model" }).Result)["unused_blocks"]);
+    }
+
     private static CommandResult Execute(Fixture fixture, JObject parameters = null)
         => new DrawingProfileHandler().Execute(fixture.Document, parameters ?? new JObject());
 
@@ -286,9 +346,9 @@ public sealed class DrawingProfileHandlerTests : IDisposable
         return Assert.IsType<JObject>(command.Result);
     }
 
-    private static CallToolResult Format(CommandResult command)
+    private static CallToolResult Format(CommandResult command, int cap = 16384)
         => DrawingProfileResponse.FromJson(JsonConvert.SerializeObject(new McpResponse
-        { Id = "simulated-profile", Ok = command.Ok, Result = command.Result, Error = command.Error }), 16384);
+        { Id = "simulated-profile", Ok = command.Ok, Result = command.Result, Error = command.Error }), cap);
 
     private static int FinalBytes(CallToolResult result)
         => System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(result, McpJsonUtilities.DefaultOptions).Length;
@@ -344,6 +404,21 @@ public sealed class DrawingProfileHandlerTests : IDisposable
         internal SortedDictionary<string, long> ExpectedLayers { get; } = new(StringComparer.Ordinal);
         internal int DatabaseEvents;
 
+        internal BlockTableRecord AddBlock(BlockTableRecord record)
+        {
+            var id = Database.ProfileAdd(record);
+            Blocks.ProfileRecords.Add(id); Blocks.ProfileNames.Add(record.Name, id);
+            return record;
+        }
+
+        internal ObjectId AddReference(BlockTableRecord owner, BlockTableRecord definition, bool erased = false)
+        {
+            var id = Database.ProfileAdd(new BlockReference { OwnerId = owner.ObjectId, BlockTableRecord = definition.ObjectId, Layer = "INSERTS" }, erased);
+            owner.ProfileEntities.Add(id);
+            definition.ProfileReferenceIds.Add(id);
+            return id;
+        }
+
         internal Fixture(int entityCount, int layerCount, bool longLayerNames = false)
         {
             Database.BlockTableId = Database.ProfileAdd(Blocks);
@@ -362,17 +437,13 @@ public sealed class DrawingProfileHandlerTests : IDisposable
                 new BlockTableRecord { Name = "OverlayXref", IsFromOverlayReference = true },
                 new BlockTableRecord { Name = "UnusedBlock" }
             };
-            foreach (var record in Spaces.Concat(Definitions))
-            {
-                var id = Database.ProfileAdd(record);
-                Blocks.ProfileRecords.Add(id); Blocks.ProfileNames.Add(record.Name, id);
-            }
+            foreach (var record in Spaces.Concat(Definitions)) AddBlock(record);
             foreach (var record in Definitions)
             {
                 var line = Database.ProfileAdd(new Line { Layer = "INSIDE_DEFINITION_NOT_COUNTED" });
-                var nested = Database.ProfileAdd(new BlockReference { Layer = "NESTED_INSERT_NOT_COUNTED", BlockTableRecord = Definitions[0].ObjectId });
-                record.ProfileEntities.Add(line); record.ProfileEntities.Add(nested);
-                DefinitionEntityIds.Add(line); DefinitionEntityIds.Add(nested);
+                record.ProfileEntities.Add(line);
+                DefinitionEntityIds.Add(line);
+                if (record != Definitions[0]) DefinitionEntityIds.Add(AddReference(record, Definitions[0]));
             }
             var typeNames = new[] { typeof(Line).FullName, typeof(Circle).FullName, typeof(DBText).FullName, typeof(BlockReference).FullName, typeof(ProxyEntity).FullName };
             EntityIds = new ObjectId[entityCount];
@@ -388,7 +459,11 @@ public sealed class DrawingProfileHandlerTests : IDisposable
                 };
                 entity.Layer = layer;
                 var id = Database.ProfileAdd(entity); EntityIds[i] = id;
-                Spaces[i % 3].ProfileEntities.Add(id);
+                var owner = Spaces[i % 3];
+                owner.ProfileEntities.Add(id);
+                entity.OwnerId = owner.ObjectId;
+                if (entity is BlockReference reference)
+                    Definitions[(i / 5) % 3].ProfileReferenceIds.Add(id);
                 var type = typeNames[i % 5];
                 ExpectedTypes.TryGetValue(type, out var typeCount); ExpectedTypes[type] = typeCount + 1;
                 ExpectedLayers.TryGetValue(layer, out var layerEntities); ExpectedLayers[layer] = layerEntities + 1;

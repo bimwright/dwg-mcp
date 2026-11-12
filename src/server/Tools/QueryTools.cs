@@ -28,10 +28,10 @@ namespace Bimwright.Dwg.Server.Tools
             "Reports exact managed runtime type, layer and per-space counts with source/coverage; incomplete reads report observed counts and null exact totals. " +
             "Block inserts count once; nested block contents, uninserted definitions and xref contents are not expanded. " +
             "The default final MCP output cap is 16384 UTF-8 bytes, independent of the global response budget. " +
-            "Content identifies omitted groups and next_calls for types/layers/spaces. Each page rescans; pass expected_snapshot from the previous result when offset is positive. " +
+            "The all-space summary also lists unused block definitions. Follow next_calls for paged tables including unused_blocks. Each page rescans; pass expected_snapshot when offset is positive. " +
             "A changed document/revision refuses continuation. No geometry, selection or drawing changes.")]
         public static async Task<CallToolResult> GetDrawingProfile(
-            [Description("summary (default), types, layers or spaces. Summary starts all tables at offset zero.")] string section = "summary",
+            [Description("summary (default), types, layers, spaces, or unused_blocks. Summary starts all tables at offset zero. unused_blocks requires space=all and lists named non-layout definitions with no active direct or nested references.")] string section = "summary",
             [Description("Ordinal group offset for the selected table, default 0; positive offsets require expected_snapshot.")] int offset = 0,
             [Description("Maximum final MCP result bytes, default 16384; supported range 4096..65536. A smaller global budget still applies.")] int max_output_bytes = DrawingProfileOptions.DefaultMaxOutputBytes,
             [Description("Snapshot token from a previous profile result. Required for positive offsets; mismatches require restarting at offset zero.")] string expected_snapshot = null,
