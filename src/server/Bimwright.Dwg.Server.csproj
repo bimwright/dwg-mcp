@@ -39,6 +39,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="Prompts\*.md">
+      <LogicalName>Bimwright.Dwg.Prompts.%(Filename)%(Extension)</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+
+  <ItemGroup>
     <Compile Include="..\shared\ToolBaker\*.cs" LinkBase="Shared\ToolBaker" />
     <Compile Include="..\shared\Logging\*.cs" LinkBase="Shared\Logging" />
     <Compile Include="..\shared\Transport\TransportFraming.cs" LinkBase="Shared\Transport" />
