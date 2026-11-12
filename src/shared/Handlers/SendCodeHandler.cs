@@ -50,11 +50,13 @@ namespace Bimwright.Dwg.Plugin.Handlers
             if (string.IsNullOrWhiteSpace(code)) return CommandResult.Fail("code parameter is required");
             JToken data;
             bool compileOnly;
+            bool taskV1;
             try
             {
                 ScriptInputContract.Validate(parameters);
                 data = ScriptInputContract.ParseData(parameters?["data_json"]?.Value<string>());
                 compileOnly = parameters?.Value<bool?>("compile_only") ?? false;
+                taskV1 = ScriptTaskContract.IsTaskV1(parameters);
             }
             catch (ArgumentException ex) { return CommandResult.Fail(ex.Message); }
 
@@ -68,6 +70,7 @@ namespace Bimwright.Dwg.Plugin.Handlers
             Globals globals = data == null ? new Globals() : new GlobalsWithData { data = data };
             globals.doc = doc; globals.db = doc.Database; globals.ed = doc.Editor;
             var imports = data == null ? Imports : Imports.Concat(new[] { "Newtonsoft.Json.Linq" }).ToArray();
+            if (taskV1) imports = imports.Concat(new[] { ScriptTaskContract.Import }).ToArray();
             var originalOut = Console.Out;
             var captured = new StringWriter();
             Console.SetOut(captured);
@@ -84,6 +87,7 @@ namespace Bimwright.Dwg.Plugin.Handlers
                     payload = Bimwright.Dwg.Scripting.ScriptEngine.Execute(code, globals, refs, imports, compileOnly, cts.Token);
 #endif
                 }
+                ScriptTaskContract.Apply(payload, taskV1, ErrorSanitizer.Sanitize);
                 payload["result"] = SerializeResult(payload["result"]);
                 if (payload["error"] is string error) payload["error"] = ErrorSanitizer.Sanitize(error);
                 if (payload["diagnostics"] is System.Collections.Generic.Dictionary<string, object>[] diagnostics)
@@ -98,6 +102,7 @@ namespace Bimwright.Dwg.Plugin.Handlers
                 payload["ok"] = false;
                 payload["result"] = null;
                 payload["error"] = ErrorSanitizer.Sanitize(inner.GetType().Name + ": " + inner.Message);
+                if (taskV1) payload["_task"] = new System.Collections.Generic.Dictionary<string, object> { ["contract"] = ScriptTaskContract.TaskV1, ["status"] = "not_reported" };
             }
             finally { Console.SetOut(originalOut); }
             payload["stdout"] = captured.ToString();

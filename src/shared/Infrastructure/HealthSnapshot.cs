@@ -17,7 +17,8 @@ namespace Bimwright.Dwg.Plugin
                 ["has_active_document"] = JValue.CreateNull(),
                 ["state_probe"] = "unavailable",
                 ["script_inputs_version"] = ScriptInputContract.Version,
-                ["atomic_batch_version"] = BatchContract.AtomicVersion
+                ["atomic_batch_version"] = BatchContract.AtomicVersion,
+                ["script_task_contract_version"] = ScriptTaskContract.Version
             };
             try
             {

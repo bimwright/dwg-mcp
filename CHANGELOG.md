@@ -5,6 +5,8 @@
 - Add optional `atomic=true` to `dwg_batch_execute`: the batch runs in one outer AutoCAD transaction, a failed step aborts it (`rolled_back=true`, `mutation_applied=false`) and later steps are `skipped`. Only drawing reads and database edits are accepted; other commands are refused before any step runs. The default stays `atomic=false`.
 - Plugin health reports `atomic_batch_version`; the gateway refuses atomic batches to plugins that do not confirm it, so an older plugin never runs one non-atomically.
 - Add `dwg_attach_image` (modify toolset, issue #6): attach a linked PNG/JPG/TIFF/BMP at an exact insertion point, width, optional height (pixel aspect ratio otherwise) and rotation, with optional layer and send-to-back. Only fully qualified local paths are accepted; UNC paths and URLs are refused. Layer, image definition, image and draw order are written in one transaction, and an existing definition for the same file is reused. Tool counts become 46 default / 70 all; read-only counts are unchanged (README counts follow at release preparation).
+- Add `result_contract=task_v1` to `dwg_send_code` (same API as rvt-mcp): scripts return `McpTaskResult.Pass(value)` or `McpTaskResult.Fail(code, message, details)`. Under `task_v1`, `ok` is true only for `Pass` without a script error, `result` holds the Pass value or Fail details, and `_task` reports `passed`, `failed` or `not_reported`. Legacy calls are unchanged. Plugin health reports `script_task_contract_version`; the gateway refuses `task_v1` to plugins that do not confirm it.
+- Add `usage_context=project|test|unknown` to `dwg_send_code`. It is recorded in the gateway call log only (off by default) and is not sent to AutoCAD.
 
 ## 2.1.2 — 2026-11-01
 

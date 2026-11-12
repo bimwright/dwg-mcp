@@ -398,7 +398,8 @@ namespace Bimwright.Dwg.Plugin
             SchemaProperty.Required("code", JTokenType.String),
             SchemaProperty.Optional("script_inputs_version", JTokenType.Integer),
             SchemaProperty.Optional("data_json", JTokenType.String),
-            SchemaProperty.Optional("compile_only", JTokenType.Boolean));
+            SchemaProperty.Optional("compile_only", JTokenType.Boolean),
+            SchemaProperty.Optional("result_contract", JTokenType.String));
 
         public static readonly CommandSchema RunLisp = CommandSchema.Object(
             SchemaProperty.Optional("file", JTokenType.String),

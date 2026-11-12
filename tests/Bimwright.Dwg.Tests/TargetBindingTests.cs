@@ -775,6 +775,23 @@ namespace Bimwright.Dwg.Tests
             Assert.Equal(before + 1, host.Requests);
         }
 
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task Task_v1_scripts_probe_task_contract_before_sending_code(bool supported)
+        {
+            // A 2.2.0 plugin confirms script inputs but not task_v1.
+            using var host = new Host(100) { ScriptInputsVersion = 1, ScriptTaskContractVersion = supported ? 1 : (int?)null };
+            var client = Client(host);
+            await client.SwitchTargetAsync("pid:100");
+            var result = await client.SendAsync("send_code", new JObject {
+                ["code"] = "return McpTaskResult.Pass(1);", ["script_inputs_version"] = 1, ["result_contract"] = "task_v1" });
+            Assert.Equal(supported, result.Ok);
+            Assert.Equal(supported ? 3 : 2, host.Requests);
+            Assert.Equal(supported ? "send_code" : "health", host.LastRequest.Value<string>("cmd"));
+            if (!supported) Assert.Contains("SCRIPT_TASK_CONTRACT_UNSUPPORTED", result.Error);
+        }
+
 
         private sealed class Host : IDisposable
         {
@@ -786,6 +803,7 @@ namespace Bimwright.Dwg.Tests
             internal bool VerifiedHealth = true, Legacy, EmitReceipt;
             internal int? ScriptInputsVersion;
             internal int? AtomicBatchVersion;
+            internal int? ScriptTaskContractVersion;
             internal string DocumentId;
             internal string Refusal;
             internal Action BeforeReply;
@@ -806,6 +824,7 @@ namespace Bimwright.Dwg.Tests
                             ["ok"] = VerifiedHealth,
                             ["script_inputs_version"] = ScriptInputsVersion,
                             ["atomic_batch_version"] = AtomicBatchVersion,
+                            ["script_task_contract_version"] = ScriptTaskContractVersion,
                             ["target"] = Legacy ? null : new JObject
                             {
                                 ["protocol"] = 1, ["pid"] = pid, ["process_start_utc"] = Start,

@@ -26,6 +26,9 @@ namespace Bimwright.Dwg.Server.Tools
             "Optional data is JSON (512 KiB UTF-8 maximum), exposed as data (Newtonsoft JToken); null is omitted. Keep literals, coordinates and lists in data instead of code. " +
             "compile_only=true compiles without invoking script statements; an active drawing is still required. " +
             "Results add compiled, executed, compile_only, diagnostics[{source,line,column,code,message,severity}] and optional runtime location. Read result.ok for script success. " +
+            "result_contract=task_v1 imports McpTaskResult: return McpTaskResult.Pass(value) when the task is done or McpTaskResult.Fail(\"CODE\", \"message\", details) when it is not; " +
+            "ok is then true only for Pass without a script error, result holds the Pass value or Fail details, and _task{contract,status=passed|failed|not_reported,error?} reports the outcome. " +
+            "usage_context=project|test labels real work versus testing in the gateway call log only. " +
             "Enhanced calls require a matching plugin and must be direct calls, outside batch/baked tools; unsupported plugins are refused before code is sent. " +
             "Execution has cooperative 30s cancellation. " +
             "An active drawing is required: when none is open, use dwg_list_recent_drawings and dwg_open_drawing first; the host refuses before executing code. " +
@@ -41,18 +44,28 @@ namespace Bimwright.Dwg.Server.Tools
         public static Task<string> SendCode(
             [Description("C# code to execute")] string code,
             [Description("Optional JSON input, up to 512 KiB UTF-8. Available as data (JToken); null is treated as omitted.")] JsonElement? data = null,
-            [Description("Compile and return diagnostics without executing any script statement.")] bool compile_only = false)
+            [Description("Compile and return diagnostics without executing any script statement.")] bool compile_only = false,
+            [Description("legacy (default) or task_v1. task_v1 requires returning McpTaskResult.Pass/Fail.")] string result_contract = "legacy",
+            [Description("project for real drawing work, test for testing dwg-mcp itself, unknown (default). Recorded in the gateway call log only.")] string usage_context = "unknown")
         {
+            if (result_contract != ScriptTaskContract.Legacy && result_contract != ScriptTaskContract.TaskV1)
+                return Task.FromResult(JsonConvert.SerializeObject(new McpResponse { Ok = false, Error = "SCRIPT_INPUT_INVALID: result_contract must be legacy or task_v1." }));
+            if (usage_context != "project" && usage_context != "test" && usage_context != "unknown")
+                return Task.FromResult(JsonConvert.SerializeObject(new McpResponse { Ok = false, Error = "SCRIPT_INPUT_INVALID: usage_context must be project, test or unknown." }));
+            var taskV1 = result_contract == ScriptTaskContract.TaskV1;
             var json = data.HasValue && data.Value.ValueKind != JsonValueKind.Null && data.Value.ValueKind != JsonValueKind.Undefined
                 ? data.Value.GetRawText() : null;
-            if (json == null && !compile_only) return ToolGateway.LoggedCall("send_code", new { code }, new { code });
+            if (json == null && !compile_only && !taskV1)
+                return ToolGateway.LoggedCall("send_code", new { code, usage_context }, new { code });
             try { ScriptInputContract.ParseData(json); }
             catch (ArgumentException ex) { return Task.FromResult(JsonConvert.SerializeObject(new McpResponse { Ok = false, Error = ex.Message })); }
             var request = new Newtonsoft.Json.Linq.JObject {
                 ["code"] = code, ["compile_only"] = compile_only, ["script_inputs_version"] = ScriptInputContract.Version
             };
             if (json != null) request["data_json"] = json;
-            return ToolGateway.LoggedCall("send_code", new { code, compile_only, data_bytes = json == null ? 0 : System.Text.Encoding.UTF8.GetByteCount(json) }, request);
+            if (taskV1) request["result_contract"] = result_contract;
+            return ToolGateway.LoggedCall("send_code", new { code, compile_only, data_bytes = json == null ? 0 : System.Text.Encoding.UTF8.GetByteCount(json),
+                result_contract, usage_context }, request);
         }
 
         [McpServerTool(Name = "dwg_run_lisp", ReadOnly = false, Destructive = false, Idempotent = true, OpenWorld = false), Description(

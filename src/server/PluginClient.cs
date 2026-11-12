@@ -90,6 +90,10 @@ namespace Bimwright.Dwg.Server
                         if (health?.Id != healthId || health.Ok != true ||
                             (health.Result as JObject)?.Value<int?>("script_inputs_version") != ScriptInputContract.Version)
                             return Error(requestId, "SCRIPT_INPUTS_UNSUPPORTED: the plugin did not confirm data/compile_only support. No script was sent or executed. Update gateway and plugin together.");
+                        // Older plugins ignore result_contract and would report a legacy result as success.
+                        if (ScriptTaskContract.IsTaskV1(parameters as JToken ?? JToken.FromObject(parameters)) &&
+                            (health.Result as JObject)?.Value<int?>("script_task_contract_version") != ScriptTaskContract.Version)
+                            return Error(requestId, "SCRIPT_TASK_CONTRACT_UNSUPPORTED: the plugin did not confirm result_contract=task_v1 support. No script was sent or executed. Update gateway and plugin together.");
                     }
                     // Older plugins ignore unknown keys and would run an atomic batch non-atomically.
                     if (cmd == "batch_execute" && BatchContract.IsAtomic(parameters as JToken ?? (parameters == null ? null : JToken.FromObject(parameters))))

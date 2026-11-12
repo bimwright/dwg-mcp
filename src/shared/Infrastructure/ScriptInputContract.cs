@@ -13,7 +13,7 @@ namespace Bimwright.Dwg.Plugin
         public const int MaxDataBytes = 512 * 1024;
 
         public static bool IsEnhanced(JToken parameters)
-            => parameters is JObject obj && new[] { "data", "data_json", "compile_only", "script_inputs_version" }.Any(k => obj.Property(k) != null);
+            => parameters is JObject obj && new[] { "data", "data_json", "compile_only", "script_inputs_version", "result_contract" }.Any(k => obj.Property(k) != null);
 
         public static bool RequiresDirectCall(string command, JToken parameters)
             => string.Equals(command, "send_code", StringComparison.OrdinalIgnoreCase) && IsEnhanced(parameters);
@@ -30,6 +30,9 @@ namespace Bimwright.Dwg.Plugin
                 throw new ArgumentException("SCRIPT_INPUT_INVALID: compile_only must be a boolean.");
             if (parameters["data_json"] != null && parameters["data_json"].Type != JTokenType.String)
                 throw new ArgumentException("SCRIPT_INPUT_INVALID: data_json must be JSON text.");
+            if (parameters["result_contract"] != null && (parameters["result_contract"].Type != JTokenType.String ||
+                (parameters.Value<string>("result_contract") != "legacy" && parameters.Value<string>("result_contract") != "task_v1")))
+                throw new ArgumentException("SCRIPT_INPUT_INVALID: result_contract must be legacy or task_v1.");
         }
 
         public static JToken ParseData(string json)
