@@ -232,6 +232,7 @@ reconnect 后，在同一连接上将新的 initialize 与 `tools/list` 的 `_me
 | `dwg_switch_target` | 选择并验证实例；切换实例必须用 `pid:`/`id:`，离开仍在运行且已确认的目标还需 `rebind=true`。只读模式下不可用 |
 | `dwg_list_recent_drawings` | 列出当前 AutoCAD 最多 50 个最近 DWG，可按文件名过滤；无需打开图纸 |
 | `dwg_open_drawing` | 按绝对路径打开 DWG，可请求只读；复用已打开图纸，不保存或关闭；默认等待 600 秒（[详情](README.md#drawing-session-tools)） |
+| `dwg_report_task_result` | 将任务报告（结果、摘要、含 `dwg:<handle>` 实体链接的 Markdown 正文）保存为供 AutoCAD 用户查看的本地文件；不修改图纸 |
 | `dwg_batch_execute` | 把多个内部 wire 命令作为逻辑批处理运行 |
 | `dwg_send_code` | 在 AutoCAD .NET API 上执行 C# 代码片段（globals `doc`/`db`/`ed`，支持 `return` 返回值 + stdout 捕获，30 秒协作式取消；`MCPDISABLECODE`/`MCPENABLECODE` 按会话开关） |
 | `dwg_run_lisp` | 仅用于兼容：所有 `file`/`code`/`command` 输入均以 `lisp_execution_blocked` 拒绝。不读取文件、不发送到 plugin、不执行。请使用 `dwg_inspect_lisp` 做静态分析。 |
@@ -530,6 +531,7 @@ mcp__dwg-mcp__dwg_list_blocks
 mcp__dwg-mcp__dwg_list_layers
 mcp__dwg-mcp__dwg_list_recent_drawings
 mcp__dwg-mcp__dwg_query_entities
+mcp__dwg-mcp__dwg_report_task_result
 mcp__dwg-mcp__dwg_select_by_layer
 mcp__dwg-mcp__dwg_select_by_type
 mcp__dwg-mcp__dwg_zoom_extents

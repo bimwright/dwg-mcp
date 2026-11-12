@@ -38,6 +38,7 @@ namespace Bimwright.Dwg.Plugin
         internal static bool ListenerRunning => _server != null && _server.IsRunning;
         internal static bool ListenerUsesPipe => _server != null && _server.Kind == TransportKind.Pipe;
         internal static int? ListenerPort => ListenerRunning ? _server.Port : null;
+        internal static string ListenerConnectionInfo => ListenerRunning ? _server.ConnectionInfo : null;
         internal static bool AutoStartTransport { get; private set; } = PluginSettings.DefaultAutoStartTransport;
         internal static string AutoStartSource { get; private set; } = "default";
         internal static string AutoStartSaveError { get; private set; }
@@ -50,6 +51,7 @@ namespace Bimwright.Dwg.Plugin
         {
             DiagnosticLog.MaintainLegacyLogs();
             OutputArtifactStore.MaintainInBackground();
+            Reports.Acad.ReportsModule.CleanupInBackground();
             LoadStartupPreference();
             try
             {
@@ -80,6 +82,7 @@ namespace Bimwright.Dwg.Plugin
             try { CloseSettings(); } catch { }
             try { _history?.Close(); } catch { }
             _history = null;
+            try { Reports.Acad.ReportsModule.Shutdown(); } catch { }
             try { ToastNotifier?.Shutdown(); } catch { }
             try { DocumentInvoker.Shutdown(); } catch { }
             try { View.DrawingRevision.Shutdown(); } catch { }
@@ -148,6 +151,30 @@ namespace Bimwright.Dwg.Plugin
         public static void McpHistory()
         {
             ShowOrFocusHistory();
+        }
+
+        [CommandMethod("MCPREPORTS", CommandFlags.Session)]
+        public static void McpReports()
+        {
+            ShowReports(null);
+        }
+
+        /// <summary>Open the Reports window, on <paramref name="reportId"/> when given (a toast click).</summary>
+        internal static void ShowReports(string reportId)
+        {
+            var dispatcher = _uiDispatcher;
+            if (dispatcher != null && !dispatcher.CheckAccess())
+            {
+                if (!dispatcher.HasShutdownStarted && !dispatcher.HasShutdownFinished)
+                    dispatcher.BeginInvoke(new System.Action(() => ShowReports(reportId)));
+                return;
+            }
+            try
+            {
+                if (reportId == null) Reports.Acad.ReportsModule.ShowOrFocus();
+                else Reports.Acad.ReportsModule.ShowReport(reportId);
+            }
+            catch (System.Exception ex) { WriteLine("Reports could not open: " + ex.Message); }
         }
 
         internal static void ShowOrFocusHistory()
@@ -291,7 +318,13 @@ namespace Bimwright.Dwg.Plugin
             var host = new McpToastHost();
             ToastNotifier = new McpToastNotifier(host, () => _toastEnabled);
             ToastNotifier.SetInstanceInfo(ToastTitle);
-            ToastNotifier.SetActivityClickHandler(_ => ShowOrFocusHistory());
+            // A card whose latest result is an agent report opens that report; any other card opens History.
+            ToastNotifier.SetActivityClickHandler(cardId =>
+            {
+                var reportId = ToastNotifier?.ReportFor(cardId);
+                if (reportId != null) ShowReports(reportId);
+                else ShowOrFocusHistory();
+            });
 
             // Anchor toasts to the AutoCAD window and reuse the host WPF dispatcher
             // when AutoCAD already runs one (its ribbon is WPF).
@@ -325,6 +358,7 @@ namespace Bimwright.Dwg.Plugin
         /// </summary>
         private static void OnIdleToast(object sender, System.EventArgs args)
         {
+            try { Reports.Acad.ReportsModule.OnIdle(); } catch (System.Exception ex) { PluginLog.Debug("Reports idle refresh failed: " + ex.Message); }
             var notifier = ToastNotifier;
             if (notifier == null)
                 return;

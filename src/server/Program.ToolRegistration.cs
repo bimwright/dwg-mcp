@@ -17,6 +17,7 @@ namespace Bimwright.Dwg.Server
             (new[] { "modify" }, typeof(ModifyTools), true, static mcp => mcp.WithTools<ModifyTools>()),
             (new[] { "meta" }, typeof(MetaTools), false, RegisterMetaToolsWithReadOnlyPolicy),
             (new[] { "meta" }, typeof(BatchTools), true, static mcp => mcp.WithTools<BatchTools>()),
+            (new[] { "meta" }, typeof(ReportTools), false, static mcp => mcp.WithTools<ReportTools>()),
             (new[] { "toolbaker" }, typeof(ToolBakerTools), false, static mcp => mcp.WithTools<ToolBakerTools>()),
             (new[] { "toolbaker" }, typeof(ToolBakerWriteTools), true, static mcp => mcp.WithTools<ToolBakerWriteTools>()),
             // meta carries code on the default surface; code remains an explicit alias.

@@ -74,6 +74,7 @@ namespace Bimwright.Dwg.Tests
                 "dwg_open_drawing",
                 "dwg_purge_drawing",
                 "dwg_query_entities",
+                "dwg_report_task_result",
                 "dwg_restore_view",
                 "dwg_rotate_entities",
                 "dwg_run_baked_tool",
@@ -242,6 +243,7 @@ namespace Bimwright.Dwg.Tests
                 "MetaTools",
                 "ModifyTools",
                 "QueryTools",
+                "ReportTools",
                 "ViewTools"
             }, defaultTypeNames);
 
@@ -254,6 +256,7 @@ namespace Bimwright.Dwg.Tests
                 "HealthTools",
                 "MetaTools",
                 "QueryTools",
+                "ReportTools",
                 "ViewTools"
             }, defaultReadOnlyTypeNames);
 
@@ -265,8 +268,8 @@ namespace Bimwright.Dwg.Tests
             // meta alone carries dwg_send_code (rvt-mcp parity); read-only strips it.
             var metaWriteTypeNames = InvokeToolTypeResolver(method, new[] { "meta" }, readOnly: false);
             var metaReadOnlyTypeNames = InvokeToolTypeResolver(method, new[] { "meta" }, readOnly: true);
-            Assert.Equal(new[] { "BatchTools", "CodeTools", "MetaTools" }, metaWriteTypeNames);
-            Assert.Equal(new[] { "MetaTools" }, metaReadOnlyTypeNames);
+            Assert.Equal(new[] { "BatchTools", "CodeTools", "MetaTools", "ReportTools" }, metaWriteTypeNames);
+            Assert.Equal(new[] { "MetaTools", "ReportTools" }, metaReadOnlyTypeNames);
 
             var toolBakerWriteTypeNames = InvokeToolTypeResolver(method, new[] { "toolbaker" }, readOnly: false);
             var toolBakerReadOnlyTypeNames = InvokeToolTypeResolver(method, new[] { "toolbaker" }, readOnly: true);

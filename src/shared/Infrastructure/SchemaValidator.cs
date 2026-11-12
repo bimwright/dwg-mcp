@@ -401,6 +401,13 @@ namespace Bimwright.Dwg.Plugin
             SchemaProperty.Optional("compile_only", JTokenType.Boolean),
             SchemaProperty.Optional("result_contract", JTokenType.String));
 
+        public static readonly CommandSchema ReportTaskResult = CommandSchema.Object(
+            SchemaProperty.Required("task_id", JTokenType.String),
+            SchemaProperty.Required("outcome", JTokenType.String),
+            SchemaProperty.Required("summary", JTokenType.String),
+            SchemaProperty.Optional("body", JTokenType.String),
+            SchemaProperty.Optional("client_session", JTokenType.String));
+
         public static readonly CommandSchema RunLisp = CommandSchema.Object(
             SchemaProperty.Optional("file", JTokenType.String),
             SchemaProperty.Optional("code", JTokenType.String),

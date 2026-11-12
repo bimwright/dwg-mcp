@@ -14,6 +14,7 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
         private readonly McpToastHost _host;
         private readonly ActivityAggregator _activity;
         private readonly Func<bool> _isEnabled;
+        private readonly ToastReportRoute _reportRoute = new ToastReportRoute();
         private IntPtr _ownerHwnd;
 
         public McpToastNotifier(McpToastHost host, Func<bool> isEnabled)
@@ -36,6 +37,9 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
         public ActivityHistory History => _host.History;
 
         public void SetActivityClickHandler(Action<long> handler) => _host.SetActivityClickHandler(handler);
+
+        /// <summary>The report a click on <paramref name="cardId"/> opens, or null to open History.</summary>
+        public string ReportFor(long cardId) => _reportRoute.ReportFor(cardId);
 
         public void SetShowBranding(bool show) => _host.SetShowBranding(show);
 
@@ -72,6 +76,8 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
 
             var imagePath = ToastContentBuilder.IsSafeImagePath(vm.ThumbnailPath) ? vm.ThumbnailPath : null;
             Record(vm.Title, vm.Body, vm.Success, vm.Success && (vm.CommandName == "capture_view_image" || imagePath != null), imagePath, vm.DurationMs);
+            // A click opens the report only while it is the card's latest result; every other click opens History.
+            _reportRoute.Recorded(_activity.CurrentCardId, ToastReportRoute.ReportIdFrom(toolName, success, resultJson));
         }
 
         /// <summary>One-shot connection confirmation. Does not cover an open activity card.</summary>

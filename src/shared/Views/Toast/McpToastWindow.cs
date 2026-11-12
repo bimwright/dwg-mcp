@@ -969,11 +969,15 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
             _brandRow.Visibility = _showBranding ? Visibility.Hidden : Visibility.Collapsed;
         }
 
-        /// <summary>"dwg-mcp 2027": names the gateway and the AutoCAD year, so cards from several
-        /// MCP gateways or AutoCAD years running side by side are told apart.</summary>
-        private string IdentityTitle => string.IsNullOrWhiteSpace(_instanceIdentity)
+        /// <summary>"dwg-mcp 2027 · PID: 1234": names the gateway, the AutoCAD year and this process, so cards
+        /// from several MCP gateways or AutoCAD instances running side by side are told apart.</summary>
+        private string IdentityTitle => (string.IsNullOrWhiteSpace(_instanceIdentity)
             ? BrandAssets.ProductName
-            : _instanceIdentity;
+            : _instanceIdentity) + " · PID: " + OwnPid;
+
+        // This window runs inside AutoCAD; never take its PID from a gateway or report payload.
+        private static readonly int OwnPid = ReadOwnPid();
+        private static int ReadOwnPid() { using (var process = Process.GetCurrentProcess()) return process.Id; }
 
         private void CancelBrandRevealTimer()
         {

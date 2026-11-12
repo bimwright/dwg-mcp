@@ -42,6 +42,7 @@ namespace Bimwright.Dwg.Plugin
                 { "create_line",             new CreateLineHandler() },
                 { "create_circle",           new CreateCircleHandler() },
                 { "attach_image",            new AttachImageHandler() },
+                { "report_task_result",      new Bimwright.Dwg.Plugin.Reports.Acad.ReportTaskResultHandler() },
                 { "create_point",            new CreatePointHandler() },
                 { "create_polyline",         new CreatePolylineHandler() },
                 { "create_rectangle",        new CreateRectangleHandler() },

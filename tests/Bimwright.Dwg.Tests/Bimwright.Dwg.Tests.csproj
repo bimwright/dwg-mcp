@@ -43,6 +43,17 @@
     <Compile Include="..\..\src\shared\Infrastructure\BatchExecutor.cs" LinkBase="Shared\Infrastructure" />
     <Compile Include="..\..\src\shared\Cad\CadWire.cs" LinkBase="Shared\Cad" />
     <Compile Include="..\..\src\shared\Cad\ImageAttachInput.cs" LinkBase="Shared\Cad" />
+    <!-- Report model/binding/storage are host-free; ReportLimits comes from the server assembly. -->
+    <Compile Include="..\..\src\shared\Reports\Model\*.cs" Exclude="..\..\src\shared\Reports\Model\ReportLimits.cs" LinkBase="Shared\Reports\Model" />
+    <Compile Include="..\..\src\shared\Reports\Binding\*.cs" LinkBase="Shared\Reports\Binding" />
+    <Compile Include="..\..\src\shared\Reports\Storage\*.cs" LinkBase="Shared\Reports\Storage" />
+    <!-- Reports view models need only ICommand/INotifyPropertyChanged; the WPF views stay in the plugin. -->
+    <Compile Include="..\..\src\shared\Reports\Presentation\*.cs" LinkBase="Shared\Reports\Presentation" />
+    <Compile Include="..\..\src\shared\Reports\Navigation\*.cs" LinkBase="Shared\Reports\Navigation" />
+    <Compile Include="..\..\src\shared\Presentation\Common\*.cs" LinkBase="Shared\Presentation\Common" />
+    <Compile Include="..\..\src\shared\Config\ReportsWindowState.cs" LinkBase="Shared\Config" />
+    <Compile Include="..\..\src\shared\Config\PluginSettings.Reports.cs" LinkBase="Shared\Config" />
+    <Compile Include="..\..\src\shared\Views\Toast\ToastReportRoute.cs" LinkBase="Shared\Views\Toast" />
     <Compile Include="..\..\src\shared\Cad\CadPrimitiveValidation.cs" LinkBase="Shared\Cad" />
     <Compile Include="..\..\src\shared\Cad\CadTransformService.cs" LinkBase="Shared\Cad" />
     <Compile Include="..\..\src\shared\Annotation\AnnotationRequestValidation.cs" LinkBase="Shared\Annotation" />

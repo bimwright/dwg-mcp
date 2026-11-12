@@ -292,6 +292,7 @@ Follow `output.next_calls` to page `types`, `layers` or `spaces`; each suggested
 | `dwg_switch_target` | Bind and verify an instance; changing instances requires `pid:`/`id:`, plus `rebind=true` when leaving a live confirmed target. Excluded from read-only mode |
 | `dwg_list_recent_drawings` | List up to 50 recent DWGs for the connected AutoCAD, with optional filename filter; works with no drawing open |
 | `dwg_open_drawing` | Open an absolute DWG path, optionally read-only; reuse an open drawing, never save or close drawings; default wait 600s |
+| `dwg_report_task_result` | Save a task report (outcome, summary, Markdown body with `dwg:<handle>` entity links) as a local file for the AutoCAD user; never changes a drawing |
 | `dwg_batch_execute` | Run multiple internal wire commands as a logical batch |
 | `dwg_send_code` | Execute a C# snippet against the AutoCAD .NET API (globals `doc`/`db`/`ed`, `return` value + captured stdout, cooperative 30s cancellation; `MCPDISABLECODE`/`MCPENABLECODE` toggle per session) |
 | `dwg_run_lisp` | Compatibility endpoint only: all `file`/`code`/`command` inputs are refused with `lisp_execution_blocked`. No file read, plugin dispatch or execution from this tool. Use `dwg_inspect_lisp` for analysis only. |
@@ -630,6 +631,7 @@ mcp__dwg-mcp__dwg_list_blocks
 mcp__dwg-mcp__dwg_list_layers
 mcp__dwg-mcp__dwg_list_recent_drawings
 mcp__dwg-mcp__dwg_query_entities
+mcp__dwg-mcp__dwg_report_task_result
 mcp__dwg-mcp__dwg_select_by_layer
 mcp__dwg-mcp__dwg_select_by_type
 mcp__dwg-mcp__dwg_zoom_extents

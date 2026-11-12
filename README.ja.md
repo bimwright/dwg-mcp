@@ -232,6 +232,7 @@ reconnect 後、同じ接続の新しい initialize と `tools/list` の `_meta[
 | `dwg_switch_target` | インスタンスを選択・確認。別のインスタンスには `pid:`/`id:`、稼働中の確認済みターゲットから離れるには `rebind=true` も必要。読み取り専用モードでは除外 |
 | `dwg_list_recent_drawings` | 接続中の AutoCAD の最近の DWG を最大50件取得、名前で絞り込み可能；図面不要 |
 | `dwg_open_drawing` | 絶対パスの DWG を開く、読み取り専用を指定可能；既存図面を再利用し保存・閉じる操作なし；既定600秒（[詳細](README.md#drawing-session-tools)） |
+| `dwg_report_task_result` | タスク報告（結果、要約、`dwg:<handle>` エンティティリンク付き Markdown 本文）を AutoCAD ユーザー向けのローカルファイルとして保存；図面は変更しない |
 | `dwg_batch_execute` | 複数の内部ワイヤーコマンドを論理バッチとして実行 |
 | `dwg_send_code` | AutoCAD .NET API でC#スニペットを実行（globals `doc`/`db`/`ed`、`return` 値 + stdout キャプチャ、30秒の協調キャンセル。`MCPDISABLECODE`/`MCPENABLECODE` でセッション単位に切替） |
 | `dwg_run_lisp` | 互換性用エンドポイント。すべての `file`/`code`/`command` を `lisp_execution_blocked` で拒否します。ファイル読込、プラグインへの送信、実行は行いません。静的解析には `dwg_inspect_lisp` を使用してください。 |
@@ -528,6 +529,7 @@ mcp__dwg-mcp__dwg_list_blocks
 mcp__dwg-mcp__dwg_list_layers
 mcp__dwg-mcp__dwg_list_recent_drawings
 mcp__dwg-mcp__dwg_query_entities
+mcp__dwg-mcp__dwg_report_task_result
 mcp__dwg-mcp__dwg_select_by_layer
 mcp__dwg-mcp__dwg_select_by_type
 mcp__dwg-mcp__dwg_zoom_extents

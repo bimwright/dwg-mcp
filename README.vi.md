@@ -230,6 +230,7 @@ Theo `output.next_calls` để phân trang `types`, `layers` hoặc `spaces`; m�
 | `dwg_switch_target` | Chọn và xác minh instance; chuyển instance cần `pid:`/`id:`, thêm `rebind=true` khi rời target đang sống và đã xác minh. Không có trong read-only |
 | `dwg_list_recent_drawings` | Liệt kê tối đa 50 DWG recent của AutoCAD đang kết nối, có lọc tên; không cần drawing active |
 | `dwg_open_drawing` | Mở DWG theo path tuyệt đối, tùy chọn đọc-only; tái sử dụng file đã mở, không lưu/đóng drawing; mặc định chờ 600s ([chi tiết](README.md#drawing-session-tools)) |
+| `dwg_report_task_result` | Lưu báo cáo công việc (kết quả, tóm tắt, nội dung Markdown có link entity `dwg:<handle>`) thành file local cho người dùng AutoCAD; không sửa drawing |
 | `dwg_batch_execute` | Chạy nhiều wire command nội bộ như một logical batch |
 | `dwg_send_code` | Chạy C# snippet trên AutoCAD .NET API (globals `doc`/`db`/`ed`, hỗ trợ `return` value + stdout capture, cooperative cancel 30s; `MCPDISABLECODE`/`MCPENABLECODE` bật/tắt theo session) |
 | `dwg_run_lisp` | Giữ để tương thích: mọi input `file`/`code`/`command` đều bị từ chối với `lisp_execution_blocked`. Tool không đọc file, không gửi plugin và không thực thi. Dùng `dwg_inspect_lisp` để phân tích tĩnh. |
@@ -524,6 +525,7 @@ mcp__dwg-mcp__dwg_list_blocks
 mcp__dwg-mcp__dwg_list_layers
 mcp__dwg-mcp__dwg_list_recent_drawings
 mcp__dwg-mcp__dwg_query_entities
+mcp__dwg-mcp__dwg_report_task_result
 mcp__dwg-mcp__dwg_select_by_layer
 mcp__dwg-mcp__dwg_select_by_type
 mcp__dwg-mcp__dwg_zoom_extents

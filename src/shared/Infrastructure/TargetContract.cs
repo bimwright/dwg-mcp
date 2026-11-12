@@ -13,7 +13,7 @@ namespace Bimwright.Dwg.Plugin
             "get_entity_properties", "get_selected_texts", "list_layers", "query_entities",
             "count_entities", "select_by_layer", "select_by_type", "list_blocks",
             "get_block_attributes", "list_baked_tools", "get_variables",
-            "zoom_extents", "zoom_window", "zoom_to_entity"
+            "zoom_extents", "zoom_window", "zoom_to_entity", "report_task_result"
         };
 
         public static bool IsWrite(string command) => !Reads.Contains(command ?? "");

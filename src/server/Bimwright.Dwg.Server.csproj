@@ -51,6 +51,7 @@
     <Compile Include="..\shared\Infrastructure\ScriptInputContract.cs" LinkBase="Shared\Infrastructure" />
     <Compile Include="..\shared\Infrastructure\BatchContract.cs" LinkBase="Shared\Infrastructure" />
     <Compile Include="..\shared\Infrastructure\ScriptTaskContract.cs" LinkBase="Shared\Infrastructure" />
+    <Compile Include="..\shared\Reports\Model\ReportLimits.cs" LinkBase="Shared\Reports\Model" />
     <Compile Include="..\shared\Drawing\DrawingSessionContract.cs" LinkBase="Shared\Drawing" />
     <Compile Include="..\shared\Drawing\DrawingProfile.cs" LinkBase="Shared\Drawing" />
     <Compile Include="..\shared\Drawing\EntityQueryOptions.cs" LinkBase="Shared\Drawing" />
