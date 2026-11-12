@@ -118,6 +118,49 @@ namespace Bimwright.Dwg.Server.Tools
             return ToolGateway.LoggedCall("create_circle", request, request);
         }
 
+        [McpServerTool(Name = "dwg_attach_image", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = true), Description(
+            "Attach a raster image (PNG, JPG, TIFF or BMP) to the current AutoCAD space at an exact position and size, like IMAGEATTACH. " +
+            "path is a fully qualified local path on the AutoCAD machine (C:\\...); UNC paths and URLs are refused. " +
+            "The image is linked, not embedded: the drawing stores the absolute path, so moving or deleting the file breaks the image. " +
+            "insertion is the lower-left corner in WCS drawing units. width sets the drawing-unit width and does not depend on the file's DPI; " +
+            "height is optional and otherwise follows the pixel aspect ratio. rotation_degrees turns the image counter-clockwise about insertion. " +
+            "An existing image definition for the same file is reused. Layer creation, the definition, the image and draw order happen in one transaction; " +
+            "a failure leaves none of them. Returns handle, image_def_handle, path, pixel size, resolved width/height and the entity with extents." +
+            " Changes the current drawing; use AutoCAD UNDO immediately to reverse drawing edits before saving. Disabled in read-only mode.")]
+        public static Task<string> AttachImage(
+            [Description("Fully qualified local image path on the AutoCAD machine, e.g. C:\\Projects\\site\\base_map.png.")] string path,
+            [Description("JSON point object for the lower-left corner, e.g. {\"x\":5.25,\"y\":53.025}.")] string insertion,
+            [Description("Image width in drawing units. Must be positive and finite.")] double width,
+            [Description("Optional image height in drawing units. Omit to keep the pixel aspect ratio.")] double? height = null,
+            [Description("Optional counter-clockwise rotation in degrees about insertion. Default 0.")] double rotation_degrees = 0,
+            [Description("Optional target layer name. If supplied, the layer is ensured with default color 7.")] string layer = null,
+            [Description("Move the image to the bottom of the current space's draw order. Default false.")] bool send_to_back = false)
+        {
+            if (!TryParseJsonObject(insertion, "insertion", out var insertionObject, out var insertionError))
+            {
+                return ToolInputError(insertionError);
+            }
+
+            var request = new JObject
+            {
+                ["path"] = path,
+                ["insertion"] = insertionObject,
+                ["width"] = width,
+                ["rotation_degrees"] = rotation_degrees,
+                ["send_to_back"] = send_to_back
+            };
+            if (height.HasValue)
+            {
+                request["height"] = height.Value;
+            }
+            if (layer != null)
+            {
+                request["layer"] = layer;
+            }
+
+            return ToolGateway.LoggedCall("attach_image", request, request);
+        }
+
         [McpServerTool(Name = "dwg_create_point", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false), Description(
             "Create a Point in the current AutoCAD space. point is a JSON point object " +
             "with numeric x, y, and optional z fields. Optional layer is ensured before " +

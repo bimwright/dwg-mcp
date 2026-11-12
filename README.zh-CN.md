@@ -210,6 +210,7 @@ reconnect 后，在同一连接上将新的 initialize 与 `tools/list` 的 `_me
 | `dwg_create_layer` | 确保某个图层存在，且不覆盖已有图层的属性 |
 | `dwg_create_line` | 在当前绘图空间中创建一条直线 |
 | `dwg_create_circle` | 在当前绘图空间中创建一个圆 |
+| `dwg_attach_image` | 按精确位置和尺寸附着链接的光栅图像（PNG/JPG/TIFF/BMP） |
 | `dwg_create_point` | 创建一个点并返回其十六进制 handle |
 | `dwg_create_polyline` | 由顶点创建一条轻量多段线并返回其十六进制 handle |
 | `dwg_create_rectangle` | 创建一个矩形多段线并返回其十六进制 handle |

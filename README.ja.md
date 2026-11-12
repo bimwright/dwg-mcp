@@ -210,6 +210,7 @@ reconnect 後、同じ接続の新しい initialize と `tools/list` の `_meta[
 | `dwg_create_layer` | 既存の画層のプロパティを上書きせずに画層を作成する |
 | `dwg_create_line` | 現在の図面空間に1本の線を作成 |
 | `dwg_create_circle` | 現在の図面空間に1つの円を作成 |
+| `dwg_attach_image` | リンクされたラスター画像（PNG/JPG/TIFF/BMP）を正確な位置とサイズで貼り付け |
 | `dwg_create_point` | 1つの点を作成し、その16進ハンドルを返す |
 | `dwg_create_polyline` | 頂点から軽量ポリラインを作成し、その16進ハンドルを返す |
 | `dwg_create_rectangle` | 長方形ポリラインを作成し、その16進ハンドルを返す |

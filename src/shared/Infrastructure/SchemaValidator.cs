@@ -225,6 +225,15 @@ namespace Bimwright.Dwg.Plugin
             SchemaProperty.Optional("layer", JTokenType.String),
             SchemaProperty.Optional("color_index", JTokenType.Integer));
 
+        public static readonly CommandSchema AttachImage = CommandSchema.Object(
+            SchemaProperty.Required("path", JTokenType.String),
+            SchemaProperty.Required("insertion", JTokenType.Object),
+            SchemaProperty.Required("width", JTokenType.Float, JTokenType.Integer),
+            SchemaProperty.Optional("height", JTokenType.Float, JTokenType.Integer),
+            SchemaProperty.Optional("rotation_degrees", JTokenType.Float, JTokenType.Integer),
+            SchemaProperty.Optional("layer", JTokenType.String),
+            SchemaProperty.Optional("send_to_back", JTokenType.Boolean));
+
         public static readonly CommandSchema CreatePoint = CommandSchema.Object(
             SchemaProperty.Required("point", JTokenType.Object),
             SchemaProperty.Optional("layer", JTokenType.String),

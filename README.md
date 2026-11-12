@@ -270,6 +270,7 @@ Follow `output.next_calls` to page `types`, `layers` or `spaces`; each suggested
 | `dwg_create_layer` | Ensure a layer exists without overwriting an existing layer's properties |
 | `dwg_create_line` | Create one line in the current drawing space |
 | `dwg_create_circle` | Create one circle in the current drawing space |
+| `dwg_attach_image` | Attach a linked raster image (PNG/JPG/TIFF/BMP) at an exact position and size |
 | `dwg_create_point` | Create one point and return its hex handle |
 | `dwg_create_polyline` | Create a lightweight polyline from vertices and return its hex handle |
 | `dwg_create_rectangle` | Create a rectangle polyline and return its hex handle |

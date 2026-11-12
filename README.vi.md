@@ -208,6 +208,7 @@ Theo `output.next_calls` để phân trang `types`, `layers` hoặc `spaces`; m�
 | `dwg_create_layer` | Đảm bảo layer tồn tại, không ghi đè property của layer đã có |
 | `dwg_create_line` | Tạo một line trong drawing space hiện tại |
 | `dwg_create_circle` | Tạo một circle trong drawing space hiện tại |
+| `dwg_attach_image` | Chèn ảnh raster liên kết (PNG/JPG/TIFF/BMP) đúng vị trí và kích thước |
 | `dwg_create_point` | Tạo một point và trả về hex handle |
 | `dwg_create_polyline` | Tạo lightweight polyline từ vertices và trả về hex handle |
 | `dwg_create_rectangle` | Tạo rectangle polyline và trả về hex handle |

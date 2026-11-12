@@ -23,6 +23,7 @@ namespace Bimwright.Dwg.Tests
             {
                 "dwg_accept_bake_suggestion",
                 "dwg_apply_unicode_style",
+                "dwg_attach_image",
                 "dwg_batch_execute",
                 "dwg_capture_view_image",
                 "dwg_change_color",

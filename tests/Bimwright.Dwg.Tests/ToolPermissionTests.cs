@@ -28,7 +28,7 @@ namespace Bimwright.Dwg.Tests
         [Fact]
         public void Every_non_code_tool_sets_all_four_hints_explicitly()
         {
-            Assert.Equal(69, Methods.Length);
+            Assert.Equal(70, Methods.Length);
             foreach (var method in Methods)
             {
                 var attribute = method.CustomAttributes.Single(a => a.AttributeType == typeof(McpServerToolAttribute));
@@ -37,7 +37,8 @@ namespace Bimwright.Dwg.Tests
                 if (name == "dwg_send_code") { Assert.Empty(hints); continue; }
                 foreach (var hint in new[] { "ReadOnly", "Destructive", "Idempotent", "OpenWorld" })
                     Assert.True(hints.Contains(hint), name + " must explicitly set " + hint);
-                Assert.Equal(name == "dwg_health" || name == "dwg_apply_unicode_style",
+                // attach_image links an external file into the drawing (D3, 2026-11-12 spec).
+                Assert.Equal(name == "dwg_health" || name == "dwg_apply_unicode_style" || name == "dwg_attach_image",
                     method.GetCustomAttribute<McpServerToolAttribute>().OpenWorld);
             }
         }

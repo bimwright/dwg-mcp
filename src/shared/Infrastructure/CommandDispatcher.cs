@@ -41,6 +41,7 @@ namespace Bimwright.Dwg.Plugin
                 { "create_layer",            new CreateLayerHandler() },
                 { "create_line",             new CreateLineHandler() },
                 { "create_circle",           new CreateCircleHandler() },
+                { "attach_image",            new AttachImageHandler() },
                 { "create_point",            new CreatePointHandler() },
                 { "create_polyline",         new CreatePolylineHandler() },
                 { "create_rectangle",        new CreateRectangleHandler() },

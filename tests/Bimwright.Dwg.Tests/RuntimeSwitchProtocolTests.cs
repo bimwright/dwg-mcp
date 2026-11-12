@@ -19,13 +19,13 @@ namespace Bimwright.Dwg.Tests
     public class RuntimeSwitchProtocolTests
     {
         [Theory]
-        [InlineData("", 45, true, true)]
-        [InlineData("--disable-send-code", 44, false, true)]
+        [InlineData("", 46, true, true)]
+        [InlineData("--disable-send-code", 45, false, true)]
         [InlineData("--read-only --enable-send-code", 17, false, false)]
-        [InlineData("--toolsets all", 69, true, true)]
-        [InlineData("--toolsets all --disable-send-code", 68, false, true)]
+        [InlineData("--toolsets all", 70, true, true)]
+        [InlineData("--toolsets all --disable-send-code", 69, false, true)]
         [InlineData("--toolsets all --read-only --enable-send-code", 23, false, false)]
-        [InlineData("--toolsets all --disable-toolbaker", 63, true, true)]
+        [InlineData("--toolsets all --disable-toolbaker", 64, true, true)]
         [InlineData("--toolsets query", 11, false, false)]
         [InlineData("--toolsets meta", 8, true, true)]
         [InlineData("--toolsets code", 2, true, true)]
@@ -107,7 +107,7 @@ namespace Bimwright.Dwg.Tests
                     }
                     foreach (var hint in new[] { "readOnlyHint", "destructiveHint", "idempotentHint", "openWorldHint" })
                         Assert.Equal(JTokenType.Boolean, tool["annotations"]?[hint]?.Type);
-                    Assert.Equal(tool.Value<string>("name") is "dwg_health" or "dwg_apply_unicode_style",
+                    Assert.Equal(tool.Value<string>("name") is "dwg_health" or "dwg_apply_unicode_style" or "dwg_attach_image",
                         tool["annotations"].Value<bool>("openWorldHint"));
                 }
                 if (flags.Contains("--read-only"))
