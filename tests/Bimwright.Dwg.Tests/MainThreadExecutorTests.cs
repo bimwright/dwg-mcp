@@ -33,7 +33,9 @@ namespace Bimwright.Dwg.Tests
             var executor = new MainThreadExecutor(10);
             int mutations = 0;
             var task = Workers.StartNew(() => executor.Invoke(() => ++mutations));
-            Assert.Throws<TimeoutException>(() => task.GetAwaiter().GetResult());
+            var error = Assert.Throws<TimeoutException>(() => task.GetAwaiter().GetResult());
+            Assert.StartsWith("ACAD_BUSY: ", error.Message);
+            Assert.Contains("not started", error.Message);
             executor.RunPending();
             Assert.Equal(0, mutations);
         }
