@@ -184,6 +184,10 @@ Sau reconnect, đối chiếu initialize và `tools/list` mới trên cùng conn
 
 Gõ `MCPREPORTS` trong AutoCAD để mở cửa sổ Reports. Bấm link entity `dwg:` trong báo cáo để chọn và zoom tới đối tượng. `dwg_report_task_result` nhận `call_ids` tùy chọn. `dwg_get_report_history` đọc lịch sử đã lưu kể cả khi AutoCAD đã đóng. Đặt `BIMWRIGHT_DWG_ENABLE_CHANGE_HISTORY=true` trên gateway để ghi lịch sử các thay đổi bản vẽ được hỗ trợ sau khi commit.
 
+Lịch sử từng bản vẽ nằm tại `%LOCALAPPDATA%\Bimwright\dwg-mcp\history\<drawing_key>.db`. Lý do do người dùng nhập có thể chứa dữ liệu nhạy cảm. Đóng tất cả gateway dwg-mcp trước khi sao lưu hoặc xóa cơ sở dữ liệu của bản vẽ cùng các tệp SQLite đi kèm. Báo cáo tham chiếu dữ liệu đã xóa sẽ hiện `history_unavailable`. Tắt capture sẽ dừng ghi mới.
+
+Plugin AutoCAD mặc định gọi `api.github.com` để kiểm tra bản phát hành ổn định mới. Lần gọi mạng chạy nền tối đa một lần mỗi 24 giờ. Tắt **Kiểm tra bản phát hành dwg-mcp mới** trong Settings để ngừng kiểm tra.
+
 Dùng MCP prompt `dwg_translate_text` để duyệt bản dịch trước khi ghi lại, hoặc `dwg_review_large_drawing` để lấy profile và đọc vùng dày bằng `dwg_cluster_bands`. Ở chế độ read-only, prompt dịch dừng ở bước duyệt và prompt đọc bản vẽ bỏ qua chụp ảnh.
 
 `dwg_attach_image` gắn tham chiếu ảnh PNG, JPG, TIFF hoặc BMP local theo điểm chèn và chiều rộng. Có thể đặt chiều cao, góc xoay, layer và thứ tự vẽ. `dwg_batch_execute` mặc định chạy batch logic. Dùng `atomic=true` với lệnh bản vẽ được hỗ trợ để rollback khi một bước lỗi, kể cả lỗi được báo theo entity.

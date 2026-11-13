@@ -37,7 +37,7 @@ namespace Bimwright.Dwg.Plugin.Handlers
                     has_attribute_definitions = attributeCount > 0,
                     reference_count = direct,
                     nested_reference_count = nested,
-                    unused = direct.HasValue ? (bool?)(direct == 0 && nested == 0) : null
+                    unused = direct.HasValue && !record.IsDependent && !record.IsFromExternalReference && !record.IsFromOverlayReference ? (bool?)(direct == 0 && nested == 0) : null
                 });
             }
             tx.Commit();

@@ -64,6 +64,7 @@ namespace Autodesk.AutoCAD.DatabaseServices
     public partial class Database
     {
         public string Filename { get; set; }
+        public string FingerprintGuid { get; set; }
     }
 
     public class HostApplicationServices
@@ -71,4 +72,9 @@ namespace Autodesk.AutoCAD.DatabaseServices
         public static HostApplicationServices Current { get; set; } = new HostApplicationServices();
         public string UserRegistryProductRootKey { get; set; } = @"Software\Bimwright\NonexistentSessionTestRoot";
     }
+}
+
+namespace Autodesk.AutoCAD.Runtime
+{
+    public class Exception : System.Exception { }
 }

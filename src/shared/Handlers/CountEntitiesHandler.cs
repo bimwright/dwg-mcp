@@ -35,9 +35,10 @@ namespace Bimwright.Dwg.Plugin.Handlers
 
             try
             {
-                var typeHint = new CadEntityTypeHint();
+                var typeHint = options.EntityType != null && options.Layer == null && !options.ColorIndex.HasValue
+                    ? new CadEntityTypeHint() : null;
                 var count = CadQueryService.CountEntities(doc.Database, options, typeHint);
-                return count == 0 ? CommandResult.Success(new { count, hint = typeHint.ToJson("model") })
+                return count == 0 && typeHint != null ? CommandResult.Success(new { count, hint = typeHint.ToJson("model") })
                     : CommandResult.Success(new { count });
             }
             catch (Exception ex)

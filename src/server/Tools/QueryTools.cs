@@ -150,6 +150,7 @@ namespace Bimwright.Dwg.Server.Tools
             "Group top-level entity extents along X or Y in ascending order. Extents that overlap or are separated by at most gap belong to the same band. " +
             "Returns each band's full WCS bbox and entity count. Optional text samples include up to five DBText/MText previews per band. " +
             "Read-only. Follow output.next_calls with the same clustering options. Changes to the drawing or options invalidate the cursor. " +
+            "Entities without finite extents are excluded and counted in coverage.extents_unavailable. " +
             "An incomplete source scan returns coverage without bands or continuation. Call directly, outside batches.")]
         public static Task<string> ClusterBands(
             [Description("WCS axis: x or y.")] string axis,

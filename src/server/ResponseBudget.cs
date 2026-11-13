@@ -81,7 +81,7 @@ internal static class ResponseBudget
         {
             var text = result.Content?.OfType<TextContentBlock>().FirstOrDefault();
             data = Parse(text?.Text);
-            if (data?["_report"]?.Type == JTokenType.String && data.Value<string>("_report") == AgentReportReminder.Text)
+            if (data?["_report"]?.Type == JTokenType.String && data.Value<string>("_report") is AgentReportReminder.Text or AgentReportReminder.ShortText)
             {
                 // An optional reminder cannot cause an otherwise deliverable result to spill.
                 reminder = data["_report"];

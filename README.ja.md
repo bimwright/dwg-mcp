@@ -186,6 +186,10 @@ reconnect 後、同じ接続の新しい initialize と `tools/list` の `_meta[
 
 AutoCAD で `MCPREPORTS` を実行すると Reports が開きます。報告内の `dwg:` リンクをクリックすると対象エンティティが選択され、ズームします。`dwg_report_task_result` は省略可能な `call_ids` を受け取ります。AutoCAD を閉じた後も `dwg_get_report_history` で保存済みの履歴を読めます。ゲートウェイで `BIMWRIGHT_DWG_ENABLE_CHANGE_HISTORY=true` を設定すると、対応する図面編集のコミット後に変更履歴を記録します。
 
+図面ごとの変更履歴は `%LOCALAPPDATA%\Bimwright\dwg-mcp\history\<drawing_key>.db` に保存されます。ユーザーが入力する理由には機密情報が含まれる場合があります。バックアップまたは削除の前に、すべての dwg-mcp ゲートウェイを終了し、該当するデータベースと関連する SQLite ファイルをまとめて扱ってください。削除済みの履歴を参照するレポートには `history_unavailable` が表示されます。キャプチャをオフにすると新規記録が止まります。
+
+AutoCAD プラグインは既定で `api.github.com` にアクセスして安定版の更新を確認します。バックグラウンドでの通信は 24 時間に最大 1 回です。停止するには Settings で dwg-mcp の新しいリリースを確認する設定をオフにします。
+
 MCP プロンプト `dwg_translate_text` では書き戻し前に翻訳を確認できます。`dwg_review_large_drawing` は図面のプロファイルを取得し、密集領域を `dwg_cluster_bands` で調べます。読み取り専用モードでは翻訳は確認までとなり、図面レビューで画像は取得しません。
 
 `dwg_attach_image` はローカルの PNG、JPG、TIFF、BMP を挿入点と幅を指定して参照としてアタッチします。高さ、回転、画層、描画順も指定できます。`dwg_batch_execute` は既定で論理バッチを実行します。対応コマンドで `atomic=true` を指定すると、個別エンティティのエラーを含め、ステップが失敗した際にロールバックします。

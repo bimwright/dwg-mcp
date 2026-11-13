@@ -23,6 +23,8 @@ namespace Bimwright.Dwg.Plugin.Handlers
             if (!ImageAttachInput.TryValidatePath(rawPath, out var pathError))
                 return CommandResult.Fail(pathError);
             var path = Path.GetFullPath(rawPath);
+            if (new DriveInfo(Path.GetPathRoot(path)).DriveType == DriveType.Network)
+                return CommandResult.Fail("mapped network drives are not allowed; copy the image to a local drive first");
             if (!File.Exists(path))
                 return CommandResult.Fail("image file not found on the AutoCAD machine: " + path);
 
@@ -60,7 +62,8 @@ namespace Bimwright.Dwg.Plugin.Handlers
                     foreach (DBDictionaryEntry entry in dictionary)
                     {
                         if (tx.GetObject(entry.Value, OpenMode.ForRead) is RasterImageDef existing &&
-                            string.Equals(existing.SourceFileName, path, StringComparison.OrdinalIgnoreCase))
+                            (string.Equals(existing.SourceFileName, path, StringComparison.OrdinalIgnoreCase) ||
+                             string.Equals(existing.ActiveFileName, path, StringComparison.OrdinalIgnoreCase)))
                         {
                             definition = existing;
                             reused = true;

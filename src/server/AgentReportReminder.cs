@@ -1,4 +1,5 @@
 using System.Linq;
+using System.Threading;
 using Bimwright.Dwg.Plugin;
 using Bimwright.Dwg.Server.Tools;
 using Newtonsoft.Json;
@@ -11,16 +12,22 @@ internal static class AgentReportReminder
     internal const string Text = "Before your final answer for this job, call dwg_report_task_result once. "
         + "Include [label](dwg:<handle>) links to relevant entities when available.";
 
+    internal const string ShortText = "Report still due: call dwg_report_task_result once before your final answer.";
+    private static int _writeReminded;
+
     internal static bool Enabled => ServerState.EnabledToolTypes.Contains(typeof(ReportTools));
 
     internal static string Serialize(string command, McpResponse response)
     {
+        if (response?.Ok == true && command == "report_task_result")
+            Interlocked.Exchange(ref _writeReminded, 0);
+
         if (response?.Ok != true || !Enabled || !IsWrite(command))
             return JsonConvert.SerializeObject(response);
 
         var data = JObject.FromObject(response);
         if (!Succeeded(command, data["result"])) return JsonConvert.SerializeObject(response);
-        data["_report"] = Text;
+        data["_report"] = Interlocked.Exchange(ref _writeReminded, 1) == 0 ? Text : ShortText;
         return data.ToString(Formatting.None);
     }
 

@@ -186,6 +186,10 @@ reconnect 后，在同一连接上将新的 initialize 与 `tools/list` 的 `_me
 
 在 AutoCAD 中运行 `MCPREPORTS` 打开 Reports。点击报告中的 `dwg:` 链接即可选中对应实体并缩放至该位置。`dwg_report_task_result` 接受可选的 `call_ids`。关闭 AutoCAD 后仍可用 `dwg_get_report_history` 读取已保存的报告历史。在网关设置 `BIMWRIGHT_DWG_ENABLE_CHANGE_HISTORY=true` 后，支持的图纸编辑会在提交后写入变更历史。
 
+每张图纸的变更历史保存在 `%LOCALAPPDATA%\Bimwright\dwg-mcp\history\<drawing_key>.db`。用户输入的变更原因可能包含敏感数据。备份或删除前，请关闭所有 dwg-mcp 网关，再一起处理该图纸的数据库和关联的 SQLite 文件。引用已删除历史的报告会显示 `history_unavailable`。关闭记录功能会停止写入新记录。
+
+AutoCAD 插件默认连接 `api.github.com` 检查新的稳定版本。后台网络查询每 24 小时最多执行一次。可在 Settings 中关闭 dwg-mcp 新版本检查。
+
 MCP 提示词 `dwg_translate_text` 用于在写回前审核译文，`dwg_review_large_drawing` 用于查看图纸概况并通过 `dwg_cluster_bands` 分析密集区域。只读模式下，翻译流程停在审核环节，图纸审阅流程跳过截图。
 
 `dwg_attach_image` 以指定插入点和宽度附着本地 PNG、JPG、TIFF 或 BMP 图像引用，也可指定高度、旋转、图层和绘制顺序。`dwg_batch_execute` 默认运行逻辑批处理。对支持的图纸命令启用 `atomic=true` 后，任一步骤失败都会触发回滚，包括单个实体报告的错误。

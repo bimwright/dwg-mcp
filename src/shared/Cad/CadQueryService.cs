@@ -105,7 +105,7 @@ namespace Bimwright.Dwg.Plugin.Cad
                     var entity = tx.GetObject(objectId, OpenMode.ForRead) as Entity;
                     if (entity == null) continue;
                     if (Matches(entity, options)) count++;
-                    else if (count == 0) typeHint.Observe(entity.GetType());
+                    else if (count == 0) typeHint?.Observe(entity.GetType());
                 }
 
                 tx.Commit();

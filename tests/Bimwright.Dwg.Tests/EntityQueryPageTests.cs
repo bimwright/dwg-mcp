@@ -391,13 +391,20 @@ public sealed class EntityQueryPageTests : IDisposable
         var request = new JObject { ["entity_type"] = "AcDbText", ["layer"] = "missing" };
         var empty = Body(handler.Execute(f.Document, request));
         Assert.Equal(0, empty.Value<int>("count"));
-        Assert.Equal("model", empty["hint"].Value<string>("space"));
-        Assert.Equal(new[] { typeof(Circle).FullName, typeof(DBText).FullName }, empty["hint"]["available_types"].Values<string>());
+        if (select)
+            Assert.Equal(new[] { typeof(Circle).FullName, typeof(DBText).FullName }, empty["hint"]["available_types"].Values<string>());
+        else
+            Assert.Null(empty["hint"]);
         Assert.DoesNotContain(erased.ObjectId, f.Database.ProfileOpenedIds);
         Assert.DoesNotContain(layout.ObjectId, f.Database.ProfileOpenedIds);
         Assert.Equal(1, f.Spaces[0].ProfileEnumerationStarts);
 
         request.Remove("layer");
+        request["entity_type"] = "AcDbLine";
+        var wrongType = Body(handler.Execute(f.Document, request));
+        Assert.Equal("model", wrongType["hint"].Value<string>("space"));
+        Assert.Equal(new[] { typeof(Circle).FullName, typeof(DBText).FullName }, wrongType["hint"]["available_types"].Values<string>());
+        request["entity_type"] = "AcDbText";
         var match = Body(handler.Execute(f.Document, request));
         Assert.Equal(1, match.Value<int>("count"));
         Assert.Null(match["hint"]);
@@ -539,18 +546,36 @@ public sealed class EntityQueryPageTests : IDisposable
     }
 
     [Fact]
-    public void Incomplete_band_scan_returns_coverage_without_partial_bands_or_cursor()
+    public void Bands_skip_unavailable_extents_and_continue_after_the_last_delivered_band()
     {
         var fixture = new Fixture();
         fixture.Add(new Line(), 1);
         fixture.Add(new Line { QueryExtentsFailure = new InvalidOperationException() }, 2);
-        var page = BandPage(fixture, JObject.Parse("{axis:'x',gap:1}"));
-        Assert.Empty(page["bands"]);
-        Assert.Null(page.Value<int?>("band_count"));
-        Assert.Null(page.Value<int?>("entity_count"));
-        Assert.Equal(1, page.Value<int>("observed_entity_count"));
+        fixture.Add(new Line(), 3, min: new Point3d(100, 0, 0), max: new Point3d(101, 1, 0));
+        var page = BandPage(fixture, JObject.Parse("{axis:'x',gap:1,limit:1}"));
+        Assert.Equal(2, page.Value<int?>("band_count"));
+        Assert.Equal(2, page.Value<int?>("entity_count"));
         Assert.Equal(1, page["coverage"].Value<int>("extents_unavailable"));
-        Assert.False(page["output"].Value<bool>("complete"));
+        Assert.True(page["coverage"].Value<bool>("scan_complete"));
+        Assert.Equal(1, Assert.Single(page["bands"]).Value<int>("band_id"));
+        var last = BandPage(fixture, NextBand(page));
+        Assert.Equal(2, Assert.Single(last["bands"]).Value<int>("band_id"));
+        Assert.True(last["output"].Value<bool>("complete"));
+    }
+
+    [Fact]
+    public void Bands_withhold_pages_after_an_entity_open_failure()
+    {
+        var fixture = new Fixture();
+        fixture.Add(new Line(), 1);
+        var unreadable = fixture.Add(new Line(), 2);
+        unreadable.ObjectId.Slot.OpenFailure = new InvalidOperationException();
+
+        var page = BandPage(fixture, JObject.Parse("{axis:'x',gap:0}"));
+        Assert.False(page["coverage"].Value<bool>("scan_complete"));
+        Assert.Equal(1, page["coverage"].Value<int>("entity_read_failed"));
+        Assert.Null(page.Value<int?>("band_count"));
+        Assert.Empty(page["bands"]);
         Assert.Empty(page["output"]["next_calls"]);
     }
 

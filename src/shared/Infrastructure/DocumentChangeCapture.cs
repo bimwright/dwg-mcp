@@ -17,9 +17,7 @@ namespace Bimwright.Dwg.Plugin
         private readonly JArray _deltas = new JArray();
         private int _bytes;
         private int _observed;
-        private int _nextStep;
         private int? _stepIndex;
-        private bool _batch;
         private string _partialReason;
 
         internal JObject Result { get; private set; }
@@ -39,7 +37,6 @@ namespace Bimwright.Dwg.Plugin
                 return unsupported;
             }
             var previous = _current;
-            _batch = command == "batch_execute";
             _current = this;
             CommandResult result;
             try { result = execute(); }
@@ -68,11 +65,20 @@ namespace Bimwright.Dwg.Plugin
             return result;
         }
 
+        internal static CommandResult ExecuteBatchStep(int index, Func<CommandResult> execute)
+        {
+            var capture = _current;
+            if (capture == null) return execute();
+            var previous = capture._stepIndex;
+            capture._stepIndex = index;
+            try { return execute(); }
+            finally { capture._stepIndex = previous; }
+        }
+
         internal static CommandResult ExecuteHandler(string command, Func<CommandResult> execute)
         {
             var capture = _current;
             if (capture == null || command == "batch_execute") return execute();
-            if (capture._batch) capture._stepIndex = capture._nextStep++;
             var count = capture._deltas.Count;
             var observed = capture._observed;
             var bytes = capture._bytes;
@@ -95,7 +101,6 @@ namespace Bimwright.Dwg.Plugin
                     capture._bytes = bytes;
                     capture._partialReason = reason ?? "handler_outcome_unknown";
                 }
-                capture._stepIndex = null;
             }
         }
 

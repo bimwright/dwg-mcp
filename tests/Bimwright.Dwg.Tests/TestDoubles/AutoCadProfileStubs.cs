@@ -112,6 +112,7 @@ public sealed class Transaction : IDisposable
         return id.Slot.Value;
     }
     public void Commit() { if (ended) throw new ObjectDisposedException(nameof(Transaction)); database.ProfileTransactionCommits++; }
+    public void Abort() => throw new NotSupportedException("Read-only fixture.");
     public void AddNewlyCreatedDBObject(DBObject value, bool add) => throw new NotSupportedException("Read-only fixture.");
     public void Dispose()
     {
@@ -193,6 +194,7 @@ public class BlockTableRecord : SymbolTableRecord, IEnumerable
     }
     public ObjectId LayoutId { get; set; }
     public bool IsAnonymous { get; set; }
+    public bool IsDependent { get; set; }
     public bool IsDynamicBlock { get; set; }
     public ObjectIdCollection GetAnonymousBlockIds() => new ObjectIdCollection(ProfileAnonymousIds);
     public ObjectIdCollection GetBlockReferenceIds(bool directOnly, bool forceValidity)

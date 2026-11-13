@@ -136,7 +136,7 @@ namespace Bimwright.Dwg.Plugin.Cad
                 try
                 {
                     var entity = transaction.GetObject(id, OpenMode.ForRead);
-                    var text = entity is DBText single ? single.TextString : ((MText)entity).Contents;
+                    var text = entity is DBText single ? single.TextString : ((MText)entity).Text;
                     if (text == null) { coverage.SampleReadFailed++; continue; }
                     var length = Math.Min(text.Length, BandQueryOptions.SampleMaxLength);
                     if (length < text.Length && char.IsSurrogatePair(text[length - 1], text[length])) length--;
@@ -185,7 +185,7 @@ namespace Bimwright.Dwg.Plugin.Cad
         {
             internal int Seen, Erased, ReadFailed, ExtentsUnavailable, SampleReadFailed;
             internal bool EnumerationFailed;
-            internal bool Complete => ReadFailed == 0 && ExtentsUnavailable == 0 && !EnumerationFailed;
+            internal bool Complete => ReadFailed == 0 && !EnumerationFailed;
             internal JObject ToJson() => new JObject
             {
                 ["scan_complete"] = Complete, ["entity_ids_seen"] = Seen, ["erased_excluded"] = Erased,

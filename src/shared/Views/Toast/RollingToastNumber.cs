@@ -6,6 +6,7 @@ using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+using Bimwright.Dwg.Plugin.Localization;
 
 namespace Bimwright.Dwg.Plugin.Views.Toast
 {
@@ -95,7 +96,7 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
             var roll = animate && _initialized;
             _initialized = true;
             Value = value;
-            ToolTip = value.ToString(CultureInfo.CurrentCulture);
+            ToolTip = value.ToString(L.Culture);
 
             var digits = value.ToString(CultureInfo.InvariantCulture).Length;
             while (_columns.Count > digits)

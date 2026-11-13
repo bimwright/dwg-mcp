@@ -120,7 +120,7 @@ namespace Bimwright.Dwg.Server.Tools
 
         [McpServerTool(Name = "dwg_attach_image", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = true), Description(
             "Attach a raster image (PNG, JPG, TIFF or BMP) to the current AutoCAD space at an exact position and size, like IMAGEATTACH. " +
-            "path is a fully qualified local path on the AutoCAD machine (C:\\...); UNC paths and URLs are refused. " +
+            "path is a fully qualified local path on the AutoCAD machine (C:\\...); UNC paths, mapped network drives and URLs are refused. " +
             "The image is linked, not embedded: the drawing stores the absolute path, so moving or deleting the file breaks the image. " +
             "insertion is the lower-left corner in WCS drawing units. width sets the drawing-unit width and does not depend on the file's DPI; " +
             "height is optional and otherwise follows the pixel aspect ratio. rotation_degrees turns the image counter-clockwise about insertion. " +

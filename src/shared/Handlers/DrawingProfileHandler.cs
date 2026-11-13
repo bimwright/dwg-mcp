@@ -165,7 +165,8 @@ namespace Bimwright.Dwg.Plugin.Handlers
         {
             try
             {
-                if (!record.IsAnonymous && !BlockUsageReader.ActiveReferenceIds(record, transaction).Any())
+                if (!record.IsAnonymous && !record.IsDependent && !record.IsFromExternalReference && !record.IsFromOverlayReference
+                    && !BlockUsageReader.ActiveReferenceIds(record, transaction).Any())
                     profile.AddUnusedBlock(record.Name, record.Handle.ToString());
             }
             catch { profile.FailedBlockUsageRead(); }

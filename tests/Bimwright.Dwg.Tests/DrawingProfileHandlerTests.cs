@@ -291,6 +291,7 @@ public sealed class DrawingProfileHandlerTests : IDisposable
         fixture.AddReference(fixture.Definitions[3], nestedOnly);
         definition.ProfileEntities.Add(fixture.Database.ProfileAdd(new AttributeDefinition()));
         var unknown = fixture.AddBlock(new BlockTableRecord { Name = "UnknownBlock", ProfileReferenceFailure = new InvalidOperationException() });
+        var dependent = fixture.AddBlock(new BlockTableRecord { Name = "XREF|Detail", IsDependent = true });
 
         var listed = new ListBlocksHandler().Execute(fixture.Document, new JObject());
         Assert.True(listed.Ok, listed.Error);
@@ -304,6 +305,7 @@ public sealed class DrawingProfileHandlerTests : IDisposable
         Assert.False(rows[nestedOnly.Name].Value<bool>("unused"));
         Assert.True(rows["UnusedBlock"].Value<bool>("unused"));
         Assert.Equal(JTokenType.Null, rows[unknown.Name]["unused"].Type);
+        Assert.Equal(JTokenType.Null, rows[dependent.Name]["unused"].Type);
         Assert.DoesNotContain(variant.Name, rows.Keys);
 
         var unused = Inspect(fixture)["unused_blocks"];

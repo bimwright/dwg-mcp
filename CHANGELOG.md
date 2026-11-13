@@ -5,7 +5,7 @@
 ### Drawing edits and scripting
 
 - Add opt-in `atomic=true` to `dwg_batch_execute`. Supported drawing commands run in one outer AutoCAD transaction. A failed step, including a reported per-entity error, rolls back earlier changes and skips later steps. The gateway checks `atomic_batch_version` before dispatch. The default remains `atomic=false`.
-- Add `dwg_attach_image` (issue #6). Link a local PNG, JPG, TIFF or BMP with an exact insertion point and width, optional height, rotation, layer and send-to-back. The image, definition, layer and draw order are written in one transaction. An existing definition for the file is reused.
+- Add `dwg_attach_image` (issue #6). Link a local PNG, JPG, TIFF or BMP with an exact insertion point and width, optional height, rotation, layer and send-to-back. The image, definition, layer and draw order are written in one transaction. An existing definition is reused when its saved or resolved image path matches. Mapped network drives are refused.
 - Add `result_contract=task_v1` to `dwg_send_code`. Scripts return `McpTaskResult.Pass(value)` or `McpTaskResult.Fail(code, message, details)`. The result includes `_task.status` (`passed`, `failed` or `not_reported`). The gateway checks `script_task_contract_version` before dispatch. Calls without `task_v1` keep their legacy behavior.
 - Add optional `usage_context=project|test|unknown` to `dwg_send_code`. The gateway records it only when call logging is enabled. Compiler diagnostics now include an `excerpt` of up to two lines on either side of the error, a column marker and a 200-character cap per line.
 - Return `ACAD_BUSY` or `QUEUE_FULL` when host admission rejects a request before it starts.
@@ -23,7 +23,7 @@
 - `dwg_list_blocks` reports direct and nested references and unused definitions. `dwg_get_drawing_profile` can page unused block definitions and collect opt-in DBText/MText counts, a height histogram and bounded samples. Profile pages preserve coverage and continuation under the response budget.
 - `dwg_list_layers(include_counts=true)` adds opt-in entity counts. Type filters normalize `AcDb` aliases, and zero-match count and select-by-type results can suggest types present in the requested space. Use `dwg_query_entities` for selection by WCS bounding box.
 - Add `dwg_list_open_documents` and standalone `dwg_activate_document`. Verify the new drawing with `dwg_switch_target` before writing.
-- Add read-only `dwg_cluster_bands` for X/Y band clustering with gap, WCS bounding-box, space and type filters, optional text samples and cursor pagination.
+- Add read-only `dwg_cluster_bands` for X/Y band clustering with gap, WCS bounding-box, space and type filters, optional plain-text samples and cursor pagination. Entities without usable extents are counted separately.
 - The catalog exposes 54 tools by default and 78 with `--toolsets all`. Read-only mode exposes 23 by default and 29 with all toolsets.
 
 ## 2.1.2 — 2026-11-01

@@ -244,6 +244,10 @@ After reconnect, compare fresh `initialize.serverInfo` and the health tool's `_m
 
 Run `MCPREPORTS` in AutoCAD to open Reports. Click a `dwg:` entity link in a report to select and zoom to the referenced entities. `dwg_report_task_result` accepts optional `call_ids`, and `dwg_get_report_history` can read the saved report history after AutoCAD closes. Set `BIMWRIGHT_DWG_ENABLE_CHANGE_HISTORY=true` on the gateway to capture supported committed edits for drawing history.
 
+Drawing history is stored per drawing in `%LOCALAPPDATA%\Bimwright\dwg-mcp\history\<drawing_key>.db`. User-provided reasons can contain sensitive data. Close all dwg-mcp gateways before copying the drawing’s database and any associated SQLite files to back it up, or deleting those files to remove the history. Reports referencing deleted history show `history_unavailable`. Disabling capture stops new writes.
+
+The AutoCAD plugin checks `api.github.com` for new stable releases by default. The background network lookup runs at most once per 24 hours. Turn off **Check for new dwg-mcp releases** in Settings to disable it.
+
 Use the MCP prompt `dwg_translate_text` to review a translation before writeback, or `dwg_review_large_drawing` to profile a drawing and inspect dense regions with `dwg_cluster_bands`. In read-only mode the translation prompt stops at review and the drawing review prompt omits image capture.
 
 `dwg_attach_image` links a local PNG, JPG, TIFF or BMP at a given insertion point and width. You can set height, rotation, layer and draw order. `dwg_batch_execute` defaults to a logical batch. Use `atomic=true` for supported drawing commands to roll back on a failed step, including a reported per-entity error.

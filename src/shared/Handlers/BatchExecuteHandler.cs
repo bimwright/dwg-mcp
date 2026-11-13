@@ -20,7 +20,9 @@ namespace Bimwright.Dwg.Plugin.Handlers
 
         public CommandResult Execute(Document doc, JToken parameters)
         {
-            return BatchExecutor.Run(parameters, (cmd, itemParams) => _executeCommand(doc, cmd, itemParams),
+            var stepIndex = 0;
+            return BatchExecutor.Run(parameters,
+                (cmd, itemParams) => DocumentChangeCapture.ExecuteBatchStep(stepIndex++, () => _executeCommand(doc, cmd, itemParams)),
                 () => new OuterTransaction(doc.Database.TransactionManager.StartTransaction()));
         }
 

@@ -27,7 +27,8 @@ namespace Bimwright.Dwg.Plugin.Cad
             var after = options.Cursor == null ? 0UL : EntityQueryCursor.Read(options.Cursor, snapshot, options.Fingerprint);
             var database = document.Database;
             var stats = new ScanStats();
-            var typeHint = countOnly ? new CadEntityTypeHint() : null;
+            var typeHint = countOnly && options.EntityType != null && options.Layer == null && !options.ColorIndex.HasValue
+                ? new CadEntityTypeHint() : null;
             var candidates = new SortedList<ulong, Candidate>();
             var rows = new JArray();
             var checkpoints = new JArray();
