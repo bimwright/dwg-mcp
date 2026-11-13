@@ -70,7 +70,8 @@ namespace Bimwright.Dwg.Tests
         [Fact]
         public async Task Drawing_profile_forwards_opt_in_text_stats()
         {
-            var sent = await Capture.Send(() => ProfileText(QueryTools.GetDrawingProfile(space: "model", include_text_stats: true)));
+            var sent = await Capture.Send(() => ProfileText(QueryTools.GetDrawingProfile(space: "model", include_text_stats: true)),
+                result: new JObject { ["scope"] = new JObject { ["requested_space"] = "model" }, ["text_stats"] = new JObject() });
             Assert.True(sent.Json().Value<bool>("include_text_stats"));
             Assert.Equal("model", sent.Json().Value<string>("space"));
         }
@@ -101,7 +102,8 @@ namespace Bimwright.Dwg.Tests
         [Fact]
         public async Task List_layers_forwards_opt_in_counts()
         {
-            var sent = await Capture.Send(() => QueryTools.ListLayers(include_counts: true));
+            var sent = await Capture.Send(() => QueryTools.ListLayers(include_counts: true),
+                result: new JObject { ["counts_complete"] = true });
             Assert.Equal("list_layers", sent.Command);
             Assert.True(sent.Json().Value<bool>("include_counts"));
         }

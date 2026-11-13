@@ -82,9 +82,12 @@ internal static class DrawingProfileResponse
             Meta = result.Meta?.DeepClone().AsObject()
         };
         var fittedText = fitted.Content.OfType<TextContentBlock>().First();
+        const string compactNote = "See next_calls/blocked_sections.";
+        var compactGuidance = profile["output"]?.Value<string>("note") == compactNote;
         void Refresh()
         {
             SetOutput(profile, tables, cap);
+            if (compactGuidance) profile["output"]["note"] = compactNote;
             if (samples != null && Count(textStats["samples_collected"]) is long collected)
             {
                 var omitted = Math.Max(0, collected - samples.Count);
@@ -100,6 +103,9 @@ internal static class DrawingProfileResponse
         // Profile data takes precedence over optional decoration. Every omitted
         // decoration is recorded in the delivered text, not only MCP metadata.
         var output = (JObject)profile["output"];
+        // Sub-default caps prioritize data over tutorial text. The default
+        // profile contract keeps its explanatory note even when rows are paged.
+        compactGuidance = cap < DefaultCap;
         if (body["_ignored_arguments"] != null)
         {
             body["_ignored_arguments"] = new JObject { ["details_omitted"] = true };
@@ -184,7 +190,7 @@ internal static class DrawingProfileResponse
                 blocked.Add(new JObject
                 {
                     ["section"] = section, ["offset"] = offset.Value,
-                    ["reason"] = cap < MaximumCap ? "no_row_fits_effective_cap; increase max_output_bytes up to 65536 and the gateway --response-budget-bytes if it is lower"
+                    ["reason"] = cap < MaximumCap ? "no_row_fits_effective_cap; increase"
                         : "no_row_can_be_delivered_at_max_output_bytes_65536"
                 });
                 continue;
@@ -206,11 +212,12 @@ internal static class DrawingProfileResponse
         output["not_requested"] = notRequested;
         output["next_calls"] = next;
         output["blocked_sections"] = blocked;
-        output["note"] = "Profile tables are paged; omitted counts are groups remaining after this page (all groups for sections not requested). Prior offsets are not repeated. " +
-            "Use next_calls to retrieve omitted groups under expected_snapshot; each call rescans and rejects a changed snapshot. " +
-            (cap < MaximumCap ? "For a blocked empty page inspect blocked_sections, increase max_output_bytes up to 65536, and increase the gateway --response-budget-bytes if limiting. "
-                : "A row blocked at 65536 cannot be delivered by this tool. ") +
-            "No unchanged-offset continuation is issued for a blocked section; identifiers are not shortened. Coverage.complete describes the scan, not output completeness.";
+        // Keep shared guidance short: it is serialized inside MCP text and must
+        // leave room for actual rows, text statistics and continuation arguments.
+        output["note"] = "omitted counts remaining groups; prior offsets are not repeated. next_calls rescan under expected_snapshot. " +
+            (cap < MaximumCap ? "For blocked_sections increase max_output_bytes (max 65536) and gateway --response-budget-bytes. "
+                : "Rows blocked at 65536 cannot be delivered. ") +
+            "coverage.complete describes the scan, not delivery.";
         profile["output"] = output;
     }
 

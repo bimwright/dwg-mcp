@@ -19,7 +19,7 @@ namespace Bimwright.Dwg.Tests.Helpers
         public object Parameters { get; private set; }
         public bool Sent { get; private set; }
 
-        public static async Task<Capture> Send(Func<Task<string>> call)
+        public static async Task<Capture> Send(Func<Task<string>> call, object result = null)
         {
             var captured = new Capture();
             await Gate.WaitAsync();
@@ -30,7 +30,7 @@ namespace Bimwright.Dwg.Tests.Helpers
                     captured.Command = command;
                     captured.Parameters = parameters;
                     captured.Sent = true;
-                    return Task.FromResult(new McpResponse { Ok = true, Result = new JObject() });
+                    return Task.FromResult(new McpResponse { Ok = true, Result = result ?? new JObject() });
                 };
 
                 var text = await call();

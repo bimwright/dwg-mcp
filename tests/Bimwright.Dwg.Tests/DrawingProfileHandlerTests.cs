@@ -312,10 +312,12 @@ public sealed class DrawingProfileHandlerTests : IDisposable
         Assert.Equal(JTokenType.Null, unused["total_groups"].Type);
     }
 
-    [Fact]
-    public void Unused_blocks_continue_at_the_delivered_offset_under_the_profile_byte_cap()
+    [Theory]
+    [InlineData(4096)]
+    [InlineData(8192)]
+    [InlineData(16384)]
+    public void Unused_blocks_continue_at_the_delivered_offset_under_the_profile_byte_cap(int cap)
     {
-        const int cap = 4096;
         var fixture = new Fixture(0, 1);
         for (var i = 0; i < 140; i++)
             fixture.AddBlock(new BlockTableRecord { Name = "Unreferenced_" + i.ToString("D3") + new string('x', 65) });
@@ -336,8 +338,11 @@ public sealed class DrawingProfileHandlerTests : IDisposable
         Assert.Null(((JObject)Execute(fixture, new JObject { ["space"] = "model" }).Result)["unused_blocks"]);
     }
 
-    [Fact]
-    public void Text_stats_are_opt_in_scoped_and_bounded_without_losing_counts()
+    [Theory]
+    [InlineData(4096)]
+    [InlineData(8192)]
+    [InlineData(16384)]
+    public void Text_stats_are_opt_in_scoped_and_bounded_without_losing_counts(int cap)
     {
         var fixture = new Fixture(0, 1);
         var model = fixture.Spaces[0];
@@ -381,8 +386,8 @@ public sealed class DrawingProfileHandlerTests : IDisposable
         Assert.Equal(new string('界', 120), samples[1].Value<string>("text"));
         Assert.Equal(7, multiline.Sum(entity => entity.ProfilePlainTextReads));
 
-        var bounded = Format(command, 4096);
-        Assert.True(FinalBytes(bounded) <= 4096);
+        var bounded = Format(command, cap);
+        Assert.True(FinalBytes(bounded) <= cap);
         var boundedProfile = DeliveredProfile(bounded);
         var delivered = boundedProfile["text_stats"];
         Assert.Equal(10, delivered.Value<int>("mtext_count"));
@@ -390,6 +395,10 @@ public sealed class DrawingProfileHandlerTests : IDisposable
         var omitted = 8 - ((JArray)delivered["samples"]).Count;
         Assert.Equal(omitted, delivered.Value<int>("samples_omitted_for_budget"));
         if (omitted > 0) Assert.False(boundedProfile["output"].Value<bool>("complete"));
+        Assert.NotEmpty(boundedProfile["output"].Value<string>("note"));
+        var refitted = DrawingProfileResponse.Fit(bounded, cap);
+        Assert.True(FinalBytes(refitted) <= cap);
+        Assert.True(JToken.DeepEquals(boundedProfile, DeliveredProfile(refitted)));
     }
 
     [Fact]
@@ -451,7 +460,13 @@ public sealed class DrawingProfileHandlerTests : IDisposable
         => System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(result, McpJsonUtilities.DefaultOptions).Length;
 
     private static JObject DeliveredProfile(CallToolResult result)
-        => (JObject)JObject.Parse(Assert.Single(result.Content.OfType<TextContentBlock>()).Text)["result"];
+    {
+        var text = Assert.Single(result.Content.OfType<TextContentBlock>()).Text;
+        var body = JObject.Parse(text);
+        Assert.True(body.Value<bool>("ok"), text);
+        Assert.False(result.IsError == true, text);
+        return Assert.IsType<JObject>(body["result"]);
+    }
 
     private static IEnumerable<JToken> Rows(JObject profile, string section) => profile["histograms"][section]["rows"];
 
