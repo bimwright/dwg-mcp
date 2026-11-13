@@ -89,6 +89,31 @@ namespace Bimwright.Dwg.Tests
             });
         }
 
+        [Theory]
+        [InlineData("--toolsets query,meta")]
+        [InlineData("--toolsets query,meta --read-only")]
+        public async Task Large_drawing_review_uses_read_only_bands_with_cursor_and_WCS_fallback(string flags)
+        {
+            await WithServer(flags, async process =>
+            {
+                var catalog = await Request(process, 2, "tools/list", new { });
+                var bands = Assert.Single(catalog["result"]["tools"], tool => tool.Value<string>("name") == "dwg_cluster_bands");
+                Assert.True(bands["annotations"].Value<bool>("readOnlyHint"));
+
+                var review = Text(await Request(process, 3, "prompts/get", new
+                {
+                    name = "dwg_review_large_drawing", arguments = new { space = "layout:Layout1" }
+                }));
+                Assert.Contains("dwg_cluster_bands with the region's WCS bbox and space='layout:Layout1'", review);
+                Assert.Contains("axis='x' or 'y'", review);
+                Assert.Contains("gap=0", review);
+                Assert.Contains("output.next_calls with the same arguments and cursor", review);
+                Assert.Contains("split the verified WCS region into strips", review);
+                Assert.Contains("bbox intersected with the original region's bbox", review);
+                Assert.DoesNotContain("dwg_capture_view_image", review);
+            });
+        }
+
         [Fact]
         public async Task A_prompt_whose_toolsets_are_off_renders_an_enable_notice()
         {
