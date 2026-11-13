@@ -12,6 +12,9 @@ try {
         @{ Path = 'src/example.cs'; Allowed = $true },
         @{ Path = 'lib/acad24/README.md'; Allowed = $true },
         @{ Path = 'docs/benchmarks/example.md'; Allowed = $true },
+        @{ Path = 'src/server/Prompts/review_large_drawing.md'; Allowed = $true },
+        @{ Path = 'src/server/Prompts/translate_text.md'; Allowed = $true },
+        @{ Path = 'src/server/Prompts/operator-notes.md'; Allowed = $false },
         @{ Path = 'docs/design/private.md'; Allowed = $false },
         @{ Path = 'docs/testing/operator-checklist.md'; Allowed = $false },
         @{ Path = 'tests/harness/README.md'; Allowed = $false },
@@ -35,7 +38,7 @@ try {
         # Validate each path independently; never mutate the product checkout.
         Remove-Item -LiteralPath $file
     }
-    'Public-tree fixture checks passed: 12/12.'
+    'Public-tree fixture checks passed: 15/15.'
 } finally {
     $tempRoot = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd([IO.Path]::DirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar
     $resolvedFixture = [IO.Path]::GetFullPath($fixture)

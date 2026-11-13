@@ -11,7 +11,8 @@ $publicDocs = @(
     'README.md', 'README.vi.md', 'README.ja.md', 'README.zh-CN.md',
     'CHANGELOG.md', 'CONTRIBUTING.md', 'CODE_OF_CONDUCT.md', 'SECURITY.md',
     'ARCHITECTURE.md', 'AGENTS.md', 'CLAUDE.md', 'THIRD_PARTY_NOTICES.md',
-    'lib/acad24/README.md', 'src/shared/assets/fonts/README.md'
+    'lib/acad24/README.md', 'src/shared/assets/fonts/README.md',
+    'src/server/Prompts/review_large_drawing.md', 'src/server/Prompts/translate_text.md'
 )
 $privatePath = '(^|/)(\.(artifacts[^/]*|worktrees|claude|cursor|kilo|agents|openclaude)|internal-docs|analysis|artifacts|runs|spikes)(/|$)|^docs/(superpowers|design|reviews|research-archive|archive)/|(^|/)codemap\.md$'
 $paths = @(& git -c core.quotepath=false -C $RepoRoot ls-files --cached --others --exclude-standard --deduplicate)
