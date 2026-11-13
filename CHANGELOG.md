@@ -2,6 +2,8 @@
 
 ## 2.2.0
 
+- Update the gateway SQLite provider and native engine used by ToolBaker and drawing history.
+
 ### Drawing edits and scripting
 
 - Add opt-in `atomic=true` to `dwg_batch_execute`. Supported drawing commands run in one outer AutoCAD transaction. A failed step, including a reported per-entity error, rolls back earlier changes and skips later steps. The gateway checks `atomic_batch_version` before dispatch. The default remains `atomic=false`.
