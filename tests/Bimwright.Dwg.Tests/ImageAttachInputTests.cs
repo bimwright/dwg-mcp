@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using Bimwright.Dwg.Plugin;
 using Bimwright.Dwg.Plugin.Cad;
 using Newtonsoft.Json.Linq;
@@ -55,6 +56,17 @@ namespace Bimwright.Dwg.Tests
         {
             Assert.False(ImageAttachInput.TryValidateSize(width, height, rotation, out var error));
             Assert.Contains(field, error);
+        }
+
+        [Theory]
+        [InlineData(DriveType.Network, false)]
+        [InlineData(DriveType.Fixed, true)]
+        [InlineData(DriveType.Removable, true)]
+        public void Only_network_drive_type_is_refused(DriveType driveType, bool accepted)
+        {
+            Assert.Equal(accepted, ImageAttachInput.TryValidateDrive(driveType, out var error));
+            if (accepted) Assert.Null(error);
+            else Assert.Contains("mapped network drives", error);
         }
 
         [Fact]

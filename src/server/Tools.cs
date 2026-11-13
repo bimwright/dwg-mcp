@@ -31,7 +31,7 @@ namespace Bimwright.Dwg.Server
 
             var sendOverride = SendOverride;
             if (sendOverride != null)
-                return AgentReportReminder.Serialize(reportCommand ?? toolName, await sendOverride(toolName, pluginParams));
+                return AgentReportReminder.Default.Serialize(reportCommand ?? toolName, await sendOverride(toolName, pluginParams));
 
             var requestId = Guid.NewGuid().ToString("N");
             var sw = Stopwatch.StartNew();
@@ -43,7 +43,7 @@ namespace Bimwright.Dwg.Server
                 var resp = await Client.SendBoundAsync(toolName, pluginParams, requestId, call);
                 sw.Stop();
                 ServerLogger.Default.LogFinish(requestId, toolName, resp.Ok, sw.ElapsedMilliseconds, resp.Error);
-                return AgentReportReminder.Serialize(reportCommand ?? toolName, resp);
+                return AgentReportReminder.Default.Serialize(reportCommand ?? toolName, resp);
             }
             catch (Exception ex)
             {

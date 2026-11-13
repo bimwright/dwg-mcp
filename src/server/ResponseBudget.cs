@@ -50,7 +50,9 @@ internal static class ResponseBudget
                 (request.MatchedPrimitive as McpServerTool)?.ProtocolTool.Annotations?.ReadOnlyHint == true,
                 request.Params?.Name);
             // Argument warnings and global warning metadata must also fit the tool's cap.
-            return profile ? DrawingProfileResponse.Fit(result, profileLimit, profileSpace) : result;
+            if (profile) return DrawingProfileResponse.Fit(result, profileLimit, profileSpace);
+            AgentReportReminder.Default.RecordDelivery(result.Content?.OfType<TextContentBlock>().FirstOrDefault()?.Text);
+            return result;
         }));
 
     internal static bool IsTextReadRequest(CallToolRequestParams request)

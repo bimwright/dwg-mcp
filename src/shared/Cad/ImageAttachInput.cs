@@ -29,6 +29,13 @@ namespace Bimwright.Dwg.Plugin.Cad
             return true;
         }
 
+        internal static bool TryValidateDrive(DriveType driveType, out string error)
+        {
+            error = null;
+            return driveType != DriveType.Network
+                || Fail("mapped network drives are not allowed; copy the image to a local drive first", out error);
+        }
+
         internal static bool TryValidateSize(double width, double? height, double rotationDegrees, out string error)
         {
             error = null;

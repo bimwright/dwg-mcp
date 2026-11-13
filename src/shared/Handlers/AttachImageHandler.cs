@@ -23,8 +23,8 @@ namespace Bimwright.Dwg.Plugin.Handlers
             if (!ImageAttachInput.TryValidatePath(rawPath, out var pathError))
                 return CommandResult.Fail(pathError);
             var path = Path.GetFullPath(rawPath);
-            if (new DriveInfo(Path.GetPathRoot(path)).DriveType == DriveType.Network)
-                return CommandResult.Fail("mapped network drives are not allowed; copy the image to a local drive first");
+            if (!ImageAttachInput.TryValidateDrive(new DriveInfo(Path.GetPathRoot(path)).DriveType, out var driveError))
+                return CommandResult.Fail(driveError);
             if (!File.Exists(path))
                 return CommandResult.Fail("image file not found on the AutoCAD machine: " + path);
 

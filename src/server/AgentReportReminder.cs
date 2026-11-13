@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using System.Threading;
 using Bimwright.Dwg.Plugin;
@@ -7,28 +8,43 @@ using Newtonsoft.Json.Linq;
 
 namespace Bimwright.Dwg.Server;
 
-internal static class AgentReportReminder
+internal sealed class AgentReportReminder
 {
     internal const string Text = "Before your final answer for this job, call dwg_report_task_result once. "
         + "Include [label](dwg:<handle>) links to relevant entities when available.";
 
     internal const string ShortText = "Report still due: call dwg_report_task_result once before your final answer.";
-    private static int _writeReminded;
+    internal static readonly AgentReportReminder Default = new(() => Enabled);
+    private readonly Func<bool> _enabled;
+    private int _writeReminded;
+
+    internal AgentReportReminder(Func<bool> enabled) => _enabled = enabled;
 
     internal static bool Enabled => ServerState.EnabledToolTypes.Contains(typeof(ReportTools));
 
-    internal static string Serialize(string command, McpResponse response)
+    internal string Serialize(string command, McpResponse response)
     {
         if (response?.Ok == true && command == "report_task_result")
             Interlocked.Exchange(ref _writeReminded, 0);
 
-        if (response?.Ok != true || !Enabled || !IsWrite(command))
+        if (response?.Ok != true || !_enabled() || !IsWrite(command))
             return JsonConvert.SerializeObject(response);
 
         var data = JObject.FromObject(response);
         if (!Succeeded(command, data["result"])) return JsonConvert.SerializeObject(response);
-        data["_report"] = Interlocked.Exchange(ref _writeReminded, 1) == 0 ? Text : ShortText;
+        data["_report"] = Volatile.Read(ref _writeReminded) == 0 ? Text : ShortText;
         return data.ToString(Formatting.None);
+    }
+
+    internal void RecordDelivery(string text)
+    {
+        if (Volatile.Read(ref _writeReminded) != 0 || text?.Contains(Text, StringComparison.Ordinal) != true) return;
+        try
+        {
+            if (JObject.Parse(text).Value<string>("_report") == Text)
+                Volatile.Write(ref _writeReminded, 1);
+        }
+        catch (JsonException) { }
     }
 
     private static bool IsWrite(string command)

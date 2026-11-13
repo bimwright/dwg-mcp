@@ -391,15 +391,17 @@ public sealed class EntityQueryPageTests : IDisposable
         var request = new JObject { ["entity_type"] = "AcDbText", ["layer"] = "missing" };
         var empty = Body(handler.Execute(f.Document, request));
         Assert.Equal(0, empty.Value<int>("count"));
-        if (select)
-            Assert.Equal(new[] { typeof(Circle).FullName, typeof(DBText).FullName }, empty["hint"]["available_types"].Values<string>());
-        else
-            Assert.Null(empty["hint"]);
+        Assert.Null(empty["hint"]);
         Assert.DoesNotContain(erased.ObjectId, f.Database.ProfileOpenedIds);
         Assert.DoesNotContain(layout.ObjectId, f.Database.ProfileOpenedIds);
         Assert.Equal(1, f.Spaces[0].ProfileEnumerationStarts);
 
         request.Remove("layer");
+        request["color_index"] = 5;
+        var wrongColor = Body(handler.Execute(f.Document, request));
+        Assert.Equal(0, wrongColor.Value<int>("count"));
+        Assert.Null(wrongColor["hint"]);
+        request.Remove("color_index");
         request["entity_type"] = "AcDbLine";
         var wrongType = Body(handler.Execute(f.Document, request));
         Assert.Equal("model", wrongType["hint"].Value<string>("space"));
