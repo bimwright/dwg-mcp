@@ -39,9 +39,10 @@ namespace Bimwright.Dwg.Plugin.Reports.Binding
     public static class ReportBuilder
     {
         public static ReportBuildResult BuildAndSave(string taskId, string outcome, string summary, string body,
-            IReportResolver resolver, ReportSource source, ReportStore store)
+            IReportResolver resolver, ReportSource source, ReportStore store, ReportChanges changes = null)
         {
             var result = Build(taskId, outcome, summary, body, resolver, source);
+            result.Report.Changes = changes;
             result.Saved = store.Save(result.Report);
             return result;
         }
@@ -112,7 +113,12 @@ namespace Bimwright.Dwg.Plugin.Reports.Binding
             {
                 report_id = save.ReportId,
                 replaced = save.Replaced,
-                links = result.LinkCheck
+                links = result.LinkCheck,
+                history = new
+                {
+                    status = result.Report.Changes?.Calls.Count > 0 ? "references" : "no_provenance",
+                    calls = result.Report.Changes?.Calls ?? new List<ReportCallReference>()
+                }
             };
 
         // SecretMasker writes "[REDACTED]"; followed by "(" it would read as link markup the agent never wrote.

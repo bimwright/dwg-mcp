@@ -60,6 +60,7 @@ namespace Bimwright.Dwg.Tests
                 "dwg_get_drawing_info",
                 "dwg_get_drawing_profile",
                 "dwg_get_entity_properties",
+                "dwg_get_report_history",
                 "dwg_get_selected_texts",
                 "dwg_get_variables",
                 "dwg_health",

@@ -267,6 +267,9 @@ namespace Bimwright.Dwg.Plugin
                 if (TargetContract.RequiresVerifiedDrawing(cmd))
                     return CommandResult.Fail(DrawingSessionContract.StandaloneError(cmd));
 
+                if (cmd is "report_task_result" or "get_report_history")
+                    return CommandResult.Fail(DrawingSessionContract.StandaloneError(cmd));
+
                 if (string.Equals(cmd, "run_baked_tool", StringComparison.Ordinal))
                 {
                     return CommandResult.Fail("run_baked_tool is not allowed inside batch_execute");

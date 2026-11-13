@@ -25,7 +25,7 @@ public class ReadOnlyTargetProtocolTests
         Assert.Equal(2, targets.Count());
         Assert.All(targets, target => Assert.Equal("2024", target.Value<string>("target")));
         var names = h.Catalog["tools"].Select(tool => tool.Value<string>("name")).ToArray();
-        Assert.Equal(28, names.Length);
+        Assert.Equal(29, names.Length);
         Assert.Contains("dwg_cluster_bands", names);
         Assert.Contains("dwg_list_open_documents", names);
         Assert.DoesNotContain("dwg_activate_document", names);

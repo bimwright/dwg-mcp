@@ -43,9 +43,9 @@
     <Compile Include="..\..\src\shared\Infrastructure\BatchExecutor.cs" LinkBase="Shared\Infrastructure" />
     <Compile Include="..\..\src\shared\Cad\ImageAttachInput.cs" LinkBase="Shared\Cad" />
     <!-- Report model/binding/storage are host-free; ReportLimits comes from the server assembly. -->
-    <Compile Include="..\..\src\shared\Reports\Model\*.cs" Exclude="..\..\src\shared\Reports\Model\ReportLimits.cs" LinkBase="Shared\Reports\Model" />
+    <Compile Include="..\..\src\shared\Reports\Model\*.cs" Exclude="..\..\src\shared\Reports\Model\ReportLimits.cs;..\..\src\shared\Reports\Model\ReportChanges.cs;..\..\src\shared\Reports\Model\AgentReport.cs;..\..\src\shared\Reports\Model\ReportDocument.cs;..\..\src\shared\Reports\Model\ReportLink.cs;..\..\src\shared\Reports\Model\ReportJson.cs" LinkBase="Shared\Reports\Model" />
     <Compile Include="..\..\src\shared\Reports\Binding\*.cs" LinkBase="Shared\Reports\Binding" />
-    <Compile Include="..\..\src\shared\Reports\Storage\*.cs" LinkBase="Shared\Reports\Storage" />
+    <Compile Include="..\..\src\shared\Reports\Storage\*.cs" Exclude="..\..\src\shared\Reports\Storage\ReportStore.cs" LinkBase="Shared\Reports\Storage" />
     <!-- Reports view models need only ICommand/INotifyPropertyChanged; the WPF views stay in the plugin. -->
     <Compile Include="..\..\src\shared\Reports\Presentation\*.cs" LinkBase="Shared\Reports\Presentation" />
     <Compile Include="..\..\src\shared\Reports\Navigation\*.cs" LinkBase="Shared\Reports\Navigation" />

@@ -4,6 +4,7 @@ using Autodesk.AutoCAD.ApplicationServices;
 using Bimwright.Dwg.Plugin.Reports.Binding;
 using Bimwright.Dwg.Plugin.Reports.Model;
 using Bimwright.Dwg.Plugin.Reports.Storage;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
 namespace Bimwright.Dwg.Plugin.Reports.Acad
@@ -39,6 +40,16 @@ namespace Bimwright.Dwg.Plugin.Reports.Acad
                 return CommandResult.Fail("client_session must be a 32-character hexadecimal gateway session ID.");
 
             var target = DocumentTargetGuard.Capture(null);
+            ReportChanges changes = null;
+            if (request["changes"] is JObject provenance)
+            {
+                if (provenance.Value<int?>("pid") != target.Value<int>("pid")
+                    || provenance.Value<DateTime?>("process_start_utc")?.ToUniversalTime() != target.Value<DateTime>("process_start_utc"))
+                    return CommandResult.Fail("REPORT_TARGET_CHANGED: provenance does not match this AutoCAD process.");
+                try { changes = provenance.ToObject<ReportChanges>(); }
+                catch (JsonException) { return CommandResult.Fail("REPORT_INVALID_CHANGES: invalid call references."); }
+                if (changes?.IsValid(session) != true) return CommandResult.Fail("REPORT_INVALID_CHANGES: invalid call references.");
+            }
             var source = new ReportSource
             {
                 ClientSession = session,
@@ -49,7 +60,7 @@ namespace Bimwright.Dwg.Plugin.Reports.Acad
             };
             try
             {
-                var result = ReportBuilder.BuildAndSave(taskId, outcome, summary, body, new AcadReportResolver(), source, ReportServices.Store);
+                var result = ReportBuilder.BuildAndSave(taskId, outcome, summary, body, new AcadReportResolver(), source, ReportServices.Store, changes);
                 return CommandResult.Success(ReportBuilder.CreateResponse(result, result.Saved));
             }
             catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)

@@ -11,7 +11,7 @@ internal static class ChangeHistoryResponse
 {
     private const int DefaultCap = 128 * 1024;
 
-    internal static bool Applies(string tool) => tool is "dwg_get_change_records" or "dwg_survey_change_impact";
+    internal static bool Applies(string tool) => tool is "dwg_get_change_records" or "dwg_survey_change_impact" or "dwg_get_report_history";
 
     internal static void ValidateCap(int? cap)
     {
@@ -35,7 +35,7 @@ internal static class ChangeHistoryResponse
         var original = envelope.ToString(Formatting.None);
         if (Size(original) <= cap) return original;
 
-        if (body?["calls"] is JArray calls && checkpoints?.Count == calls.Count)
+        if ((body?["calls"] ?? body?["deltas"]) is JArray calls && checkpoints?.Count == calls.Count)
         {
             while (calls.Count > 1)
             {

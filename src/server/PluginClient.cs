@@ -8,6 +8,8 @@ using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Bimwright.Dwg.Plugin;
+using Bimwright.Dwg.Plugin.Reports.Model;
+using Bimwright.Dwg.Server.Tools;
 
 namespace Bimwright.Dwg.Server
 {
@@ -104,9 +106,26 @@ namespace Bimwright.Dwg.Server
                             (health.Result as JObject)?.Value<int?>("atomic_batch_version") != BatchContract.AtomicVersion)
                             return Error(requestId, "ATOMIC_BATCH_UNSUPPORTED: the plugin did not confirm atomic batch support. No command was sent or executed. Update gateway and plugin together.");
                     }
+                    if (cmd == "report_task_result" && parameters is ReportTaskRequest report && report.CallIds != null)
+                    {
+                        ReportChanges changes;
+                        try { changes = ReportCallReceipts.Default.Resolve(report.CallIds, ReportTools.GatewaySession,
+                            call.Discovery.Pid, call.Discovery.ProcessStartUtc); }
+                        catch (ArgumentException ex) { return Error(requestId, ex.Message); }
+
+                        var healthId = Guid.NewGuid().ToString("N");
+                        var health = await SendToAsync(call, "health", new JObject(), healthId, Timeout, true);
+                        if (health?.Id != healthId || health.Ok != true
+                            || (health.Result as JObject)?.Value<int?>("report_changes_version") != ReportChanges.Version)
+                            return Error(requestId, "REPORT_HISTORY_UNSUPPORTED: the plugin did not confirm call reference support. No report was saved.");
+                        var wire = JObject.FromObject(report);
+                        wire["changes"] = JObject.FromObject(new { calls = changes.Calls, pid = call.Discovery.Pid, process_start_utc = call.Discovery.ProcessStartUtc });
+                        parameters = wire;
+                    }
                     var capture = !ServerState.IsReadOnly && ServerState.Config?.EnableChangeHistoryOrDefault == true;
                     var response = await SendToAsync(call, cmd, parameters, requestId, readTimeout, true, capture);
                     ChangeHistoryCapture.Default.Complete(cmd, requestId, capture, response);
+                    ReportCallReceipts.Default.Remember(cmd, ReportTools.GatewaySession, response);
                     if (ServerState.IsReadOnly && response?.Ok == false
                         && (response.Error?.StartsWith("TARGET_LOST:", StringComparison.Ordinal) == true
                             || response.Error?.StartsWith("TARGET_CHANGED:", StringComparison.Ordinal) == true))

@@ -18,7 +18,8 @@ namespace Bimwright.Dwg.Plugin
                 ["state_probe"] = "unavailable",
                 ["script_inputs_version"] = ScriptInputContract.Version,
                 ["atomic_batch_version"] = BatchContract.AtomicVersion,
-                ["script_task_contract_version"] = ScriptTaskContract.Version
+                ["script_task_contract_version"] = ScriptTaskContract.Version,
+                ["report_changes_version"] = Reports.Model.ReportChanges.Version
             };
             try
             {

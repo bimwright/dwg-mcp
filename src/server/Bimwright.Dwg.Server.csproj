@@ -61,6 +61,12 @@
     <Compile Include="..\shared\Infrastructure\BatchContract.cs" LinkBase="Shared\Infrastructure" />
     <Compile Include="..\shared\Infrastructure\ScriptTaskContract.cs" LinkBase="Shared\Infrastructure" />
     <Compile Include="..\shared\Reports\Model\ReportLimits.cs" LinkBase="Shared\Reports\Model" />
+    <Compile Include="..\shared\Reports\Model\ReportChanges.cs" LinkBase="Shared\Reports\Model" />
+    <Compile Include="..\shared\Reports\Model\AgentReport.cs" LinkBase="Shared\Reports\Model" />
+    <Compile Include="..\shared\Reports\Model\ReportDocument.cs" LinkBase="Shared\Reports\Model" />
+    <Compile Include="..\shared\Reports\Model\ReportLink.cs" LinkBase="Shared\Reports\Model" />
+    <Compile Include="..\shared\Reports\Model\ReportJson.cs" LinkBase="Shared\Reports\Model" />
+    <Compile Include="..\shared\Reports\Storage\ReportStore.cs" LinkBase="Shared\Reports\Storage" />
     <Compile Include="..\shared\Drawing\DrawingSessionContract.cs" LinkBase="Shared\Drawing" />
     <Compile Include="..\shared\Drawing\DrawingProfile.cs" LinkBase="Shared\Drawing" />
     <Compile Include="..\shared\Drawing\EntityQueryOptions.cs" LinkBase="Shared\Drawing" />

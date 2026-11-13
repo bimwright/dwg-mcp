@@ -422,7 +422,8 @@ namespace Bimwright.Dwg.Plugin
             SchemaProperty.Required("outcome", JTokenType.String),
             SchemaProperty.Required("summary", JTokenType.String),
             SchemaProperty.Optional("body", JTokenType.String),
-            SchemaProperty.Optional("client_session", JTokenType.String));
+            SchemaProperty.Optional("client_session", JTokenType.String),
+            SchemaProperty.Optional("changes", JTokenType.Object));
 
         public static readonly CommandSchema RunLisp = CommandSchema.Object(
             SchemaProperty.Optional("file", JTokenType.String),

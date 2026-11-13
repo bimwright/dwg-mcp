@@ -27,6 +27,8 @@ namespace Bimwright.Dwg.Plugin.Reports.Model
         public List<ReportDocument> Documents { get; set; } = new List<ReportDocument>();
         [JsonProperty("links")]
         public List<ReportLink> Links { get; set; } = new List<ReportLink>();
+        [JsonProperty("changes", NullValueHandling = NullValueHandling.Ignore)]
+        public ReportChanges Changes { get; set; }
     }
 
     public sealed class ReportSource

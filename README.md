@@ -622,6 +622,7 @@ mcp__dwg-mcp__dwg_get_current_target
 mcp__dwg-mcp__dwg_get_drawing_info
 mcp__dwg-mcp__dwg_get_drawing_profile
 mcp__dwg-mcp__dwg_get_entity_properties
+mcp__dwg-mcp__dwg_get_report_history
 mcp__dwg-mcp__dwg_get_selected_texts
 mcp__dwg-mcp__dwg_get_variables
 mcp__dwg-mcp__dwg_health
