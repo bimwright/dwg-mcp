@@ -1,13 +1,30 @@
 # Changelog
 
-## Unreleased
+## 2.2.0
 
-- Add optional `atomic=true` to `dwg_batch_execute`: the batch runs in one outer AutoCAD transaction, a failed step aborts it (`rolled_back=true`, `mutation_applied=false`) and later steps are `skipped`. Only drawing reads and database edits are accepted; other commands are refused before any step runs. The default stays `atomic=false`.
-- Plugin health reports `atomic_batch_version`; the gateway refuses atomic batches to plugins that do not confirm it, so an older plugin never runs one non-atomically.
-- Add `dwg_attach_image` (modify toolset, issue #6): attach a linked PNG/JPG/TIFF/BMP at an exact insertion point, width, optional height (pixel aspect ratio otherwise) and rotation, with optional layer and send-to-back. Only fully qualified local paths are accepted; UNC paths and URLs are refused. Layer, image definition, image and draw order are written in one transaction, and an existing definition for the same file is reused. Tool counts become 46 default / 70 all; read-only counts are unchanged (README counts follow at release preparation).
-- Add `result_contract=task_v1` to `dwg_send_code` (same API as rvt-mcp): scripts return `McpTaskResult.Pass(value)` or `McpTaskResult.Fail(code, message, details)`. Under `task_v1`, `ok` is true only for `Pass` without a script error, `result` holds the Pass value or Fail details, and `_task` reports `passed`, `failed` or `not_reported`. Legacy calls are unchanged. Plugin health reports `script_task_contract_version`; the gateway refuses `task_v1` to plugins that do not confirm it.
-- `dwg_send_code` compile diagnostics include `excerpt`: the error line ±2 lines as `{line, text}`, a `marker` with `^` under the column on the error line, at most 200 characters per line (`truncated=true` when a line is cut around the column). Issue #4 item 8b.
-- Add `usage_context=project|test|unknown` to `dwg_send_code`. It is recorded in the gateway call log only (off by default) and is not sent to AutoCAD.
+### Drawing edits and scripting
+
+- Add opt-in `atomic=true` to `dwg_batch_execute`. Supported drawing commands run in one outer AutoCAD transaction. A failed step, including a reported per-entity error, rolls back earlier changes and skips later steps. The gateway checks `atomic_batch_version` before dispatch. The default remains `atomic=false`.
+- Add `dwg_attach_image` (issue #6). Link a local PNG, JPG, TIFF or BMP with an exact insertion point and width, optional height, rotation, layer and send-to-back. The image, definition, layer and draw order are written in one transaction. An existing definition for the file is reused.
+- Add `result_contract=task_v1` to `dwg_send_code`. Scripts return `McpTaskResult.Pass(value)` or `McpTaskResult.Fail(code, message, details)`. The result includes `_task.status` (`passed`, `failed` or `not_reported`). The gateway checks `script_task_contract_version` before dispatch. Calls without `task_v1` keep their legacy behavior.
+- Add optional `usage_context=project|test|unknown` to `dwg_send_code`. The gateway records it only when call logging is enabled. Compiler diagnostics now include an `excerpt` of up to two lines on either side of the error, a column marker and a 200-character cap per line.
+- Return `ACAD_BUSY` or `QUEUE_FULL` when host admission rejects a request before it starts.
+
+### Reports, workflows and localization
+
+- Add `dwg_report_task_result` and the `MCPREPORTS` window. Reports support clickable `dwg:` entity links for selection and zoom. The AutoCAD toast shows the host PID and can open the report. Successful write responses can include a `_report` reminder when reporting is enabled in the tool catalog.
+- Expose the MCP prompts `dwg_translate_text` and `dwg_review_large_drawing`. Translation requires review before writeback. Large-drawing review uses WCS bounds and band clustering. Read-only sessions omit writeback and image capture.
+- Check for stable releases in the background at most once per 24 hours and show an optional notice in AutoCAD. Settings can disable the notice. The notice links to release information.
+- Add opt-in SQLite history for supported committed drawing edits. `dwg_record_change` records the goal and reason, `dwg_get_change_records` queries saved records, and `dwg_survey_change_impact` inspects supplied handles for context. Reports accept optional `call_ids` and `dwg_get_report_history` reads saved provenance even with AutoCAD closed.
+- Add English, Vietnamese and Simplified Chinese catalogs for the plugin UI. English is the default. Language changes in Settings take effect after restarting AutoCAD.
+
+### Large drawings and open documents
+
+- `dwg_list_blocks` reports direct and nested references and unused definitions. `dwg_get_drawing_profile` can page unused block definitions and collect opt-in DBText/MText counts, a height histogram and bounded samples. Profile pages preserve coverage and continuation under the response budget.
+- `dwg_list_layers(include_counts=true)` adds opt-in entity counts. Type filters normalize `AcDb` aliases, and zero-match count and select-by-type results can suggest types present in the requested space. Use `dwg_query_entities` for selection by WCS bounding box.
+- Add `dwg_list_open_documents` and standalone `dwg_activate_document`. Verify the new drawing with `dwg_switch_target` before writing.
+- Add read-only `dwg_cluster_bands` for X/Y band clustering with gap, WCS bounding-box, space and type filters, optional text samples and cursor pagination.
+- The catalog exposes 54 tools by default and 78 with `--toolsets all`. Read-only mode exposes 23 by default and 29 with all toolsets.
 
 ## 2.1.2 — 2026-11-01
 

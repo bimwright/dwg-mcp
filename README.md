@@ -10,7 +10,7 @@
   <a href="https://github.com/bimwright/dwg-mcp/actions/workflows/build.yml"><img src="https://github.com/bimwright/dwg-mcp/actions/workflows/build.yml/badge.svg" alt="build" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="license" /></a>
   <a href="#supported-autocad-versions"><img src="https://img.shields.io/badge/AutoCAD-2022--2027-186BFF" alt="AutoCAD 2022-2027" /></a>
-  <a href="#tools"><img src="https://img.shields.io/badge/MCP-45%20default%20%2B%20optional-6C47FF" alt="MCP tools" /></a>
+  <a href="#tools"><img src="https://img.shields.io/badge/MCP-54%20default%20%2B%20optional-6C47FF" alt="MCP tools" /></a>
 </p>
 
 <p align="center">
@@ -142,9 +142,9 @@ Restart AutoCAD, then restart wired MCP clients to load `dwg-mcp`.
 
 **Uninstall:** `uninstall.ps1` removes the bundle, the server copies, discovery files and caches under `%LOCALAPPDATA%\Bimwright\dwg-mcp\` (settings, config, logs and captures are kept; `-Purge` removes those too). Client config entries are never touched — remove the `dwg-mcp` entry yourself, or run `install.ps1 -Uninstall -Client <names>` first.
 
-**NuGet (gateway only):** `dotnet tool install --global Bimwright.Dwg.Server --version 2.1.2` installs the framework-dependent gateway and requires .NET 8. Install the matching AutoCAD plugins from the Setup ZIP separately; the NuGet package does not install plugins.
+**NuGet (gateway only):** `dotnet tool install --global Bimwright.Dwg.Server --version 2.2.0` installs the framework-dependent gateway and requires .NET 8. Install the matching AutoCAD plugins from the Setup ZIP separately; the NuGet package does not install plugins.
 
-**Claude Desktop:** download `dwg-mcp-desktop-2.1.2.mcpb` and its checksum from the same release, then install it through Settings → Extensions → Advanced settings. It launches the exact gateway executable supplied by the 2.1.2 Setup ZIP; it does not install the gateway or plugins and does not fall back to a NuGet/PATH copy. An executable override must have the same SHA-256.
+**Claude Desktop:** download `dwg-mcp-desktop-2.2.0.mcpb` and its checksum from the same release, then install it through Settings → Extensions → Advanced settings. It launches the exact gateway executable supplied by the 2.2.0 Setup ZIP; it does not install the gateway or plugins and does not fall back to a NuGet/PATH copy. An executable override must have the same SHA-256.
 
 **Developer (local SDK):** `dotnet build` the year you have, then `pwsh scripts/install.ps1 -Years 2024` from the repo (copies that year’s `bin` output). `NETLOAD` remains available for Debug DLLs.
 
@@ -240,9 +240,21 @@ Inspect both `update.components` and the full `update.notification` message, `lo
 
 After reconnect, compare fresh `initialize.serverInfo` and the health tool's `_meta["bimwright/dwg-mcp/runtime"]` in `tools/list` with `client_verification` on the same connection, including schema/annotations. The server cannot prove a client cache refresh. Health remains available under `--read-only`; its `openWorldHint` is true only because the optional check reaches GitHub. Available in v2.1.1; update the gateway and plugin from the same release. CI covers all six AutoCAD 2022–2027 plugin builds; see the release notes for the validation scope.
 
+## Reports, prompts and drawing edits
+
+Run `MCPREPORTS` in AutoCAD to open Reports. Click a `dwg:` entity link in a report to select and zoom to the referenced entities. `dwg_report_task_result` accepts optional `call_ids`, and `dwg_get_report_history` can read the saved report history after AutoCAD closes. Set `BIMWRIGHT_DWG_ENABLE_CHANGE_HISTORY=true` on the gateway to capture supported committed edits for drawing history.
+
+Use the MCP prompt `dwg_translate_text` to review a translation before writeback, or `dwg_review_large_drawing` to profile a drawing and inspect dense regions with `dwg_cluster_bands`. In read-only mode the translation prompt stops at review and the drawing review prompt omits image capture.
+
+`dwg_attach_image` links a local PNG, JPG, TIFF or BMP at a given insertion point and width. You can set height, rotation, layer and draw order. `dwg_batch_execute` defaults to a logical batch. Use `atomic=true` for supported drawing commands to roll back on a failed step, including a reported per-entity error.
+
+With `dwg_send_code(result_contract="task_v1")`, a script returns `McpTaskResult.Pass(value)` or `McpTaskResult.Fail(code, message, details)`. Inspect `ok` and `_task.status`. If a call returns `ACAD_BUSY` or `QUEUE_FULL`, it did not start and can be retried once AutoCAD is ready.
+
+Use `dwg_list_open_documents` to find the drawing and `dwg_activate_document` as a standalone call. After switching drawings, confirm the new `document_id` with `dwg_switch_target` before writing. In Settings, select English, Vietnamese or Simplified Chinese and restart AutoCAD to apply the language.
+
 ## Tools
 
-Version 2.1.2 exposes 45 tools at default startup: query (including `dwg_get_drawing_profile` and `dwg_inspect_lisp`), modify, meta (including `dwg_send_code`/`dwg_run_lisp`), view, and default-on `dwg_capture_view_image`. Optional ToolBaker, annotation, block, dimension, export, and drawing toolsets, enabled through `--toolsets`, bring the backed MCP surface to 69 tools. The registered counts include `dwg_run_lisp`, which only returns a refusal; no scan verdict authorizes execution.
+Version 2.2.0 exposes 54 tools at default startup: query (including `dwg_get_drawing_profile` and `dwg_inspect_lisp`), modify, meta (including `dwg_send_code`/`dwg_run_lisp`), view, and default-on `dwg_capture_view_image`. Optional ToolBaker, annotation, block, dimension, export, and drawing toolsets, enabled through `--toolsets`, bring the backed MCP surface to 78 tools. The registered counts include `dwg_run_lisp`, which only returns a refusal; no scan verdict authorizes execution.
 
 With no drawing open, use `dwg_list_recent_drawings` → user chooses → `dwg_open_drawing(path)`. Both are standalone `meta` tools; recent is available under `--read-only`, open is not (even with file `read_only=true`). Native dialogs may require the user; timeouts do not cancel an Open already running. See [drawing session tools](#drawing-session-tools) for parameters, API references and verification limits.
 
@@ -293,7 +305,7 @@ Follow `output.next_calls` to page `types`, `layers` or `spaces`; each suggested
 | `dwg_list_recent_drawings` | List up to 50 recent DWGs for the connected AutoCAD, with optional filename filter; works with no drawing open |
 | `dwg_open_drawing` | Open an absolute DWG path, optionally read-only; reuse an open drawing, never save or close drawings; default wait 600s |
 | `dwg_report_task_result` | Save a task report (outcome, summary, Markdown body with `dwg:<handle>` entity links) as a local file for the AutoCAD user; never changes a drawing |
-| `dwg_batch_execute` | Run multiple internal wire commands as a logical batch |
+| `dwg_batch_execute` | Run a logical batch or opt in to rollback with `atomic=true` for supported drawing commands |
 | `dwg_send_code` | Execute a C# snippet against the AutoCAD .NET API (globals `doc`/`db`/`ed`, `return` value + captured stdout, cooperative 30s cancellation; `MCPDISABLECODE`/`MCPENABLECODE` toggle per session) |
 | `dwg_run_lisp` | Compatibility endpoint only: all `file`/`code`/`command` inputs are refused with `lisp_execution_blocked`. No file read, plugin dispatch or execution from this tool. Use `dwg_inspect_lisp` for analysis only. |
 | `dwg_inspect_lisp` | Static safety scan of a `.lsp` file or inline AutoLISP — flags process exec (`startapp`/`shell`), dangerous COM (`WScript.Shell`/`XMLHTTP`), persistence (`acaddoc.lsp`, registry writes), file deletion, staged `(load …)`, obfuscation (`eval`/`read`). Returns `verdict` clean/caution/dangerous + findings. Pure local analysis; no execution, no AutoCAD needed; available even under `--read-only`. `clean` does not certify safety. Reports include `execution_authorized=false` and `safety_assured=false`. |
@@ -607,7 +619,7 @@ Third-party notices: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
 
 ## Permissions & auto mode
 
-Every tool except `dwg_send_code` declares read-only, destructive, idempotent and open-world hints. Full mode has 69 tools; default read-only mode has 17, and `--toolsets all --read-only` exposes the 23 read-only tools below. Zoom can change transient UI state. Target switching, capture, region inspection and restore are excluded from read-only mode. `dwg_health` is read-only; its explicit update check can contact GitHub.
+Every tool except `dwg_send_code` declares read-only, destructive, idempotent and open-world hints. Full mode has 78 tools; default read-only mode has 23, and `--toolsets all --read-only` exposes the 29 read-only tools below. Zoom can change transient UI state. Target switching, capture, region inspection and restore are excluded from read-only mode. `dwg_health` is read-only; its explicit update check can contact GitHub.
 
 Use exact rules for the tools you intend to allow. Avoid `mcp__dwg-mcp__*`: it also permits drawing/file writes and code execution. `dwg_send_code` has no annotations and is deliberately absent from this read-only allowlist; any persistent approval for it must be an explicit choice in your MCP client.
 

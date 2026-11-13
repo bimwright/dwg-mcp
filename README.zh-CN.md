@@ -10,7 +10,7 @@
   <a href="https://github.com/bimwright/dwg-mcp/actions/workflows/build.yml"><img src="https://github.com/bimwright/dwg-mcp/actions/workflows/build.yml/badge.svg" alt="build" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="license" /></a>
   <a href="#支持的-autocad-版本"><img src="https://img.shields.io/badge/AutoCAD-2022--2027-186BFF" alt="AutoCAD 2022-2027" /></a>
-  <a href="#tools"><img src="https://img.shields.io/badge/MCP-45%20default%20%2B%20optional-6C47FF" alt="MCP tools" /></a>
+  <a href="#tools"><img src="https://img.shields.io/badge/MCP-54%20default%20%2B%20optional-6C47FF" alt="MCP tools" /></a>
 </p>
 
 <p align="center">
@@ -112,9 +112,9 @@ AI agent 让“把选中的文字全部翻译成越南语”这类意图可以�
 
 从 [GitHub Releases](https://github.com/bimwright/dwg-mcp/releases/latest) 下载 setup ZIP（`DwgMcp.Setup-*-win-x64.zip`）。请查看已下载ZIP内 `manifest.json` 的 `packedAutocadYears` 和 bundle 的 `PackageContents.xml`，确认实际包含哪些年份的插件；在运行中的AutoCAD上已验证的年份请查阅发行说明。源码提供2022–2027的shell，但打包插件和实机验证范围取决于具体版本。未包含的年份需要用对应的AutoCAD SDK从源码构建插件。解压后运行 `install.ps1`（完整命令见英文 README）。
 
-**NuGet（仅 gateway）：** `dotnet tool install --global Bimwright.Dwg.Server --version 2.1.2` 需要 .NET 8。AutoCAD 插件须另外从相同版本的 Setup ZIP 安装。
+**NuGet（仅 gateway）：** `dotnet tool install --global Bimwright.Dwg.Server --version 2.2.0` 需要 .NET 8。AutoCAD 插件须另外从相同版本的 Setup ZIP 安装。
 
-**Claude Desktop：** 下载同一发行版的 `dwg-mcp-desktop-2.1.2.mcpb` 及其校验文件，通过 Settings → Extensions → Advanced settings 安装。扩展仅启动 Setup 2.1.2 提供的指定 executable，不安装 gateway/plugin，也不回退到 NuGet/PATH。override 文件必须匹配同一 SHA-256。
+**Claude Desktop：** 下载同一发行版的 `dwg-mcp-desktop-2.2.0.mcpb` 及其校验文件，通过 Settings → Extensions → Advanced settings 安装。扩展仅启动 Setup 2.2.0 提供的指定 executable，不安装 gateway/plugin，也不回退到 NuGet/PATH。override 文件必须匹配同一 SHA-256。
 
 **开发者：** 本地 build 后 `pwsh scripts/install.ps1 -Version 2024`，或 `NETLOAD` Debug DLL。
 
@@ -182,9 +182,21 @@ GitHub 检查将两个 component 与同一 stable release/tag 比较，共享 5 
 
 reconnect 后，在同一连接上将新的 initialize 与 `tools/list` 的 `_meta["bimwright/dwg-mcp/runtime"]`、schema、annotations 对照 `client_verification`；server 无法证明 client cache 已刷新。read-only 下仍可用，因 GitHub 选项而设置 `openWorldHint=true`。参见 [agent guide](AGENTS.md)。此功能从 v2.1.1 起提供；请从同一发行版更新 gateway 和 plugin。CI 已构建 AutoCAD 2022–2027 的全部六个插件；验证范围请参阅发行说明。
 
+## Reports、MCP 提示词与编辑
+
+在 AutoCAD 中运行 `MCPREPORTS` 打开 Reports。点击报告中的 `dwg:` 链接即可选中对应实体并缩放至该位置。`dwg_report_task_result` 接受可选的 `call_ids`。关闭 AutoCAD 后仍可用 `dwg_get_report_history` 读取已保存的报告历史。在网关设置 `BIMWRIGHT_DWG_ENABLE_CHANGE_HISTORY=true` 后，支持的图纸编辑会在提交后写入变更历史。
+
+MCP 提示词 `dwg_translate_text` 用于在写回前审核译文，`dwg_review_large_drawing` 用于查看图纸概况并通过 `dwg_cluster_bands` 分析密集区域。只读模式下，翻译流程停在审核环节，图纸审阅流程跳过截图。
+
+`dwg_attach_image` 以指定插入点和宽度附着本地 PNG、JPG、TIFF 或 BMP 图像引用，也可指定高度、旋转、图层和绘制顺序。`dwg_batch_execute` 默认运行逻辑批处理。对支持的图纸命令启用 `atomic=true` 后，任一步骤失败都会触发回滚，包括单个实体报告的错误。
+
+使用 `dwg_send_code(result_contract="task_v1")` 时，脚本返回 `McpTaskResult.Pass(value)` 或 `McpTaskResult.Fail(code, message, details)`。请检查 `ok` 和 `_task.status`。`ACAD_BUSY` 与 `QUEUE_FULL` 表示命令尚未执行，AutoCAD 就绪后可重试。
+
+用 `dwg_list_open_documents` 找到目标图纸，再单独调用 `dwg_activate_document`。切换图纸后，在写入前使用 `dwg_switch_target` 确认新的 `document_id`。在 Settings 中选择英语、越南语或简体中文，重启 AutoCAD 后生效。
+
 ## Tools
 
-2.1.2 默认启动暴露 45 个工具：query（含 `dwg_get_drawing_profile` 和 `dwg_inspect_lisp`）、modify、meta（含 `dwg_send_code`/`dwg_run_lisp`）、view 和默认启用的 `dwg_capture_view_image`。可选 ToolBaker、annotation、block、dimension、export 和 drawing 工具集，通过 `--toolsets` 启用，把后端可用的 MCP surface 扩充到 69 个工具。 注册数量包含仅返回拒绝的 `dwg_run_lisp`；任何扫描判定都不授权执行。
+2.2.0 默认启动暴露 54 个工具：query（含 `dwg_get_drawing_profile` 和 `dwg_inspect_lisp`）、modify、meta（含 `dwg_send_code`/`dwg_run_lisp`）、view 和默认启用的 `dwg_capture_view_image`。可选 ToolBaker、annotation、block、dimension、export 和 drawing 工具集，通过 `--toolsets` 启用，把后端可用的 MCP surface 扩充到 78 个工具。 注册数量包含仅返回拒绝的 `dwg_run_lisp`；任何扫描判定都不授权执行。
 
 通用 CAD 工具作用于所选 AutoCAD 目标中的当前活动文档。实体输入与返回的实体 ID 使用 AutoCAD 十六进制 handle，例如 `7F5AD`，由选择、创建或属性工具返回。创建、复制、偏移和修改操作的响应会用十六进制 handle 标识所生成或修改的实体。
 
@@ -233,7 +245,7 @@ reconnect 后，在同一连接上将新的 initialize 与 `tools/list` 的 `_me
 | `dwg_list_recent_drawings` | 列出当前 AutoCAD 最多 50 个最近 DWG，可按文件名过滤；无需打开图纸 |
 | `dwg_open_drawing` | 按绝对路径打开 DWG，可请求只读；复用已打开图纸，不保存或关闭；默认等待 600 秒（[详情](README.md#drawing-session-tools)） |
 | `dwg_report_task_result` | 将任务报告（结果、摘要、含 `dwg:<handle>` 实体链接的 Markdown 正文）保存为供 AutoCAD 用户查看的本地文件；不修改图纸 |
-| `dwg_batch_execute` | 把多个内部 wire 命令作为逻辑批处理运行 |
+| `dwg_batch_execute` | 运行逻辑批处理，或为支持的图纸命令启用 `atomic=true` 回滚 |
 | `dwg_send_code` | 在 AutoCAD .NET API 上执行 C# 代码片段（globals `doc`/`db`/`ed`，支持 `return` 返回值 + stdout 捕获，30 秒协作式取消；`MCPDISABLECODE`/`MCPENABLECODE` 按会话开关） |
 | `dwg_run_lisp` | 仅用于兼容：所有 `file`/`code`/`command` 输入均以 `lisp_execution_blocked` 拒绝。不读取文件、不发送到 plugin、不执行。请使用 `dwg_inspect_lisp` 做静态分析。 |
 | `dwg_inspect_lisp` | 对 `.lsp` 文件或内联 AutoLISP 做静态安全扫描 — 检出进程执行(`startapp`/`shell`)、危险 COM(`WScript.Shell`/`XMLHTTP`)、持久化(`acaddoc.lsp`、注册表写入)、删文件、二级 `(load …)`、混淆(`eval`/`read`)。返回 `verdict` clean/caution/dangerous + findings。纯本地分析;不执行、无需 AutoCAD;`--read-only` 下仍可用。 `clean` 不证明安全。报告均含 `execution_authorized=false` 和 `safety_assured=false`。 |
@@ -507,7 +519,7 @@ AutoCAD 和 Autodesk 是 Autodesk, Inc. 的注册商标。bimwright 是一个独
 
 ## 权限与自动模式
 
-除 `dwg_send_code` 外，每个工具都显式声明 read-only、destructive、idempotent 和 open-world 标记。完整模式有 69 个工具；默认只读模式有 17 个，`--toolsets all --read-only` 提供下列 23 个只读工具。缩放可能改变临时界面状态。只读模式会移除目标切换工具；截图、区域查看和视图恢复也因创建图片文件而被移除。`dwg_health` 为只读工具，显式更新检查可以访问 GitHub。
+除 `dwg_send_code` 外，每个工具都显式声明 read-only、destructive、idempotent 和 open-world 标记。完整模式有 78 个工具；默认只读模式有 23 个，`--toolsets all --read-only` 提供下列 29 个只读工具。缩放可能改变临时界面状态。只读模式会移除目标切换工具；截图、区域查看和视图恢复也因创建图片文件而被移除。`dwg_health` 为只读工具，显式更新检查可以访问 GitHub。
 
 仅为需要的工具设置精确权限规则。避免 `mcp__dwg-mcp__*` 通配规则，因为它也允许修改图纸、写文件和执行代码。`dwg_send_code` 没有 annotations，且不在此只读列表中；持久允许执行它必须由用户在 MCP 客户端中明确选择。
 
