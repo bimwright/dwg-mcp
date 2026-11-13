@@ -133,6 +133,13 @@ namespace Bimwright.Dwg.Plugin
                     }
                 }
 
+                if (atomic && itemOk && AtomicItemError(cmd, result.Result) is string entityError)
+                {
+                    itemOk = false;
+                    outcome = "failed";
+                    itemError = entityError;
+                }
+
                 if (!itemOk)
                 {
                     partialFailure = true;
@@ -170,6 +177,50 @@ namespace Bimwright.Dwg.Plugin
                 partial_failure = partialFailure,
                 results
             });
+        }
+
+        // These handlers report per-item status inside a successful command wrapper.
+        // Inspect only their status fields, since other drawing data can also contain "ok".
+        private static string AtomicItemError(string cmd, object result)
+        {
+            if (result == null) return null;
+
+            JArray items;
+            switch (cmd)
+            {
+                case "change_layer":
+                case "change_color":
+                case "move_entities":
+                case "rotate_entities":
+                case "scale_entities":
+                case "copy_entities":
+                case "erase_entities":
+                case "offset_entities":
+                    items = (JToken.FromObject(result) as JObject)?["results"] as JArray;
+                    break;
+                case "update_texts":
+                    items = JToken.FromObject(result) as JArray;
+                    break;
+                case "get_entity_properties":
+                    items = (JToken.FromObject(result) as JObject)?["entities"] as JArray;
+                    break;
+                case "set_block_attributes":
+                    var update = (JToken.FromObject(result) as JObject)?["attribute_update"] as JObject;
+                    // Missing tags are optional unless the caller requested strict tags.
+                    if (update?.Value<bool?>("strict_tags") != true) return null;
+                    items = update["updates"] as JArray;
+                    break;
+                default:
+                    return null;
+            }
+
+            if (items == null) return null;
+            foreach (var item in items)
+            {
+                if (item is JObject entry && entry["ok"]?.Type == JTokenType.Boolean && !entry.Value<bool>("ok"))
+                    return entry.Value<string>("error") ?? "an item reported failure";
+            }
+            return null;
         }
 
         // After Abort every executed step's drawing effect is undone, including steps that succeeded.

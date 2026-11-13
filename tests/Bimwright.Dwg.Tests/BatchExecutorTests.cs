@@ -181,6 +181,88 @@ namespace Bimwright.Dwg.Tests
             Assert.True(JObject.FromObject(result.Result).Value<bool>("rolled_back"));
         }
 
+        [Theory]
+        [InlineData("change_color", "results")]
+        [InlineData("change_layer", "results")]
+        [InlineData("move_entities", "results")]
+        [InlineData("rotate_entities", "results")]
+        [InlineData("scale_entities", "results")]
+        [InlineData("copy_entities", "results")]
+        [InlineData("erase_entities", "results")]
+        [InlineData("offset_entities", "results")]
+        [InlineData("update_texts", null)]
+        [InlineData("get_entity_properties", "entities")]
+        public void Atomic_entity_error_aborts_even_when_the_command_wrapper_succeeded(string command, string collection)
+        {
+            var entities = JArray.Parse("[{\"handle\":\"2A\",\"ok\":true},{\"handle\":\"FF\",\"ok\":false,\"error\":\"handle not found\"}]");
+            JToken payload = collection == null ? entities : new JObject { [collection] = entities };
+            AssertAtomicItemFailure(command, payload, "handle not found");
+        }
+
+        [Fact]
+        public void Atomic_strict_block_attribute_error_aborts()
+        {
+            var payload = JObject.Parse("{\"attribute_update\":{\"strict_tags\":true,\"updates\":[{\"tag\":\"A\",\"ok\":true},{\"tag\":\"B\",\"ok\":false,\"error\":\"attribute tag not found\"}]}}");
+            AssertAtomicItemFailure("set_block_attributes", payload, "attribute tag not found");
+        }
+
+        private static void AssertAtomicItemFailure(string command, JToken payload, string error)
+        {
+            var tx = new FakeTransaction();
+            var executed = new System.Collections.Generic.List<string>();
+            var result = BatchExecutor.Run(Atomic("create_line", command, "create_circle"), (cmd, _) =>
+            {
+                executed.Add(cmd);
+                return CommandResult.Success(cmd == command ? payload : new JObject { ["handle"] = "2A" });
+            }, () => tx);
+
+            Assert.Equal(new[] { "create_line", command }, executed);
+            Assert.Equal(1, tx.Aborts);
+            Assert.Equal(0, tx.Commits);
+            var batch = JObject.FromObject(result.Result);
+            Assert.True(batch.Value<bool>("rolled_back"));
+            Assert.True(batch.Value<bool>("partial_failure"));
+            Assert.Equal("rolled_back", batch["results"][0].Value<string>("outcome"));
+            var failed = batch["results"][1];
+            Assert.True(failed.Value<bool>("command_ok"));
+            Assert.False(failed.Value<bool>("ok"));
+            Assert.Equal("failed", failed.Value<string>("outcome"));
+            Assert.Equal(error, failed.Value<string>("error"));
+            Assert.True(JToken.DeepEquals(payload, failed["result"]));
+            Assert.Equal("skipped", batch["results"][2].Value<string>("outcome"));
+            Assert.All(batch["results"], step => Assert.False(step.Value<bool>("mutation_applied")));
+        }
+
+        [Theory]
+        [InlineData("change_color", "{\"results\":[{\"handle\":\"2A\",\"ok\":true}]}")]
+        [InlineData("set_block_attributes", "{\"attribute_update\":{\"strict_tags\":false,\"updates\":[{\"tag\":\"B\",\"ok\":false,\"error\":null}]}}")]
+        [InlineData("query_entities", "{\"entities\":[{\"custom_data\":{\"ok\":false}}]}")]
+        public void Atomic_commits_when_no_items_report_an_error(string command, string payload)
+        {
+            var tx = new FakeTransaction();
+            var result = BatchExecutor.Run(Atomic(command), (_, _) => CommandResult.Success(JToken.Parse(payload)), () => tx);
+
+            Assert.Equal(1, tx.Commits);
+            Assert.Equal(0, tx.Aborts);
+            Assert.False(JObject.FromObject(result.Result).Value<bool>("partial_failure"));
+        }
+
+        [Fact]
+        public void Non_atomic_entity_error_keeps_legacy_step_status_and_continues()
+        {
+            var commands = Atomic("update_texts", "create_line");
+            commands["atomic"] = false;
+            var entities = JArray.Parse("[{\"handle\":\"FF\",\"ok\":false,\"error\":\"handle not found\"}]");
+            var result = BatchExecutor.Run(commands, (cmd, _) =>
+                CommandResult.Success(cmd == "update_texts" ? entities : new JObject { ["handle"] = "2A" }));
+
+            var batch = JObject.FromObject(result.Result);
+            Assert.False(batch.Value<bool>("partial_failure"));
+            Assert.True(batch["results"][0].Value<bool>("ok"));
+            Assert.True(JToken.DeepEquals(entities, batch["results"][0]["result"]));
+            Assert.Equal("succeeded", batch["results"][1].Value<string>("outcome"));
+        }
+
         [Fact]
         public void Atomic_success_commits_once_and_keeps_step_results()
         {
