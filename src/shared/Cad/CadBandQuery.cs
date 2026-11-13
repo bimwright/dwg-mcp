@@ -45,7 +45,7 @@ namespace Bimwright.Dwg.Plugin.Cad
                 {
                     var sorted = members.OrderBy(member => Axis(member.Bounds.MinPoint, options.Axis))
                         .ThenBy(member => Axis(member.Bounds.MaxPoint, options.Axis));
-                    var bytes = Encoding.UTF8.GetByteCount(result.ToString(Formatting.None));
+                    var bytes = Encoding.UTF8.GetByteCount(result.ToString(Formatting.None, Array.Empty<JsonConverter>()));
                     foreach (var band in Cluster(sorted, options))
                     {
                         bandCount++;
@@ -56,7 +56,7 @@ namespace Bimwright.Dwg.Plugin.Cad
                         if (options.SampleTexts)
                             row["text_samples"] = ReadSamples(band.TextIds, transaction, coverage);
                         var cursor = EntityQueryCursor.Issue(snapshot, options.Fingerprint, bandCount.ToString("X", CultureInfo.InvariantCulture));
-                        bytes += Encoding.UTF8.GetByteCount(row.ToString(Formatting.None)) + cursor.Length + 4;
+                        bytes += Encoding.UTF8.GetByteCount(row.ToString(Formatting.None, Array.Empty<JsonConverter>())) + cursor.Length + 4;
                         if (bytes > HostPageBytes - 2048)
                         {
                             result["_blocked"] = new JObject { ["band_id"] = id, ["reason"] = "row_exceeds_host_candidate_budget" };

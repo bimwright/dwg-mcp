@@ -117,7 +117,7 @@ namespace Bimwright.Dwg.Plugin
         internal static string Hash(JObject canonical)
         {
             using (var hash = SHA256.Create())
-                return BitConverter.ToString(hash.ComputeHash(Encoding.UTF8.GetBytes(canonical.ToString(Formatting.None)))).Replace("-", "").ToLowerInvariant();
+                return BitConverter.ToString(hash.ComputeHash(Encoding.UTF8.GetBytes(canonical.ToString(Formatting.None, Array.Empty<JsonConverter>())))).Replace("-", "").ToLowerInvariant();
         }
 
         public static string NormalizeType(string value)
@@ -173,7 +173,7 @@ namespace Bimwright.Dwg.Plugin
         {
             var value = data[key];
             if (value == null || value.Type == JTokenType.Null) return null;
-            if (value.Type != JTokenType.Integer || !long.TryParse(value.ToString(Formatting.None), NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed))
+            if (value.Type != JTokenType.Integer || !long.TryParse(value.ToString(Formatting.None, Array.Empty<JsonConverter>()), NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed))
                 throw new ArgumentException(key + " must be an integer within Int64 range");
             return parsed;
         }

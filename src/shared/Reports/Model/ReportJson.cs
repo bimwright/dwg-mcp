@@ -46,7 +46,7 @@ namespace Bimwright.Dwg.Plugin.Reports.Model
                     var version = root["schema_version"];
                     if (version == null || version.Type != JTokenType.Integer) return false;
                     // Comparing integer text also handles a future version beyond Int64.
-                    var value = version.ToString(Formatting.None);
+                    var value = version.ToString(Formatting.None, Array.Empty<JsonConverter>());
                     if (value != "1")
                     {
                         if (value != "0" && !value.StartsWith("-", StringComparison.Ordinal))

@@ -28,8 +28,8 @@ namespace Bimwright.Dwg.Plugin.ToolBaker
                 CompatMap = "{}",
                 SourceCode = sourceCode,
                 HandlerTool = handlerTool,
-                FixedArgs = fixedArgs.ToString(Formatting.None),
-                Sequence = sequence.ToString(Formatting.None),
+                FixedArgs = fixedArgs.ToString(Formatting.None, Array.Empty<JsonConverter>()),
+                Sequence = sequence.ToString(Formatting.None, Array.Empty<JsonConverter>()),
                 CreatedFromSuggestionId = (string)request["created_from_suggestion_id"],
                 ReviewedByUser = true,
                 CreatedAt = DateTimeOffset.UtcNow.ToString("o")
@@ -55,7 +55,7 @@ namespace Bimwright.Dwg.Plugin.ToolBaker
                 return token.Value<string>();
             }
 
-            return token.ToString(Formatting.None);
+            return token.ToString(Formatting.None, Array.Empty<JsonConverter>());
         }
     }
 }

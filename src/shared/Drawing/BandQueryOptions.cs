@@ -65,10 +65,10 @@ namespace Bimwright.Dwg.Plugin
                 ["axis"] = Axis, ["gap"] = Gap, ["space"] = Query.Space,
                 ["sample_texts"] = SampleTexts, ["limit"] = Math.Min(Query.Limit, MaxBandsPerPage)
             };
-            if (Types.Length > 0) result["types"] = new JArray(Types).ToString(Formatting.None);
+            if (Types.Length > 0) result["types"] = new JArray(Types).ToString(Formatting.None, Array.Empty<JsonConverter>());
             if (Query.Bbox != null)
                 result["bbox"] = new JObject { ["min"] = new JArray(Query.Bbox.Take(3)), ["max"] = new JArray(Query.Bbox.Skip(3)) }
-                    .ToString(Formatting.None);
+                    .ToString(Formatting.None, Array.Empty<JsonConverter>());
             return result;
         }
     }

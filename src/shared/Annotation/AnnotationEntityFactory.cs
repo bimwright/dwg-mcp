@@ -282,7 +282,7 @@ namespace Bimwright.Dwg.Plugin.Annotation
                 return token.Value<string>();
             }
 
-            return token.ToString(Formatting.None);
+            return token.ToString(Formatting.None, System.Array.Empty<JsonConverter>());
         }
 
         private static bool TransferToCaller<T>(T created, out T entity, ref bool ownsEntity)

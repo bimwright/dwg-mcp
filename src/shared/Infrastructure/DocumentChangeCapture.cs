@@ -177,7 +177,7 @@ namespace Bimwright.Dwg.Plugin
             if (before == null && after == null) return;
             var delta = new JObject { ["handle"] = handle, ["operation"] = operation, ["before"] = before, ["after"] = after };
             if (_stepIndex.HasValue) delta["step_index"] = _stepIndex.Value;
-            var bytes = Encoding.UTF8.GetByteCount(delta.ToString(Formatting.None)) + 1;
+            var bytes = Encoding.UTF8.GetByteCount(delta.ToString(Formatting.None, Array.Empty<JsonConverter>())) + 1;
             if (_bytes + bytes > ChangeCaptureContract.MaxCaptureBytes - EnvelopeReserve)
             {
                 _partialReason ??= "capture_limit";

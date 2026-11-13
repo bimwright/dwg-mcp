@@ -256,7 +256,7 @@ namespace Bimwright.Dwg.Plugin
             var envelope = JObject.FromObject(response);
             if (actualTarget != null) envelope["_target"] = actualTarget;
             if (capture != null) envelope["_change_capture"] = capture;
-            return envelope.ToString(Formatting.None);
+            return envelope.ToString(Formatting.None, Array.Empty<JsonConverter>());
         }
     }
 }

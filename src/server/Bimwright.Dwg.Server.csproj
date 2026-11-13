@@ -37,7 +37,7 @@
     <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.34" />
     <!-- Pin the native SQLite engine independently of the managed provider. -->
     <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" Version="2.1.14" />
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
   </ItemGroup>
 
   <ItemGroup>

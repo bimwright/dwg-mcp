@@ -101,7 +101,7 @@ namespace Bimwright.Dwg.Plugin.Handlers
 
             if (token.Type != JTokenType.String)
             {
-                handle = token.ToString(Formatting.None);
+                handle = token.ToString(Formatting.None, Array.Empty<JsonConverter>());
                 error = "handle must be a string";
                 return false;
             }

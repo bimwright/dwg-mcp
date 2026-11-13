@@ -178,7 +178,7 @@ namespace Bimwright.Dwg.Plugin
                 var temporary = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
                 try
                 {
-                    File.WriteAllText(temporary, root.ToString(Newtonsoft.Json.Formatting.Indented));
+                    File.WriteAllText(temporary, root.ToString(Newtonsoft.Json.Formatting.Indented, Array.Empty<Newtonsoft.Json.JsonConverter>()));
                     if (File.Exists(path)) File.Replace(temporary, path, null);
                     else File.Move(temporary, path);
                 }

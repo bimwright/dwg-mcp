@@ -94,7 +94,7 @@ namespace Bimwright.Dwg.Plugin.Cad
                 result = Header(database, options, snapshot, DocumentTargetGuard.Id(document), scope, stats, countOnly);
                 if (typeHint != null && stats.MembershipComplete && stats.Matched == 0)
                     result["hint"] = typeHint.ToJson(options.Space);
-                if (Encoding.UTF8.GetByteCount(result.ToString(Formatting.None)) > MaxRawBytes - 2048)
+                if (Encoding.UTF8.GetByteCount(result.ToString(Formatting.None, Array.Empty<JsonConverter>())) > MaxRawBytes - 2048)
                     throw new InvalidOperationException("QUERY_OUTPUT_TOO_LARGE: query metadata exceeds the host candidate budget; shorten filter or layout names.");
                 if (!countOnly)
                 {
@@ -116,7 +116,7 @@ namespace Bimwright.Dwg.Plugin.Cad
                         rows.Add(row);
                         checkpoints.Add(EntityQueryCursor.Issue(snapshot, options.Fingerprint, candidate.Handle));
                         Update(result, stats, rows.Count);
-                        if (Encoding.UTF8.GetByteCount(result.ToString(Formatting.None)) > MaxRawBytes - 1024)
+                        if (Encoding.UTF8.GetByteCount(result.ToString(Formatting.None, Array.Empty<JsonConverter>())) > MaxRawBytes - 1024)
                         {
                             rows.RemoveAt(rows.Count - 1);
                             checkpoints.RemoveAt(checkpoints.Count - 1);
@@ -178,13 +178,13 @@ namespace Bimwright.Dwg.Plugin.Cad
         private static JObject Arguments(EntityQueryOptions options)
         {
             var result = new JObject { ["paged"] = true, ["limit"] = options.Limit, ["space"] = options.Space,
-                ["fields"] = new JArray(options.Fields).ToString(Formatting.None) };
+                ["fields"] = new JArray(options.Fields).ToString(Formatting.None, Array.Empty<JsonConverter>()) };
             if (options.EntityType != null) result["entity_type"] = options.EntityType;
             if (options.Layer != null) result["layer"] = options.Layer;
             if (options.ColorIndex.HasValue) result["color_index"] = options.ColorIndex.Value;
             if (options.Bbox != null)
             {
-                result["bbox"] = new JObject { ["min"] = new JArray(options.Bbox.Take(3)), ["max"] = new JArray(options.Bbox.Skip(3)) }.ToString(Formatting.None);
+                result["bbox"] = new JObject { ["min"] = new JArray(options.Bbox.Take(3)), ["max"] = new JArray(options.Bbox.Skip(3)) }.ToString(Formatting.None, Array.Empty<JsonConverter>());
                 result["bbox_mode"] = options.BboxMode;
             }
             return result;

@@ -4,6 +4,7 @@
 
 - Update the gateway MCP SDK to 1.4.2.
 - Update the isolated AutoCAD scripting runtime to Roslyn 4.13.0.
+- Update Newtonsoft.Json to 13.0.4 and keep plugin JSON serialization compatible with older host-loaded versions.
 
 - Move the gateway to .NET 10 LTS. Setup includes the gateway runtime. The framework-dependent NuGet tool requires .NET 10.
 - Update the gateway SQLite provider and native engine used by ToolBaker and drawing history.

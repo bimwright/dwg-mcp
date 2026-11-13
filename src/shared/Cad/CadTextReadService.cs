@@ -134,7 +134,7 @@ namespace Bimwright.Dwg.Plugin.Cad
                 rows.Add(row);
                 checkpoints.Add(EntityQueryCursor.Issue(snapshot, options.Fingerprint, ordinal.ToString("X", CultureInfo.InvariantCulture)));
                 result["_host_more"] = clusters.Count - (long)after > rows.Count;
-                if (Encoding.UTF8.GetByteCount(result.ToString(Formatting.None)) > MaxRawBytes - 1024)
+                if (Encoding.UTF8.GetByteCount(result.ToString(Formatting.None, Array.Empty<JsonConverter>())) > MaxRawBytes - 1024)
                 {
                     rows.RemoveAt(rows.Count - 1);
                     checkpoints.RemoveAt(checkpoints.Count - 1);
@@ -212,7 +212,7 @@ namespace Bimwright.Dwg.Plugin.Cad
             try { var value = document.Database.Insunits; units["insunits"] = value.ToString(); units["insunits_code"] = (int)value; }
             catch { units["insunits"] = null; units["insunits_code"] = null; units["unavailable"] = true; }
             result["units"] = units;
-            if (Encoding.UTF8.GetByteCount(result.ToString(Formatting.None)) > MaxRawBytes - 2048)
+            if (Encoding.UTF8.GetByteCount(result.ToString(Formatting.None, Array.Empty<JsonConverter>())) > MaxRawBytes - 2048)
                 throw new InvalidOperationException("TEXT_SOURCE_TOO_LARGE: source arguments or metadata exceed the host candidate budget; narrow the source.");
             return result;
         }
