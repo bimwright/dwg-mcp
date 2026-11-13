@@ -51,6 +51,44 @@ namespace Bimwright.Dwg.Tests
             });
         }
 
+        [Theory]
+        [InlineData("--toolsets all --read-only", false)]
+        [InlineData("--toolsets all", true)]
+        [InlineData("--toolsets query,meta", false)]
+        public async Task Large_drawing_review_suggests_image_tools_only_when_exposed(string flags, bool imagesAvailable)
+        {
+            await WithServer(flags, async process =>
+            {
+                var catalog = await Request(process, 2, "tools/list", new { });
+                var names = ((JArray)catalog["result"]["tools"]).Select(tool => tool.Value<string>("name")).ToHashSet();
+                var review = Text(await Request(process, 3, "prompts/get", new { name = "dwg_review_large_drawing", arguments = new { } }));
+
+                foreach (var name in new[] { "dwg_capture_view_image", "dwg_inspect_view_region" })
+                {
+                    Assert.Equal(imagesAvailable, names.Contains(name));
+                    Assert.Equal(imagesAvailable, review.Contains(name, StringComparison.Ordinal));
+                }
+                Assert.Equal(names.Contains("dwg_zoom_extents"), review.Contains("dwg_zoom_extents", StringComparison.Ordinal));
+                Assert.DoesNotMatch(@"\{[a-z_]+\}", review);
+            });
+        }
+
+        [Fact]
+        public async Task Large_drawing_review_uses_WCS_bounds_instead_of_camera_values()
+        {
+            await WithServer("--toolsets all", async process =>
+            {
+                var review = Text(await Request(process, 2, "prompts/get", new { name = "dwg_review_large_drawing", arguments = new { space = "layout:Layout1" } }));
+
+                Assert.Contains("space='layout:Layout1'", review);
+                Assert.Contains("Ask me for WCS bounds", review);
+                Assert.Contains("WCS entity extents", review);
+                Assert.Contains("Do not derive a WCS bbox from camera center, width or height", review);
+                Assert.Contains("count and page in the selected space without bbox", review);
+                Assert.DoesNotContain("returns the drawing extents", review);
+            });
+        }
+
         [Fact]
         public async Task A_prompt_whose_toolsets_are_off_renders_an_enable_notice()
         {

@@ -38,8 +38,17 @@ namespace Bimwright.Dwg.Server.Prompts
             [Description("What to find or check in the drawing")] string question = null,
             [Description("model (default) or layout:<exact layout name>")] string space = "model")
         {
+            var visualReview = string.Empty;
+            if (ToolsetFilter.Resolve(ServerState.Config).Contains("view"))
+            {
+                visualReview = " For visual orientation, you may call dwg_zoom_extents after telling me it moves the view.";
+                if (!ServerState.IsReadOnly)
+                    visualReview += " If an image would help, use dwg_capture_view_image for an overview and dwg_inspect_view_region for a closer look when the capture reports region navigation support.";
+            }
+
             return PromptBody.Render(PromptBody.Load("review_large_drawing"), ReviewSets, new Dictionary<string, string>
             {
+                ["visual_review"] = visualReview,
                 ["question"] = string.IsNullOrWhiteSpace(question) ? "Not specified. Ask me what to find before reading." : question.Trim(),
                 ["space"] = string.IsNullOrWhiteSpace(space) ? "model" : space.Trim()
             });
