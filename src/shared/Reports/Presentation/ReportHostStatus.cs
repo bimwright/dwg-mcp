@@ -16,7 +16,8 @@ namespace Bimwright.Dwg.Plugin.Reports.Presentation
         public bool Running { get; }
         public string Transport { get; }
         public string Endpoint { get; }
-        public string Display => "Process: " + Pid + " - " + (Endpoint != null ? Transport + ": " + Endpoint
-            : Localization.L.T(Running ? "reports.host.unavailable" : "reports.host.stopped"));
+        public string Display => Localization.L.T("reports.host.process", ("pid", Pid),
+            ("status", Endpoint != null ? Transport + ": " + Endpoint
+                : Localization.L.T(Running ? "reports.host.unavailable" : "reports.host.stopped")));
     }
 }

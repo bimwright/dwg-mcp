@@ -91,7 +91,7 @@ namespace Bimwright.Dwg.Plugin.Views
                 Header = L.T("history.summary"), Binding = new Binding("Summary"),
                 Width = new DataGridLength(1, DataGridLengthUnitType.Star), ElementStyle = summaryStyle
             });
-            AddColumn("ms", "DurationMs", 55);
+            AddColumn(L.T("history.durationUnit"), "DurationMs", 55);
             var statusStyle = new Style(typeof(TextBlock));
             statusStyle.Setters.Add(new Setter(TextBlock.TextAlignmentProperty, TextAlignment.Center));
             statusStyle.Setters.Add(new Setter(TextBlock.FontWeightProperty, FontWeights.SemiBold));
@@ -265,7 +265,8 @@ namespace Bimwright.Dwg.Plugin.Views
             _detail.Visibility = entry == null ? Visibility.Collapsed : Visibility.Visible;
             _detailRow.Height = entry == null ? new GridLength(0) : new GridLength(240);
             _summary.Text = entry == null ? string.Empty : entry.ToolName + " · " + entry.KindLabel + " · "
-                + (entry.Success ? L.T("toast.activity.success") : L.T("toast.activity.failed")) + " · " + entry.DurationMs + " ms";
+                + L.T(entry.Success ? "toast.activity.success" : "toast.activity.failed") + " · "
+                + L.T("history.duration", ("duration", entry.DurationMs));
             _openImage.Visibility = entry?.ImagePath != null ? Visibility.Visible : Visibility.Collapsed;
             _what.Text = entry?.What ?? string.Empty;
             _input.Text = entry?.Input ?? string.Empty;

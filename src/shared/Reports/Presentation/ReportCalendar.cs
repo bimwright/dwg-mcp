@@ -35,6 +35,6 @@ namespace Bimwright.Dwg.Plugin.Reports.Presentation
         }
 
         // The plugin UI is English-only; dates follow the Windows regional format.
-        public static CultureInfo Culture => CultureInfo.CurrentCulture;
+        public static CultureInfo Culture => L.Culture;
     }
 }

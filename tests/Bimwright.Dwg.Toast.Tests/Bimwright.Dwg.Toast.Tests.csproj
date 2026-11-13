@@ -44,7 +44,19 @@
     <Compile Include="../../src/shared/Views/Toast/ToolNameFormatter.cs" Link="ToolNameFormatter.cs" />
     <Compile Include="../../src/shared/Security/PathAllowlist.cs" Link="PathAllowlist.cs" />
     <Compile Include="../../src/shared/Views/BrandAssets.cs" Link="BrandAssets.cs" />
-    <Compile Include="../../src/shared/Localization/L.cs" Link="Localization\L.cs" />
+    <Compile Include="../../src/shared/Views/BimwrightStyles.cs" Link="BimwrightStyles.cs" />
+    <Compile Include="../../src/shared/Views/HistoryChrome.cs" Link="HistoryChrome.cs" />
+    <Compile Include="../../src/shared/Views/ReportAssets.cs" Link="ReportAssets.cs" />
+    <Compile Include="../../src/shared/Views/ScrollBarFadeBehavior.cs" Link="ScrollBarFadeBehavior.cs" />
+    <Compile Include="../../src/shared/Reports/Views/*.cs" LinkBase="Reports\Views" />
+    <Compile Include="../../src/shared/Reports/Presentation/*.cs" LinkBase="Reports\Presentation" />
+    <Compile Include="../../src/shared/Reports/Model/*.cs" LinkBase="Reports\Model" />
+    <Compile Include="../../src/shared/Presentation/Common/*.cs" LinkBase="Presentation" />
+    <Compile Include="../../src/shared/Config/ReportsWindowState.cs" Link="ReportsWindowState.cs" />
+    <Compile Include="../../src/shared/Infrastructure/ReleaseMetadataClient.cs" Link="ReleaseMetadataClient.cs" />
+    <Compile Include="../../src/shared/Views/Update/ReleaseNoticeWindow.cs" Link="ReleaseNoticeWindow.cs" />
+    <Compile Include="../../src/shared/Localization/*.cs" LinkBase="Shared\Localization" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
   </ItemGroup>
+  <Import Project="..\..\src\shared\Localization\Catalog\Catalog.props" />
 </Project>

@@ -76,7 +76,7 @@
     <Compile Include="..\..\src\shared\Views\Toast\ActivityHistory.cs" LinkBase="Shared\Views\Toast" />
     <Compile Include="..\..\src\shared\Views\Toast\ActivityHistoryDetails.cs" LinkBase="Shared\Views\Toast" />
     <Compile Include="..\..\src\shared\Security\PathAllowlist.cs" LinkBase="Shared\Security" />
-    <Compile Include="..\..\src\shared\Localization\L.cs" LinkBase="Shared\Localization" />
+    <Compile Include="..\..\src\shared\Localization\*.cs" LinkBase="Shared\Localization" />
     <Compile Include="..\..\src\shared\Config\PluginSettings.cs" LinkBase="Shared\Config" />
     <Compile Include="..\..\src\shared\ToolCatalog\ToolCatalogStore.cs" LinkBase="Shared\ToolCatalog" />
     <Compile Include="..\..\src\shared\Infrastructure\PluginLog.cs" LinkBase="Shared\Infrastructure" />
@@ -120,4 +120,5 @@
     <ItemGroup><ScriptingProbeFiles Include="../Bimwright.Dwg.Scripting.Probe/bin/$(Configuration)/net8.0/**/*" /></ItemGroup>
     <Copy SourceFiles="@(ScriptingProbeFiles)" DestinationFiles="@(ScriptingProbeFiles->'$(OutDir)script-probe/%(RecursiveDir)%(Filename)%(Extension)')" />
   </Target>
+  <Import Project="..\..\src\shared\Localization\Catalog\Catalog.props" />
 </Project>

@@ -44,4 +44,5 @@
   <ItemGroup>
     <ProjectReference Include="..\scripting\Bimwright.Dwg.Scripting.csproj" />
   </ItemGroup>
+  <Import Project="..\shared\Localization\Catalog\Catalog.props" />
 </Project>

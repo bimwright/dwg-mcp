@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Bimwright.Dwg.Plugin.Localization;
 using Newtonsoft.Json.Linq;
 
 namespace Bimwright.Dwg.Plugin.Views.Toast
@@ -57,13 +58,14 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
             Index = index;
             Timestamp = DateTimeOffset.Now;
             var code = ActivityHistoryDetails.MayEchoCode(outcome.CommandName, parameters);
-            var body = code ? (outcome.Success ? "Code-capable call completed." : "Code-capable call failed.") : ActivityHistoryDetails.Text(outcome.Body);
+            var body = code ? L.T(outcome.Success ? "history.codeCompleted" : "history.codeFailed") : ActivityHistoryDetails.Text(outcome.Body);
             ToolName = Clip(ActivityHistoryDetails.Text(outcome.Title), 160);
             Summary = Clip(body, 240);
             Success = outcome.Success;
             Kind = outcome.Kind;
             DurationMs = Math.Max(0, outcome.DurationMs);
-            What = ActivityHistoryDetails.Text(ToolName + " · " + KindLabel + " · " + StatusLabel + " · " + DurationMs + " ms\n\n" + body + "\n\n" + description);
+            What = ActivityHistoryDetails.Text(ToolName + " · " + KindLabel + " · " + StatusLabel + " · "
+                + L.T("history.duration", ("duration", DurationMs)) + "\n\n" + body + "\n\n" + description);
             Input = ActivityHistoryDetails.Json(parameters);
             Output = code ? ActivityHistoryDetails.CodeOutputOmitted : outcome.Success
                 ? ActivityHistoryDetails.Result(resultJson) : ActivityHistoryDetails.Text(error ?? outcome.Summary);
@@ -78,7 +80,7 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
         public string Summary { get; }
         public bool Success { get; }
         public ToolActivityKind Kind { get; }
-        public string KindLabel => Kind == ToolActivityKind.Read ? "Read" : "Write";
+        public string KindLabel => L.T(Kind == ToolActivityKind.Read ? "history.read" : "history.write");
         public string StatusLabel => Success ? "✓" : "✗";
         public long DurationMs { get; }
         public string ImagePath { get; }

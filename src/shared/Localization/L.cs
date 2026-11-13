@@ -1,283 +1,145 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
+using System.Text;
+using System.Text.RegularExpressions;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace Bimwright.Dwg.Plugin.Localization
 {
-    /// <summary>
-    /// English-only string table for plugin UI strings. Keeps the same call
-    /// signature as rvt-mcp's L.T (key + named placeholders, "{name}" or
-    /// "{name:n}" for thousands-separated numbers) so a future catalog port
-    /// does not touch call sites. Missing keys return the key, never throw.
-    /// </summary>
     public static class L
     {
-        private static readonly Dictionary<string, string> En = new Dictionary<string, string>(StringComparer.Ordinal)
-        {
-            ["toast.connected.title"] = "Agent connected",
-            ["toast.connected.summary"] = "dwg-mcp is ready",
-            ["toast.failed.default"] = "Tool call failed",
-            ["toast.capture.saved"] = "Saved {fileName}",
-            ["toast.capture.savedSize"] = "Saved {fileName} · {width}×{height} {format}",
-            ["toast.capture.id"] = "Capture {id}",
-            ["toast.capture.clickToOpen"] = "Click to open",
-            ["toast.capture.imageFallback"] = "image",
-            ["toast.drawing.unsaved"] = "Unsaved drawing",
-            ["toast.drawing.layout"] = "Layout {layout}",
-            ["toast.drawing.layer"] = "Layer {layer}",
-            ["toast.rewrite.done"] = "Processed {count:n} texts",
-            ["toast.rewrite.someFailed"] = "{count:n} failed",
-            ["toast.sendCode.finished"] = "Script finished",
-            ["toast.sendCode.detail"] = "Custom C# executed in AutoCAD",
-            ["toast.selected.count"] = "Entities selected: {count:n}",
-            ["toast.selected.done"] = "Selection read",
-            ["toast.generic.completed"] = "Completed successfully",
-            ["toast.generic.results"] = "Results: {count:n}",
-            ["toast.generic.items"] = "Items: {count:n}",
-            ["toast.generic.rows"] = "Rows: {count:n}",
-            ["toast.generic.fileFallback"] = "file",
-            ["toast.activity.success"] = "Success",
-            ["toast.activity.failed"] = "Failed",
-            ["toast.activity.capture"] = "Capture",
-            ["toast.activity.open_image"] = "Open image",
-            ["toast.activity.counts"] = "Counts are commands in this card. Capture is how many of the successes saved an image.",
-            ["toast.status.enabled"] = "Toast notifications enabled",
-            ["toast.status.enabled.summary"] = "New activity will appear here.",
-            ["toast.status.disabled"] = "Toast notifications disabled",
-            ["toast.status.disabled.summary"] = "New activity is hidden until toast notifications are enabled.",
-            ["toast.status.saveFailed"] = "Preference could not be saved; this session is still using the new state.",
-            ["history.title"] = "{identity} — History",
-            ["history.time"] = "Time",
-            ["history.tool"] = "Tool",
-            ["history.summary"] = "Summary",
-            ["history.status"] = "Status",
-            ["history.search"] = "Search",
-            ["history.kind"] = "Kind",
-            ["history.all"] = "All",
-            ["history.read"] = "Read",
-            ["history.write"] = "Write",
-            ["history.newSession"] = "New session",
-            ["history.refresh"] = "Refresh",
-            ["history.what"] = "What",
-            ["history.input"] = "Input",
-            ["history.output"] = "Output",
-            ["history.copy"] = "Copy",
-            ["history.copied"] = "Copied",
-            ["history.copyFailed"] = "Copy failed. Try again when the clipboard is available.",
-            ["history.footer"] = "{count} entries · Session only (latest 1,000). Sanitized details are limited to 4,096 characters each; code bodies are omitted.",
-            ["settings.general.history"] = "Open session History",
-            ["settings.general.history.help"] = "View or copy sanitized call details kept in memory. New session clears these entries. Persistent call logging remains opt-in in the gateway.",
-            ["settings.title"] = "BIMwright Settings",
-            ["settings.tab.general"] = "General",
-            ["settings.tab.toast"] = "Toast",
-            ["settings.tab.tools"] = "Tools",
-            ["settings.tab.about"] = "About",
-            ["settings.general.connection"] = "Connection",
-            ["settings.general.transport"] = "Transport",
-            ["settings.general.port"] = "Port",
-            ["settings.general.pipe"] = "Named pipe",
-            ["settings.general.port.na"] = "Not applicable",
-            ["settings.general.copy"] = "Copy",
-            ["settings.general.copied"] = "Copied",
-            ["settings.general.copy.disabled"] = "There is no TCP port to copy.",
-            ["settings.general.listener"] = "Listener",
-            ["settings.general.listener.on"] = "On",
-            ["settings.general.listener.off"] = "Off",
-            ["settings.general.client"] = "AI client",
-            ["settings.general.client.connected"] = "Connected",
-            ["settings.general.client.idle"] = "No recent activity",
-            ["settings.general.stopped"] = "Listener is stopped.",
-            ["settings.general.startup"] = "Next startup: {state} (source: {source})",
-            ["settings.general.startup.help"] = "On/Off also saves the startup preference. An environment override re-applies at next launch.",
-            ["settings.general.startup.saveFailed"] = "Startup preference could not be saved. The listener keeps its current state; retry On/Off to save again.",
-            ["settings.general.releaseNotifications"] = "Check for new dwg-mcp releases",
-            ["settings.general.releaseNotifications.help"] = "Checks GitHub in the background at most once every 24 hours.",
-            ["settings.general.releaseNotifications.saveFailed"] = "The release notification preference could not be saved.",
-            ["releaseNotice.title"] = "dwg-mcp update available",
-            ["releaseNotice.available"] = "dwg-mcp {version} is available.",
-            ["releaseNotice.running"] = "Running plugin version {version}",
-            ["releaseNotice.open"] = "Open release page",
-            ["settings.toast.enabled"] = "Show activity notifications",
-            ["settings.toast.enabled.help"] = "Takes effect immediately.",
-            ["settings.toast.brand"] = "Show branding",
-            ["settings.toast.brand.help"] = "Appears when you point at the activity card. Applies immediately and is remembered after AutoCAD restarts.",
-            ["settings.toast.idle"] = "Idle duration",
-            ["settings.toast.idle.saveFailed"] = "Toast duration could not be saved. The previous duration is still active. Try Apply again.",
-            ["settings.toast.idle.help"] = "Hides the card when no new results arrive. Hover to keep it open. Applies from the next activity.",
-            ["settings.toast.idle.seconds"] = "{seconds} seconds",
-            ["settings.apply"] = "Apply",
-            ["settings.cancel"] = "Cancel",
-            ["settings.close"] = "Close",
-            ["settings.discard"] = "Discard unsaved idle duration?",
-            ["settings.tools.search"] = "Search",
-            ["settings.tools.search.placeholder"] = "Name or description",
-            ["settings.tools.name"] = "Tool name",
-            ["settings.tools.description"] = "Description",
-            ["settings.tools.source"] = "Source",
-            ["settings.tools.timeout"] = "Time-out",
-            ["settings.tools.empty"] = "No MCP server connected.",
-            ["settings.tools.waiting"] = "Connected. Waiting for the tool list.",
-            ["settings.tools.count"] = "{count} tools",
-            ["settings.tools.none"] = "No tools match.",
-            ["settings.tools.invalid"] = "The tool list could not be read.",
-            ["settings.about.version"] = "Version",
-            ["settings.about.description"] = "MCP connectivity and activity tools for Autodesk AutoCAD.",
-            ["settings.about.author"] = "Author",
-            ["settings.about.license"] = "License",
-            ["settings.about.github"] = "GitHub",
-            ["toast.category.query"] = "MCP · Query",
-            ["toast.category.modified"] = "MCP · Modified",
-            ["toast.category.script"] = "MCP · Script",
-            ["toast.category.export"] = "MCP · Export",
-            ["toast.category.snapshot"] = "MCP · Snapshot",
-            ["toast.category.connected"] = "MCP · Connected",
-            ["toast.category.failed"] = "MCP · Failed",
-            ["toast.activity.header"] = "MCP · Activity",
-            ["toast.activity.latest"] = "Latest",
-            ["toast.activity.counts.tooltip"] = "Success / failed / images",
-            ["toast.activity.recent"] = "Activity · {count:n} calls",
-            ["toast.generic.fields"] = "Fields: {count:n}",
-            ["toast.survey.partial"] = "Survey: coverage incomplete",
-            ["toast.survey.complete"] = "Survey: supported checks complete",
-            ["toast.survey.review"] = "Review scope and blind spots before changes",
-            ["toast.capture.savedPx"] = "Saved {fileName} · {pixelSize}px {format}",
-            ["toast.capture.viewId"] = "View id {viewId}",
-            ["toast.currentView.active"] = "Active view",
-            ["toast.currentView.scale"] = "Scale 1:{scale}",
-            ["toast.rooms.none"] = "No rooms in model",
-            ["toast.rooms.found"] = "Rooms found: {count:n}",
-            ["toast.rooms.complete"] = "Room query complete",
-            ["toast.rooms.placedStats"] = "Placed {placed:n}, unplaced {unplaced:n}",
-            ["toast.filters.allLevelsPhases"] = "All levels · all phases",
-            ["toast.filters.allLevels"] = "All levels",
-            ["toast.filters.level"] = "Level: {level}",
-            ["toast.filters.allPhases"] = "All phases",
-            ["toast.filters.phase"] = "Phase: {phase}",
-            ["toast.filters.status"] = "Status: {status}",
-            ["toast.sheets.none"] = "No sheets in project",
-            ["toast.sheets.found"] = "Drawing sheets: {count:n}",
-            ["toast.sheets.ready"] = "Sheet list ready",
-            ["toast.sheets.first"] = "First: {number} {name}",
-            ["toast.sheets.more"] = "(+{count:n} more)",
-            ["toast.sheets.fallback"] = "Sheets",
-            ["toast.worksets.notWorkshared"] = "Model is not workshared",
-            ["toast.worksets.none"] = "No worksets to list",
-            ["toast.worksets.found"] = "Worksets: {count:n}",
-            ["toast.worksets.complete"] = "Workset query complete",
-            ["toast.worksets.active"] = "Active: {name}",
-            ["toast.filter.matched"] = "Matched {count:n} {category}",
-            ["toast.filter.elementsFallback"] = "elements",
-            ["toast.filter.complete"] = "Element filter complete",
-            ["settings.toast.heading"] = "Activity notifications",
-            ["settings.toast.help"] = "Toast On/Off is immediate. Apply saves the duration and privacy settings.",
-            ["settings.toast.description"] = "Control how activity appears while you work.",
-            ["settings.toast.horizontal"] = "Horizontal alignment",
-            ["settings.toast.vertical"] = "Vertical alignment",
-            ["settings.toast.left"] = "Left",
-            ["settings.toast.right"] = "Right",
-            ["settings.toast.top"] = "Top",
-            ["settings.toast.bottom"] = "Bottom",
-            ["settings.toast.position.help"] = "Applies and saves immediately. Changing a corner clears the saved drag position.",
-            ["settings.toast.drag"] = "Allow dragging the card",
-            ["settings.toast.drag.help"] = "Drag the title row to move the card. Turning this off keeps the saved position; turning it on restores it.",
-            ["settings.toast.reset"] = "Reset position",
-            ["reports.body.collapse"] = "Collapse section:",
-            ["reports.body.expand"] = "Expand section:",
-            ["reports.body.next"] = "Next",
-            ["reports.body.previous"] = "Previous",
-            ["reports.body.rows"] = "Rows {first}–{last} of {total}",
-            ["reports.copy.button"] = "Copy text",
-            ["reports.day.many"] = "{day} · {count} reports",
-            ["reports.day.one"] = "{day} · 1 report",
-            ["reports.day.today"] = "Today",
-            ["reports.day.unknown"] = "Unknown date",
-            ["reports.day.yesterday"] = "Yesterday",
-            ["reports.delete.button"] = "Delete",
-            ["reports.delete.confirm"] = "Confirm?",
-            ["reports.detail.selectHint"] = "Select a report in the list.",
-            ["reports.detail.unverified"] = "Self-reported by the agent, not verified",
-            ["reports.detail.unverifiedShort"] = "Self-reported by the agent",
-            ["reports.empty.noActiveDocument"] = "No active drawing.",
-            ["reports.empty.noDrawingReports"] = "No reports for this drawing. Choose All to see other reports.",
-            ["reports.empty.noReports"] = "No reports yet.",
-            ["reports.filter.activeDrawing"] = "Open drawing",
-            ["reports.filter.all"] = "All drawings",
-            ["reports.filter.label"] = "Filter reports",
-            ["reports.host.stopped"] = "Stopped",
-            ["reports.host.unavailable"] = "Endpoint unavailable",
-            ["reports.link.entity"] = "Entity",
-            ["reports.link.otherDrawing"] = "Belongs to {drawing}",
-            ["reports.link.tip.entities"] = "{count} entities",
-            ["reports.link.tip.handle"] = "Handle {handle}",
-            ["reports.link.tip.more"] = "+{count} more",
-            ["reports.link.tip.select"] = "Click to zoom to and select in AutoCAD",
-            ["reports.list.count"] = "Reports: {count}",
-            ["reports.list.label"] = "Report list",
-            ["reports.list.otherDrawing"] = "other drawing",
-            ["reports.mode.compact"] = "Compact view",
-            ["reports.mode.wide"] = "Wide view",
-            ["reports.navigation.entitiesGone"] = "The entities are no longer in the drawing.",
-            ["reports.navigation.failed"] = "Could not navigate to the entities.",
-            ["reports.navigation.noExtents"] = "The entities have no extents to zoom to.",
-            ["reports.navigation.pending"] = "Navigating in AutoCAD…",
-            ["reports.navigation.selected"] = "Selected {selected} entities in {layout}.",
-            ["reports.navigation.selectedSome"] = "{missing} of {total} entities are no longer in the drawing. Selected {selected} in {layout}.",
-            ["reports.newReports"] = "New reports: {count}",
-            ["reports.outcome.cancelled"] = "Cancelled",
-            ["reports.outcome.completed"] = "Completed",
-            ["reports.outcome.failed"] = "Failed",
-            ["reports.status.copied"] = "Report copied.",
-            ["reports.status.copyFailed"] = "Could not copy the report.",
-            ["reports.status.deleteFailed"] = "Could not delete the report.",
-            ["reports.status.deleted"] = "Report deleted.",
-            ["reports.status.hint"] = "Click a link to zoom to entities in AutoCAD. Dimmed links belong to another drawing.",
-            ["reports.status.loadFailed"] = "Could not load reports.",
-            ["reports.textSize.larger"] = "Larger (Ctrl+Plus)",
-            ["reports.textSize.reset"] = "Reset to 100%",
-            ["reports.textSize.smaller"] = "Smaller (Ctrl+Minus)",
-            ["reports.textSize.title"] = "Text size",
-            ["reports.textSize.tooltip"] = "Text size (Ctrl+Plus, Ctrl+Minus, Ctrl+0)",
-            ["reports.textSize.value"] = "{percent}%",
-            ["reports.time.today"] = "Today {time}",
-            ["reports.time.updated"] = "Updated {time}",
-            ["reports.time.yesterday"] = "Yesterday {time}",
-            ["reports.window.close"] = "Close",
-            ["reports.window.maximize"] = "Maximize",
-            ["reports.window.minimize"] = "Minimize",
-            ["reports.window.restore"] = "Restore down",
-            ["reports.window.title"] = "Agent report",
-        };
+        private static readonly Lazy<StringTable> English = new Lazy<StringTable>(() =>
+            StringTable.Load(LocaleResolver.Default, EmbeddedCatalog.Load, PluginLog.Debug));
+        private static volatile StringTable _session;
+        private static StringTable Current => _session ?? English.Value;
 
-        public static string T(string key, params (string Name, object Value)[] args)
-        {
-            if (key == null)
-                return string.Empty;
-            if (!En.TryGetValue(key, out var template))
-                return key;
-            if (args == null || args.Length == 0)
-                return template;
+        internal static string Locale => Current.Locale;
+        internal static CultureInfo Culture => Current.Culture;
 
-            var text = template;
-            foreach (var (name, value) in args)
-            {
-                var formatted = FormatValue(value, text, name);
-                text = text.Replace("{" + name + ":n}", formatted)
-                           .Replace("{" + name + "}", formatted);
-            }
-            return text;
+        // Called before creating UI. Settings only saves the next session's preference.
+        internal static void Initialize(string requested)
+        {
+            var locale = LocaleResolver.Resolve(requested);
+            _session = locale == LocaleResolver.Default ? English.Value
+                : StringTable.Load(locale, EmbeddedCatalog.Load, PluginLog.Debug);
         }
 
-        private static string FormatValue(object value, string template, string name)
+        public static string T(string key, params (string Name, object Value)[] args) => Current.Text(key, args);
+    }
+
+    internal sealed class StringTable
+    {
+        internal static readonly Regex Placeholder = new Regex(@"\{(?<name>[A-Za-z][A-Za-z0-9_]*)(?<number>:n)?\}",
+            RegexOptions.CultureInvariant);
+        private readonly IReadOnlyDictionary<string, string> _english;
+        private readonly IReadOnlyDictionary<string, string> _localized;
+
+        private StringTable(string locale, IReadOnlyDictionary<string, string> english, IReadOnlyDictionary<string, string> localized)
         {
-            if (value == null)
-                return string.Empty;
-            if (template != null && template.Contains("{" + name + ":n}")
-                && value is IConvertible c)
+            Locale = locale;
+            Culture = LocaleResolver.Culture(locale);
+            _english = english;
+            _localized = localized;
+        }
+
+        internal string Locale { get; }
+        internal CultureInfo Culture { get; }
+
+        internal static StringTable Load(string locale, Func<string, IReadOnlyDictionary<string, string>> load, Action<string> log)
+        {
+            var english = load(LocaleResolver.Default);
+            if (english == null) log?.Invoke("[l10n] English catalog is missing or invalid.");
+            if (locale == LocaleResolver.Default) return new StringTable(locale, english, null);
+
+            var translated = load(locale);
+            if (translated == null)
             {
-                try { return c.ToDouble(CultureInfo.InvariantCulture).ToString("n0", CultureInfo.InvariantCulture); }
-                catch { }
+                log?.Invoke("[l10n] Catalog missing or invalid: " + locale + ". Using English.");
+                return new StringTable(LocaleResolver.Default, english, null);
             }
-            return Convert.ToString(value, CultureInfo.InvariantCulture);
+            return new StringTable(locale, english, translated);
+        }
+
+        internal string Text(string key, params (string Name, object Value)[] args)
+        {
+            if (key == null) return string.Empty;
+            string template = null;
+            if (!(_localized?.TryGetValue(key, out template) ?? false)
+                && !(_english?.TryGetValue(key, out template) ?? false)) return key;
+            if (args == null || args.Length == 0 || template.IndexOf('{') < 0) return template;
+
+            return Placeholder.Replace(template, match =>
+            {
+                foreach (var (name, value) in args)
+                    if (name == match.Groups["name"].Value)
+                        return Format(value, match.Groups["number"].Success);
+                return match.Value;
+            });
+        }
+
+        private string Format(object value, bool numeric)
+        {
+            if (value == null) return string.Empty;
+            if (numeric && value is IFormattable number && IsNumber(value))
+            {
+                try { return number.ToString("N0", Culture); }
+                catch (FormatException) { }
+            }
+
+            try { return Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty; }
+            catch { return string.Empty; }
+        }
+
+        private static bool IsNumber(object value) => value is byte or sbyte or short or ushort
+            or int or uint or long or ulong or float or double or decimal;
+    }
+
+    internal static class EmbeddedCatalog
+    {
+        internal static IReadOnlyDictionary<string, string> Load(string locale)
+        {
+            try
+            {
+                using (var stream = typeof(EmbeddedCatalog).Assembly.GetManifestResourceStream(
+                    "Bimwright.Dwg.Localization.strings." + locale + ".json"))
+                {
+                    if (stream == null) return null;
+                    using (var reader = new StreamReader(stream, new UTF8Encoding(false, true), false))
+                        return Parse(reader.ReadToEnd(), locale);
+                }
+            }
+            catch (Exception ex) when (ex is IOException || ex is JsonException || ex is DecoderFallbackException)
+            {
+                return null;
+            }
+        }
+
+        internal static IReadOnlyDictionary<string, string> Parse(string json, string locale)
+        {
+            using (var text = new StringReader(json))
+            using (var reader = new JsonTextReader(text) { DateParseHandling = DateParseHandling.None })
+            {
+                var root = JObject.Load(reader, new JsonLoadSettings { DuplicatePropertyNameHandling = DuplicatePropertyNameHandling.Error });
+                if (reader.Read()) throw new JsonSerializationException("Unexpected content after catalog.");
+                var entries = new Dictionary<string, string>(StringComparer.Ordinal);
+                foreach (var entry in root.Properties())
+                {
+                    if (entry.Name == "_meta")
+                    {
+                        if (!(entry.Value is JObject meta) || (meta["locale"] != null
+                            && (meta["locale"].Type != JTokenType.String || !string.Equals((string)meta["locale"], locale, StringComparison.Ordinal))))
+                            throw new JsonSerializationException("Invalid catalog metadata.");
+                        continue;
+                    }
+                    if (entry.Value.Type != JTokenType.String || string.IsNullOrWhiteSpace((string)entry.Value))
+                        throw new JsonSerializationException("Catalog entry must be a non-empty string: " + entry.Name);
+                    entries.Add(entry.Name, (string)entry.Value);
+                }
+                return entries;
+            }
         }
     }
 }

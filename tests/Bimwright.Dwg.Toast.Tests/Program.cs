@@ -18,6 +18,11 @@ internal static class Program
         DiagnosticLog.LocalAppDataOverride = diagnosticsRoot;
         try
         {
+            if (args.Length == 1 && args[0] == "--localization")
+            {
+                LocalizationVisualTests.Run();
+                return 0;
+            }
             if (args.Length == 1 && args[0] == "--history-native-clipboard")
             {
                 HistoryDetailsVisualTests.CheckNativeClipboardCopy();
@@ -84,6 +89,7 @@ internal static class Program
             ToastHistoryTests.Run();
             PositionSettingsVisualTests.Run();
             SettingsIdleVisualTests.Run();
+            LocalizationVisualTests.Run();
             CheckSingleActivityCard();
             CheckStatusAndClickLifecycle();
             Console.WriteLine("PASS: single-card activity manager and WPF guards");

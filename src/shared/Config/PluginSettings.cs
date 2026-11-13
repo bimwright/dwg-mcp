@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using Bimwright.Dwg.Plugin.Localization;
 using Newtonsoft.Json.Linq;
 
 namespace Bimwright.Dwg.Plugin
@@ -30,6 +31,19 @@ namespace Bimwright.Dwg.Plugin
 
         private static string FilePath =>
             string.IsNullOrWhiteSpace(FilePathOverride) ? DefaultFilePath : FilePathOverride;
+
+        internal static string LoadUiLanguage()
+        {
+            try
+            {
+                var value = JObject.Parse(File.ReadAllText(FilePath))["uiLanguage"];
+                return LocaleResolver.Resolve(value?.Type == JTokenType.String ? (string)value : null);
+            }
+            catch { return LocaleResolver.Default; }
+        }
+
+        internal static bool SaveUiLanguage(string locale)
+            => TryUpdate(root => root["uiLanguage"] = LocaleResolver.Resolve(locale), "SaveUiLanguage");
 
         public static bool LoadAutoStartTransport(out string source)
         {

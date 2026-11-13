@@ -47,7 +47,7 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
             {
                 var status = L.T(Success ? "toast.activity.success" : "toast.activity.failed");
                 var duration = DurationMs.HasValue
-                    ? " · " + DurationMs.Value.ToString(CultureInfo.CurrentCulture) + " ms"
+                    ? " · " + L.T("history.duration", ("duration", DurationMs.Value))
                     : string.Empty;
                 return Title + (string.IsNullOrEmpty(Body) ? string.Empty : "\n" + Body)
                     + "\n" + status + " · " + LocalTimeText + duration;

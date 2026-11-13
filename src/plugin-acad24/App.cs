@@ -1,5 +1,6 @@
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.Runtime;
+using Bimwright.Dwg.Plugin.Localization;
 using Bimwright.Dwg.Plugin.ToolCatalog;
 using Bimwright.Dwg.Plugin.Views;
 using Bimwright.Dwg.Plugin.Views.Settings;
@@ -51,6 +52,7 @@ namespace Bimwright.Dwg.Plugin
 
         public void Initialize()
         {
+            L.Initialize(PluginSettings.LoadUiLanguage());
             DiagnosticLog.MaintainLegacyLogs();
             OutputArtifactStore.MaintainInBackground();
             Reports.Acad.ReportsModule.CleanupInBackground();
@@ -229,7 +231,7 @@ namespace Bimwright.Dwg.Plugin
                 ? "Toast notifications enabled (saved)."
                 : "Toast notifications disabled (saved).");
             if (!saved)
-                WriteLine("Toast preference could not be saved; this session is still using the new state.");
+                WriteLine(L.T("toast.status.saveFailed"));
             if (!string.IsNullOrEmpty(System.Environment.GetEnvironmentVariable(PluginSettings.EnvEnableToast)))
                 WriteLine($"{PluginSettings.EnvEnableToast} is set and re-applies at next launch.");
             ToastNotifier?.OnToastEnabledChanged(enabled, saved);

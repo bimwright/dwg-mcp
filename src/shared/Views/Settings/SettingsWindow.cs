@@ -109,6 +109,7 @@ namespace Bimwright.Dwg.Plugin.Views.Settings
             out TextBlock startupSaveNote)
         {
             var panel = new StackPanel { Margin = new Thickness(8) };
+            AddLanguageSettings(panel);
             panel.Children.Add(Heading(L.T("settings.general.connection")));
             transport = Body();
             client = Body();
@@ -182,6 +183,44 @@ namespace Bimwright.Dwg.Plugin.Views.Settings
             return new ScrollViewer { Content = panel, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
         }
 
+        private static void AddLanguageSettings(Panel panel)
+        {
+            var label = L.T("settings.language.label");
+            var saved = PluginSettings.LoadUiLanguage();
+            var heading = Heading(label);
+            var combo = new ComboBox
+            {
+                MinWidth = 160, HorizontalAlignment = HorizontalAlignment.Left,
+                SelectedValuePath = nameof(ComboBoxItem.Tag), Margin = new Thickness(0, 0, 0, 4)
+            };
+            System.Windows.Automation.AutomationProperties.SetName(combo, label);
+            foreach (var locale in LocaleResolver.SupportedLocales)
+                combo.Items.Add(new ComboBoxItem { Content = LocaleResolver.NativeName(locale), Tag = locale });
+            combo.SelectedValue = saved;
+
+            var note = Help(saved == L.Locale ? string.Empty : L.T("settings.language.restart"));
+            var restoring = false;
+            combo.SelectionChanged += (_, __) =>
+            {
+                if (restoring || !(combo.SelectedValue is string selected)) return;
+                if (!PluginSettings.SaveUiLanguage(selected))
+                {
+                    restoring = true;
+                    combo.SelectedValue = saved;
+                    restoring = false;
+                    note.Foreground = McpToastTheme.Error;
+                    note.Text = L.T("settings.language.saveFailed");
+                    return;
+                }
+                saved = selected;
+                note.Foreground = Brushes.DimGray;
+                note.Text = saved == L.Locale ? string.Empty : L.T("settings.language.restart");
+            };
+            panel.Children.Add(heading);
+            panel.Children.Add(combo);
+            panel.Children.Add(note);
+        }
+
         private void SetShowBranding(bool show)
         {
             App.ToastNotifier?.SetShowBranding(show);
@@ -238,7 +277,7 @@ namespace Bimwright.Dwg.Plugin.Views.Settings
             var env = Environment.GetEnvironmentVariable(PluginSettings.EnvEnableToast);
             if (!string.IsNullOrEmpty(env))
             {
-                panel.Children.Add(Help(PluginSettings.EnvEnableToast + " is set and re-applies at next launch."));
+                panel.Children.Add(Help(L.T("settings.toast.envOverride", ("variable", PluginSettings.EnvEnableToast))));
             }
 
             enabled.Checked += (_, __) => { if (!_suppressToastEvents) App.SetToastEnabled(true); };
