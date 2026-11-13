@@ -10,6 +10,8 @@ namespace Autodesk.AutoCAD.ApplicationServices
     {
         public string Name { get; set; }
         public bool IsReadOnly { get; set; }
+        public bool IsNamedDrawing { get; set; }
+        public object AcadDocument { get; set; }
         public string CommandInProgress { get; set; } = "";
         public int LockCount { get; private set; }
         public int ActiveLockCount { get; private set; }
@@ -20,6 +22,11 @@ namespace Autodesk.AutoCAD.ApplicationServices
             public TestLock(Document owner) { this.owner = owner; }
             public void Dispose() { owner.ActiveLockCount--; }
         }
+    }
+
+    public static class DocumentExtension
+    {
+        public static object GetAcadDocument(this Document document) => document.AcadDocument;
     }
 
     public partial class DocumentCollection : IEnumerable
@@ -54,6 +61,11 @@ namespace Autodesk.AutoCAD.ApplicationServices
 
 namespace Autodesk.AutoCAD.DatabaseServices
 {
+    public partial class Database
+    {
+        public string Filename { get; set; }
+    }
+
     public class HostApplicationServices
     {
         public static HostApplicationServices Current { get; set; } = new HostApplicationServices();

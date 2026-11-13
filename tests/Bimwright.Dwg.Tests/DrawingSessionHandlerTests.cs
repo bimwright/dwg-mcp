@@ -130,6 +130,8 @@ public sealed class DrawingSessionHandlerTests : IDisposable
     [Theory]
     [InlineData("open_drawing")]
     [InlineData("list_recent_drawings")]
+    [InlineData("list_open_documents")]
+    [InlineData("activate_document")]
     public void Session_commands_cannot_run_inside_a_drawing_batch(string command)
     {
         var executed = 0;
@@ -137,8 +139,108 @@ public sealed class DrawingSessionHandlerTests : IDisposable
             (_, _) => { executed++; return CommandResult.Success(null); });
         Assert.False(result.Ok);
         Assert.Equal(0, executed);
-        IAcadSessionCommand handler = command == "open_drawing" ? new OpenDrawingHandler() : new ListRecentDrawingsHandler();
+        IAcadSessionCommand handler = command switch
+        {
+            "open_drawing" => new OpenDrawingHandler(),
+            "list_recent_drawings" => new ListRecentDrawingsHandler(),
+            "list_open_documents" => new ListOpenDocumentsHandler(),
+            _ => new ActivateDocumentHandler()
+        };
         Assert.False(handler.Execute(new Document(), new JObject()).Ok);
+        Assert.False(Bimwright.Dwg.Plugin.ToolBaker.BakedToolDispatchAuthorizer.IsAllowed(command));
+    }
+
+    [Fact]
+    public void List_open_documents_preserves_activation_and_reports_save_state_per_document()
+    {
+        var named = new Document { Name = FilePath, IsNamedDrawing = true, AcadDocument = new { Saved = true } };
+        named.Database.Filename = FilePath;
+        var unnamed = new Document { Name = "Drawing1.dwg", AcadDocument = new { Saved = false } };
+        var unknown = new Document { Name = "Drawing2.dwg" };
+        documents.Documents.AddRange(new[] { named, unnamed, unknown });
+        documents.MdiActiveDocument = named;
+        var result = DocumentInvoker.InvokeSession(() => new ListOpenDocumentsHandler().ExecuteSession(new JObject()));
+        var list = (JArray)JObject.FromObject(result.Result)["documents"];
+
+        Assert.Equal(3, list.Count);
+        Assert.Equal(Path.GetFileName(FilePath), list[0].Value<string>("name"));
+        Assert.Equal(FilePath, list[0].Value<string>("path"));
+        Assert.Equal(DocumentTargetGuard.Id(named), list[0].Value<string>("document_id"));
+        Assert.True(list[0].Value<bool>("active"));
+        Assert.False(list[0].Value<bool>("has_unsaved_changes"));
+        Assert.False(list[1].Value<bool>("active"));
+        Assert.Null(list[1].Value<string>("path"));
+        Assert.True(list[1].Value<bool>("has_unsaved_changes"));
+        Assert.Null(list[2].Value<bool?>("has_unsaved_changes"));
+        Assert.Same(named, documents.MdiActiveDocument);
+        Assert.All(documents.Documents, document => Assert.Equal(0, document.LockCount));
+    }
+
+    [Fact]
+    public void List_open_documents_works_without_an_active_drawing()
+    {
+        var result = DocumentInvoker.InvokeSession(() => new ListOpenDocumentsHandler().ExecuteSession(new JObject()));
+        Assert.True(result.Ok, result.Error);
+        Assert.Empty((JArray)JObject.FromObject(result.Result)["documents"]);
+    }
+
+    [Fact]
+    public void Activate_requires_current_pin_then_observes_new_id_and_rejects_old_pin_for_drawing_work()
+    {
+        var original = new Document { Name = "A.dwg" };
+        var next = new Document { Name = "B.dwg" };
+        documents.Documents.AddRange(new[] { original, next });
+        documents.MdiActiveDocument = original;
+        var expected = DocumentTargetGuard.Capture(original);
+        var nextId = DocumentTargetGuard.Id(next);
+        var request = new JObject { ["document_id"] = nextId };
+        JObject observed = null;
+        var result = DocumentInvoker.InvokeSession(() => new ActivateDocumentHandler().ExecuteSession(request),
+            observeTarget: stamp => observed = stamp, expectedTarget: expected, guardedCommand: "activate_document");
+
+        Assert.True(result.Ok, result.Error);
+        Assert.True(JObject.FromObject(result.Result).Value<bool>("target_verification_required"));
+        Assert.Equal(nextId, observed.Value<string>("document_id"));
+        Assert.Same(next, documents.MdiActiveDocument);
+        Assert.Equal(0, original.LockCount);
+        Assert.Equal(0, next.LockCount);
+        Assert.Equal(0, documents.OpenCalls);
+        var blocked = Assert.Throws<InvalidOperationException>(() => DocumentInvoker.Invoke(_ => 1,
+            expectedTarget: expected, command: "create_line"));
+        Assert.StartsWith("DOCUMENT_CHANGED:", blocked.Message);
+        Assert.Equal(1, DocumentInvoker.Invoke(_ => 1, expectedTarget: observed, command: "create_line"));
+
+        var unchanged = DocumentInvoker.InvokeSession(() => new ActivateDocumentHandler().ExecuteSession(request),
+            expectedTarget: observed, guardedCommand: "activate_document");
+        Assert.True(unchanged.Ok, unchanged.Error);
+        Assert.False(JObject.FromObject(unchanged.Result).Value<bool>("changed"));
+    }
+
+    [Theory]
+    [InlineData("stale-id", "DOCUMENT_NOT_OPEN:")]
+    [InlineData("busy", "ACAD_BUSY:")]
+    [InlineData("context", "AutoCAD is not in application context")]
+    [InlineData("stale-pin", "DOCUMENT_CHANGED:")]
+    public void Refused_activation_keeps_current_document(string condition, string errorPrefix)
+    {
+        var original = new Document { Name = "A.dwg" };
+        var next = new Document { Name = "B.dwg" };
+        var closed = new Document { Name = next.Name };
+        documents.Documents.AddRange(new[] { original, next });
+        documents.MdiActiveDocument = original;
+        var expected = DocumentTargetGuard.Capture(condition == "stale-pin" ? next : original);
+        var request = new JObject { ["document_id"] = DocumentTargetGuard.Id(condition == "stale-id" ? closed : next) };
+        if (condition == "busy") original.CommandInProgress = "LINE";
+        if (condition == "context") documents.IsApplicationContext = false;
+
+        CommandResult Activate() => DocumentInvoker.InvokeSession(() => new ActivateDocumentHandler().ExecuteSession(request),
+            expectedTarget: expected, guardedCommand: "activate_document");
+        var error = condition == "stale-pin"
+            ? Assert.Throws<InvalidOperationException>(() => Activate()).Message
+            : Activate().Error;
+        Assert.StartsWith(errorPrefix, error);
+        Assert.Same(original, documents.MdiActiveDocument);
+        Assert.Equal(0, documents.OpenCalls);
     }
 
     [Fact]

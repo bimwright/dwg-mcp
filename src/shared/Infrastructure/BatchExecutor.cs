@@ -259,10 +259,9 @@ namespace Bimwright.Dwg.Plugin
                     return CommandResult.Fail("nested batch_execute is not allowed");
                 }
 
-                if (string.Equals(cmd, "open_drawing", StringComparison.Ordinal) ||
-                    string.Equals(cmd, "list_recent_drawings", StringComparison.Ordinal))
+                if (DrawingSessionContract.IsStandaloneDrawingCommand(cmd))
                 {
-                    return CommandResult.Fail(cmd + " is a standalone session command and is not allowed inside batch_execute.");
+                    return CommandResult.Fail(DrawingSessionContract.StandaloneError(cmd));
                 }
 
                 if (string.Equals(cmd, "run_baked_tool", StringComparison.Ordinal))

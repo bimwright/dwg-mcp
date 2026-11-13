@@ -22,6 +22,7 @@ namespace Bimwright.Dwg.Tests
             Assert.Equal(new[]
             {
                 "dwg_accept_bake_suggestion",
+                "dwg_activate_document",
                 "dwg_apply_unicode_style",
                 "dwg_attach_image",
                 "dwg_batch_execute",
@@ -68,6 +69,7 @@ namespace Bimwright.Dwg.Tests
                 "dwg_list_baked_tools",
                 "dwg_list_blocks",
                 "dwg_list_layers",
+                "dwg_list_open_documents",
                 "dwg_list_recent_drawings",
                 "dwg_move_entities",
                 "dwg_offset_entities",

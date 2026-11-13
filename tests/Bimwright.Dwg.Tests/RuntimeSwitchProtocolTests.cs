@@ -19,18 +19,18 @@ namespace Bimwright.Dwg.Tests
     public class RuntimeSwitchProtocolTests
     {
         [Theory]
-        [InlineData("", 47, true, true)]
-        [InlineData("--disable-send-code", 46, false, true)]
-        [InlineData("--read-only --enable-send-code", 18, false, false)]
-        [InlineData("--toolsets all", 71, true, true)]
-        [InlineData("--toolsets all --disable-send-code", 70, false, true)]
-        [InlineData("--toolsets all --read-only --enable-send-code", 24, false, false)]
-        [InlineData("--toolsets all --disable-toolbaker", 65, true, true)]
+        [InlineData("", 49, true, true)]
+        [InlineData("--disable-send-code", 48, false, true)]
+        [InlineData("--read-only --enable-send-code", 19, false, false)]
+        [InlineData("--toolsets all", 73, true, true)]
+        [InlineData("--toolsets all --disable-send-code", 72, false, true)]
+        [InlineData("--toolsets all --read-only --enable-send-code", 25, false, false)]
+        [InlineData("--toolsets all --disable-toolbaker", 67, true, true)]
         [InlineData("--toolsets query", 11, false, false)]
-        [InlineData("--toolsets meta", 9, true, true)]
+        [InlineData("--toolsets meta", 11, true, true)]
         [InlineData("--toolsets code", 2, true, true)]
-        [InlineData("--toolsets meta,code", 9, true, true)]
-        [InlineData("--toolsets meta --disable-send-code", 8, false, true)]
+        [InlineData("--toolsets meta,code", 11, true, true)]
+        [InlineData("--toolsets meta --disable-send-code", 10, false, true)]
         [InlineData("--toolsets code --disable-send-code", 1, false, true)]
         [InlineData("--toolsets view --read-only", 3, false, false)]
         [InlineData("--toolsets block --read-only", 2, false, false)]
@@ -127,7 +127,7 @@ namespace Bimwright.Dwg.Tests
                     Assert.Equal(readNames, names.OrderBy(name => name).ToArray());
                     Assert.All((JArray)listed["result"]["tools"], tool => Assert.True(tool["annotations"].Value<bool>("readOnlyHint")));
                     foreach (var blockedTool in new[] { "dwg_capture_view_image", "dwg_inspect_view_region", "dwg_restore_view",
-                        "dwg_batch_execute", "dwg_run_baked_tool", "dwg_send_code", "dwg_open_drawing", "dwg_switch_target" })
+                        "dwg_batch_execute", "dwg_run_baked_tool", "dwg_send_code", "dwg_open_drawing", "dwg_activate_document", "dwg_switch_target" })
                     {
                         await process.StandardInput.WriteLineAsync(JsonConvert.SerializeObject(new
                         { jsonrpc = "2.0", id = 10, method = "tools/call", @params = new { name = blockedTool, arguments = new { } } }));

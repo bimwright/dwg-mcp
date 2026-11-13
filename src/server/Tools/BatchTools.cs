@@ -27,10 +27,14 @@ namespace Bimwright.Dwg.Server.Tools
             var parsed = string.IsNullOrWhiteSpace(commands) ? new JArray() : JArray.Parse(commands);
             foreach (var item in parsed)
             {
-                if (ScriptInputContract.RequiresDirectCall(item?["cmd"]?.Value<string>(), item?["params"]))
+                var command = item?["cmd"]?.Value<string>();
+                if (DrawingSessionContract.IsStandaloneDrawingCommand(command))
+                    return Task.FromResult(JsonConvert.SerializeObject(new { ok = false,
+                        error = DrawingSessionContract.StandaloneError(command) }));
+                if (ScriptInputContract.RequiresDirectCall(command, item?["params"]))
                     return Task.FromResult(JsonConvert.SerializeObject(new { ok = false,
                         error = "SCRIPT_INPUTS_DIRECT_TOOL_ONLY: call enhanced send_code directly. The batch was not sent or started." }));
-                if (EntityQueryOptions.RequiresDirectCall(item?["cmd"]?.Value<string>(), item?["params"]))
+                if (EntityQueryOptions.RequiresDirectCall(command, item?["params"]))
                     return Task.FromResult(JsonConvert.SerializeObject(new
                     {
                         ok = false, error = "PAGED_QUERY_DIRECT_TOOL_ONLY: call spatial/scoped/paged read tools directly. The batch was not sent or started."

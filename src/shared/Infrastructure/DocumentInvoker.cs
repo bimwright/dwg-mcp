@@ -33,13 +33,19 @@ namespace Bimwright.Dwg.Plugin
         }
 
         /// <summary>Standalone session operations share the CAD queue, but do not require or lock a document.</summary>
-        internal static T InvokeSession<T>(Func<T> action, Func<bool> isAccepting = null, Action<JObject> observeTarget = null)
+        internal static T InvokeSession<T>(Func<T> action, Func<bool> isAccepting = null, Action<JObject> observeTarget = null,
+            JObject expectedTarget = null, string guardedCommand = null)
         {
             var executor = mainThread ?? throw new InvalidOperationException("AutoCAD main-thread executor is not initialized.");
             return DwgApiExecutor.Invoke(() => executor.Invoke(() =>
             {
                 EnsureAccepting(isAccepting);
-                try { return action(); }
+                try
+                {
+                    if (guardedCommand != null)
+                        DocumentTargetGuard.CheckDocument(expectedTarget, Application.DocumentManager.MdiActiveDocument, guardedCommand);
+                    return action();
+                }
                 finally { ObserveTarget(() => Application.DocumentManager.MdiActiveDocument, observeTarget); }
             }));
         }

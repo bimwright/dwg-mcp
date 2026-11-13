@@ -26,7 +26,8 @@ internal static class AgentReportReminder
 
     private static bool IsWrite(string command)
         => !string.IsNullOrEmpty(command) && TargetContract.IsWrite(command)
-            && command is not ("open_drawing" or "capture_view_image" or "inspect_view_region" or "restore_view" or "apply_bake");
+            && !DrawingSessionContract.IsStandaloneDrawingCommand(command)
+            && command is not ("capture_view_image" or "inspect_view_region" or "restore_view" or "apply_bake");
 
     private static bool Succeeded(string command, JToken result)
     {

@@ -160,6 +160,9 @@ namespace Bimwright.Dwg.Plugin
             SchemaProperty.Optional("read_only", JTokenType.Boolean),
             SchemaProperty.Optional("timeout_seconds", JTokenType.Integer));
 
+        public static readonly CommandSchema ActivateDocument = CommandSchema.Object(
+            SchemaProperty.RequiredNonEmptyString("document_id"));
+
         public static readonly CommandSchema GetDrawingInfo = CommandSchema.Empty;
 
         public static readonly CommandSchema GetDrawingProfile = CommandSchema.Object(

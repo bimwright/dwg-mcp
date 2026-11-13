@@ -527,6 +527,7 @@ mcp__dwg-mcp__dwg_list_bake_suggestions
 mcp__dwg-mcp__dwg_list_baked_tools
 mcp__dwg-mcp__dwg_list_blocks
 mcp__dwg-mcp__dwg_list_layers
+mcp__dwg-mcp__dwg_list_open_documents
 mcp__dwg-mcp__dwg_list_recent_drawings
 mcp__dwg-mcp__dwg_query_entities
 mcp__dwg-mcp__dwg_report_task_result

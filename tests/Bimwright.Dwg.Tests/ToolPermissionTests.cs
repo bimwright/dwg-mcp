@@ -28,7 +28,7 @@ namespace Bimwright.Dwg.Tests
         [Fact]
         public void Every_non_code_tool_sets_all_four_hints_explicitly()
         {
-            Assert.Equal(71, Methods.Length);
+            Assert.Equal(73, Methods.Length);
             foreach (var method in Methods)
             {
                 var attribute = method.CustomAttributes.Single(a => a.AttributeType == typeof(McpServerToolAttribute));
@@ -260,9 +260,11 @@ namespace Bimwright.Dwg.Tests
         {
             var catalog = ToolCatalogBuilder.Build(new[] { typeof(ViewTools), typeof(CodeTools), typeof(MetaTools) }, readOnly: true);
             var names = catalog["tools"].Select(tool => tool.Value<string>("name")).ToArray();
-            Assert.Equal(6, names.Length);
+            Assert.Equal(7, names.Length);
             Assert.DoesNotContain("dwg_switch_target", names);
             Assert.Contains("dwg_list_recent_drawings", names);
+            Assert.Contains("dwg_list_open_documents", names);
+            Assert.DoesNotContain("dwg_activate_document", names);
             Assert.DoesNotContain("dwg_open_drawing", names);
             Assert.DoesNotContain("dwg_capture_view_image", names);
             Assert.DoesNotContain("dwg_restore_view", names);

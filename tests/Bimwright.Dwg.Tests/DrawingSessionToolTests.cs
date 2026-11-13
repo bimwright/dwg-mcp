@@ -43,6 +43,30 @@ public class DrawingSessionToolTests
         Assert.Equal(900, capture.Json().Value<int>("timeout_seconds"));
     }
 
+    [Fact]
+    public async Task Open_document_tools_forward_session_commands_and_gate_activation_in_read_only()
+    {
+        var list = await Capture.Send(MetaTools.ListOpenDocuments);
+        Assert.Equal("list_open_documents", list.Command);
+        Assert.Empty(list.Json().Properties());
+        Assert.True(Tool("dwg_list_open_documents").GetCustomAttribute<McpServerToolAttribute>().ReadOnly);
+
+        var activate = await Capture.Send(() => MetaTools.ActivateDocument("selected-document-id"));
+        Assert.Equal("activate_document", activate.Command);
+        Assert.Equal("selected-document-id", activate.Json().Value<string>("document_id"));
+        Assert.False(Tool("dwg_activate_document").GetCustomAttribute<McpServerToolAttribute>().ReadOnly);
+        Assert.True(ReadOnlyPolicy.IsBlocked("activate_document", new DwgMcpConfig { ReadOnly = true }));
+    }
+
+    [Fact]
+    public async Task Batch_refuses_activation_before_dispatch()
+    {
+        var reply = await Capture.Local(() => BatchTools.BatchExecute(
+            "[{\"cmd\":\"create_line\"},{\"cmd\":\"activate_document\",\"params\":{\"document_id\":\"selected\"}}]"));
+        Assert.False(reply.Value<bool>("ok"));
+        Assert.Contains("standalone session command", reply.Value<string>("error"));
+    }
+
     [Theory]
     [InlineData(0)]
     [InlineData(901)]

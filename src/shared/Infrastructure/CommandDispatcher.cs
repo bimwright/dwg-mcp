@@ -87,6 +87,8 @@ namespace Bimwright.Dwg.Plugin
                 { "set_system_variable",     new SetSystemVariableHandler() },
                 { "list_recent_drawings",    new ListRecentDrawingsHandler() },
                 { "open_drawing",            new OpenDrawingHandler() },
+                { "list_open_documents",     new ListOpenDocumentsHandler() },
+                { "activate_document",       new ActivateDocumentHandler() },
                 { "save_drawing",            new SaveDrawingHandler() },
                 { "purge_drawing",           new PurgeDrawingHandler() },
             };
@@ -144,7 +146,8 @@ namespace Bimwright.Dwg.Plugin
                 }
 
                 var result = preflightHandler is IAcadSessionCommand sessionCommand
-                    ? DocumentInvoker.InvokeSession(() => sessionCommand.ExecuteSession(parameters), _isAccepting, target => actualTarget = target)
+                    ? DocumentInvoker.InvokeSession(() => sessionCommand.ExecuteSession(parameters), _isAccepting, target => actualTarget = target,
+                        expectedTarget, cmd == "activate_document" ? cmd : null)
                     : DocumentInvoker.Invoke(doc => ExecuteCommand(doc, cmd, parameters), _isAccepting, expectedTarget, cmd, target => actualTarget = target);
 
                 string resultJson = null;
