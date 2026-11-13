@@ -174,6 +174,7 @@ namespace Bimwright.Dwg.Server.Tools
 
         [McpServerTool(Name = "dwg_select_by_layer", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false), Description(
             "Return handles for model-space entities on a required layer, with optional type/color filters. " +
+            "For bbox filtering, use dwg_query_entities with bbox, the same filters, and fields=[\"handle\"] for handles only. " +
             "This does not change AutoCAD pickfirst selection.")]
         public static Task<string> SelectByLayer(
             [Description("Required layer name filter. Case-insensitive.")] string layer,
@@ -189,6 +190,7 @@ namespace Bimwright.Dwg.Server.Tools
 
         [McpServerTool(Name = "dwg_select_by_type", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false), Description(
             "Return handles for model-space entities of a required type, with optional layer/color filters. " +
+            "For bbox filtering, use dwg_query_entities with bbox, the same filters, and fields=[\"handle\"] for handles only. " +
             "An empty result returns hint.available_types with up to 20 managed types observed in model space before applying filters. " +
             "This does not change AutoCAD pickfirst selection.")]
         public static Task<string> SelectByType(
