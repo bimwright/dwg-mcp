@@ -613,6 +613,7 @@ Use exact rules for the tools you intend to allow. Avoid `mcp__dwg-mcp__*`: it a
 
 <!-- read-only-allowlist:start -->
 ```text
+mcp__dwg-mcp__dwg_cluster_bands
 mcp__dwg-mcp__dwg_count_entities
 mcp__dwg-mcp__dwg_create_bake_issue_draft
 mcp__dwg-mcp__dwg_get_block_attributes

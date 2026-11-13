@@ -33,6 +33,7 @@ internal static class EntityQueryResponse
     {
         if (cap < MinimumCap || cap > MaximumCap) throw new ArgumentOutOfRangeException(nameof(cap), "Query output must be 4096..65536 bytes.");
         var textRead = collection == "clusters";
+        var bandRead = collection == "bands";
         var text = result.Content?.OfType<TextContentBlock>().FirstOrDefault();
         JObject body;
         try { body = JObject.Parse(text?.Text ?? ""); }
@@ -48,7 +49,7 @@ internal static class EntityQueryResponse
             if (countOnly)
                 return Count(data?["query_count_version"]) == 1 ? BoundOther(result, cap) : Unsupported(cap, original: body);
             if (Count(data?[versionKey]) != 1 || data?[collection] is not JArray)
-                return Unsupported(cap, textRead, body);
+                return Unsupported(cap, textRead, body, bandRead);
         }
         if (body["result"] is not JObject page || Count(page[versionKey]) != 1 || page[collection] is not JArray rows)
             return BoundOther(result, cap, textRead);
@@ -128,7 +129,7 @@ internal static class EntityQueryResponse
             if (nextCursor != null)
             {
                 var nextArguments = (JObject)arguments.DeepClone();
-                if (!textRead) nextArguments["paged"] = true;
+                if (!textRead && !bandRead) nextArguments["paged"] = true;
                 nextArguments["cursor"] = nextCursor;
                 nextArguments["max_output_bytes"] = cap;
                 calls.Add(new JObject { ["tool"] = toolName, ["arguments"] = nextArguments });
@@ -137,7 +138,11 @@ internal static class EntityQueryResponse
             if (deliveryBlocked != null) output["blocked"] = deliveryBlocked;
             else output.Remove("blocked");
             var hostPayloadBlocked = candidateCount == 0 && hostBlocked?.Value<string>("reason")?.StartsWith("row_exceeds_host", StringComparison.Ordinal) == true;
-            output["note"] = textRead ? TextGuidance(cap, hostPayloadBlocked, scanComplete) : "Only retained entities were delivered. omitted_matching counts observed matches after the input cursor; unavailable extents/read failures remain separate in coverage. " +
+            output["note"] = bandRead
+                ? scanComplete
+                    ? "omitted_matching counts whole bands after the delivered page. Follow next_calls with the same options. For a blocked band, try a larger output budget or disable samples and restart."
+                    : "The source scan was incomplete. No complete-scope bands or continuation are available; see coverage."
+                : textRead ? TextGuidance(cap, hostPayloadBlocked, scanComplete) : "Only retained entities were delivered. omitted_matching counts observed matches after the input cursor; unavailable extents/read failures remain separate in coverage. " +
                 "Follow next_calls with the same filters and fields; an incomplete scan disables continuation. A blocked row is never skipped. " +
                 (hostPayloadBlocked ? "The blocked row exceeds the host payload budget; narrow fields and restart without a cursor. Raising the MCP cap does not bypass that host limit. "
                     : cap < MaximumCap ? "Retry the same input cursor with a larger max_output_bytes (up to 65536); a smaller --response-budget-bytes must also be raised. "
@@ -179,18 +184,20 @@ internal static class EntityQueryResponse
         => value?.Type == JTokenType.Integer && long.TryParse(value.ToString(Formatting.None), NumberStyles.None, CultureInfo.InvariantCulture, out var count)
             && count >= 0 ? count : null;
 
-    private static CallToolResult Unsupported(int cap, bool textRead = false, JObject original = null)
+    private static CallToolResult Unsupported(int cap, bool textRead = false, JObject original = null, bool bandRead = false)
     {
         var body = new JObject
         {
             ["ok"] = false,
-            ["error"] = textRead
+            ["error"] = bandRead ? "BAND_FEATURE_UNSUPPORTED: the plugin did not confirm the band paging contract. Update gateway and plugin together."
+                : textRead
                 ? "TEXT_FEATURE_UNSUPPORTED: the plugin did not confirm the requested bounded text-read contract. Update gateway and plugin together."
                 : "QUERY_FEATURE_UNSUPPORTED: the plugin did not confirm the requested spatial/paged contract. Update gateway and plugin together.",
             ["result"] = new JObject { ["output"] = new JObject
             {
                 ["budget_bytes"] = cap, ["complete"] = false, ["next_calls"] = new JArray(),
-                ["note"] = textRead
+                ["note"] = bandRead ? "No bands, counts or continuation were delivered."
+                    : textRead
                     ? "Unverified legacy selection data and writable cluster IDs were discarded: handles, bbox, space and cursor semantics were not confirmed. No cluster count, clusters or continuation are claimed."
                     : "Unverified legacy data was discarded: bbox, space, fields and cursor semantics were not confirmed. No count, entity rows or continuation are claimed."
             }}
@@ -278,7 +285,8 @@ internal static class EntityQueryResponse
     {
         var body = new JObject
         {
-            ["ok"] = false, ["error"] = textRead
+            ["ok"] = false, ["error"] = collection == "bands" ? "BAND_PAGE_TOO_LARGE: band metadata cannot fit this output budget."
+                : textRead
                 ? "TEXT_PAGE_TOO_LARGE: text-read metadata or one whole cluster cannot fit this output budget."
                 : "QUERY_PAGE_TOO_LARGE: query metadata or one entity cannot fit this output budget.",
             ["result"] = new JObject
@@ -290,7 +298,8 @@ internal static class EntityQueryResponse
                 {
                     ["budget_bytes"] = cap, ["complete"] = false, ["has_more"] = null, ["omitted_matching"] = null,
                     ["continuation_allowed"] = false, ["next_cursor"] = null, ["next_calls"] = new JArray(),
-                    ["note"] = textRead
+                    ["note"] = collection == "bands" ? "No band or continuation was delivered. Increase the output budget or narrow the filters."
+                        : textRead
                         ? "No cluster or continuation was delivered. Increase max_output_bytes up to 65536 and --response-budget-bytes if smaller. If the maximum still cannot fit this page, set includeEntities=false, use weaker groupingStrength or narrow the source, and restart without a cursor; no cluster was split or skipped."
                         : "No entity or continuation was delivered. Increase max_output_bytes up to 65536 and --response-budget-bytes if smaller. " +
                             "If the maximum still cannot fit this page, narrow fields and restart without a cursor; no row was skipped."

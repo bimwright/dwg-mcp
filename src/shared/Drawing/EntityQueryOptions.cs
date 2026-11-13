@@ -45,6 +45,7 @@ namespace Bimwright.Dwg.Plugin
 
         public static bool RequiresDirectCall(string command, JToken parameters)
         {
+            if (command == "cluster_bands") return true;
             if (command == "get_selected_texts") return TextReadOptions.IsExtended(parameters);
             if (command == "get_drawing_profile")
             {
@@ -109,8 +110,14 @@ namespace Bimwright.Dwg.Plugin
                 ["bbox_mode"] = result.Bbox == null ? null : result.BboxMode, ["fields"] = new JArray(result.Fields),
                 ["order"] = "numeric_handle_ascending"
             };
-            using (var hash = SHA256.Create()) result.Fingerprint = BitConverter.ToString(hash.ComputeHash(Encoding.UTF8.GetBytes(canonical.ToString(Formatting.None)))).Replace("-", "").ToLowerInvariant();
+            result.Fingerprint = Hash(canonical);
             return result;
+        }
+
+        internal static string Hash(JObject canonical)
+        {
+            using (var hash = SHA256.Create())
+                return BitConverter.ToString(hash.ComputeHash(Encoding.UTF8.GetBytes(canonical.ToString(Formatting.None)))).Replace("-", "").ToLowerInvariant();
         }
 
         public static string NormalizeType(string value)

@@ -98,6 +98,8 @@
     <Compile Include="..\..\src\shared\Cad\CadQueryService.cs" LinkBase="Shared\Cad" />
     <Compile Include="..\..\src\shared\Cad\CadEntityProperties.cs" LinkBase="Shared\Cad" />
     <Compile Include="..\..\src\shared\Cad\CadEntityPageService.cs" LinkBase="Shared\Cad" />
+    <Compile Include="..\..\src\shared\Cad\CadBandQuery.cs" LinkBase="Shared\Cad" />
+    <Compile Include="..\..\src\shared\Handlers\ClusterBandsHandler.cs" LinkBase="Shared\Handlers" />
     <Compile Include="..\..\src\shared\Cad\CadEntityProjection.cs" LinkBase="Shared\Cad" />
     <Compile Include="..\..\src\shared\Cad\CadTextReadService.cs" LinkBase="Shared\Cad" />
     <Compile Include="..\..\src\shared\Handlers\QueryEntitiesHandler.cs" LinkBase="Shared\Handlers" />

@@ -29,6 +29,7 @@ namespace Bimwright.Dwg.Tests
                 "dwg_capture_view_image",
                 "dwg_change_color",
                 "dwg_change_layer",
+                "dwg_cluster_bands",
                 "dwg_collapse_and_rewrite",
                 "dwg_copy_entities",
                 "dwg_count_entities",

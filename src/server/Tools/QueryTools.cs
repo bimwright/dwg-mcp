@@ -146,6 +146,36 @@ namespace Bimwright.Dwg.Server.Tools
             return ToolGateway.LoggedCall("query_entities", request, request);
         }
 
+        [McpServerTool(Name = "dwg_cluster_bands", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false), Description(
+            "Group top-level entity extents along X or Y in ascending order. Extents that overlap or are separated by at most gap belong to the same band. " +
+            "Returns each band's full WCS bbox and entity count. Optional text samples include up to five DBText/MText previews per band. " +
+            "Read-only. Follow output.next_calls with the same clustering options. Changes to the drawing or options invalidate the cursor. " +
+            "An incomplete source scan returns coverage without bands or continuation. Call directly, outside batches.")]
+        public static Task<string> ClusterBands(
+            [Description("WCS axis: x or y.")] string axis,
+            [Description("Maximum finite, nonnegative gap between extents in drawing units.")] double gap,
+            [Description("Optional JSON object {min:[x,y,z],max:[x,y,z]} in WCS drawing units. Uses inclusive extents intersection.")] string bbox = null,
+            [Description("model (default) or layout:<exact layout name>.")] string space = null,
+            [Description("Optional JSON array of 1..16 exact managed entity types or query aliases, e.g. [\"Line\",\"TEXT\"].")] string types = null,
+            [Description("Include up to five text samples per band, each at most 120 UTF-16 units.")] bool sample_texts = false,
+            [Description("Opaque cursor from output.next_calls.")] string cursor = null,
+            [Description("Maximum bands per page, clamped to 1..128.")] int limit = BandQueryOptions.MaxBandsPerPage,
+            [Description("Final MCP output budget in bytes, 4096..65536, subject to the global budget.")] int? max_output_bytes = null)
+        {
+            var request = new JObject { ["axis"] = axis, ["gap"] = gap, ["sample_texts"] = sample_texts, ["limit"] = limit };
+            try
+            {
+                AddSpatialOptions(request, bbox, null, space);
+                if (types != null) request["types"] = JArray.Parse(types);
+                if (cursor != null) request["cursor"] = cursor;
+                if (max_output_bytes.HasValue) request["max_output_bytes"] = max_output_bytes.Value;
+                BandQueryOptions.Create(request);
+            }
+            catch (Exception ex) when (ex is ArgumentException || ex is JsonException || ex is OverflowException)
+            { return ToolInputError("INVALID_ARGUMENT: " + ex.Message); }
+            return ToolGateway.LoggedCall("cluster_bands", request, request);
+        }
+
         [McpServerTool(Name = "dwg_count_entities", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false), Description(
             "Count AutoCAD entities matching type/layer/color; legacy calls read model space. " +
             "Optional bbox/space use the same inclusive WCS extents filter as paged query, report INSUNITS and unknown extents separately. " +

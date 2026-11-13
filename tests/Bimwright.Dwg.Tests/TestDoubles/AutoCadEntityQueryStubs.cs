@@ -47,11 +47,16 @@ namespace Autodesk.AutoCAD.Geometry
 namespace Autodesk.AutoCAD.DatabaseServices
 {
     public enum UnitsValue { Undefined = 0, Inches = 1, Feet = 2, Millimeters = 4, Centimeters = 5, Meters = 6 }
-    public readonly struct Extents3d
+    public struct Extents3d
     {
-        public Point3d MinPoint { get; }
-        public Point3d MaxPoint { get; }
+        public Point3d MinPoint { get; private set; }
+        public Point3d MaxPoint { get; private set; }
         public Extents3d(Point3d min, Point3d max) { MinPoint = min; MaxPoint = max; }
+        public void AddExtents(Extents3d other)
+        {
+            MinPoint = new Point3d(Math.Min(MinPoint.X, other.MinPoint.X), Math.Min(MinPoint.Y, other.MinPoint.Y), Math.Min(MinPoint.Z, other.MinPoint.Z));
+            MaxPoint = new Point3d(Math.Max(MaxPoint.X, other.MaxPoint.X), Math.Max(MaxPoint.Y, other.MaxPoint.Y), Math.Max(MaxPoint.Z, other.MaxPoint.Z));
+        }
     }
     public partial class Database
     {

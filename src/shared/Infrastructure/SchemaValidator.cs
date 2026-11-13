@@ -194,6 +194,17 @@ namespace Bimwright.Dwg.Plugin
             SchemaProperty.Optional("cursor", JTokenType.String),
             SchemaProperty.Optional("max_output_bytes", JTokenType.Integer));
 
+        public static readonly CommandSchema ClusterBands = CommandSchema.Object(
+            SchemaProperty.RequiredNonEmptyString("axis"),
+            SchemaProperty.Required("gap", JTokenType.Integer, JTokenType.Float),
+            SchemaProperty.Optional("bbox", JTokenType.Object),
+            SchemaProperty.Optional("space", JTokenType.String),
+            SchemaProperty.Optional("types", JTokenType.Array),
+            SchemaProperty.Optional("sample_texts", JTokenType.Boolean),
+            SchemaProperty.Optional("cursor", JTokenType.String),
+            SchemaProperty.Optional("limit", JTokenType.Integer),
+            SchemaProperty.Optional("max_output_bytes", JTokenType.Integer));
+
         public static readonly CommandSchema CountEntities = CommandSchema.Object(
             SchemaProperty.Optional("entity_type", JTokenType.String),
             SchemaProperty.Optional("layer", JTokenType.String),

@@ -35,6 +35,7 @@ namespace Bimwright.Dwg.Plugin
                 { "get_selected_texts",      new GetSelectedTextsHandler() },
                 { "list_layers",             new ListLayersHandler() },
                 { "query_entities",          new QueryEntitiesHandler() },
+                { "cluster_bands",           new ClusterBandsHandler() },
                 { "count_entities",          new CountEntitiesHandler() },
                 { "select_by_layer",         new SelectByLayerHandler() },
                 { "select_by_type",          new SelectByTypeHandler() },

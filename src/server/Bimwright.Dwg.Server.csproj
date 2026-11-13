@@ -62,6 +62,7 @@
     <Compile Include="..\shared\Drawing\DrawingSessionContract.cs" LinkBase="Shared\Drawing" />
     <Compile Include="..\shared\Drawing\DrawingProfile.cs" LinkBase="Shared\Drawing" />
     <Compile Include="..\shared\Drawing\EntityQueryOptions.cs" LinkBase="Shared\Drawing" />
+    <Compile Include="..\shared\Drawing\BandQueryOptions.cs" LinkBase="Shared\Drawing" />
     <Compile Include="..\shared\Drawing\EntityQueryCursor.cs" LinkBase="Shared\Drawing" />
     <Compile Include="..\shared\Drawing\TextReadOptions.cs" LinkBase="Shared\Drawing" />
     <Compile Include="..\shared\Security\SecretMasker.cs" LinkBase="Shared\Security" />

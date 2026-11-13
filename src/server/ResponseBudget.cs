@@ -25,13 +25,16 @@ internal static class ResponseBudget
         {
             var result = await next(request, ct); // Execute exactly once, including writes.
             var textRead = IsTextReadRequest(request.Params);
-            if (textRead || IsEntityQueryExtendedRequest(request.Params))
+            var bands = request.Params?.Name == "dwg_cluster_bands";
+            if (textRead || bands || IsEntityQueryExtendedRequest(request.Params))
             {
                 var countOnly = request.Params.Name == "dwg_count_entities";
                 var limit = Math.Min(countOnly ? EntityQueryResponse.DefaultCap : EntityQueryResponse.ReadRequestedCap(request.Params), config.ResponseBudgetBytesOrDefault);
                 // Fit signed per-row checkpoints exactly once, after argument decoration.
                 // Optional global warnings may add metadata, never trim the delivered page.
-                var fitted = textRead ? TextReadResponse.Fit(result, limit) : EntityQueryResponse.Fit(result, limit, countOnly);
+                var fitted = bands ? EntityQueryResponse.Fit(result, limit, toolName: "dwg_cluster_bands",
+                    collection: "bands", versionKey: "band_page_version", identityField: "band_id")
+                    : textRead ? TextReadResponse.Fit(result, limit) : EntityQueryResponse.Fit(result, limit, countOnly);
                 var previousMeta = fitted.Meta?.DeepClone().AsObject();
                 var decorated = Apply(fitted, config, true, request.Params.Name);
                 if (Measure(decorated) > limit) decorated.Meta = previousMeta;
