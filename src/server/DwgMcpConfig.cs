@@ -13,6 +13,7 @@ namespace Bimwright.Dwg.Server
         public const string EnvReadOnly = "BIMWRIGHT_DWG_READ_ONLY";
         public const string EnvEnableSendCode = "BIMWRIGHT_DWG_ENABLE_SEND_CODE";
         public const string EnvEnableCallLog = "BIMWRIGHT_DWG_ENABLE_CALL_LOG";
+        public const string EnvEnableChangeHistory = "BIMWRIGHT_DWG_ENABLE_CHANGE_HISTORY";
         public const string EnvEnableToolbaker = "BIMWRIGHT_DWG_ENABLE_TOOLBAKER";
         public const string EnvAllowLanBind = "BIMWRIGHT_DWG_ALLOW_LAN_BIND";
         public const string EnvLogLevel = "BIMWRIGHT_DWG_LOG_LEVEL";
@@ -29,6 +30,7 @@ namespace Bimwright.Dwg.Server
         public bool? ReadOnly { get; set; }
         public bool? EnableSendCode { get; set; }
         public bool? EnableCallLog { get; set; }
+        public bool? EnableChangeHistory { get; set; }
         public bool? EnableToolbaker { get; set; }
         public bool? AllowLanBind { get; set; }
         public string LogLevel { get; set; }
@@ -48,6 +50,7 @@ namespace Bimwright.Dwg.Server
         [JsonIgnore] public bool ReadOnlyOrDefault => ReadOnly ?? false;
         [JsonIgnore] public bool EnableSendCodeOrDefault => EnableSendCode ?? true;
         [JsonIgnore] public bool EnableCallLogOrDefault => EnableCallLog ?? false;
+        [JsonIgnore] public bool EnableChangeHistoryOrDefault => EnableChangeHistory ?? false;
         [JsonIgnore] public bool EnableToolbakerOrDefault => EnableToolbaker ?? true;
         [JsonIgnore] public bool AllowLanBindOrDefault => AllowLanBind ?? false;
         [JsonIgnore] public int ResponseBudgetBytesOrDefault => ResponseBudgetBytes ?? DefaultResponseBudgetBytes;
@@ -106,6 +109,7 @@ namespace Bimwright.Dwg.Server
             ApplyBool(envLookup(EnvReadOnly), value => config.ReadOnly = value);
             ApplyBool(envLookup(EnvEnableSendCode), value => config.EnableSendCode = value);
             ApplyBool(envLookup(EnvEnableCallLog), value => config.EnableCallLog = value);
+            ApplyBool(envLookup(EnvEnableChangeHistory), value => config.EnableChangeHistory = value);
             ApplyBool(envLookup(EnvEnableToolbaker), value => config.EnableToolbaker = value);
             ApplyBool(envLookup(EnvAllowLanBind), value => config.AllowLanBind = value);
             ApplyString(envLookup(EnvLogLevel), value => config.LogLevel = value);

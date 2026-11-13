@@ -63,6 +63,7 @@ namespace Bimwright.Dwg.Plugin.Handlers
                     }
 
                     CadPrimitiveWriter.AppendToCurrentSpace(db, tx, circle);
+                    DocumentChangeCapture.Created(circle, tx);
                     var entity = CadEntityProperties.Describe(circle, tx, includeGeometry: true);
                     var result = new
                     {

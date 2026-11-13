@@ -40,7 +40,10 @@ namespace Bimwright.Dwg.Plugin.Handlers
                             continue;
                         }
 
+                        var before = DocumentChangeCapture.Before(entity, tx);
+                        var entityHandle = entity.Handle.ToString();
                         entity.Erase();
+                        DocumentChangeCapture.Erased(entityHandle, before);
                         results.Add(new { handle, ok = true, error = (string)null });
                     }
                     catch (Exception ex)

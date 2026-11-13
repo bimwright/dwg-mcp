@@ -69,6 +69,7 @@ namespace Bimwright.Dwg.Plugin.Handlers
                     }
 
                     CadPrimitiveWriter.AppendToCurrentSpace(db, tx, line);
+                    DocumentChangeCapture.Created(line, tx);
                     var entity = CadEntityProperties.Describe(line, tx, includeGeometry: true);
                     var result = new
                     {

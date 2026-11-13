@@ -54,7 +54,9 @@ namespace Bimwright.Dwg.Plugin.Handlers
                             continue;
                         }
 
+                        var before = DocumentChangeCapture.Before(entity, tx);
                         entity.TransformBy(matrix);
+                        DocumentChangeCapture.Moved(entity, tx, before);
                         results.Add(new { handle, ok = true, error = (string)null });
                     }
                     catch (Exception ex)

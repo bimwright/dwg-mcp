@@ -9,6 +9,7 @@ namespace Bimwright.Dwg.Server
         [JsonProperty("params")] public object Params { get; set; }
         [JsonProperty("auth")] public string Auth { get; set; }
         [JsonProperty("target", NullValueHandling = NullValueHandling.Ignore)] public Newtonsoft.Json.Linq.JObject Target { get; set; }
+        [JsonProperty("change_capture_version", NullValueHandling = NullValueHandling.Ignore)] public int? ChangeCaptureVersion { get; set; }
     }
 
     public class McpResponse
@@ -18,6 +19,8 @@ namespace Bimwright.Dwg.Server
         [JsonProperty("result")] public object Result { get; set; }
         [JsonProperty("error")] public string Error { get; set; }
         [JsonProperty("_target", NullValueHandling = NullValueHandling.Ignore)] public Newtonsoft.Json.Linq.JObject Target { get; set; }
+        [JsonProperty("_history", NullValueHandling = NullValueHandling.Ignore)] public Newtonsoft.Json.Linq.JObject History { get; set; }
+        [JsonIgnore] public Newtonsoft.Json.Linq.JObject ChangeCapture { get; set; }
     }
 
     public class UpdateTextItem

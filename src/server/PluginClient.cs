@@ -104,7 +104,9 @@ namespace Bimwright.Dwg.Server
                             (health.Result as JObject)?.Value<int?>("atomic_batch_version") != BatchContract.AtomicVersion)
                             return Error(requestId, "ATOMIC_BATCH_UNSUPPORTED: the plugin did not confirm atomic batch support. No command was sent or executed. Update gateway and plugin together.");
                     }
-                    var response = await SendToAsync(call, cmd, parameters, requestId, readTimeout, true);
+                    var capture = !ServerState.IsReadOnly && ServerState.Config?.EnableChangeHistoryOrDefault == true;
+                    var response = await SendToAsync(call, cmd, parameters, requestId, readTimeout, true, capture);
+                    ChangeHistoryCapture.Default.Complete(cmd, requestId, capture, response);
                     if (ServerState.IsReadOnly && response?.Ok == false
                         && (response.Error?.StartsWith("TARGET_LOST:", StringComparison.Ordinal) == true
                             || response.Error?.StartsWith("TARGET_CHANGED:", StringComparison.Ordinal) == true))
@@ -124,10 +126,15 @@ namespace Bimwright.Dwg.Server
             finally { Calls.Release(); }
         }
 
-        private Task<McpResponse> SendToAsync(TargetCall call, string cmd, object parameters, string id, TimeSpan readTimeout, bool validate)
+        private Task<McpResponse> SendToAsync(TargetCall call, string cmd, object parameters, string id, TimeSpan readTimeout, bool validate,
+            bool capture = false)
         {
             var discovery = call.Discovery;
-            var json = JsonConvert.SerializeObject(new McpRequest { Id = id, Cmd = cmd, Params = parameters, Auth = discovery.Token, Target = call.Context });
+            var json = JsonConvert.SerializeObject(new McpRequest
+            {
+                Id = id, Cmd = cmd, Params = parameters, Auth = discovery.Token, Target = call.Context,
+                ChangeCaptureVersion = capture && ChangeCaptureContract.Tracks(cmd) ? ChangeCaptureContract.Version : null
+            });
             Func<Func<Task>, Task> write = async action =>
             {
                 await _writeGate.WaitAsync();
@@ -186,7 +193,10 @@ namespace Bimwright.Dwg.Server
                     : "plugin read timeout; host work may still be running. Inspect its outcome before retrying writes.");
             }
             if (line == null) return Error(requestId, "plugin closed connection");
-            return JsonConvert.DeserializeObject<McpResponse>(line);
+            var envelope = JObject.Parse(line);
+            var response = envelope.ToObject<McpResponse>();
+            response.ChangeCapture = envelope["_change_capture"] as JObject;
+            return response;
         }
 
         private static McpResponse Error(string id, string message) =>

@@ -55,6 +55,7 @@
     <Compile Include="..\shared\Infrastructure\FileOutputReceipt.cs" LinkBase="Shared\Infrastructure" />
     <Compile Include="..\shared\Infrastructure\OutputReceiptFacts.cs" LinkBase="Shared\Infrastructure" />
     <Compile Include="..\shared\Infrastructure\TargetContract.cs" LinkBase="Shared\Infrastructure" />
+    <Compile Include="..\shared\Infrastructure\ChangeCaptureContract.cs" LinkBase="Shared\Infrastructure" />
     <Compile Include="..\shared\Infrastructure\ScriptInputContract.cs" LinkBase="Shared\Infrastructure" />
     <Compile Include="..\shared\Infrastructure\BatchContract.cs" LinkBase="Shared\Infrastructure" />
     <Compile Include="..\shared\Infrastructure\ScriptTaskContract.cs" LinkBase="Shared\Infrastructure" />

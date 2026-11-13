@@ -121,6 +121,7 @@ internal static class ResponseBudget
         {
             var receipt = Facts(data, textLimit);
             RetainTarget(data, receipt, Math.Max(0, textLimit));
+            RetainHistory(data, receipt);
             if (data == null && result.Content?.OfType<TextContentBlock>().FirstOrDefault() is TextContentBlock plain)
             {
                 receipt["message"] = plain.Text.Substring(0, Math.Min(Math.Max(0, textLimit), plain.Text.Length));
@@ -150,6 +151,7 @@ internal static class ResponseBudget
         // a generic SDK exception. This fixed vocabulary fits the 4 KiB minimum.
         var minimal = MinimalFacts(data);
         RetainTarget(data, minimal, 0);
+        RetainHistory(data, minimal);
         if (data?["result"] is JObject innerData) minimal["result"] = MinimalFacts(innerData);
         if (data?["image_delivery"] is JObject imageData) minimal["image_delivery"] = MinimalFacts(imageData);
         if (result.Content?.OfType<ImageContentBlock>().Any() == true)
@@ -172,6 +174,15 @@ internal static class ResponseBudget
         }
         System.Diagnostics.Debug.Assert(finalBytes <= limit);
         return AddReportReminderIfFits(fallback, minimal, reminder, limit);
+    }
+
+    private static void RetainHistory(JObject source, JObject destination)
+    {
+        if (source?["_history"] is not JObject history) return;
+        var receipt = new JObject();
+        foreach (var key in new[] { "call_id", "drawing_key", "status", "coverage", "observed", "stored" })
+            if (history[key] is JValue value && value.ToString().Length <= 64) receipt[key] = value.DeepClone();
+        destination["_history"] = receipt;
     }
 
     private static CallToolResult AddReportReminderIfFits(CallToolResult result, JObject receipt, JToken reminder, int limit)

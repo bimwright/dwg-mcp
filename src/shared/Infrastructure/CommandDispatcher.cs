@@ -146,10 +146,14 @@ namespace Bimwright.Dwg.Plugin
                     return SerializeResponse(id, cmd, preflight);
                 }
 
+                var capture = request.Value<int?>("change_capture_version") == ChangeCaptureContract.Version
+                    && ChangeCaptureContract.Tracks(cmd) ? new DocumentChangeCapture() : null;
                 var result = preflightHandler is IAcadSessionCommand sessionCommand
                     ? DocumentInvoker.InvokeSession(() => sessionCommand.ExecuteSession(parameters), _isAccepting, target => actualTarget = target,
                         expectedTarget, cmd == "activate_document" ? cmd : null)
-                    : DocumentInvoker.Invoke(doc => ExecuteCommand(doc, cmd, parameters), _isAccepting, expectedTarget, cmd, target => actualTarget = target);
+                    : DocumentInvoker.Invoke(doc => capture == null ? ExecuteCommand(doc, cmd, parameters)
+                        : capture.Run(doc, cmd, () => ExecuteCommand(doc, cmd, parameters)),
+                        _isAccepting, expectedTarget, cmd, target => actualTarget = target);
 
                 string resultJson = null;
                 if (result.Ok)
@@ -165,7 +169,7 @@ namespace Bimwright.Dwg.Plugin
                 }
 
                 NotifyCompleted(cmd, resultJson, result.Ok, result.Error, preflightHandler?.Description, elapsed.ElapsedMilliseconds, parameters);
-                return SerializeResponse(id, cmd, result, actualTarget, resultPrepared: true);
+                return SerializeResponse(id, cmd, result, actualTarget, resultPrepared: true, capture: capture?.Result);
             }
             catch (Exception ex)
             {
@@ -206,7 +210,7 @@ namespace Bimwright.Dwg.Plugin
             var preflight = ValidateCommand(cmd, parameters, out var handler);
             if (!preflight.Ok)
                 return preflight;
-            return handler.Execute(doc, parameters);
+            return DocumentChangeCapture.ExecuteHandler(cmd, () => handler.Execute(doc, parameters));
         }
 
         private CommandResult ValidateCommand(string cmd, JToken parameters, out IAcadCommand handler)
@@ -230,7 +234,8 @@ namespace Bimwright.Dwg.Plugin
             return CommandResult.Success(null);
         }
 
-        private static string SerializeResponse(string id, string cmd, CommandResult result, JObject actualTarget = null, bool resultPrepared = false)
+        private static string SerializeResponse(string id, string cmd, CommandResult result, JObject actualTarget = null,
+            bool resultPrepared = false, JObject capture = null)
         {
             return SerializeEnvelope(new
             {
@@ -238,16 +243,17 @@ namespace Bimwright.Dwg.Plugin
                 ok = result.Ok,
                 result = result.Ok ? (resultPrepared ? result.Result : McpResponsePrivacy.FilterResult(cmd, result.Result)) : null,
                 error = result.Ok ? null : McpResponsePrivacy.SanitizeError(result.Error)
-            }, actualTarget);
+            }, actualTarget, capture);
         }
 
         public static string ErrorJson(string id, string error, JObject actualTarget = null) =>
             SerializeEnvelope(new { id, ok = false, error = McpResponsePrivacy.SanitizeError(error) }, actualTarget);
 
-        private static string SerializeEnvelope(object response, JObject actualTarget)
+        private static string SerializeEnvelope(object response, JObject actualTarget, JObject capture = null)
         {
             var envelope = JObject.FromObject(response);
             if (actualTarget != null) envelope["_target"] = actualTarget;
+            if (capture != null) envelope["_change_capture"] = capture;
             return envelope.ToString(Formatting.None);
         }
     }
