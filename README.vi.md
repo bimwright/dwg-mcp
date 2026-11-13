@@ -35,7 +35,7 @@ Quy trình thông thường rất đau đầu: chọn text từng entity, copy s
 
 Gồm hai phần:
 
-- **Bimwright.Dwg.Server**: MCP server .NET 8, được Claude Code, Cursor, OpenCode hoặc MCP client khác khởi chạy.
+- **Bimwright.Dwg.Server**: MCP server .NET 10, được Claude Code, Cursor, OpenCode hoặc MCP client khác khởi chạy.
 - **Bimwright.Dwg.Plugin**: các shell add-in theo từng phiên bản AutoCAD, thực thi lệnh trực tiếp lên database bản vẽ.
 
 Agent nói MCP. Server nói với plugin qua local wire: TCP NDJSON cho AutoCAD 2022–2024, và Named Pipe (loopback, tránh firewall prompt) cho 2025–2027. Plugin nói AutoCAD .NET API.
@@ -85,7 +85,7 @@ AI agent cho phép mô tả "dịch tất cả text đã chọn sang tiếng Vi�
               v
 +---------------------------+
 | Bimwright.Dwg.Server      |
-| .NET 8 / C#               |
+| .NET 10 / C#               |
 +---------------------------+
               |
                | TCP NDJSON (2022-2024) / Named Pipe (2025-2027)
@@ -112,7 +112,7 @@ Xem [ARCHITECTURE.md](ARCHITECTURE.md) để biết chi tiết về threading, d
 
 Tải setup ZIP từ [GitHub Releases](https://github.com/bimwright/dwg-mcp/releases/latest) (`DwgMcp.Setup-*-win-x64.zip`). Xem `packedAutocadYears` trong `manifest.json` và `PackageContents.xml` của bundle trong ZIP đã tải để biết các năm có plugin; xem ghi chú phát hành để biết các năm đã kiểm chứng trên AutoCAD đang chạy. Source có shell cho 2022–2027, còn plugin đóng gói và host đã kiểm chứng tùy từng bản phát hành. Năm chưa có trong gói cần build plugin từ source với AutoCAD SDK tương ứng. Giải nén rồi chạy `install.ps1` (xem README tiếng Anh để copy-paste đầy đủ).
 
-**NuGet (chỉ gateway):** `dotnet tool install --global Bimwright.Dwg.Server --version 2.2.0` cần .NET 8 và không cài plugin AutoCAD. Cài plugin cùng phiên bản từ Setup ZIP.
+**NuGet (chỉ gateway):** `dotnet tool install --global Bimwright.Dwg.Server --version 2.2.0` cần .NET 10 và không cài plugin AutoCAD. Cài plugin cùng phiên bản từ Setup ZIP.
 
 **Claude Desktop:** tải `dwg-mcp-desktop-2.2.0.mcpb` và checksum trong cùng release, rồi cài qua Settings → Extensions → Advanced settings. Extension chỉ chạy đúng executable của Setup 2.2.0, không cài gateway/plugin và không tự chọn bản NuGet/PATH khác. File override phải khớp SHA-256.
 
@@ -471,7 +471,7 @@ Bảo mật dựa trên:
 dwg-mcp/
 ├── src/
 │   ├── Bimwright.Dwg.sln
-│   ├── server/            # .NET 8 MCP server (global tool)
+│   ├── server/            # .NET 10 MCP server (global tool)
 │   ├── shared/            # Handlers, clustering, rewriting, unicode
 │   ├── plugin-acad22/     # AutoCAD 2022 shell (.NET 4.8)
 │   ├── plugin-acad23/     # AutoCAD 2023 shell (.NET 4.8)

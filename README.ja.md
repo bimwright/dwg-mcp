@@ -35,7 +35,7 @@
 
 2つの部分から構成されます:
 
-- **Bimwright.Dwg.Server**: .NET 8 のMCPサーバーで、Claude Code、Cursor、OpenCode、またはその他の stdio MCP クライアントから起動されます。
+- **Bimwright.Dwg.Server**: .NET 10 のMCPサーバーで、Claude Code、Cursor、OpenCode、またはその他の stdio MCP クライアントから起動されます。
 - **Bimwright.Dwg.Plugin**: バージョン固有のAutoCADアドインシェルで、AutoCAD内にロードされ、図面データベースに対してコマンドを実行します。
 
 エージェントはMCPで通信します。サーバーはローカルワイヤー経由でプラグインと通信します。AutoCAD 2022–2024 ではTCP NDJSON、2025–2027 では名前付きパイプ（ループバック、ファイアウォールプロンプトを回避）を使用します。プラグインはAutoCAD .NET APIと通信します。
@@ -85,7 +85,7 @@ AIエージェントは、「選択したすべてのテキストをベトナム
               v
 +---------------------------+
 | Bimwright.Dwg.Server      |
-| .NET 8 / C#               |
+| .NET 10 / C#               |
 +---------------------------+
               |
               | TCP NDJSON (2022-2024) / 名前付きパイプ (2025-2027)
@@ -112,7 +112,7 @@ AIエージェントは、「選択したすべてのテキストをベトナム
 
 [GitHub Releases](https://github.com/bimwright/dwg-mcp/releases/latest) から setup ZIP（`DwgMcp.Setup-*-win-x64.zip`）を入手してください。同梱する年次バージョンは、ダウンロードしたZIP内の `manifest.json` の `packedAutocadYears` と bundle の `PackageContents.xml` で確認し、実行中のAutoCADで検証済みの年次バージョンはリリースノートで確認してください。ソースには2022–2027のシェルがありますが、同梱プラグインと実ホストの検証範囲はリリースごとに異なります。未同梱の年次バージョンは、対応するAutoCAD SDKでソースからビルドします。展開して `install.ps1` を実行してください（全文は英語 README）。
 
-**NuGet（ゲートウェイのみ）:** `dotnet tool install --global Bimwright.Dwg.Server --version 2.2.0` は .NET 8 が必要です。AutoCAD プラグインは同じバージョンの Setup ZIP から別途インストールしてください。
+**NuGet（ゲートウェイのみ）:** `dotnet tool install --global Bimwright.Dwg.Server --version 2.2.0` は .NET 10 が必要です。AutoCAD プラグインは同じバージョンの Setup ZIP から別途インストールしてください。
 
 **Claude Desktop:** 同じリリースの `dwg-mcp-desktop-2.2.0.mcpb` とチェックサムを取得し、Settings → Extensions → Advanced settings からインストールします。拡張機能は Setup 2.2.0 の特定の実行ファイルだけを起動し、ゲートウェイやプラグインをインストールしません。NuGet/PATH へのフォールバックはなく、override も同じ SHA-256 が必要です。
 
@@ -477,7 +477,7 @@ rewrite成功時の `final_text_height` は、Unicode正規化と最終scaleの�
 dwg-mcp/
 ├── src/
 │   ├── Bimwright.Dwg.sln
-│   ├── server/            # .NET 8 MCP サーバー (グローバルツール)
+│   ├── server/            # .NET 10 MCP サーバー (グローバルツール)
 │   ├── shared/            # ハンドラー、クラスタリング、書き換え、Unicode
 │   ├── plugin-acad22/     # AutoCAD 2022 シェル (.NET 4.8)
 │   ├── plugin-acad23/     # AutoCAD 2023 シェル (.NET 4.8)

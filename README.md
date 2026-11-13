@@ -35,7 +35,7 @@ The usual workflow is painful: select text one entity at a time, copy to a trans
 
 It has two parts:
 
-- **Bimwright.Dwg.Server**: a .NET 8 MCP server launched by Claude Code, Cursor, OpenCode, or another stdio MCP client.
+- **Bimwright.Dwg.Server**: a .NET 10 MCP server launched by Claude Code, Cursor, OpenCode, or another stdio MCP client.
 - **Bimwright.Dwg.Plugin**: version-specific AutoCAD add-in shells loaded inside AutoCAD, executing commands against the drawing database.
 
 The agent talks MCP. The server talks to the plugin over a local wire: TCP NDJSON for AutoCAD 2022–2024, and a Named Pipe (loopback, avoids the firewall prompt) for 2025–2027. The plugin talks to the AutoCAD .NET API.
@@ -85,7 +85,7 @@ AI agents make it possible to describe "translate all selected text to Vietnames
               v
 +---------------------------+
 | Bimwright.Dwg.Server      |
-| .NET 8 / C#               |
+| .NET 10 / C#               |
 +---------------------------+
               |
                | TCP NDJSON (2022-2024) / Named Pipe (2025-2027)
@@ -142,7 +142,7 @@ Restart AutoCAD, then restart wired MCP clients to load `dwg-mcp`.
 
 **Uninstall:** `uninstall.ps1` removes the bundle, the server copies, discovery files and caches under `%LOCALAPPDATA%\Bimwright\dwg-mcp\` (settings, config, logs and captures are kept; `-Purge` removes those too). Client config entries are never touched — remove the `dwg-mcp` entry yourself, or run `install.ps1 -Uninstall -Client <names>` first.
 
-**NuGet (gateway only):** `dotnet tool install --global Bimwright.Dwg.Server --version 2.2.0` installs the framework-dependent gateway and requires .NET 8. Install the matching AutoCAD plugins from the Setup ZIP separately; the NuGet package does not install plugins.
+**NuGet (gateway only):** `dotnet tool install --global Bimwright.Dwg.Server --version 2.2.0` installs the framework-dependent gateway and requires .NET 10. Install the matching AutoCAD plugins from the Setup ZIP separately; the NuGet package does not install plugins.
 
 **Claude Desktop:** download `dwg-mcp-desktop-2.2.0.mcpb` and its checksum from the same release, then install it through Settings → Extensions → Advanced settings. It launches the exact gateway executable supplied by the 2.2.0 Setup ZIP; it does not install the gateway or plugins and does not fall back to a NuGet/PATH copy. An executable override must have the same SHA-256.
 
@@ -577,7 +577,7 @@ Do not expose the plugin port to the network.
 dwg-mcp/
 ├── src/
 │   ├── Bimwright.Dwg.sln
-│   ├── server/            # .NET 8 MCP server (global tool)
+│   ├── server/            # .NET 10 MCP server (global tool)
 │   ├── shared/            # Handlers, clustering, rewriting, unicode
 │   ├── plugin-acad22/     # AutoCAD 2022 shell (.NET 4.8)
 │   ├── plugin-acad23/     # AutoCAD 2023 shell (.NET 4.8)

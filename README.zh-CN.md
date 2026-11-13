@@ -35,7 +35,7 @@
 
 它由两部分组成：
 
-- **Bimwright.Dwg.Server**：一个 .NET 8 MCP server，由 Claude Code、Cursor、OpenCode 或其他 stdio MCP client 启动。
+- **Bimwright.Dwg.Server**：一个 .NET 10 MCP server，由 Claude Code、Cursor、OpenCode 或其他 stdio MCP client 启动。
 - **Bimwright.Dwg.Plugin**：按版本拆分的 AutoCAD add-in shells，加载在 AutoCAD 内部，针对图形数据库执行命令。
 
 Agent 说 MCP。Server 通过本地链路和 plugin 通信：AutoCAD 2022–2024 走 TCP NDJSON，2025–2027 走 Named Pipe（loopback，避免防火墙弹窗）。Plugin 则调用 AutoCAD .NET API。
@@ -85,7 +85,7 @@ AI agent 让“把选中的文字全部翻译成越南语”这类意图可以�
               v
 +---------------------------+
 | Bimwright.Dwg.Server      |
-| .NET 8 / C#               |
+| .NET 10 / C#               |
 +---------------------------+
               |
                | TCP NDJSON (2022-2024) / Named Pipe (2025-2027)
@@ -112,7 +112,7 @@ AI agent 让“把选中的文字全部翻译成越南语”这类意图可以�
 
 从 [GitHub Releases](https://github.com/bimwright/dwg-mcp/releases/latest) 下载 setup ZIP（`DwgMcp.Setup-*-win-x64.zip`）。请查看已下载ZIP内 `manifest.json` 的 `packedAutocadYears` 和 bundle 的 `PackageContents.xml`，确认实际包含哪些年份的插件；在运行中的AutoCAD上已验证的年份请查阅发行说明。源码提供2022–2027的shell，但打包插件和实机验证范围取决于具体版本。未包含的年份需要用对应的AutoCAD SDK从源码构建插件。解压后运行 `install.ps1`（完整命令见英文 README）。
 
-**NuGet（仅 gateway）：** `dotnet tool install --global Bimwright.Dwg.Server --version 2.2.0` 需要 .NET 8。AutoCAD 插件须另外从相同版本的 Setup ZIP 安装。
+**NuGet（仅 gateway）：** `dotnet tool install --global Bimwright.Dwg.Server --version 2.2.0` 需要 .NET 10。AutoCAD 插件须另外从相同版本的 Setup ZIP 安装。
 
 **Claude Desktop：** 下载同一发行版的 `dwg-mcp-desktop-2.2.0.mcpb` 及其校验文件，通过 Settings → Extensions → Advanced settings 安装。扩展仅启动 Setup 2.2.0 提供的指定 executable，不安装 gateway/plugin，也不回退到 NuGet/PATH。override 文件必须匹配同一 SHA-256。
 
@@ -479,7 +479,7 @@ rewrite成功时，`final_text_height` 表示 `new_handle` 对应entity的实际
 dwg-mcp/
 ├── src/
 │   ├── Bimwright.Dwg.sln
-│   ├── server/            # .NET 8 MCP server（global tool）
+│   ├── server/            # .NET 10 MCP server（global tool）
 │   ├── shared/            # Handlers、聚类、改写、unicode
 │   ├── plugin-acad22/     # AutoCAD 2022 shell（.NET 4.8）
 │   ├── plugin-acad23/     # AutoCAD 2023 shell（.NET 4.8）

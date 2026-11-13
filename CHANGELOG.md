@@ -2,6 +2,7 @@
 
 ## 2.2.0
 
+- Move the gateway to .NET 10 LTS. Setup includes the gateway runtime. The framework-dependent NuGet tool requires .NET 10.
 - Update the gateway SQLite provider and native engine used by ToolBaker and drawing history.
 
 ### Drawing edits and scripting

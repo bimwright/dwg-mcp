@@ -6,7 +6,7 @@
 MCP client (Claude Code / Cursor / OpenCode / ...)
         |  stdio (NDJSON MCP)
         v
-Bimwright.Dwg.Server  (.NET 8 console app, global tool)
+Bimwright.Dwg.Server  (.NET 10 console app, global tool)
         |  TCP (2022-2024) or named pipe (2025-2027), NDJSON + token auth, loopback only
         v
 Bimwright.Dwg.Plugin  (AutoCAD 2022-2027 shells)
@@ -15,7 +15,7 @@ Bimwright.Dwg.Plugin  (AutoCAD 2022-2027 shells)
 AutoCAD .NET API  (ObjectARX 2022-2027)
 ```
 
-**Server** is an MCP server. It talks stdio to the client, translates each tool call into a JSON envelope, and forwards it over localhost transport to the plugin. Server is a plain .NET 8 global tool with no AutoCAD reference. The default server registers query, modify, routing/meta, and batch tools. `dwg_send_code` ships on the default surface through the `meta` toolset (rvt-mcp parity) and is stripped by `--read-only`; the legacy `code` toolset name remains an explicit opt-in alias.
+**Server** is an MCP server. It talks stdio to the client, translates each tool call into a JSON envelope, and forwards it over localhost transport to the plugin. Server is a plain .NET 10 global tool with no AutoCAD reference. The default server registers query, modify, routing/meta, and batch tools. `dwg_send_code` ships on the default surface through the `meta` toolset (rvt-mcp parity) and is stripped by `--read-only`; the legacy `code` toolset name remains an explicit opt-in alias.
 
 **Plugin** is an `IExtensionApplication` loaded by AutoCAD. Its background listener authenticates and dispatches requests. `DwgApiExecutor` serializes document/session work, and `MainThreadExecutor` queues that work for AutoCAD's `Application.Idle` callback. `DocumentInvoker` then acquires the active document lock before invoking a document handler. Document locking alone is not the main-thread dispatch mechanism. Mutation handlers own their transactions; the dispatcher does not supply a universal transaction around every command. Plugin-side C# execution is enabled when the listener starts; `MCPDISABLECODE` disables it for the current plugin session and `MCPENABLECODE` re-enables it.
 
