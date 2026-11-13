@@ -23,6 +23,7 @@
     <Compile Include="../../src/shared/Views/Toast/McpToastManager.cs" Link="McpToastManager.cs" />
     <Compile Include="../../src/shared/Views/Toast/McpToastHost.cs" Link="McpToastHost.cs" />
     <Compile Include="../../src/shared/Views/Toast/McpToastNotifier.cs" Link="McpToastNotifier.cs" />
+    <Compile Include="../../src/shared/Views/Toast/ToastReportRoute.cs" Link="ToastReportRoute.cs" />
     <Compile Include="../../src/shared/Config/PluginSettings.cs" Link="PluginSettings.cs" />
     <Compile Include="../../src/shared/Infrastructure/PluginLog.cs" Link="PluginLog.cs" />
     <Compile Include="../../src/shared/Infrastructure/PluginTarget.cs" Link="PluginTarget.cs" />
