@@ -296,7 +296,7 @@ namespace Bimwright.Dwg.Plugin.Reports.Presentation
             var previousDetail = _selectedDetail;
             _selectedReport = selected;
             _selectedDetail = selected == null ? null : new ReportDetailViewModel(selected.Report, _navigation,
-                () => _runtime.ActiveDocument, () => _runtime.Now);
+                _runtime.IsDocumentOpen, () => _runtime.Now);
             if (!changedId && previousDetail != null && _selectedDetail != null
                 && string.Equals(previousDetail.Report.Body, _selectedDetail.Report.Body, StringComparison.Ordinal))
             {

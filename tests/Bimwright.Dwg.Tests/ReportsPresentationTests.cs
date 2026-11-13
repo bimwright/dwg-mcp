@@ -27,11 +27,11 @@ public sealed class ReportsPresentationTests
     [Fact]
     public void A_live_link_navigates_with_its_entities_and_a_dimmed_link_does_not()
     {
-        var active = new ActiveDocumentIdentity { Token = "plan" };
+        var open = new List<ActiveDocumentIdentity> { new() { Token = "site" }, new() { Token = "plan" } };
         var nav = new FakeNavigation();
         var document = new ReportDocument { Ref = "d0", Token = "plan", Title = "plan.dwg" };
         var link = new ReportLink { Label = "walls", Doc = "d0", Entities = new List<ReportEntity> { new() { Handle = "2A" }, new() { Handle = "2B" } } };
-        var vm = new ReportLinkViewModel(document, link, nav, () => active);
+        var vm = new ReportLinkViewModel(document, link, nav, target => open.Any(candidate => ReportDocumentMatch.Matches(target, candidate)));
 
         Assert.True(vm.IsLive);
         Assert.Equal(2, vm.EntityCount);
@@ -40,7 +40,7 @@ public sealed class ReportsPresentationTests
         Assert.Equal(new[] { "2A", "2B" }, nav.LastRequest.Entities.Select(e => e.Handle));
 
         nav.LastRequest = null;
-        active = new ActiveDocumentIdentity { Token = "site" };
+        open.RemoveAt(1);
         vm.UpdateActiveDocument();
         Assert.False(vm.IsLive);
         Assert.False(vm.OpenCommand.CanExecute(null));

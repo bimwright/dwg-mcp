@@ -50,6 +50,9 @@ namespace Bimwright.Dwg.Tests.Reports
                 runtime.RaiseActiveChanged();
                 Assert.False(other.IsOtherDrawing);
                 Assert.False(vm.SelectedDetail.Links[0].IsLive);
+                runtime.OtherOpenDocuments.Add(new ActiveDocumentIdentity { Token = "project" });
+                runtime.RaiseActiveChanged();
+                Assert.True(vm.SelectedDetail.Links[0].IsLive);
                 vm.Filter = ReportFilter.ActiveDrawing;
                 Assert.Equal("other", Assert.Single(vm.Reports).ReportId);
                 Assert.Equal("other", vm.SelectedReport.ReportId);
@@ -453,6 +456,9 @@ namespace Bimwright.Dwg.Tests.Reports
         public void DeleteReport(string reportId) { if (DeleteError != null) throw DeleteError; Deleted.Add(reportId); }
         public event EventHandler ReportsChanged { add { _reportsChanged += value; } remove { _reportsChanged -= value; } }
         public ActiveDocumentIdentity ActiveDocument { get; set; }
+        public List<ActiveDocumentIdentity> OtherOpenDocuments { get; } = new();
+        public bool IsDocumentOpen(ReportDocument document) => ReportDocumentMatch.Matches(document, ActiveDocument)
+            || OtherOpenDocuments.Any(open => ReportDocumentMatch.Matches(document, open));
         public event EventHandler ActiveDocumentChanged { add { _activeChanged += value; } remove { _activeChanged -= value; } }
         public Action<Action> PostAction { get; set; }
         public void Post(Action action) { if (PostAction != null) PostAction(action); else action(); }

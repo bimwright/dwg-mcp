@@ -10,17 +10,17 @@ namespace Bimwright.Dwg.Plugin.Reports.Presentation
         private readonly ReportDocument _document;
         private readonly ReportLink _link;
         private readonly INavigationService _navigation;
-        private readonly Func<ActiveDocumentIdentity> _activeDocument;
+        private readonly Func<ReportDocument, bool> _isDocumentOpen;
         private bool _isLive;
 
         public ReportLinkViewModel(ReportDocument document, ReportLink link, INavigationService navigation,
-            Func<ActiveDocumentIdentity> activeDocument)
+            Func<ReportDocument, bool> isDocumentOpen)
         {
             _document = document;
             _link = link ?? throw new ArgumentNullException(nameof(link));
             _navigation = navigation ?? throw new ArgumentNullException(nameof(navigation));
-            _activeDocument = activeDocument ?? throw new ArgumentNullException(nameof(activeDocument));
-            _isLive = ReportDocumentMatch.Matches(_document, _activeDocument());
+            _isDocumentOpen = isDocumentOpen ?? throw new ArgumentNullException(nameof(isDocumentOpen));
+            _isLive = _isDocumentOpen(_document);
             OpenCommand = new RelayCommand(Open, () => IsLive);
         }
 
@@ -33,13 +33,13 @@ namespace Bimwright.Dwg.Plugin.Reports.Presentation
 
         public void UpdateActiveDocument()
         {
-            if (SetProperty(ref _isLive, ReportDocumentMatch.Matches(_document, _activeDocument()), nameof(IsLive)))
+            if (SetProperty(ref _isLive, _isDocumentOpen(_document), nameof(IsLive)))
                 OpenCommand.RaiseCanExecuteChanged();
         }
 
         private void Open()
         {
-            if (!ReportDocumentMatch.Matches(_document, _activeDocument())) return;
+            if (!_isDocumentOpen(_document)) return;
             _navigation.Navigate(new ReportNavigationRequest
             {
                 Document = _document, Entities = _link.Entities ?? new List<ReportEntity>()

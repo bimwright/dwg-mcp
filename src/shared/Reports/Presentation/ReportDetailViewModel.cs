@@ -9,14 +9,14 @@ namespace Bimwright.Dwg.Plugin.Reports.Presentation
     {
         private readonly Func<DateTime> _now;
         public ReportDetailViewModel(AgentReport report, INavigationService navigation,
-            Func<ActiveDocumentIdentity> activeDocument, Func<DateTime> now)
+            Func<ReportDocument, bool> isDocumentOpen, Func<DateTime> now)
         {
             Report = report ?? throw new ArgumentNullException(nameof(report));
             _now = now ?? throw new ArgumentNullException(nameof(now));
             var links = report.Links ?? new List<ReportLink>();
             Body = MarkdownLiteParser.Parse(report.Body, ReportParseMode.Stored, links.Count);
             Links = links.Select(link => new ReportLinkViewModel(
-                report.Documents?.FirstOrDefault(d => d != null && d.Ref == link.Doc), link, navigation, activeDocument)).ToList();
+                report.Documents?.FirstOrDefault(d => d != null && d.Ref == link.Doc), link, navigation, isDocumentOpen)).ToList();
         }
         public AgentReport Report { get; }
         public string Summary => Report.Summary;

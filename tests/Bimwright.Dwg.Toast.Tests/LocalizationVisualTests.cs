@@ -99,6 +99,7 @@ internal static class LocalizationVisualTests
         public void DeleteReport(string id) { }
         public event EventHandler ReportsChanged { add { } remove { } }
         public ActiveDocumentIdentity ActiveDocument => null;
+        public bool IsDocumentOpen(ReportDocument document) => false;
         public event EventHandler ActiveDocumentChanged { add { } remove { } }
         public void Post(Action action) => action();
         public bool CopyText(string text) => true;

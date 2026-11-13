@@ -10,6 +10,7 @@ namespace Bimwright.Dwg.Plugin.Reports.Presentation
         void DeleteReport(string reportId);
         event EventHandler ReportsChanged;
         ActiveDocumentIdentity ActiveDocument { get; }
+        bool IsDocumentOpen(ReportDocument document);
         event EventHandler ActiveDocumentChanged;
         void Post(Action action);
         bool CopyText(string text);

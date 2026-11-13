@@ -31,6 +31,7 @@ namespace Bimwright.Dwg.Plugin.Reports.Acad
             _watcher = new ReportFolderWatcher(log: PluginLog.Debug);
             _watcher.Changed += OnFolderChanged;
             var documents = Application.DocumentManager;
+            documents.DocumentCreated += OnDocumentCreated;
             documents.DocumentActivated += OnDocumentActivated;
             documents.DocumentDestroyed += OnDocumentDestroyed;
             RefreshActiveDocument();
@@ -51,6 +52,7 @@ namespace Bimwright.Dwg.Plugin.Reports.Acad
         }
 
         public ActiveDocumentIdentity ActiveDocument => _active;
+        public bool IsDocumentOpen(ReportDocument document) => AcadEntityNavigator.Find(document) != null;
         public DateTime Now => DateTime.Now;
         public TimeZoneInfo LocalTimeZone
         {
@@ -87,13 +89,13 @@ namespace Bimwright.Dwg.Plugin.Reports.Acad
         }
 
         /// <summary>Main thread: re-read the active drawing, including a path a save-as just gave it.</summary>
-        internal void RefreshActiveDocument()
+        internal void RefreshActiveDocument(bool openDocumentsChanged = false)
         {
             ActiveDocumentIdentity next = null;
             try { next = Identify(Application.DocumentManager.MdiActiveDocument); }
             catch (Exception ex) { PluginLog.Debug("Reports: cannot read the active drawing: " + ex.Message); }
             var current = _active;
-            if (current?.Token == next?.Token && string.Equals(current?.Path, next?.Path, StringComparison.OrdinalIgnoreCase)) return;
+            if (!openDocumentsChanged && current?.Token == next?.Token && string.Equals(current?.Path, next?.Path, StringComparison.OrdinalIgnoreCase)) return;
             _active = next;
             ActiveDocumentChanged?.Invoke(this, EventArgs.Empty);
         }
@@ -111,14 +113,16 @@ namespace Bimwright.Dwg.Plugin.Reports.Acad
             try
             {
                 var documents = Application.DocumentManager;
+                documents.DocumentCreated -= OnDocumentCreated;
                 documents.DocumentActivated -= OnDocumentActivated;
                 documents.DocumentDestroyed -= OnDocumentDestroyed;
             }
             catch (Exception) { } // AutoCAD is shutting down.
         }
 
+        private void OnDocumentCreated(object sender, DocumentCollectionEventArgs e) => RefreshActiveDocument(openDocumentsChanged: true);
         private void OnDocumentActivated(object sender, DocumentCollectionEventArgs e) => RefreshActiveDocument();
-        private void OnDocumentDestroyed(object sender, DocumentDestroyedEventArgs e) => RefreshActiveDocument();
+        private void OnDocumentDestroyed(object sender, DocumentDestroyedEventArgs e) => RefreshActiveDocument(openDocumentsChanged: true);
         private void OnFolderChanged(object sender, EventArgs e) => ReportsChanged?.Invoke(this, EventArgs.Empty);
     }
 }
