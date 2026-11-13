@@ -131,8 +131,7 @@ namespace Bimwright.Dwg.Plugin
                     ["type"] = entity.GetType().Name,
                     ["layer"] = entity.Layer,
                     ["owner_handle"] = entity.OwnerId.Handle.ToString(),
-                    ["space"] = owner?.IsLayout == true
-                        ? (owner.Name == BlockTableRecord.ModelSpace ? "model" : "paper") : "block"
+                    ["space"] = SpaceOf(owner)
                 };
                 if (primitive && entity is Line line)
                 {
@@ -192,7 +191,11 @@ namespace Bimwright.Dwg.Plugin
 
         private static JObject Point(Point3d point) => new JObject { ["x"] = point.X, ["y"] = point.Y, ["z"] = point.Z };
 
-        private static string DrawingKey(Document doc)
+        internal static string SpaceOf(BlockTableRecord owner) => owner == null ? "unknown"
+            : !owner.IsLayout ? "block"
+            : string.Equals(owner.Name, BlockTableRecord.ModelSpace, StringComparison.OrdinalIgnoreCase) ? "model" : "paper";
+
+        internal static string DrawingKey(Document doc)
         {
             try
             {

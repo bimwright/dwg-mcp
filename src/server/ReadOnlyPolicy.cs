@@ -17,7 +17,7 @@ namespace Bimwright.Dwg.Server
                 .Select(tool => Normalize(tool.Name)), StringComparer.OrdinalIgnoreCase);
 
         internal static bool IsBlocked(string command, DwgMcpConfig config)
-            => (config?.ReadOnlyOrDefault ?? false) && !ReadCommands.Contains(Normalize(command));
+            => (config?.ReadOnlyOrDefault ?? false) && Normalize(command) != "history_drawing_key" && !ReadCommands.Contains(Normalize(command));
 
         internal static IEnumerable<MethodInfo> ExposedMethods(Type type, bool readOnly)
             => SendCodePolicy.ExposedMethods(type, true)

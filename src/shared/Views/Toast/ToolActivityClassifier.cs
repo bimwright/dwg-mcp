@@ -18,6 +18,7 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
             "list_layers", "query_entities", "count_entities", "get_drawing_profile", "select_by_layer", "select_by_type",
             "list_blocks", "get_block_attributes", "get_variables", "inspect_lisp", "cluster_bands",
             "list_available_targets", "get_current_target", "list_recent_drawings", "list_open_documents", "report_task_result",
+            "get_change_records", "history_drawing_key", "survey_change_impact",
             "zoom_extents", "zoom_window", "zoom_to_entity",
             "list_baked_tools", "list_bake_suggestions", "create_bake_issue_draft"
         };

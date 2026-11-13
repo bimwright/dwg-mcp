@@ -18,6 +18,7 @@ namespace Bimwright.Dwg.Server
             (new[] { "meta" }, typeof(MetaTools), false, RegisterMetaToolsWithReadOnlyPolicy),
             (new[] { "meta" }, typeof(BatchTools), true, static mcp => mcp.WithTools<BatchTools>()),
             (new[] { "meta" }, typeof(ReportTools), false, static mcp => mcp.WithTools<ReportTools>()),
+            (new[] { "meta" }, typeof(ChangeHistoryTools), false, RegisterChangeHistoryTools),
             (new[] { "toolbaker" }, typeof(ToolBakerTools), false, static mcp => mcp.WithTools<ToolBakerTools>()),
             (new[] { "toolbaker" }, typeof(ToolBakerWriteTools), true, static mcp => mcp.WithTools<ToolBakerWriteTools>()),
             // meta carries code on the default surface; code remains an explicit alias.
@@ -85,6 +86,10 @@ namespace Bimwright.Dwg.Server
                 .Select(method => McpServerTool.Create(method)));
         private static IMcpServerBuilder RegisterViewToolsWithReadOnlyPolicy(IMcpServerBuilder mcp)
             => mcp.WithTools(ReadOnlyPolicy.ExposedMethods(typeof(ViewTools), ServerState.IsReadOnly)
+                .Select(method => McpServerTool.Create(method)));
+
+        private static IMcpServerBuilder RegisterChangeHistoryTools(IMcpServerBuilder mcp)
+            => mcp.WithTools(ReadOnlyPolicy.ExposedMethods(typeof(ChangeHistoryTools), ServerState.IsReadOnly)
                 .Select(method => McpServerTool.Create(method)));
 
     }

@@ -24,6 +24,8 @@ internal static class ResponseBudget
         => mcp.WithRequestFilters(filters => filters.AddCallToolFilter(next => async (request, ct) =>
         {
             var result = await next(request, ct); // Execute exactly once, including writes.
+            if (ChangeHistoryResponse.Applies(request.Params?.Name))
+                return ChangeHistoryResponse.FitFinal(result, ChangeHistoryResponse.RequestCap(request.Params, config));
             var textRead = IsTextReadRequest(request.Params);
             var bands = request.Params?.Name == "dwg_cluster_bands";
             if (textRead || bands || IsEntityQueryExtendedRequest(request.Params))

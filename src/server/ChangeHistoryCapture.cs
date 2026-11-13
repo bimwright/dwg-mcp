@@ -9,7 +9,7 @@ using Newtonsoft.Json.Linq;
 
 namespace Bimwright.Dwg.Server;
 
-internal sealed class ChangeHistoryCapture(string directory)
+internal sealed partial class ChangeHistoryCapture(string directory)
 {
     internal static readonly ChangeHistoryCapture Default = new(Path.Combine(
         Environment.GetEnvironmentVariable("LOCALAPPDATA") is { Length: > 0 } local ? local
@@ -67,54 +67,11 @@ internal sealed class ChangeHistoryCapture(string directory)
     private void Store(string tool, string callId, string key, string coverage, JObject capture, JArray deltas, JObject target)
     {
         Directory.CreateDirectory(directory);
-        using var db = new SqliteConnection(new SqliteConnectionStringBuilder
-        {
-            DataSource = Path.Combine(directory, key + ".db"), DefaultTimeout = 1, Pooling = false, ForeignKeys = true
-        }.ToString());
-        db.Open();
+        using var db = Open(key, SqliteOpenMode.ReadWriteCreate);
         using var tx = db.BeginTransaction();
+        EnsureSchema(db, tx, key, writable: true);
         using var command = db.CreateCommand();
         command.Transaction = tx;
-        command.CommandText = "PRAGMA user_version";
-        var version = (long)command.ExecuteScalar();
-        if (version == 0)
-        {
-            command.CommandText = """
-                CREATE TABLE drawing (drawing_key TEXT PRIMARY KEY);
-                CREATE TABLE calls (
-                    sequence INTEGER PRIMARY KEY,
-                    call_id TEXT NOT NULL UNIQUE,
-                    client_session TEXT NOT NULL,
-                    tool TEXT NOT NULL,
-                    recorded_utc TEXT NOT NULL,
-                    document_id TEXT NOT NULL,
-                    target_id TEXT, pid INTEGER, process_start_utc TEXT, acad_year INTEGER,
-                    coverage TEXT NOT NULL, coverage_reason TEXT, observed INTEGER NOT NULL
-                );
-                CREATE TABLE entity_deltas (
-                    call_id TEXT NOT NULL REFERENCES calls(call_id),
-                    ordinal INTEGER NOT NULL,
-                    handle TEXT NOT NULL,
-                    step_index INTEGER,
-                    operation TEXT NOT NULL,
-                    before_json TEXT, after_json TEXT,
-                    PRIMARY KEY (call_id, ordinal)
-                );
-                CREATE INDEX entity_deltas_by_handle ON entity_deltas(handle, call_id);
-                PRAGMA user_version = 1;
-                """;
-            command.ExecuteNonQuery();
-            command.CommandText = "INSERT INTO drawing (drawing_key) VALUES ($key)";
-            command.Parameters.AddWithValue("$key", key);
-            command.ExecuteNonQuery();
-            command.Parameters.Clear();
-        }
-        else if (version != 1) throw new IOException("Unsupported drawing history schema.");
-
-        command.CommandText = "SELECT drawing_key FROM drawing";
-        if (!string.Equals(command.ExecuteScalar() as string, key, StringComparison.Ordinal))
-            throw new IOException("Drawing history identity mismatch.");
-
         command.CommandText = """
             INSERT INTO calls (call_id, client_session, tool, recorded_utc, document_id, target_id, pid, process_start_utc, acad_year,
                 coverage, coverage_reason, observed)
@@ -161,5 +118,5 @@ internal sealed class ChangeHistoryCapture(string directory)
 
     private static string Json(JToken token) => token == null || token.Type == JTokenType.Null ? null : token.ToString(Formatting.None);
 
-    private static bool IsKey(string key) => key?.Length == 64 && key.All(c => c is >= '0' and <= '9' or >= 'a' and <= 'f');
+    internal static bool IsKey(string key) => key?.Length == 64 && key.All(c => c is >= '0' and <= '9' or >= 'a' and <= 'f');
 }

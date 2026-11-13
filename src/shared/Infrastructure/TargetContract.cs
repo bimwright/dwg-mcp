@@ -13,10 +13,20 @@ namespace Bimwright.Dwg.Plugin
             "get_entity_properties", "get_selected_texts", "list_layers", "query_entities",
             "count_entities", "cluster_bands", "select_by_layer", "select_by_type", "list_blocks",
             "get_block_attributes", "list_baked_tools", "get_variables",
-            "zoom_extents", "zoom_window", "zoom_to_entity", "report_task_result"
+            "zoom_extents", "zoom_window", "zoom_to_entity", "report_task_result", "history_drawing_key", "survey_change_impact"
         };
 
         public static bool IsWrite(string command) => !Reads.Contains(command ?? "");
+
+        internal static bool RequiresVerifiedDrawing(string command) => command is "history_drawing_key" or "survey_change_impact";
+
+        internal static void CheckVerifiedDrawing(JObject expected, string documentId)
+        {
+            if (expected?.Value<int?>("protocol") != 1 || expected.Value<bool?>("selection_confirmed") != true
+                || string.IsNullOrEmpty(expected.Value<string>("document_id")))
+                throw new InvalidOperationException("DOCUMENT_UNCONFIRMED: verify the intended active drawing with dwg_switch_target before this operation.");
+            CheckDocument(expected, documentId, false);
+        }
 
         public static void CheckInstance(JObject expected, int pid, DateTime startUtc, bool write)
         {

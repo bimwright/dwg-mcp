@@ -515,6 +515,7 @@ mcp__dwg-mcp__dwg_cluster_bands
 mcp__dwg-mcp__dwg_count_entities
 mcp__dwg-mcp__dwg_create_bake_issue_draft
 mcp__dwg-mcp__dwg_get_block_attributes
+mcp__dwg-mcp__dwg_get_change_records
 mcp__dwg-mcp__dwg_get_current_target
 mcp__dwg-mcp__dwg_get_drawing_info
 mcp__dwg-mcp__dwg_get_drawing_profile
@@ -534,6 +535,7 @@ mcp__dwg-mcp__dwg_query_entities
 mcp__dwg-mcp__dwg_report_task_result
 mcp__dwg-mcp__dwg_select_by_layer
 mcp__dwg-mcp__dwg_select_by_type
+mcp__dwg-mcp__dwg_survey_change_impact
 mcp__dwg-mcp__dwg_zoom_extents
 mcp__dwg-mcp__dwg_zoom_to_entity
 mcp__dwg-mcp__dwg_zoom_window

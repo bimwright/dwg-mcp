@@ -48,6 +48,8 @@ namespace Bimwright.Dwg.Server
                     bound.Generation = ++generation;
                 }
                 Validate(bound);
+                if (TargetContract.RequiresVerifiedDrawing(command))
+                    TargetContract.CheckVerifiedDrawing(bound.Context, bound.DocumentId);
                 if (TargetContract.IsWrite(command) && !bound.Confirmed)
                     throw new InvalidOperationException("TARGET_UNCONFIRMED: the instance and active drawing must be verified before writes. " + Recovery());
                 if (TargetContract.IsWrite(command) && command != "open_drawing" && bound.DocumentId == null)

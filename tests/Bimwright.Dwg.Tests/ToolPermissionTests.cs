@@ -28,7 +28,7 @@ namespace Bimwright.Dwg.Tests
         [Fact]
         public void Every_non_code_tool_sets_all_four_hints_explicitly()
         {
-            Assert.Equal(74, Methods.Length);
+            Assert.Equal(77, Methods.Length);
             foreach (var method in Methods)
             {
                 var attribute = method.CustomAttributes.Single(a => a.AttributeType == typeof(McpServerToolAttribute));

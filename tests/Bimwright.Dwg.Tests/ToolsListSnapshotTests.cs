@@ -55,6 +55,7 @@ namespace Bimwright.Dwg.Tests
                 "dwg_explode_block",
                 "dwg_export_dxf",
                 "dwg_get_block_attributes",
+                "dwg_get_change_records",
                 "dwg_get_current_target",
                 "dwg_get_drawing_info",
                 "dwg_get_drawing_profile",
@@ -77,6 +78,7 @@ namespace Bimwright.Dwg.Tests
                 "dwg_open_drawing",
                 "dwg_purge_drawing",
                 "dwg_query_entities",
+                "dwg_record_change",
                 "dwg_report_task_result",
                 "dwg_restore_view",
                 "dwg_rotate_entities",
@@ -89,6 +91,7 @@ namespace Bimwright.Dwg.Tests
                 "dwg_send_code",
                 "dwg_set_block_attributes",
                 "dwg_set_system_variable",
+                "dwg_survey_change_impact",
                 "dwg_switch_target",
                 "dwg_translate_and_rewrite",
                 "dwg_update_texts",
@@ -241,6 +244,7 @@ namespace Bimwright.Dwg.Tests
             Assert.Equal(new[]
             {
                 "BatchTools",
+                "ChangeHistoryTools",
                 "CodeTools",
                 "HealthTools",
                 "MetaTools",
@@ -256,6 +260,7 @@ namespace Bimwright.Dwg.Tests
                 readOnly: true);
             Assert.Equal(new[]
             {
+                "ChangeHistoryTools",
                 "HealthTools",
                 "MetaTools",
                 "QueryTools",
@@ -271,8 +276,8 @@ namespace Bimwright.Dwg.Tests
             // meta alone carries dwg_send_code (rvt-mcp parity); read-only strips it.
             var metaWriteTypeNames = InvokeToolTypeResolver(method, new[] { "meta" }, readOnly: false);
             var metaReadOnlyTypeNames = InvokeToolTypeResolver(method, new[] { "meta" }, readOnly: true);
-            Assert.Equal(new[] { "BatchTools", "CodeTools", "MetaTools", "ReportTools" }, metaWriteTypeNames);
-            Assert.Equal(new[] { "MetaTools", "ReportTools" }, metaReadOnlyTypeNames);
+            Assert.Equal(new[] { "BatchTools", "ChangeHistoryTools", "CodeTools", "MetaTools", "ReportTools" }, metaWriteTypeNames);
+            Assert.Equal(new[] { "ChangeHistoryTools", "MetaTools", "ReportTools" }, metaReadOnlyTypeNames);
 
             var toolBakerWriteTypeNames = InvokeToolTypeResolver(method, new[] { "toolbaker" }, readOnly: false);
             var toolBakerReadOnlyTypeNames = InvokeToolTypeResolver(method, new[] { "toolbaker" }, readOnly: true);
