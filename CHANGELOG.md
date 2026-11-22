@@ -8,6 +8,7 @@
 
 - Move the gateway to .NET 10 LTS. Setup includes the gateway runtime. The framework-dependent NuGet tool requires .NET 10.
 - Update the gateway SQLite provider and native engine used by ToolBaker and drawing history.
+- Add `BIMWRIGHT_KEEP_ALL_LOGS` (`1`, `true`, `yes` or `on`) for the gateway and the AutoCAD plugin. When set, no log, call record, journal or report is deleted automatically: retention pruning, diagnostic and legacy `debug.log` compaction and report retention are skipped, and the diagnostic log rolls to a timestamped archive instead of replacing its single backup. Rotation still happens. It never turns on a recorder or changes what is recorded. Startup writes one diagnostic line when it is on. Unset, retention is unchanged.
 
 ### Drawing edits and scripting
 
