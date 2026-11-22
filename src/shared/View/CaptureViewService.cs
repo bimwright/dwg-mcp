@@ -132,9 +132,7 @@ namespace Bimwright.Dwg.Plugin.View
 
             try
             {
-                string dir = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                    "Bimwright", "dwg-mcp", "captures");
+                string dir = CaptureRetention.DefaultDirectory;
                 Directory.CreateDirectory(dir);
                 string name = "dwg-capture-" + DateTime.Now.ToString("yyyyMMdd-HHmmss-fff") + "-" + Guid.NewGuid().ToString("N") + "." + ext;
                 return Path.Combine(dir, name);

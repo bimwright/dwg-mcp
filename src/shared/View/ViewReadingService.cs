@@ -25,6 +25,7 @@ namespace Bimwright.Dwg.Plugin.View
                 camera => ApplyCamera(doc, camera),
                 applied => CaptureViewService.Capture(doc, path, pixelSize, false,
                     (string)source["document"]["fingerprint"], applied));
+            CaptureRetention.PruneGenerated(CaptureRetention.DefaultDirectory, path, DateTime.UtcNow);
             History.Remember(result);
             return result;
         }

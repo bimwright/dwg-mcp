@@ -162,7 +162,7 @@ AI agent 让“把选中的文字全部翻译成越南语”这类意图可以�
 
 调用日志**默认关闭**。用 `--enable-call-log` / `--disable-call-log`（JSON `enableCallLog`；环境变量 `BIMWRIGHT_DWG_ENABLE_CALL_LOG`）切换。优先级为 JSON → 环境变量 → CLI；同一开关对中最后出现的 flag 生效。关闭时不创建或追加调用日志、调用 journal，也不删除旧日志。开启时，`%LOCALAPPDATA%\Bimwright\dwg-mcp\dwg-mcp-calls.jsonl` 仅记录脱敏参数及耗时/成败元数据，不记录响应。code 字段（包括嵌套 batch）仅含字符长度和原始 UTF-8 body 的 SHA-256；可能回显 source 的代码相关错误正文被省略。尚未实现代码 body cache 或 body journal。ToolBaker adaptive usage、诊断日志和内存 History 是独立功能；plugin 没有持久化调用日志 writer。
 
-在 gateway 和 AutoCAD 的环境中都设置 `BIMWRIGHT_KEEP_ALL_LOGS=1`（也可用 `true`、`yes` 或 `on`，不区分大小写），即可保留所有日志记录、journal 和报告，例如在开发机上。它会跳过所有自动删除：调用日志、会话日志和 journal 的保留清理，诊断日志和旧 `debug.log` 的截断压缩，以及报告保留期清理（`reportRetentionDays`）。日志仍会轮转，但诊断日志会滚动为带时间戳的归档文件，而不是替换唯一的备份，因此不会覆盖任何内容。它不会开启调用日志，也不会改变记录的内容。输出 artifact、截图、变更历史、ToolBaker 数据和 discovery 文件保持现有行为。此时磁盘占用会无限增长。开启时，启动会在诊断日志中写入一行说明。
+在 gateway 和 AutoCAD 的环境中都设置 `BIMWRIGHT_KEEP_ALL_LOGS=1`（也可用 `true`、`yes` 或 `on`，不区分大小写），即可保留所有日志记录、journal 和报告，例如在开发机上。它会跳过所有自动删除：调用日志、会话日志和 journal 的保留清理，诊断日志和旧 `debug.log` 的截断压缩，报告保留期清理（`reportRetentionDays`），以及自动命名截图的清理。日志仍会轮转，但诊断日志会滚动为带时间戳的归档文件，而不是替换唯一的备份，因此不会覆盖任何内容。它不会开启调用日志，也不会改变记录的内容。输出 artifact、变更历史、ToolBaker 数据和 discovery 文件保持现有行为。此时磁盘占用会无限增长。开启时，启动会在诊断日志中写入一行说明。
 
 ## 活动通知与 History
 
@@ -258,7 +258,7 @@ MCP 提示词 `dwg_translate_text` 用于在写回前审核译文，`dwg_review_
 | `dwg_zoom_extents` | 缩放到绘图视口的图形范围 |
 | `dwg_zoom_window` | 缩放到由两个角点定义的窗口 |
 | `dwg_zoom_to_entity` | 缩放到由 handle 标识的特定绘图实体的范围 |
-| `dwg_capture_view_image` | 在 AutoCAD 内捕获图形；返回内联图像、图像路径、实际尺寸、SHA-256 哈希及文档/视口/相机元数据（默认启用；受路径策略约束） |
+| `dwg_capture_view_image` | 在 AutoCAD 内捕获图形；返回内联图像、图像路径、实际尺寸、SHA-256 哈希及文档/视口/相机元数据（默认启用；受路径策略约束）。自动命名的截图保留 30 天，超过 200 MB 时从最旧的开始删除；你命名的文件从不删除 |
 | `dwg_inspect_view_region` | 在源图像上指定归一化矩形，缩放并重新生成，返回新图像及父图像ID |
 | `dwg_restore_view` | 返回先前截图的相机位置并获取新图像 |
 

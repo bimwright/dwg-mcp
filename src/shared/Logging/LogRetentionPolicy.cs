@@ -4,7 +4,7 @@ namespace Bimwright.Dwg.Plugin
 {
     /// <summary>
     /// Owner/dev switch: BIMWRIGHT_KEEP_ALL_LOGS=1|true|yes|on skips every automatic deletion of logs,
-    /// call records, journals and reports. It never enables a recorder or changes what is recorded.
+    /// call records, journals, reports and generated captures. It never enables a recorder or changes what is recorded.
     /// </summary>
     public static class LogRetentionPolicy
     {
