@@ -112,9 +112,9 @@ AIエージェントは、「選択したすべてのテキストをベトナム
 
 [GitHub Releases](https://github.com/bimwright/dwg-mcp/releases/latest) から setup ZIP（`DwgMcp.Setup-*-win-x64.zip`）を入手してください。同梱する年次バージョンは、ダウンロードしたZIP内の `manifest.json` の `packedAutocadYears` と bundle の `PackageContents.xml` で確認し、実行中のAutoCADで検証済みの年次バージョンはリリースノートで確認してください。ソースには2022–2027のシェルがありますが、同梱プラグインと実ホストの検証範囲はリリースごとに異なります。未同梱の年次バージョンは、対応するAutoCAD SDKでソースからビルドします。展開して `install.ps1` を実行してください（全文は英語 README）。
 
-**NuGet（ゲートウェイのみ）:** `dotnet tool install --global Bimwright.Dwg.Server --version 2.2.0` は .NET 10 が必要です。AutoCAD プラグインは同じバージョンの Setup ZIP から別途インストールしてください。
+**NuGet（ゲートウェイのみ）:** `dotnet tool install --global Bimwright.Dwg.Server --version 2.5.1` は .NET 10 が必要です。AutoCAD プラグインは同じバージョンの Setup ZIP から別途インストールしてください。
 
-**Claude Desktop:** 同じリリースの `dwg-mcp-desktop-2.2.0.mcpb` とチェックサムを取得し、Settings → Extensions → Advanced settings からインストールします。拡張機能は Setup 2.2.0 の特定の実行ファイルだけを起動し、ゲートウェイやプラグインをインストールしません。NuGet/PATH へのフォールバックはなく、override も同じ SHA-256 が必要です。
+**Claude Desktop:** 同じリリースの `dwg-mcp-desktop-2.5.1.mcpb` とチェックサムを取得し、Settings → Extensions → Advanced settings からインストールします。拡張機能は Setup 2.5.1 の特定の実行ファイルだけを起動し、ゲートウェイやプラグインをインストールしません。NuGet/PATH へのフォールバックはなく、override も同じ SHA-256 が必要です。
 
 **開発者:** ビルド後 `pwsh scripts/install.ps1 -Version 2024`、または Debug DLL を `NETLOAD`。
 
@@ -202,7 +202,7 @@ MCP プロンプト `dwg_translate_text` では書き戻し前に翻訳を確認
 
 ## ツール
 
-2.2.0 のデフォルト起動では54のツール（クエリ（`dwg_get_drawing_profile` と `dwg_inspect_lisp` 含む）、変更、メタ（`dwg_send_code`/`dwg_run_lisp` 含む）、ビュー、およびデフォルト有効の `dwg_capture_view_image`）が公開されます。オプショナルのToolBaker、注釈、ブロック、寸法、エクスポート、作図ツールセットは `--toolsets` で有効にでき、MCPサーフェス全体は78ツールになります。 登録数には拒否のみを返す `dwg_run_lisp` が含まれます。スキャン判定は実行を許可しません。
+2.5.1 のデフォルト起動では54のツール（クエリ（`dwg_get_drawing_profile` と `dwg_inspect_lisp` 含む）、変更、メタ（`dwg_send_code`/`dwg_run_lisp` 含む）、ビュー、およびデフォルト有効の `dwg_capture_view_image`）が公開されます。オプショナルのToolBaker、注釈、ブロック、寸法、エクスポート、作図ツールセットは `--toolsets` で有効にでき、MCPサーフェス全体は78ツールになります。 登録数には拒否のみを返す `dwg_run_lisp` が含まれます。スキャン判定は実行を許可しません。
 
 一般的なCADツールは、選択されたAutoCADターゲットの現在アクティブなドキュメントに対して動作します。エンティティ入力と返されるエンティティIDは、`7F5AD` のようなAutoCAD 16進ハンドルを使用します。作成、コピー、オフセット、および変更の応答は、生成または変更されたエンティティを16進ハンドルで識別します。
 
