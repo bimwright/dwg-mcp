@@ -49,7 +49,8 @@ function Write-FixtureManifest {
     $files=@(Get-SetupFiles $script:SourceDir | Where-Object { [IO.Path]::GetFileName($_) -ne 'manifest.json' } | Sort-Object | ForEach-Object {
         [ordered]@{path=$_.Substring($script:SourceDir.Length+1).Replace('\','/');sha256=(Get-SetupSha256 $_);bytes=(Get-Item -LiteralPath $_).Length}
     })
-    $script:manifest=[pscustomobject]@{name='DwgMcp.Setup';version='99.0.0';platform='win-x64';packedAutocadYears=@(2024);supportedAutocadYears=@(2024);
+    $packed=@(Get-ChildItem -LiteralPath (Join-Path $script:bundleSourceDir 'Contents') -Directory | ForEach-Object { [int]$_.Name } | Sort-Object)
+    $script:manifest=[pscustomobject]@{name='DwgMcp.Setup';version='99.0.0';platform='win-x64';packedAutocadYears=$packed;supportedAutocadYears=$packed;
         server=[pscustomobject]@{command='server/dwg-mcp.exe';selfContained=$true;requiresDotnet=$false};files=$files}
     Put (Join-Path $script:SourceDir 'manifest.json') ($script:manifest | ConvertTo-Json -Depth 20)
 }
@@ -104,6 +105,22 @@ function New-Fixture([bool]$Legacy=$false) {
     Put ($script:cursor+'.bak') 'pre-existing-backup-preserve'
     Write-FixtureManifest
 }
+# Opt-in: the package also ships AutoCAD 2027 (a net10 payload with deps.json).
+function Add-FixturePackageYear2027 {
+    foreach ($dll in @('Bimwright.Dwg.Plugin.Acad27.dll','Bimwright.Dwg.Scripting.dll','Microsoft.CodeAnalysis.dll','Microsoft.CodeAnalysis.CSharp.dll',
+        'Microsoft.CodeAnalysis.Scripting.dll','Microsoft.CodeAnalysis.CSharp.Scripting.dll','Newtonsoft.Json.dll')) {
+        Put (Join-Path $script:bundleSourceDir "Contents/2027/$dll") ('new-fixture-27-'+$dll)
+    }
+    Put (Join-Path $script:bundleSourceDir 'Contents/2027/Bimwright.Dwg.Plugin.Acad27.deps.json') '{"runtimeTarget":{"name":"net10.0"},"targets":{"net10.0":{}}}'
+    Save-BundleManifest -OutPath (Join-Path $script:bundleSourceDir 'PackageContents.xml') -CoverYears @(2024,2027) -TemplatePath (Join-Path $repo 'scripts/PackageContents.xml')
+    Write-FixtureManifest
+}
+# Opt-in: the installed bundle also has a stale AutoCAD 2026 plug-in from an older release.
+function Add-FixtureBundleYear2026 {
+    Put (Join-Path $script:bundleTargetRoot 'Contents/2026/Bimwright.Dwg.Plugin.Acad26.dll') 'stale-old-release26'
+    Save-BundleManifest -OutPath (Join-Path $script:bundleTargetRoot 'PackageContents.xml') -CoverYears @(2024,2026,2027) -TemplatePath (Join-Path $repo 'scripts/PackageContents.xml')
+}
+function Get-RollbackLeftovers { @(Get-ChildItem -LiteralPath $script:bundleTargetRoot -Recurse -Force | Where-Object { $_.Name -match 'dwgmcp-rollback' }) }
 # Tests use only these scoped clients; no real client CLI can be discovered.
 function Get-McpClientSpecs {
     @([pscustomobject]@{Name='cursor';Kind='file';Paths=@($script:cursor);DetectPaths=@((Split-Path $script:cursor));RootKey='mcpServers';EntryKind='standard'},
@@ -216,7 +233,7 @@ try {
             Assert (-not [IO.Directory]::Exists($script:newRoot)) 'Relocated root was not restored'
         }
     }
-    Test 'Success preserves data, pre-existing backups and unselected AutoCAD payload' {
+    Test 'Success preserves data and pre-existing backups and drops a bundle year the package lacks' {
         New-Fixture $true; $script:Client=@('cursor','cline'); Invoke-FixtureInstall
         Assert (([IO.File]::ReadAllText((Join-Path $script:newRoot 'baked/bake.db'))) -eq 'personal-toolbaker-data') 'Lost ToolBaker data'
         Assert (([IO.File]::ReadAllText((Join-Path $script:newRoot 'captures/personal.png'))) -eq 'personal-capture') 'Lost capture'
@@ -226,8 +243,48 @@ try {
         Assert ($cfg.mcpServers.'dwg-mcp'.args[0] -eq '--read-only' -and $cfg.mcpServers.'dwg-mcp'.env.KEEP -eq 'value') 'Lost args/env'
         Assert ([IO.File]::ReadAllText($script:cursor).Contains('keep comment')) 'Lost JSONC comment'
         Assert (Test-LegacyMigrationMarker $script:oldRoot $script:newRoot) 'Missing committed migration marker'
-        Assert ((Read-BundleManifest $script:bundleTargetRoot).Years -contains 2027) 'Lost unselected installed year in XML'
-        Assert (([IO.File]::ReadAllText((Join-Path $script:bundleTargetRoot 'Contents/2027/Bimwright.Dwg.Plugin.Acad27.dll'))) -eq 'preserve-unselected27') 'Touched unselected payload'
+        # The fixture package ships only 2024, so the old-release 2027 plug-in must not survive.
+        Assert ((@((Read-BundleManifest $script:bundleTargetRoot).Years) -join ',') -eq '2024') 'Bundle XML still lists a year the package lacks'
+        Assert (-not (Test-Path -LiteralPath (Join-Path $script:bundleTargetRoot 'Contents/2027'))) 'Kept a plug-in from another release'
+    }
+    Test 'Unselected bundle year the package ships is replaced from the package and verified' {
+        New-Fixture; Add-FixturePackageYear2027
+        $out=Invoke-FixtureInstall 3>&1 6>&1 | Out-String
+        Assert ((Tree (Join-Path $script:bundleTargetRoot 'Contents/2027')) -ceq (Tree (Join-Path $script:bundleSourceDir 'Contents/2027'))) '2027 payload differs from the package'
+        Assert ((Tree (Join-Path $script:bundleTargetRoot 'Contents/2024')) -ceq (Tree (Join-Path $script:bundleSourceDir 'Contents/2024'))) '2024 payload differs from the package'
+        Assert ((@((Read-BundleManifest $script:bundleTargetRoot).Years) -join ',') -eq '2024,2027') 'Bundle XML lost the replaced year or duplicated a component'
+        Assert ($out -match 'replace AutoCAD 2027') "Missing replace line: $out"
+        Assert ($out -match 'Verified: Acad2024, Acad2027 match the package') "Verification did not cover every bundle year: $out"
+        Assert ($out -notmatch 'WARNING|not in this package') "Unexpected removal warning: $out"
+        Assert ((Get-RollbackLeftovers).Count -eq 0) 'Rollback backups left in the bundle'
+    }
+    Test 'Unselected bundle year the package lacks is removed with a warning naming the year' {
+        New-Fixture; Add-FixtureBundleYear2026; Add-FixturePackageYear2027
+        $out=Invoke-FixtureInstall 3>&1 6>&1 | Out-String
+        Assert (-not (Test-Path -LiteralPath (Join-Path $script:bundleTargetRoot 'Contents/2026'))) 'Kept the 2026 plug-in from another release'
+        Assert ((@((Read-BundleManifest $script:bundleTargetRoot).Years) -join ',') -eq '2024,2027') 'Bundle XML still lists 2026'
+        Assert ($out -match 'AutoCAD 2026: the installed bundle has a plug-in for it but this package does not') "Missing warning naming 2026: $out"
+        Assert ($out -match 'Dropped : 2026') "Missing summary of the removed year: $out"
+        Assert ($out -match 'Verified: Acad2024, Acad2027 match the package') "Verification did not cover every bundle year: $out"
+        Assert ((Get-RollbackLeftovers).Count -eq 0) 'Rollback backups left in the bundle'
+    }
+    Test 'WhatIf previews stale-year replace and remove and leaves the bundle byte-identical' {
+        New-Fixture; Add-FixtureBundleYear2026; Add-FixturePackageYear2027
+        $before=Tree $script:caseRoot
+        $bundleBefore=Tree $script:bundleTargetRoot
+        $out=Invoke-FixtureInstall -WhatIf 3>&1 6>&1 | Out-String
+        Assert ((Tree $script:bundleTargetRoot) -ceq $bundleBefore) 'WhatIf changed the bundle'
+        Assert ((Tree $script:caseRoot) -ceq $before) 'WhatIf wrote files'
+        Assert ($out -match 'preview replace AutoCAD 2027') "Missing replace preview: $out"
+        Assert ($out -match 'preview remove AutoCAD 2026') "Missing remove preview: $out"
+        Assert ($out -match 'AutoCAD 2026: .* would remove') "Missing removal warning: $out"
+    }
+    Test 'Caught failure after replacing and removing stale years restores the old bundle exactly' {
+        New-Fixture $true; Add-FixtureBundleYear2026; Add-FixturePackageYear2027; $script:FailAt='final-verify'
+        $before=Tree (Join-Path $script:caseRoot 'profile')
+        $null=Throws {Invoke-FixtureInstall} 'injected'
+        Assert ((Tree (Join-Path $script:caseRoot 'profile')) -ceq $before) 'Rollback did not restore exact bundle bytes/inventory'
+        Assert ([IO.File]::ReadAllText((Join-Path $script:bundleTargetRoot 'Contents/2027/Bimwright.Dwg.Plugin.Acad27.dll')) -eq 'preserve-unselected27') 'Old 2027 payload not restored'
     }
     Test 'Comma and space lists bind the same years/clients as arrays' {
         foreach ($years in @('2024,2027', '2024 2027', @(2024, 2027), @('2024', '2027'))) {

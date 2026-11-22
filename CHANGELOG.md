@@ -11,6 +11,7 @@ This release was prepared as 2.2.0 and ships as 2.5.1, the shared release number
 - Move the gateway to .NET 10 LTS. Setup includes the gateway runtime. The framework-dependent NuGet tool requires .NET 10.
 - Update the gateway SQLite provider and native engine used by ToolBaker and drawing history.
 - Add `BIMWRIGHT_KEEP_ALL_LOGS` (`1`, `true`, `yes` or `on`) for the gateway and the AutoCAD plugin. When set, no log, call record, journal or report is deleted automatically: retention pruning, diagnostic and legacy `debug.log` compaction and report retention are skipped, and the diagnostic log rolls to a timestamped archive instead of replacing its single backup. Rotation still happens. It never turns on a recorder or changes what is recorded. Startup writes one diagnostic line when it is on. Unset, retention is unchanged.
+- Fix the Setup installer keeping plug-ins from an earlier release in the bundle. A year already in `Bimwright.Dwg.bundle` but not selected in this run is now replaced from the package, or removed with a warning when the package does not ship it, so every plug-in matches the installed server. `-WhatIf` previews the replace/remove actions and `Verified:` covers every year left in the bundle.
 
 ### Drawing edits and scripting
 
