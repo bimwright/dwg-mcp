@@ -22,7 +22,10 @@
 
   Every replacement is recorded and rolled back on error. Other bundles
   carrying dwg-mcp's ProductCode (Bimwright-era copies) are removed; a
-  machine-wide copy under %ProgramData% blocks the install. The installed
+  machine-wide copy under %ProgramData% blocks the install. Every plug-in
+  left in the bundle comes from the package, the same release as the server:
+  a year already in the bundle but not selected is replaced from the package,
+  or removed with a warning when the package does not ship it. The installed
   bundle is verified against the package and the server is started once
   with --help.
 
@@ -188,6 +191,19 @@ function Read-BundleManifest([string]$BundleDir) {
         ProductCode = if ($code) { $code.Trim().Trim('{', '}').ToLowerInvariant() } else { $null }
         Years = $modules
     }
+}
+
+# Years a bundle carries: Contents\<year> payload folders and manifest
+# components. Rollback backups (<year>.dwgmcp-rollback-*) never match.
+function Get-BundleYears([string]$BundleDir) {
+    $years = @()
+    $contents = Join-Path $BundleDir 'Contents'
+    if (Test-Path -LiteralPath $contents -PathType Container) {
+        $years += @(Get-ChildItem -LiteralPath $contents -Directory | Where-Object { $_.Name -match '^\d{4}$' } | ForEach-Object { [int]$_.Name })
+    }
+    $m = Read-BundleManifest $BundleDir
+    if ($m) { $years += @($m.Years) }
+    return @($years | Sort-Object -Unique)
 }
 
 # ProductCode-shaped check: our GUID regardless of brace/case formatting.
@@ -1324,6 +1340,10 @@ $script:installChanges = New-Object System.Collections.Generic.List[object]
 if ($Uninstall) { $script:installChanges = $null }
 $script:installStage = $null
 $script:legacyRootRelocated = $false
+# Years already in the bundle but not selected: replaced from the package
+# ($refreshYears) or removed because the package lacks them ($dropYears).
+$refreshYears = @()
+$dropYears = @()
 
 try {
     # Validate every selected payload before replacing any installed file.
@@ -1335,7 +1355,17 @@ try {
         if ($SetupZip) { Assert-SetupArchive -ZipPath $SetupZip -ReleaseTag $ReleaseTag -Root $SourceDir }
         elseif ($hasSetupLayout) { Assert-SetupManifest -Root $SourceDir -Manifest $manifest }
         if ($bundleSourceDir) {
-            Assert-BundlePackage -BundleDir $bundleSourceDir -InstallYears $Years
+            # Every plug-in left in the bundle must come from this package, the
+            # same release as the server. An unselected year the user already
+            # has stays installed when the package ships it, now from the package.
+            foreach ($year in @(Get-BundleYears $bundleTargetRoot | Where-Object { $Years -notcontains $_ })) {
+                if (Test-Path -LiteralPath (Join-Path $bundleSourceDir "Contents\$year") -PathType Container) { $refreshYears += $year }
+                else { $dropYears += $year }
+            }
+            foreach ($year in $dropYears) {
+                Write-Warning ("AutoCAD {0}: the installed bundle has a plug-in for it but this package does not; {1} its folder and manifest entry so no plug-in from another release remains." -f $year, $(if ($WhatIfPreference) { 'would remove' } else { 'removing' }))
+            }
+            Assert-BundlePackage -BundleDir $bundleSourceDir -InstallYears (@($Years) + $refreshYears)
         } else {
             $repoRoot = Split-Path -Parent $PSScriptRoot
             foreach ($year in $Years) { $null = Assert-RepoPayload -RepoRoot $repoRoot -Year $year -Configuration $Config }
@@ -1356,7 +1386,7 @@ try {
             New-Item -ItemType Directory -Path $script:installStage | Out-Null
             $stageContents = Join-Path $script:installStage 'Contents'
             New-Item -ItemType Directory -Path $stageContents -Force | Out-Null
-            foreach ($year in $Years) {
+            foreach ($year in (@($Years) + $refreshYears)) {
                 if ($bundleSourceDir) {
                     # Copy into the staged Contents\ root: copying a directory
                     # onto an existing directory would nest it (2024\2024).
@@ -1414,22 +1444,34 @@ try {
         }
 
         if ($PSCmdlet.ShouldProcess($bundleTargetRoot, 'Install plugin bundle with rollback')) {
-            foreach ($year in $Years) {
+            foreach ($year in (@($Years) + $refreshYears)) {
                 Set-InstallPath -Source (Join-Path $script:installStage "Contents\$year") -Destination (Join-Path $bundleTargetRoot "Contents\$year")
             }
-            # Regenerate PackageContents.xml covering every year dir that will
-            # exist after this install (union of already-present and new).
-            $coverYears = @($Years)
-            foreach ($dir in @(Get-ChildItem -LiteralPath (Join-Path $bundleTargetRoot 'Contents') -Directory -ErrorAction SilentlyContinue)) {
-                if ($dir.Name -match '^\d{4}$' -and $coverYears -notcontains [int]$dir.Name) { $coverYears += [int]$dir.Name }
+            foreach ($year in $dropYears) {
+                $dropDir = Join-Path $bundleTargetRoot "Contents\$year"
+                if (Test-Path -LiteralPath $dropDir) { Move-ToRollback $dropDir }
+            }
+            # Regenerate PackageContents.xml. A package install covers exactly
+            # the years it installed from the package; a repo build keeps every
+            # other year dir already present (union of already-present and new).
+            $coverYears = @($Years) + $refreshYears
+            $existingManifest = $null
+            if (-not $bundleSourceDir) {
+                foreach ($dir in @(Get-ChildItem -LiteralPath (Join-Path $bundleTargetRoot 'Contents') -Directory -ErrorAction SilentlyContinue)) {
+                    if ($dir.Name -match '^\d{4}$' -and $coverYears -notcontains [int]$dir.Name) { $coverYears += [int]$dir.Name }
+                }
+                $existingManifest = Join-Path $bundleTargetRoot 'PackageContents.xml'
             }
             $template = if ($bundleSourceDir) { Join-Path $bundleSourceDir 'PackageContents.xml' } else { Join-Path $PSScriptRoot 'PackageContents.xml' }
             $manifestDir = Join-Path $script:installStage 'manifest-out'
             New-Item -ItemType Directory -Path $manifestDir -Force | Out-Null
-            Save-BundleManifest -OutPath (Join-Path $manifestDir 'PackageContents.xml') -CoverYears $coverYears -TemplatePath $template -ExistingPath (Join-Path $bundleTargetRoot 'PackageContents.xml')
+            Save-BundleManifest -OutPath (Join-Path $manifestDir 'PackageContents.xml') -CoverYears $coverYears -TemplatePath $template -ExistingPath $existingManifest
             Set-InstallPath -Source (Join-Path $manifestDir 'PackageContents.xml') -Destination (Join-Path $bundleTargetRoot 'PackageContents.xml')
         }
 
+        $verb = if ($WhatIfPreference) { 'preview ' } else { '' }
+        foreach ($year in $refreshYears) { Write-Host ("[bundle] {0}replace AutoCAD {1} (already in the bundle, not selected) with this package's plug-in" -f $verb, $year) }
+        foreach ($year in $dropYears) { Write-Host ("[bundle] {0}remove AutoCAD {1} (not in this package)" -f $verb, $year) }
         if ($WhatIfPreference) {
             Write-Host ("[bundle] preview install -> {0} (years: {1})" -f $bundleTargetRoot, ($Years -join ', '))
             $previewed += 'bundle'
@@ -1470,8 +1512,17 @@ try {
             }
         }
         if (-not $WhatIfPreference) {
-            Assert-InstalledPlugin -InstallYears $Years -BundleDir $bundleTargetRoot
-            $verified += ($Years | ForEach-Object { "Acad$_" })
+            $verifyYears = @($Years)
+            if ($bundleSourceDir) {
+                # Verify every year left in the bundle, read back from disk.
+                $expectedYears = @(@($Years) + $refreshYears | Sort-Object -Unique)
+                $verifyYears = @(Get-BundleYears $bundleTargetRoot)
+                if (($verifyYears -join ',') -ne ($expectedYears -join ',')) {
+                    throw ("Add-in verification failed: bundle carries AutoCAD {0}; expected only {1} from this package." -f ($verifyYears -join ', '), ($expectedYears -join ', '))
+                }
+            }
+            Assert-InstalledPlugin -InstallYears $verifyYears -BundleDir $bundleTargetRoot
+            $verified += ($verifyYears | ForEach-Object { "Acad$_" })
             Complete-LegacyMigration
         }
     }
@@ -1515,6 +1566,8 @@ Write-Host ("Handled : {0}" -f $(if ($handled.Count) { $handled -join ', ' } els
 if ($previewed.Count) { Write-Host ("Previewed: {0}" -f ($previewed -join ', ')) }
 if ($skipped.Count) { Write-Host ("Skipped : {0}" -f ($skipped -join ', ')) }
 if ($removedDuplicates.Count) { Write-Host ("Removed : {0}{1}" -f ($removedDuplicates -join ', '), $(if ($WhatIfPreference) { ' (preview)' } else { '' })) }
+if ($refreshYears.Count) { Write-Host ("Replaced: {0} - already in the bundle, now from this package{1}" -f ($refreshYears -join ', '), $(if ($WhatIfPreference) { ' (preview)' } else { '' })) }
+if ($dropYears.Count) { Write-Host ("Dropped : {0} - not in this package, removed from the bundle{1}" -f ($dropYears -join ', '), $(if ($WhatIfPreference) { ' (preview)' } else { '' })) }
 if ($verified.Count) { Write-Host ("Verified: {0} match the package" -f ($verified -join ', ')) }
 if (-not $Uninstall) {
     if ($serverCommand) { Write-Host ("Server  : {0} (check: {1})" -f $serverCommand, $serverCheck) }
