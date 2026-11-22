@@ -145,6 +145,7 @@ namespace Bimwright.Dwg.Plugin.Handlers
             try
             {
                 var result = CaptureViewService.Capture(doc, normalizedPath, pixelSize, overwrite, expectedFingerprint);
+                CaptureRetention.PruneGenerated(CaptureRetention.DefaultDirectory, normalizedPath, DateTime.UtcNow);
                 ViewReadingService.History.Remember(result);
                 return CommandResult.Success(result);
             }

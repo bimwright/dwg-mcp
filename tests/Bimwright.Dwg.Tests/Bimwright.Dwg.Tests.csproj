@@ -67,6 +67,7 @@
     <Compile Include="..\..\src\shared\View\CaptureViewContract.cs" LinkBase="Shared\View" />
     <Compile Include="..\..\src\shared\View\ViewReadingContract.cs" LinkBase="Shared\View" />
     <Compile Include="..\..\src\shared\View\ViewCaptureStore.cs" LinkBase="Shared\View" />
+    <Compile Include="..\..\src\shared\View\CaptureRetention.cs" LinkBase="Shared\View" />
     <Compile Include="..\..\src\shared\View\ViewReadingWorkflow.cs" LinkBase="Shared\View" />
     <Compile Include="..\..\src\shared\View\DrawingRevision.cs" LinkBase="Shared\View" />
     <Compile Include="..\..\src\shared\Drawing\SystemVariableCatalog.cs" LinkBase="Shared\Drawing" />

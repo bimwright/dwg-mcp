@@ -162,7 +162,7 @@ Dùng `--read-only` để gỡ toolset write-capable. Dùng `--toolsets all` ho�
 
 Call log **mặc định tắt**. Dùng `--enable-call-log` / `--disable-call-log` (JSON `enableCallLog`; env `BIMWRIGHT_DWG_ENABLE_CALL_LOG`). Thứ tự ưu tiên: JSON → env → CLI; flag bật/tắt xuất hiện cuối thắng. Khi tắt, server không tạo/ghi thêm call log hoặc call journal và không xoá log cũ. Khi bật, `%LOCALAPPDATA%\Bimwright\dwg-mcp\dwg-mcp-calls.jsonl` chỉ ghi tham số đã redact và metadata thời lượng/kết quả, không ghi response. Trường code, kể cả trong batch lồng nhau, chỉ lưu độ dài ký tự và SHA-256 của body UTF-8 gốc; bỏ nội dung lỗi liên quan code vì có thể chứa source. Chưa triển khai cache body hoặc body journal. ToolBaker adaptive usage, diagnostic log và History trong RAM độc lập với công tắc này; plugin không có writer call log bền vững.
 
-Đặt `BIMWRIGHT_KEEP_ALL_LOGS=1` (hoặc `true`, `yes`, `on`, không phân biệt hoa thường) trong môi trường của cả gateway lẫn AutoCAD để giữ mọi bản ghi log, journal và report, ví dụ trên máy phát triển. Biến này bỏ qua mọi thao tác xoá tự động: retention của call log, session log và journal, việc cắt gọn diagnostic log và `debug.log` cũ, và retention của report (`reportRetentionDays`). Log vẫn được xoay vòng, nhưng diagnostic log chuyển sang một file lưu trữ có dấu thời gian thay vì ghi đè bản sao lưu duy nhất, nên không có gì bị ghi đè. Biến không bật call log và không thay đổi nội dung được ghi. Output artifact, ảnh chụp, lịch sử thay đổi, dữ liệu ToolBaker và file discovery giữ nguyên hành vi hiện tại. Khi đó dung lượng đĩa tăng không giới hạn. Khi bật, lúc khởi động sẽ ghi một dòng vào diagnostic log.
+Đặt `BIMWRIGHT_KEEP_ALL_LOGS=1` (hoặc `true`, `yes`, `on`, không phân biệt hoa thường) trong môi trường của cả gateway lẫn AutoCAD để giữ mọi bản ghi log, journal và report, ví dụ trên máy phát triển. Biến này bỏ qua mọi thao tác xoá tự động: retention của call log, session log và journal, việc cắt gọn diagnostic log và `debug.log` cũ, retention của report (`reportRetentionDays`) và việc dọn ảnh chụp do tool tự đặt tên. Log vẫn được xoay vòng, nhưng diagnostic log chuyển sang một file lưu trữ có dấu thời gian thay vì ghi đè bản sao lưu duy nhất, nên không có gì bị ghi đè. Biến không bật call log và không thay đổi nội dung được ghi. Output artifact, lịch sử thay đổi, dữ liệu ToolBaker và file discovery giữ nguyên hành vi hiện tại. Khi đó dung lượng đĩa tăng không giới hạn. Khi bật, lúc khởi động sẽ ghi một dòng vào diagnostic log.
 
 ## Toast hoạt động và History
 
@@ -256,7 +256,7 @@ Theo `output.next_calls` để phân trang `types`, `layers` hoặc `spaces`; m�
 | `dwg_zoom_extents` | Zoom đến giới hạn của viewport bản vẽ |
 | `dwg_zoom_window` | Zoom viewport đến một cửa sổ được xác định bởi hai điểm góc |
 | `dwg_zoom_to_entity` | Zoom viewport đến giới hạn của một entity cụ thể theo handle |
-| `dwg_capture_view_image` | Chụp đồ họa trong AutoCAD; trả ảnh trực tiếp qua MCP, đường dẫn ảnh, kích thước thực, hash, metadata bản vẽ/viewport/camera (mặc định bật; path policy) |
+| `dwg_capture_view_image` | Chụp đồ họa trong AutoCAD; trả ảnh trực tiếp qua MCP, đường dẫn ảnh, kích thước thực, hash, metadata bản vẽ/viewport/camera (mặc định bật; path policy). Ảnh do tool tự đặt tên được giữ 30 ngày, quá 200 MB thì xoá ảnh cũ nhất trước; file bạn tự đặt tên không bao giờ bị xoá |
 | `dwg_inspect_view_region` | Chọn vùng 0–1 trên ảnh nguồn; zoom, regenerate và trả ảnh mới trực tiếp qua MCP, có liên kết ảnh cha |
 | `dwg_restore_view` | Quay lại camera của ảnh trước và nhận ảnh chụp mới |
 
