@@ -23,6 +23,8 @@ internal static class ResponseBudget
     internal static IMcpServerBuilder Register(IMcpServerBuilder mcp, DwgMcpConfig config)
         => mcp.WithRequestFilters(filters => filters.AddCallToolFilter(next => async (request, ct) =>
         {
+            var clientName = request.Server?.ClientInfo?.Name;
+            if (!string.IsNullOrWhiteSpace(clientName)) PluginClient.ClientName = clientName;
             var result = await next(request, ct); // Execute exactly once, including writes.
             if (ChangeHistoryResponse.Applies(request.Params?.Name))
                 return ChangeHistoryResponse.FitFinal(result, ChangeHistoryResponse.RequestCap(request.Params, config));

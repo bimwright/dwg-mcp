@@ -61,7 +61,8 @@ namespace Bimwright.Dwg.Plugin.Reports.Acad
             try
             {
                 var result = ReportBuilder.BuildAndSave(taskId, outcome, summary, body, new AcadReportResolver(), source, ReportServices.Store, changes);
-                return CommandResult.Success(ReportBuilder.CreateResponse(result, result.Saved));
+                var toastShown = App.ToastEnabled && !Bimwright.Dwg.Plugin.Views.Toast.ToastSnooze.IsActive();
+                return CommandResult.Success(ReportBuilder.CreateResponse(result, result.Saved, toastShown));
             }
             catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
             {

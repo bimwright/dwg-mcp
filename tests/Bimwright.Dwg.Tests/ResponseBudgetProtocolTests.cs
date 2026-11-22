@@ -21,6 +21,7 @@ using Xunit;
 namespace Bimwright.Dwg.Tests;
 
 /// <summary>Final result bytes over the real SDK stream transport, with per-test tools and no CAD/file logging.</summary>
+[Collection("Gateway client name")]
 public class ResponseBudgetProtocolTests : OutputArtifactTestScope
 {
     [Fact]

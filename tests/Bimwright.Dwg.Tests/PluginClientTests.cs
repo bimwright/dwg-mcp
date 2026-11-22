@@ -1,13 +1,26 @@
 using System.Threading.Tasks;
 using Bimwright.Dwg.Server;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using ModelContextProtocol.Client;
+using ModelContextProtocol.Protocol;
+using ModelContextProtocol.Server;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using Xunit;
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.IO.Pipes;
+using System.Threading;
 
 namespace Bimwright.Dwg.Tests
 {
+    [CollectionDefinition("Gateway client name", DisableParallelization = true)]
+    public sealed class GatewayClientNameCollection { }
+
+    [Collection("Gateway client name")]
     public class PluginClientTests
     {
         [Fact]
@@ -131,6 +144,104 @@ namespace Bimwright.Dwg.Tests
 
             Assert.False(response.Ok);
             Assert.Contains("plugin", response.Error, System.StringComparison.OrdinalIgnoreCase);
+        }
+
+        [Fact]
+        // FC-TST-03
+        public async Task Sends_client_name_on_wire_when_present_and_omits_when_blank()
+        {
+            var previous = PluginClient.ClientName;
+            try
+            {
+                JObject captured = null;
+                using var fake = new FakePluginServer(line =>
+                {
+                    captured = JObject.Parse(line);
+                    return JsonConvert.SerializeObject(new McpResponse { Id = captured.Value<string>("id"), Ok = true, Result = "ok" });
+                });
+
+                var client = new PluginClient(() => new DiscoveryInfo { Port = fake.Port, Token = "test" });
+
+                PluginClient.ClientName = "claude-code";
+                Assert.True((await client.SendAsync("ping", new { })).Ok);
+                Assert.Equal("claude-code", captured.Value<string>("client_name"));
+
+                PluginClient.ClientName = null;
+                Assert.True((await client.SendAsync("ping", new { })).Ok);
+                Assert.Null(captured["client_name"]);
+
+                PluginClient.ClientName = "   ";
+                Assert.True((await client.SendAsync("ping", new { })).Ok);
+                Assert.Null(captured["client_name"]);
+            }
+            finally
+            {
+                PluginClient.ClientName = previous;
+            }
+        }
+
+        [Fact]
+        // FC-TST-03
+        public async Task MCP_filter_records_the_client_name_sent_at_initialize_and_forwards_it()
+        {
+            var previous = PluginClient.ClientName;
+            using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+            var pipe = "dwg-client-name-" + Guid.NewGuid().ToString("N");
+            using var input = new NamedPipeServerStream(pipe, PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
+            using var output = new NamedPipeClientStream(".", pipe, PipeDirection.InOut, PipeOptions.Asynchronous);
+            await Task.WhenAll(input.WaitForConnectionAsync(deadline.Token), output.ConnectAsync(deadline.Token));
+
+            JObject wireRequest = null;
+            using var fake = new FakePluginServer(line =>
+            {
+                wireRequest = JObject.Parse(line);
+                return JsonConvert.SerializeObject(new McpResponse { Id = wireRequest.Value<string>("id"), Ok = true, Result = "ok" });
+            });
+
+            try
+            {
+                PluginClient.ClientName = null;
+                var fixture = new ClientNameProbeTool(new PluginClient(() => new DiscoveryInfo { Port = fake.Port, Token = "test" }));
+                var tool = McpServerTool.Create(typeof(ClientNameProbeTool).GetMethod(nameof(ClientNameProbeTool.Probe)), _ => fixture);
+                var builder = Host.CreateApplicationBuilder();
+                builder.Logging.ClearProviders();
+                var mcp = builder.Services.AddMcpServer().WithStreamServerTransport(input, input).WithTools(new[] { tool });
+                mcp = ResponseBudget.Register(mcp, new DwgMcpConfig());
+                mcp = ToolArgumentGuard.Register(mcp);
+                using var host = builder.Build();
+                await host.StartAsync(deadline.Token);
+
+                await using var client = await McpClient.CreateAsync(
+                    new StreamClientTransport(output, output),
+                    new McpClientOptions { ClientInfo = new Implementation { Name = "claude-code", Version = "2.1.330" } },
+                    cancellationToken: deadline.Token);
+
+                Assert.Null(PluginClient.ClientName);
+                var response = await client.CallToolAsync("dwg_probe_client_name", cancellationToken: deadline.Token);
+                Assert.False(response.IsError == true);
+                Assert.Equal("claude-code", PluginClient.ClientName);
+                Assert.Equal("claude-code", wireRequest?.Value<string>("client_name"));
+
+                await client.DisposeAsync();
+                await host.StopAsync(deadline.Token);
+            }
+            finally
+            {
+                PluginClient.ClientName = previous;
+            }
+        }
+
+        private sealed class ClientNameProbeTool
+        {
+            private readonly PluginClient _plugin;
+            public ClientNameProbeTool(PluginClient plugin) => _plugin = plugin;
+
+            [McpServerTool(Name = "dwg_probe_client_name", ReadOnly = true)]
+            public async Task<string> Probe()
+            {
+                var response = await _plugin.SendAsync("ping", new { });
+                return JsonConvert.SerializeObject(response);
+            }
         }
 
         private sealed class TempDiscoveryRoot : IDisposable

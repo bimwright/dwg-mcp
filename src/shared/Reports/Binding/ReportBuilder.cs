@@ -108,11 +108,12 @@ namespace Bimwright.Dwg.Plugin.Reports.Binding
             return new ReportBuildResult { Report = report, LinkCheck = check };
         }
 
-        public static object CreateResponse(ReportBuildResult result, ReportSaveResult save)
+        public static object CreateResponse(ReportBuildResult result, ReportSaveResult save, bool toastShown = true)
             => new
             {
                 report_id = save.ReportId,
                 replaced = save.Replaced,
+                toast = toastShown ? "shown" : "disabled",
                 links = result.LinkCheck,
                 history = new
                 {

@@ -21,6 +21,7 @@ namespace Bimwright.Dwg.Server
         private readonly SemaphoreSlim _writeGate = new SemaphoreSlim(1, 1);
         private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(30);
         private static readonly SemaphoreSlim Calls = new SemaphoreSlim(TransportFraming.MaxConnections);
+        internal static volatile string ClientName;
 
         public PluginClient(Func<DiscoveryInfo> discoveryProvider) : this(discoveryProvider, null, null) { }
 
@@ -149,10 +150,12 @@ namespace Bimwright.Dwg.Server
             bool capture = false)
         {
             var discovery = call.Discovery;
+            var clientName = ClientName;
             var json = JsonConvert.SerializeObject(new McpRequest
             {
                 Id = id, Cmd = cmd, Params = parameters, Auth = discovery.Token, Target = call.Context,
-                ChangeCaptureVersion = capture && ChangeCaptureContract.Tracks(cmd) ? ChangeCaptureContract.Version : null
+                ChangeCaptureVersion = capture && ChangeCaptureContract.Tracks(cmd) ? ChangeCaptureContract.Version : null,
+                ClientName = string.IsNullOrWhiteSpace(clientName) ? null : clientName
             });
             Func<Func<Task>, Task> write = async action =>
             {

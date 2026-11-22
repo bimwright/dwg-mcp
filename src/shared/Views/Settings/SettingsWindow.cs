@@ -18,6 +18,7 @@ namespace Bimwright.Dwg.Plugin.Views.Settings
     public sealed class SettingsWindow : Window
     {
         private readonly CheckBox _toastEnabled;
+        private readonly CheckBox _toastSnoozed;
         private readonly CheckBox _showBranding;
         private readonly ComboBox _idle;
         private readonly TextBlock _transportText;
@@ -27,6 +28,7 @@ namespace Bimwright.Dwg.Plugin.Views.Settings
         private readonly TextBlock _copiedText;
         private readonly TextBlock _applyNote;
         private readonly TextBlock _brandingNote;
+        private readonly TextBlock _snoozeNote;
         private readonly Button _copyPort;
         private readonly Button _listener;
         private readonly Button _apply;
@@ -34,6 +36,7 @@ namespace Bimwright.Dwg.Plugin.Views.Settings
         private readonly TextBlock _toolsStatus;
         private readonly ListView _tools;
         private readonly DispatcherTimer _refresh;
+        private readonly Action _snoozeChangedHandler;
         private int _savedIdle;
         private bool _closing;
         private bool _suppressToastEvents;
@@ -56,7 +59,7 @@ namespace Bimwright.Dwg.Plugin.Views.Settings
             _savedIdle = PluginSettings.LoadToastIdleSeconds();
             var tabs = new TabControl { Margin = new Thickness(12, 12, 12, 0) };
             tabs.Items.Add(Page(L.T("settings.tab.general"), BuildGeneral(out _transportText, out _clientText, out _copiedText, out _copyPort, out _listener, out _startupText, out _startupSaveNote)));
-            tabs.Items.Add(Page(L.T("settings.tab.toast"), BuildToast(out _toastEnabled, out _showBranding, out _idle, out _brandingNote)));
+            tabs.Items.Add(Page(L.T("settings.tab.toast"), BuildToast(out _toastEnabled, out _toastSnoozed, out _showBranding, out _idle, out _brandingNote, out _snoozeNote)));
             tabs.Items.Add(Page(L.T("settings.tab.tools"), BuildTools(out _search, out _toolsStatus, out _tools)));
             tabs.Items.Add(Page(L.T("settings.tab.about"), BuildAbout()));
 
@@ -89,6 +92,16 @@ namespace Bimwright.Dwg.Plugin.Views.Settings
             root.Children.Add(tabs);
             Content = root;
 
+            _snoozeChangedHandler = () =>
+            {
+                if (_closing || Dispatcher.HasShutdownStarted || Dispatcher.HasShutdownFinished)
+                    return;
+                if (Dispatcher.CheckAccess())
+                    SyncSnoozeCheckbox();
+                else
+                    Dispatcher.BeginInvoke(new Action(SyncSnoozeCheckbox));
+            };
+            ToastSnooze.Changed += _snoozeChangedHandler;
             _refresh = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
             _refresh.Tick += (_, __) => RefreshLive();
             Loaded += (_, __) =>
@@ -96,7 +109,11 @@ namespace Bimwright.Dwg.Plugin.Views.Settings
                 RefreshLive();
                 _refresh.Start();
             };
-            Closed += (_, __) => _refresh.Stop();
+            Closed += (_, __) =>
+            {
+                _refresh.Stop();
+                ToastSnooze.Changed -= _snoozeChangedHandler;
+            };
         }
 
         private UIElement BuildGeneral(
@@ -228,7 +245,35 @@ namespace Bimwright.Dwg.Plugin.Views.Settings
                 ? string.Empty : L.T("toast.status.saveFailed");
         }
 
-        private UIElement BuildToast(out CheckBox enabled, out CheckBox branding, out ComboBox idle, out TextBlock brandingNote)
+        private void SetToastSnoozed(bool paused)
+        {
+            var saved = App.ToastNotifier != null
+                ? (paused ? App.ToastNotifier.PauseForToday() : App.ToastNotifier.ResumeFromPause())
+                : (paused ? ToastSnooze.PauseForToday(out _) : ToastSnooze.Resume(out _));
+            if (_snoozeNote != null)
+                _snoozeNote.Text = saved ? string.Empty : L.T("toast.status.saveFailed");
+            SyncSnoozeCheckbox();
+        }
+
+        private void SyncSnoozeCheckbox()
+        {
+            if (_toastSnoozed == null)
+                return;
+            var active = ToastSnooze.IsActive();
+            _suppressToastEvents = true;
+            try
+            {
+                if (_toastSnoozed.IsChecked != active)
+                    _toastSnoozed.IsChecked = active;
+                _toastSnoozed.IsEnabled = App.ToastEnabled;
+            }
+            finally
+            {
+                _suppressToastEvents = false;
+            }
+        }
+
+        private UIElement BuildToast(out CheckBox enabled, out CheckBox snoozed, out CheckBox branding, out ComboBox idle, out TextBlock brandingNote, out TextBlock snoozeNote)
         {
             var panel = new StackPanel { Margin = new Thickness(8) };
             enabled = new CheckBox
@@ -239,6 +284,21 @@ namespace Bimwright.Dwg.Plugin.Views.Settings
             };
             panel.Children.Add(enabled);
             panel.Children.Add(Help(L.T("settings.toast.enabled.help")));
+            snoozed = new CheckBox
+            {
+                Content = L.T("settings.toast.snooze"),
+                IsChecked = ToastSnooze.IsActive(),
+                IsEnabled = App.ToastEnabled,
+                Margin = new Thickness(0, 12, 0, 0)
+            };
+            panel.Children.Add(snoozed);
+            panel.Children.Add(Help(L.T("settings.toast.snooze.help")));
+            snoozeNote = new TextBlock
+            {
+                Foreground = McpToastTheme.Error, TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 4, 0, 0)
+            };
+            panel.Children.Add(snoozeNote);
             branding = new CheckBox
             {
                 Content = L.T("settings.toast.brand"),
@@ -280,8 +340,10 @@ namespace Bimwright.Dwg.Plugin.Views.Settings
                 panel.Children.Add(Help(L.T("settings.toast.envOverride", ("variable", PluginSettings.EnvEnableToast))));
             }
 
-            enabled.Checked += (_, __) => { if (!_suppressToastEvents) App.SetToastEnabled(true); };
-            enabled.Unchecked += (_, __) => { if (!_suppressToastEvents) App.SetToastEnabled(false); };
+            enabled.Checked += (_, __) => { if (!_suppressToastEvents) { App.SetToastEnabled(true); SyncSnoozeCheckbox(); } };
+            enabled.Unchecked += (_, __) => { if (!_suppressToastEvents) { App.SetToastEnabled(false); SyncSnoozeCheckbox(); } };
+            snoozed.Checked += (_, __) => { if (!_suppressToastEvents) SetToastSnoozed(true); };
+            snoozed.Unchecked += (_, __) => { if (!_suppressToastEvents) SetToastSnoozed(false); };
             branding.Checked += (_, __) => SetShowBranding(true);
             branding.Unchecked += (_, __) => SetShowBranding(false);
             idle.SelectionChanged += (_, __) =>
@@ -290,7 +352,7 @@ namespace Bimwright.Dwg.Plugin.Views.Settings
                     _applyNote.Text = string.Empty;
                 SyncApply();
             };
-            return panel;
+            return new ScrollViewer { Content = panel, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
         }
 
         private UIElement BuildTools(out TextBox search, out TextBlock status, out ListView tools)
@@ -381,16 +443,20 @@ namespace Bimwright.Dwg.Plugin.Views.Settings
             _copyPort.IsEnabled = canCopy;
             _copyPort.ToolTip = canCopy ? null : L.T("settings.general.copy.disabled");
             var toastOn = App.ToastEnabled;
+            var snoozed = ToastSnooze.IsActive();
             _suppressToastEvents = true;
             try
             {
                 if (_toastEnabled.IsChecked != toastOn)
                     _toastEnabled.IsChecked = toastOn;
+                if (_toastSnoozed.IsChecked != snoozed)
+                    _toastSnoozed.IsChecked = snoozed;
             }
             finally
             {
                 _suppressToastEvents = false;
             }
+            _toastSnoozed.IsEnabled = toastOn;
             _showBranding.IsEnabled = toastOn;
             _idle.IsEnabled = toastOn;
             SyncApply();

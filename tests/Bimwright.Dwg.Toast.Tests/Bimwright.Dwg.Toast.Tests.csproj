@@ -18,6 +18,8 @@
     <Compile Include="../../src/shared/Views/Toast/ToastScrollBarStyles.cs" Link="ToastScrollBarStyles.cs" />
 
     <Compile Include="../../src/shared/Views/Toast/ActivityAggregator.cs" Link="ActivityAggregator.cs" />
+    <Compile Include="../../src/shared/Views/Toast/AgentDisplayName.cs" Link="AgentDisplayName.cs" />
+    <Compile Include="../../src/shared/Views/Toast/ToastSnooze.cs" Link="ToastSnooze.cs" />
     <Compile Include="../../src/shared/Views/Toast/McpToastWindow.cs" Link="McpToastWindow.cs" />
     <Compile Include="../../src/shared/Views/Toast/RollingToastNumber.cs" Link="RollingToastNumber.cs" />
     <Compile Include="../../src/shared/Views/Toast/McpToastManager.cs" Link="McpToastManager.cs" />

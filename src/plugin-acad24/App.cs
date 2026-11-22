@@ -150,6 +150,12 @@ namespace Bimwright.Dwg.Plugin
         [CommandMethod("MCPTOAST", CommandFlags.Session)]
         public static void McpToast()
         {
+            if (_toastEnabled && ToastSnooze.IsActive())
+            {
+                var saved = ToastNotifier != null ? ToastNotifier.ResumeFromPause() : ToastSnooze.Resume(out _);
+                WriteLine(saved ? "Toasts resumed." : L.T("toast.status.saveFailed"));
+                return;
+            }
             SetToastEnabled(!_toastEnabled);
         }
 
@@ -227,6 +233,12 @@ namespace Bimwright.Dwg.Plugin
         {
             _toastEnabled = enabled;
             var saved = PluginSettings.SaveEnableToast(enabled);
+            if (enabled && !ToastSnooze.ResumeIfPaused(out var resumeError))
+            {
+                saved = false;
+                if (!string.IsNullOrWhiteSpace(resumeError))
+                    PluginLog.Debug("Toast resume could not be saved: " + resumeError);
+            }
             WriteLine(enabled
                 ? "Toast notifications enabled (saved)."
                 : "Toast notifications disabled (saved).");

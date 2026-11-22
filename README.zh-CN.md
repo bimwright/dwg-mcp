@@ -164,9 +164,9 @@ AI agent 让“把选中的文字全部翻译成越南语”这类意图可以�
 
 ## 活动通知与 History
 
-通知默认开启，使用不抢占键盘焦点的单张卡片，显示 `dwg-mcp <年份>`、最新工具名称和 **Success · Failed · Capture** 计数。数字按里程表方式滚动；图像在固定框内居中，至少保留5秒，以 cross-fade 切换。关闭 Windows **Animation effects** 后即时更新。悬停暂停关闭；空闲时间可选10/20/30/60秒（默认20秒）。AutoCAD 最小化或有模态窗口时保留计数，恢复可用后显示。`MCPTOAST` 切换通知，`MCPSETTINGS` 设置通知及品牌标识。Branding 默认关闭，仅悬停时显示，重启后保留选择；保存失败会提示，但本次会话的选择仍生效。
+通知默认开启，使用不抢占键盘焦点的单张卡片，标题显示 `dwg-mcp <年份> · <Agent>`（例如 `dwg-mcp 2027 · Claude`；AutoCAD 进程 PID `· PID 12345` 在指针悬停于卡片时淡入，不受品牌开关影响），下方显示最新工具名称和 **Success · Failed · Capture** 计数。数字按里程表方式滚动；图像在固定框内居中，至少保留5秒，以 cross-fade 切换。关闭 Windows **Animation effects** 后即时更新。悬停保持卡片打开并展开最近结果列表及底部的 **今天暂停**（Pause for today，也在 `MCPSETTINGS` → 通知 中提供）：暂停后会在本机所有 AutoCAD 进程中隐藏所有活动通知（包括错误）直至本地午夜，卡片保留并切换为 **恢复**（Resume）以便立即撤销误触；也可在 `MCPSETTINGS` 或执行 `MCPTOAST` 提前恢复。空闲时间可选10/20/30/60秒（默认20秒）。AutoCAD 最小化或有模态窗口时保留计数，恢复可用后显示。`MCPTOAST` 切换通知（开启或处于暂停时可解除暂停）；任何开启通知的操作都会结束暂停。Branding 默认关闭，仅悬停时显示，重启后保留选择；保存失败会提示，但本次会话的选择仍生效。
 
-点击卡片主体打开／聚焦 **History** 并关闭卡片；×只关闭；点击缩略图打开 allowlist 允许的图像并关闭卡片。`MCPHISTORY` 打开同一非模态窗口。History 在内存中保留插件处理调用的最近1,000条简短结果，通知关闭时仍记录；支持搜索、Success/Failed 和 Read/Write 筛选、耗时及选中行详情。关闭卡片不清空历史，**New session** 清空列表。不新增持久日志，不保留原始输入、代码正文或 JSON 结果。尚不包含仅在服务器执行的工具通知。`enableToast`、`toastIdleSeconds`、`showBranding` 保存于 `%LOCALAPPDATA%\Bimwright\dwg-mcp\settings.json`。
+点击卡片主体打开／聚焦 **History** 并关闭卡片；×只关闭；点击缩略图打开 allowlist 允许的图像并关闭卡片。`MCPHISTORY` 打开同一非模态窗口。History 在内存中保留插件处理调用的最近1,000条简短结果，通知关闭时仍记录；支持搜索、Success/Failed 和 Read/Write 筛选、耗时及选中行详情。关闭卡片不清空历史，**New session** 清空列表。不新增持久日志，不保留原始输入、代码正文或 JSON 结果。尚不包含仅在服务器执行的工具通知。`enableToast`、`toastSnoozedDate`、`toastIdleSeconds`、`showBranding` 保存于 `%LOCALAPPDATA%\Bimwright\dwg-mcp\settings.json`。
 
 ---
 

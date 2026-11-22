@@ -118,6 +118,7 @@ namespace Bimwright.Dwg.Plugin
                 if (!string.Equals(auth, _authToken, StringComparison.Ordinal))
                     return ErrorJson(id, "unauthorized");
 
+                App.ToastNotifier?.SetAgent(request.Value<string>("client_name"));
                 cmd = (string)request["cmd"];
                 parameters = request["params"];
                 var expectedTarget = request["target"] as JObject;

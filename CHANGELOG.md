@@ -19,11 +19,19 @@
 
 ### Reports, workflows and localization
 
-- Add `dwg_report_task_result` and the `MCPREPORTS` window. Entity links can activate another drawing that is already open. Reports support clickable `dwg:` entity links for selection and zoom. The AutoCAD toast shows the host PID and can open the report. Successful write responses can include a `_report` reminder when reporting is enabled in the tool catalog.
+- Add `dwg_report_task_result` and the `MCPREPORTS` window. Entity links can activate another drawing that is already open. Reports support clickable `dwg:` entity links for selection and zoom. The AutoCAD toast can open the report. Successful write responses can include a `_report` reminder when reporting is enabled in the tool catalog.
 - Expose the MCP prompts `dwg_translate_text` and `dwg_review_large_drawing`. Translation requires review before writeback. Large-drawing review uses WCS bounds and band clustering. Read-only sessions omit writeback and image capture.
 - Check for stable releases in the background at most once per 24 hours and show an optional notice in AutoCAD. Settings can disable the notice. The notice links to release information.
 - Add opt-in SQLite history for supported committed drawing edits. `dwg_record_change` records the goal and reason, `dwg_get_change_records` queries saved records, and `dwg_survey_change_impact` inspects supplied handles for context. Reports accept optional `call_ids` and `dwg_get_report_history` reads saved provenance even with AutoCAD closed.
 - Add English, Vietnamese and Simplified Chinese catalogs for the plugin UI. English is the default. Language changes in Settings take effect after restarting AutoCAD.
+
+### Toast
+
+Update the gateway and plugins together to see the agent name; an older gateway leaves it out.
+
+- The card title names the agent of the latest call from its MCP client name: `dwg-mcp 2027 · Claude` (Claude, Codex, Cline, Cursor, Windsurf, Antigravity, Gemini, Copilot, VS Code; any other client shows its own name, cleaned and capped at 20 characters). The gateway sends the name with each call (`client_name`); it is display text only.
+- The AutoCAD process ID (`· PID 12345`) fades in when you point at the card and fades out when you leave, with or without branding. It no longer shows all the time.
+- **Pause for today**: a button at the foot of the expanded card, and a switch in `MCPSETTINGS` → Toast, hide every card (errors included) in every AutoCAD on this computer until local midnight. Pressed on the card, the card stays open and the button turns into **Resume**, so a mis-click is undone at once. The choice is saved as the local date in `toastSnoozedDate`. Turn the switch off, or run `MCPTOAST`, to show cards again now; turning toasts on from `MCPTOAST` or Settings also ends the pause. While paused (or disabled), `dwg_report_task_result` returns `toast: "disabled"` (otherwise `"shown"`).
 
 ### Large drawings and open documents
 

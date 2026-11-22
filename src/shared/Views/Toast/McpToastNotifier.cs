@@ -21,8 +21,11 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
         {
             _host = host ?? throw new ArgumentNullException(nameof(host));
             _activity = host.Aggregator;
-            _isEnabled = isEnabled ?? throw new ArgumentNullException(nameof(isEnabled));
+            if (isEnabled == null) throw new ArgumentNullException(nameof(isEnabled));
+            // "Pause for today" silences every card, errors included, until local midnight.
+            _isEnabled = () => isEnabled() && !ToastSnooze.IsActive();
             _host.SetFrameUsableProvider(IsOwnerFrameUsable);
+            _host.SetPauseHandlers(ToastSnooze.IsActive, SetPausedFromCard);
         }
 
         public void SetOwnerHandle(IntPtr hwnd)
@@ -47,6 +50,44 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
 
         /// <summary>Card title, for example "dwg-mcp 2024". Applies to the next card.</summary>
         public void SetInstanceInfo(string info) => _host.SetInstanceIdentity(info);
+
+        /// <summary>
+        /// Agent of the MCP call about to run, from the gateway's clientInfo.name ("claude-code" -> "Claude").
+        /// A gateway that sends no name clears it, so the title never shows a stale agent.
+        /// </summary>
+        public void SetAgent(string clientName) => _host.SetAgentName(AgentDisplayName.For(clientName));
+
+        /// <summary>
+        /// Settings' "Pause for today": saved for every AutoCAD on this machine; the open card closes now.
+        /// </summary>
+        public bool PauseForToday()
+        {
+            var saved = ToastSnooze.PauseForToday(out var error);
+            if (!saved) PluginLog.Debug("Toast pause could not be saved: " + error);
+            if (_activity.Reset())
+                _host.Post(manager => manager.Render());
+            return saved;
+        }
+
+        /// <summary>
+        /// The expanded card's Pause / Resume: saved for every AutoCAD on this machine. The open card stays, so a
+        /// mis-click can be undone with Resume; while paused, new results do not reach it. Returns the resulting state.
+        /// </summary>
+        private bool SetPausedFromCard(bool paused)
+        {
+            var saved = paused ? ToastSnooze.PauseForToday(out var error) : ToastSnooze.Resume(out error);
+            if (!saved) PluginLog.Debug("Toast pause could not be saved: " + error);
+            return ToastSnooze.IsActive();
+        }
+
+        /// <summary>Ends a pause early (Settings, or MCPTOAST while paused).</summary>
+        public bool ResumeFromPause()
+        {
+            var saved = ToastSnooze.Resume(out var error);
+            if (!saved) PluginLog.Debug("Toast resume could not be saved: " + error);
+            OnToastEnabledChanged(true, saved);
+            return saved;
+        }
 
         public void SetHostDispatcher(System.Windows.Threading.Dispatcher dispatcher) =>
             _host.SetHostDispatcher(dispatcher);

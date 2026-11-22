@@ -10,6 +10,7 @@ namespace Bimwright.Dwg.Server
         [JsonProperty("auth")] public string Auth { get; set; }
         [JsonProperty("target", NullValueHandling = NullValueHandling.Ignore)] public Newtonsoft.Json.Linq.JObject Target { get; set; }
         [JsonProperty("change_capture_version", NullValueHandling = NullValueHandling.Ignore)] public int? ChangeCaptureVersion { get; set; }
+        [JsonProperty("client_name", NullValueHandling = NullValueHandling.Ignore)] public string ClientName { get; set; }
     }
 
     public class McpResponse
