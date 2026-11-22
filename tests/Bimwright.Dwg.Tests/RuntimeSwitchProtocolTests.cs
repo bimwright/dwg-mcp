@@ -19,18 +19,18 @@ namespace Bimwright.Dwg.Tests
     public class RuntimeSwitchProtocolTests
     {
         [Theory]
-        [InlineData("", 45, true, true)]
-        [InlineData("--disable-send-code", 44, false, true)]
-        [InlineData("--read-only --enable-send-code", 17, false, false)]
-        [InlineData("--toolsets all", 69, true, true)]
-        [InlineData("--toolsets all --disable-send-code", 68, false, true)]
-        [InlineData("--toolsets all --read-only --enable-send-code", 23, false, false)]
-        [InlineData("--toolsets all --disable-toolbaker", 63, true, true)]
-        [InlineData("--toolsets query", 11, false, false)]
-        [InlineData("--toolsets meta", 8, true, true)]
+        [InlineData("", 54, true, true)]
+        [InlineData("--disable-send-code", 53, false, true)]
+        [InlineData("--read-only --enable-send-code", 23, false, false)]
+        [InlineData("--toolsets all", 78, true, true)]
+        [InlineData("--toolsets all --disable-send-code", 77, false, true)]
+        [InlineData("--toolsets all --read-only --enable-send-code", 29, false, false)]
+        [InlineData("--toolsets all --disable-toolbaker", 72, true, true)]
+        [InlineData("--toolsets query", 12, false, false)]
+        [InlineData("--toolsets meta", 15, true, true)]
         [InlineData("--toolsets code", 2, true, true)]
-        [InlineData("--toolsets meta,code", 8, true, true)]
-        [InlineData("--toolsets meta --disable-send-code", 7, false, true)]
+        [InlineData("--toolsets meta,code", 15, true, true)]
+        [InlineData("--toolsets meta --disable-send-code", 14, false, true)]
         [InlineData("--toolsets code --disable-send-code", 1, false, true)]
         [InlineData("--toolsets view --read-only", 3, false, false)]
         [InlineData("--toolsets block --read-only", 2, false, false)]
@@ -76,6 +76,9 @@ namespace Bimwright.Dwg.Tests
                 Assert.Equal(count, names.Length);
                 Assert.Equal(code, names.Contains("dwg_send_code"));
                 Assert.Equal(lisp, names.Contains("dwg_run_lisp"));
+                var instructions = initialize["result"].Value<string>("instructions");
+                Assert.Equal(names.Contains("dwg_report_task_result"),
+                    instructions.Contains(ServerInstructions.Reporting, StringComparison.Ordinal));
                 var config = DwgMcpConfig.Load(flags.Split(' ', StringSplitOptions.RemoveEmptyEntries),
                     Path.Combine(root, "absent-config.json"), _ => null);
                 var previousConfig = ServerState.Config;
@@ -107,7 +110,7 @@ namespace Bimwright.Dwg.Tests
                     }
                     foreach (var hint in new[] { "readOnlyHint", "destructiveHint", "idempotentHint", "openWorldHint" })
                         Assert.Equal(JTokenType.Boolean, tool["annotations"]?[hint]?.Type);
-                    Assert.Equal(tool.Value<string>("name") is "dwg_health" or "dwg_apply_unicode_style",
+                    Assert.Equal(tool.Value<string>("name") is "dwg_health" or "dwg_apply_unicode_style" or "dwg_attach_image",
                         tool["annotations"].Value<bool>("openWorldHint"));
                 }
                 if (flags.Contains("--read-only"))
@@ -124,7 +127,7 @@ namespace Bimwright.Dwg.Tests
                     Assert.Equal(readNames, names.OrderBy(name => name).ToArray());
                     Assert.All((JArray)listed["result"]["tools"], tool => Assert.True(tool["annotations"].Value<bool>("readOnlyHint")));
                     foreach (var blockedTool in new[] { "dwg_capture_view_image", "dwg_inspect_view_region", "dwg_restore_view",
-                        "dwg_batch_execute", "dwg_run_baked_tool", "dwg_send_code", "dwg_open_drawing", "dwg_switch_target" })
+                        "dwg_batch_execute", "dwg_run_baked_tool", "dwg_send_code", "dwg_open_drawing", "dwg_activate_document", "dwg_switch_target" })
                     {
                         await process.StandardInput.WriteLineAsync(JsonConvert.SerializeObject(new
                         { jsonrpc = "2.0", id = 10, method = "tools/call", @params = new { name = blockedTool, arguments = new { } } }));

@@ -276,6 +276,174 @@ public sealed class DrawingProfileHandlerTests : IDisposable
         Assert.Equal(0, fixture.Database.TransactionManager.NumberOfActiveTransactions);
     }
 
+    [Fact]
+    public void Block_usage_counts_direct_nested_and_dynamic_references_and_profiles_only_unused_definitions()
+    {
+        var fixture = new Fixture(18, 3);
+        var definition = fixture.Definitions[0];
+        definition.IsDynamicBlock = true;
+        var variant = fixture.AddBlock(new BlockTableRecord { Name = "*U1", IsAnonymous = true });
+        definition.ProfileAnonymousIds.Add(variant.ObjectId);
+        var variantInsert = fixture.AddReference(fixture.Spaces[2], variant);
+        definition.ProfileReferenceIds.Add(variantInsert); // A reference returned by both records still counts once.
+        fixture.AddReference(fixture.Spaces[0], variant, erased: true);
+        var nestedOnly = fixture.AddBlock(new BlockTableRecord { Name = "NestedOnly" });
+        fixture.AddReference(fixture.Definitions[3], nestedOnly);
+        definition.ProfileEntities.Add(fixture.Database.ProfileAdd(new AttributeDefinition()));
+        var unknown = fixture.AddBlock(new BlockTableRecord { Name = "UnknownBlock", ProfileReferenceFailure = new InvalidOperationException() });
+        var dependent = fixture.AddBlock(new BlockTableRecord { Name = "XREF|Detail", IsDependent = true });
+
+        var listed = new ListBlocksHandler().Execute(fixture.Document, new JObject());
+        Assert.True(listed.Ok, listed.Error);
+        var rows = JObject.FromObject(listed.Result)["blocks"].ToDictionary(row => row.Value<string>("name"));
+        Assert.Equal(2, rows[definition.Name].Value<int>("reference_count"));
+        Assert.Equal(3, rows[definition.Name].Value<int>("nested_reference_count"));
+        Assert.Equal(1, rows[definition.Name].Value<int>("entity_count"));
+        Assert.Equal(1, rows[definition.Name].Value<int>("attribute_definition_count"));
+        Assert.Equal(0, rows[nestedOnly.Name].Value<int>("reference_count"));
+        Assert.Equal(1, rows[nestedOnly.Name].Value<int>("nested_reference_count"));
+        Assert.False(rows[nestedOnly.Name].Value<bool>("unused"));
+        Assert.True(rows["UnusedBlock"].Value<bool>("unused"));
+        Assert.Equal(JTokenType.Null, rows[unknown.Name]["unused"].Type);
+        Assert.Equal(JTokenType.Null, rows[dependent.Name]["unused"].Type);
+        Assert.DoesNotContain(variant.Name, rows.Keys);
+
+        var unused = Inspect(fixture)["unused_blocks"];
+        Assert.Equal("UnusedBlock", Assert.Single(unused["rows"]).Value<string>("name"));
+        Assert.False(unused.Value<bool>("counts_complete"));
+        Assert.Equal(JTokenType.Null, unused["total_groups"].Type);
+    }
+
+    [Theory]
+    [InlineData(4096)]
+    [InlineData(8192)]
+    [InlineData(16384)]
+    public void Unused_blocks_continue_at_the_delivered_offset_under_the_profile_byte_cap(int cap)
+    {
+        var fixture = new Fixture(0, 1);
+        for (var i = 0; i < 140; i++)
+            fixture.AddBlock(new BlockTableRecord { Name = "Unreferenced_" + i.ToString("D3") + new string('x', 65) });
+
+        var first = Format(Execute(fixture, new JObject { ["section"] = "unused_blocks", ["max_output_bytes"] = cap }), cap);
+        Assert.True(FinalBytes(first) <= cap);
+        var page = DeliveredProfile(first);
+        var rows = (JArray)page["unused_blocks"]["rows"];
+        Assert.NotEmpty(rows);
+        var next = Assert.Single(page["output"]["next_calls"].Select(call => (JObject)call["arguments"])
+            .Where(arguments => arguments.Value<string>("section") == "unused_blocks"));
+        Assert.Equal(rows.Count, next.Value<int>("offset"));
+        var second = Format(Execute(fixture, next), cap);
+        Assert.True(FinalBytes(second) <= cap);
+        var secondPage = DeliveredProfile(second);
+        Assert.Equal(page.Value<string>("snapshot"), secondPage.Value<string>("snapshot"));
+        Assert.True(string.CompareOrdinal(rows.Last.Value<string>("name"), secondPage["unused_blocks"]["rows"].First.Value<string>("name")) < 0);
+        Assert.Null(((JObject)Execute(fixture, new JObject { ["space"] = "model" }).Result)["unused_blocks"]);
+    }
+
+    [Theory]
+    [InlineData(4096)]
+    [InlineData(8192)]
+    [InlineData(16384)]
+    public void Text_stats_are_opt_in_scoped_and_bounded_without_losing_counts(int cap)
+    {
+        var fixture = new Fixture(0, 1);
+        var model = fixture.Spaces[0];
+        void Add(BlockTableRecord owner, Entity entity, bool erased = false)
+        {
+            entity.Layer = "TEXT";
+            owner.ProfileEntities.Add(fixture.Database.ProfileAdd(entity, erased));
+        }
+
+        Add(model, new DBText { Height = 1, TextString = new string('x', 119) + "😀 tail" });
+        var multiline = Enumerable.Range(0, 10).Select(_ => new MText
+        {
+            TextHeight = 10000, Text = new string('界', 120), Contents = "formatted contents"
+        }).ToArray();
+        foreach (var entity in multiline) Add(model, entity);
+        Add(model, new DBText { Height = double.NaN, TextString = "invalid height" });
+        Add(model, new DBText { Height = 3, TextString = "erased" }, erased: true);
+        Add(model, new AttributeDefinition { Height = 3, TextString = "attribute" });
+        Add(fixture.Spaces[1], new MText { TextHeight = 2, Text = "paper space" });
+        Add(fixture.Definitions[0], new DBText { Height = 2, TextString = "nested definition" });
+
+        Assert.Null(Inspect(fixture)["text_stats"]);
+        Assert.All(multiline, entity => Assert.Equal(0, entity.ProfilePlainTextReads));
+
+        var command = Execute(fixture, new JObject { ["space"] = "model", ["include_text_stats"] = true });
+        Assert.True(command.Ok, command.Error);
+        var stats = ((JObject)command.Result)["text_stats"];
+        Assert.Equal(2, stats.Value<int>("dbtext_count"));
+        Assert.Equal(10, stats.Value<int>("mtext_count"));
+        var heights = stats["height_histogram"];
+        Assert.Equal(1, heights.Value<int>("unknown_count"));
+        var bins = (JArray)heights["bins"];
+        Assert.Equal(20, bins.Count);
+        Assert.Equal(1, bins.Single(bin => bin[0].Value<double>() == 1)[2].Value<int>());
+        Assert.Equal(10, bins.Last[2].Value<int>());
+        Assert.Equal(JTokenType.Null, bins.Last[1].Type);
+        var samples = (JArray)stats["samples"];
+        Assert.Equal(8, samples.Count);
+        Assert.Equal(new string('x', 119), samples[0].Value<string>("text"));
+        Assert.True(samples[0].Value<bool>("truncated"));
+        Assert.Equal(new string('界', 120), samples[1].Value<string>("text"));
+        Assert.Equal(7, multiline.Sum(entity => entity.ProfilePlainTextReads));
+
+        var bounded = Format(command, cap);
+        Assert.True(FinalBytes(bounded) <= cap);
+        var boundedProfile = DeliveredProfile(bounded);
+        var delivered = boundedProfile["text_stats"];
+        Assert.Equal(10, delivered.Value<int>("mtext_count"));
+        Assert.Equal(20, ((JArray)delivered["height_histogram"]["bins"]).Count);
+        var omitted = 8 - ((JArray)delivered["samples"]).Count;
+        Assert.Equal(omitted, delivered.Value<int>("samples_omitted_for_budget"));
+        if (omitted > 0) Assert.False(boundedProfile["output"].Value<bool>("complete"));
+        Assert.NotEmpty(boundedProfile["output"].Value<string>("note"));
+        var refitted = DrawingProfileResponse.Fit(bounded, cap);
+        Assert.True(FinalBytes(refitted) <= cap);
+        Assert.True(JToken.DeepEquals(boundedProfile, DeliveredProfile(refitted)));
+    }
+
+    [Fact]
+    public void List_layers_counts_match_profile_and_incomplete_reads_do_not_claim_zeros()
+    {
+        var fixture = new Fixture(18, 3);
+        var layerTable = new LayerTable();
+        fixture.Database.LayerTableId = fixture.Database.ProfileAdd(layerTable);
+        foreach (var name in fixture.ExpectedLayers.Keys.Append("Empty"))
+        {
+            var id = fixture.Database.ProfileAdd(new LayerTableRecord { Name = name });
+            layerTable.ProfileRecords.Add(id);
+            layerTable.ProfileNames.Add(name, id);
+        }
+        fixture.EntityIds[0].Slot.Erased = true;
+
+        JObject List(bool includeCounts)
+        {
+            var result = new ListLayersHandler().Execute(fixture.Document, new JObject { ["include_counts"] = includeCounts });
+            Assert.True(result.Ok, result.Error);
+            return JObject.FromObject(result.Result);
+        }
+
+        var legacy = List(false);
+        Assert.Null(legacy["counts_complete"]);
+        Assert.All(legacy["layers"], row => Assert.Null(row["entity_count"]));
+        Assert.Equal(0, fixture.Blocks.ProfileEnumerationStarts);
+
+        var counted = List(true);
+        Assert.True(counted.Value<bool>("counts_complete"));
+        Assert.Equal("model_and_layout_top_level", counted.Value<string>("count_scope"));
+        var counts = counted["layers"].ToDictionary(row => row.Value<string>("name"), row => row.Value<long>("entity_count"));
+        Assert.Equal(0, counts["Empty"]);
+        Assert.Equal(17, counts.Values.Sum());
+        Assert.Equal(Histogram(Inspect(fixture), "layers").ToArray(), counts.Where(pair => pair.Value > 0).OrderBy(pair => pair.Key, StringComparer.Ordinal).ToArray());
+
+        fixture.EntityIds[1].Slot.OpenFailure = new InvalidOperationException("simulated read failure");
+        var partial = List(true);
+        Assert.False(partial.Value<bool>("counts_complete"));
+        Assert.All(partial["layers"], row => Assert.Equal(JTokenType.Null, row["entity_count"].Type));
+        Assert.Equal(16, partial["layers"].Sum(row => row.Value<long>("observed_entity_count")));
+    }
+
     private static CommandResult Execute(Fixture fixture, JObject parameters = null)
         => new DrawingProfileHandler().Execute(fixture.Document, parameters ?? new JObject());
 
@@ -286,15 +454,21 @@ public sealed class DrawingProfileHandlerTests : IDisposable
         return Assert.IsType<JObject>(command.Result);
     }
 
-    private static CallToolResult Format(CommandResult command)
+    private static CallToolResult Format(CommandResult command, int cap = 16384)
         => DrawingProfileResponse.FromJson(JsonConvert.SerializeObject(new McpResponse
-        { Id = "simulated-profile", Ok = command.Ok, Result = command.Result, Error = command.Error }), 16384);
+        { Id = "simulated-profile", Ok = command.Ok, Result = command.Result, Error = command.Error }), cap);
 
     private static int FinalBytes(CallToolResult result)
         => System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(result, McpJsonUtilities.DefaultOptions).Length;
 
     private static JObject DeliveredProfile(CallToolResult result)
-        => (JObject)JObject.Parse(Assert.Single(result.Content.OfType<TextContentBlock>()).Text)["result"];
+    {
+        var text = Assert.Single(result.Content.OfType<TextContentBlock>()).Text;
+        var body = JObject.Parse(text);
+        Assert.True(body.Value<bool>("ok"), text);
+        Assert.False(result.IsError == true, text);
+        return Assert.IsType<JObject>(body["result"]);
+    }
 
     private static IEnumerable<JToken> Rows(JObject profile, string section) => profile["histograms"][section]["rows"];
 
@@ -344,6 +518,21 @@ public sealed class DrawingProfileHandlerTests : IDisposable
         internal SortedDictionary<string, long> ExpectedLayers { get; } = new(StringComparer.Ordinal);
         internal int DatabaseEvents;
 
+        internal BlockTableRecord AddBlock(BlockTableRecord record)
+        {
+            var id = Database.ProfileAdd(record);
+            Blocks.ProfileRecords.Add(id); Blocks.ProfileNames.Add(record.Name, id);
+            return record;
+        }
+
+        internal ObjectId AddReference(BlockTableRecord owner, BlockTableRecord definition, bool erased = false)
+        {
+            var id = Database.ProfileAdd(new BlockReference { OwnerId = owner.ObjectId, BlockTableRecord = definition.ObjectId, Layer = "INSERTS" }, erased);
+            owner.ProfileEntities.Add(id);
+            definition.ProfileReferenceIds.Add(id);
+            return id;
+        }
+
         internal Fixture(int entityCount, int layerCount, bool longLayerNames = false)
         {
             Database.BlockTableId = Database.ProfileAdd(Blocks);
@@ -362,17 +551,13 @@ public sealed class DrawingProfileHandlerTests : IDisposable
                 new BlockTableRecord { Name = "OverlayXref", IsFromOverlayReference = true },
                 new BlockTableRecord { Name = "UnusedBlock" }
             };
-            foreach (var record in Spaces.Concat(Definitions))
-            {
-                var id = Database.ProfileAdd(record);
-                Blocks.ProfileRecords.Add(id); Blocks.ProfileNames.Add(record.Name, id);
-            }
+            foreach (var record in Spaces.Concat(Definitions)) AddBlock(record);
             foreach (var record in Definitions)
             {
                 var line = Database.ProfileAdd(new Line { Layer = "INSIDE_DEFINITION_NOT_COUNTED" });
-                var nested = Database.ProfileAdd(new BlockReference { Layer = "NESTED_INSERT_NOT_COUNTED", BlockTableRecord = Definitions[0].ObjectId });
-                record.ProfileEntities.Add(line); record.ProfileEntities.Add(nested);
-                DefinitionEntityIds.Add(line); DefinitionEntityIds.Add(nested);
+                record.ProfileEntities.Add(line);
+                DefinitionEntityIds.Add(line);
+                if (record != Definitions[0]) DefinitionEntityIds.Add(AddReference(record, Definitions[0]));
             }
             var typeNames = new[] { typeof(Line).FullName, typeof(Circle).FullName, typeof(DBText).FullName, typeof(BlockReference).FullName, typeof(ProxyEntity).FullName };
             EntityIds = new ObjectId[entityCount];
@@ -388,7 +573,11 @@ public sealed class DrawingProfileHandlerTests : IDisposable
                 };
                 entity.Layer = layer;
                 var id = Database.ProfileAdd(entity); EntityIds[i] = id;
-                Spaces[i % 3].ProfileEntities.Add(id);
+                var owner = Spaces[i % 3];
+                owner.ProfileEntities.Add(id);
+                entity.OwnerId = owner.ObjectId;
+                if (entity is BlockReference reference)
+                    Definitions[(i / 5) % 3].ProfileReferenceIds.Add(id);
                 var type = typeNames[i % 5];
                 ExpectedTypes.TryGetValue(type, out var typeCount); ExpectedTypes[type] = typeCount + 1;
                 ExpectedLayers.TryGetValue(layer, out var layerEntities); ExpectedLayers[layer] = layerEntities + 1;

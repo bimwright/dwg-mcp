@@ -15,6 +15,7 @@ namespace Bimwright.Dwg.Tests
     {
         private static readonly string[] QueryToolsInClass =
         {
+            "dwg_cluster_bands",
             "dwg_count_entities",
             "dwg_get_drawing_info",
             "dwg_get_drawing_profile",
@@ -38,6 +39,24 @@ namespace Bimwright.Dwg.Tests
                 .ToArray();
 
             Assert.Equal(QueryToolsInClass, declared);
+        }
+
+        [Fact]
+        public async Task Cluster_bands_forwards_scope_filters_and_cursor()
+        {
+            var sent = await Capture.Send(() => QueryTools.ClusterBands("x", 2, "{\"min\":[0,0,0],\"max\":[1,1,1]}",
+                "layout:A", "[\"Line\",\"TEXT\"]", true, "cursor", 3, 4096));
+            var request = sent.Json();
+            Assert.Equal("cluster_bands", sent.Command);
+            Assert.Equal("x", request.Value<string>("axis"));
+            Assert.Equal(2, request.Value<double>("gap"));
+            Assert.Equal("layout:A", request.Value<string>("space"));
+            Assert.Equal(new[] { "Line", "TEXT" }, request["types"].Values<string>());
+            Assert.Equal(new[] { 0, 0, 0 }, request["bbox"]["min"].Values<int>());
+            Assert.True(request.Value<bool>("sample_texts"));
+            Assert.Equal("cursor", request.Value<string>("cursor"));
+            Assert.Equal(3, request.Value<int>("limit"));
+            Assert.Equal(4096, request.Value<int>("max_output_bytes"));
         }
 
         [Fact]
@@ -67,6 +86,15 @@ namespace Bimwright.Dwg.Tests
             Assert.Equal(JObject.Parse("{\"section\":\"layers\",\"offset\":40,\"max_output_bytes\":8192,\"expected_snapshot\":\"snapshot:12\"}"), sent.Json());
         }
 
+        [Fact]
+        public async Task Drawing_profile_forwards_opt_in_text_stats()
+        {
+            var sent = await Capture.Send(() => ProfileText(QueryTools.GetDrawingProfile(space: "model", include_text_stats: true)),
+                result: new JObject { ["scope"] = new JObject { ["requested_space"] = "model" }, ["text_stats"] = new JObject() });
+            Assert.True(sent.Json().Value<bool>("include_text_stats"));
+            Assert.Equal("model", sent.Json().Value<string>("space"));
+        }
+
         [Theory]
         [InlineData("all", 0, 16384, null)]
         [InlineData("summary", 1, 16384, "snapshot:12")]
@@ -88,6 +116,15 @@ namespace Bimwright.Dwg.Tests
 
             Assert.Equal("list_layers", sent.Command);
             Assert.Empty(sent.Json().Properties());
+        }
+
+        [Fact]
+        public async Task List_layers_forwards_opt_in_counts()
+        {
+            var sent = await Capture.Send(() => QueryTools.ListLayers(include_counts: true),
+                result: new JObject { ["counts_complete"] = true });
+            Assert.Equal("list_layers", sent.Command);
+            Assert.True(sent.Json().Value<bool>("include_counts"));
         }
 
         [Fact]

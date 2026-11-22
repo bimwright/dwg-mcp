@@ -160,6 +160,9 @@ namespace Bimwright.Dwg.Plugin
             SchemaProperty.Optional("read_only", JTokenType.Boolean),
             SchemaProperty.Optional("timeout_seconds", JTokenType.Integer));
 
+        public static readonly CommandSchema ActivateDocument = CommandSchema.Object(
+            SchemaProperty.RequiredNonEmptyString("document_id"));
+
         public static readonly CommandSchema GetDrawingInfo = CommandSchema.Empty;
 
         public static readonly CommandSchema GetDrawingProfile = CommandSchema.Object(
@@ -167,13 +170,15 @@ namespace Bimwright.Dwg.Plugin
             SchemaProperty.Optional("offset", JTokenType.Integer),
             SchemaProperty.Optional("max_output_bytes", JTokenType.Integer),
             SchemaProperty.Optional("expected_snapshot", JTokenType.String),
-            SchemaProperty.Optional("space", JTokenType.String));
+            SchemaProperty.Optional("space", JTokenType.String),
+            SchemaProperty.Optional("include_text_stats", JTokenType.Boolean));
 
         public static readonly CommandSchema GetEntityProperties = CommandSchema.Object(
             SchemaProperty.Required("handles", JTokenType.Array),
             SchemaProperty.Optional("include_geometry", JTokenType.Boolean));
 
-        public static readonly CommandSchema ListLayers = CommandSchema.Empty;
+        public static readonly CommandSchema ListLayers = CommandSchema.Object(
+            SchemaProperty.Optional("include_counts", JTokenType.Boolean));
 
         public static readonly CommandSchema QueryEntities = CommandSchema.Object(
             SchemaProperty.Optional("entity_type", JTokenType.String),
@@ -187,6 +192,17 @@ namespace Bimwright.Dwg.Plugin
             SchemaProperty.Optional("space", JTokenType.String),
             SchemaProperty.Optional("fields", JTokenType.Array),
             SchemaProperty.Optional("cursor", JTokenType.String),
+            SchemaProperty.Optional("max_output_bytes", JTokenType.Integer));
+
+        public static readonly CommandSchema ClusterBands = CommandSchema.Object(
+            SchemaProperty.RequiredNonEmptyString("axis"),
+            SchemaProperty.Required("gap", JTokenType.Integer, JTokenType.Float),
+            SchemaProperty.Optional("bbox", JTokenType.Object),
+            SchemaProperty.Optional("space", JTokenType.String),
+            SchemaProperty.Optional("types", JTokenType.Array),
+            SchemaProperty.Optional("sample_texts", JTokenType.Boolean),
+            SchemaProperty.Optional("cursor", JTokenType.String),
+            SchemaProperty.Optional("limit", JTokenType.Integer),
             SchemaProperty.Optional("max_output_bytes", JTokenType.Integer));
 
         public static readonly CommandSchema CountEntities = CommandSchema.Object(
@@ -224,6 +240,15 @@ namespace Bimwright.Dwg.Plugin
             SchemaProperty.Required("radius", JTokenType.Float, JTokenType.Integer),
             SchemaProperty.Optional("layer", JTokenType.String),
             SchemaProperty.Optional("color_index", JTokenType.Integer));
+
+        public static readonly CommandSchema AttachImage = CommandSchema.Object(
+            SchemaProperty.Required("path", JTokenType.String),
+            SchemaProperty.Required("insertion", JTokenType.Object),
+            SchemaProperty.Required("width", JTokenType.Float, JTokenType.Integer),
+            SchemaProperty.Optional("height", JTokenType.Float, JTokenType.Integer),
+            SchemaProperty.Optional("rotation_degrees", JTokenType.Float, JTokenType.Integer),
+            SchemaProperty.Optional("layer", JTokenType.String),
+            SchemaProperty.Optional("send_to_back", JTokenType.Boolean));
 
         public static readonly CommandSchema CreatePoint = CommandSchema.Object(
             SchemaProperty.Required("point", JTokenType.Object),
@@ -389,7 +414,16 @@ namespace Bimwright.Dwg.Plugin
             SchemaProperty.Required("code", JTokenType.String),
             SchemaProperty.Optional("script_inputs_version", JTokenType.Integer),
             SchemaProperty.Optional("data_json", JTokenType.String),
-            SchemaProperty.Optional("compile_only", JTokenType.Boolean));
+            SchemaProperty.Optional("compile_only", JTokenType.Boolean),
+            SchemaProperty.Optional("result_contract", JTokenType.String));
+
+        public static readonly CommandSchema ReportTaskResult = CommandSchema.Object(
+            SchemaProperty.Required("task_id", JTokenType.String),
+            SchemaProperty.Required("outcome", JTokenType.String),
+            SchemaProperty.Required("summary", JTokenType.String),
+            SchemaProperty.Optional("body", JTokenType.String),
+            SchemaProperty.Optional("client_session", JTokenType.String),
+            SchemaProperty.Optional("changes", JTokenType.Object));
 
         public static readonly CommandSchema RunLisp = CommandSchema.Object(
             SchemaProperty.Optional("file", JTokenType.String),
@@ -409,7 +443,8 @@ namespace Bimwright.Dwg.Plugin
             SchemaProperty.Optional("final_scale", JTokenType.Float, JTokenType.Integer));
 
         public static readonly CommandSchema BatchExecute = CommandSchema.Object(
-            SchemaProperty.Required("commands", JTokenType.Array));
+            SchemaProperty.Required("commands", JTokenType.Array),
+            SchemaProperty.Optional("atomic", JTokenType.Boolean));
 
         public static readonly CommandSchema RunBakedTool = CommandSchema.Object(
             SchemaProperty.Required("name", JTokenType.String),

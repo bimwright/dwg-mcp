@@ -90,7 +90,7 @@ namespace Bimwright.Dwg.Plugin.Handlers
 
             if (token.Type != JTokenType.String)
             {
-                handle = token.ToString(Newtonsoft.Json.Formatting.None);
+                handle = token.ToString(Newtonsoft.Json.Formatting.None, Array.Empty<Newtonsoft.Json.JsonConverter>());
                 error = "handle must be a string";
                 return false;
             }

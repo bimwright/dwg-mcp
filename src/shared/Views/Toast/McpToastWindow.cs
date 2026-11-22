@@ -38,12 +38,31 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
         private const int DetailsLeaveDelayMs = 120;
         private const int DetailsOpenMs = 260;
         private const int DetailsCloseMs = 220;
+        // Height the expansion adds: the recent-results panel, plus the pause row when it is shown.
+        private const double DetailsExpansionHeight = 157;
+        private const double SnoozeRowHeight = 24;
         private const int GwlExStyle = -20;
         private const long WsExNoActivate = 0x08000000L;
         private const long WsExToolWindow = 0x00000080L;
 
         private readonly TextBlock _iconText;
         private readonly TextBlock _titleText;
+        // Title = identity ("dwg-mcp 2027 · Claude") + PID. The PID is always laid out, so revealing it never moves
+        // the card; its brush fades in on a deliberate hover.
+        private readonly Run _titleIdentityRun = new Run();
+        private readonly Run _titlePidRun;
+        private readonly SolidColorBrush _pidBrush;
+        private DispatcherTimer _pidRevealTimer;
+        private bool _pidShown;
+        private readonly DockPanel _detailsBody;
+        private readonly Border _snoozeButton;
+        // Pause toggles in place: the card stays open and the button offers Resume, so a mis-click is undone at once.
+        private readonly Func<bool> _isPaused;
+        private readonly Func<bool, bool> _setPaused;
+        private readonly Run _pauseIcon = new Run();
+        private readonly Run _pauseText = new Run();
+        private bool _pauseShown;
+        private MouseButtonEventHandler _snoozeUpHandler;
         private readonly TextBlock _toolText;
         private readonly TextBlock _bodyText;
         private readonly Viewbox _counterRow;
@@ -57,7 +76,6 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
         private readonly TextBlock _brandShine;
         private readonly Grid _brandRow;
         private readonly Grid _brandCell;
-        private readonly string _instanceIdentity;
         private readonly Border _detailsRow;
         private readonly ToastActivityPanel _detailsPanel;
         private readonly TranslateTransform _detailsShift = new TranslateTransform(0, -6);
@@ -144,9 +162,16 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
             Action<long> onPointerLeft,
             Func<Point> cursorPosition = null,
             Func<bool> motionEnabled = null,
-            string instanceIdentity = null)
+            string instanceIdentity = null,
+            Func<bool> isPaused = null,
+            Func<bool, bool> setPaused = null)
         {
             if (snapshot == null) throw new ArgumentNullException(nameof(snapshot));
+            _titlePidRun = new Run(" · PID " + OwnPid);
+            _pidBrush = new SolidColorBrush(McpToastTheme.Text.Color) { Opacity = 0 };
+            _titlePidRun.Foreground = _pidBrush;
+            _isPaused = isPaused;
+            _setPaused = setPaused;
             ViewModel = ToViewModel(snapshot);
             _cardId = snapshot.CardId;
             _activityClosed = onClosed;
@@ -156,7 +181,6 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
             _activityPointerLeft = onPointerLeft;
             _cursorPosition = cursorPosition ?? ReadCursorPosition;
             _motionEnabled = motionEnabled ?? (() => SystemParameters.ClientAreaAnimation);
-            _instanceIdentity = instanceIdentity;
 
             FontFamily = McpToastTheme.UiFont;
 
@@ -198,7 +222,7 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
             };
 
             var content = new Grid { Margin = new Thickness(10, 10, 12, 10) };
-            // Title (product + AutoCAD year), then the latest tool or status title.
+            // Title (product + AutoCAD year + agent, PID on hover), then the latest tool or status title.
             content.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             content.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             // Status summary and activity counters share one fixed-height body row.
@@ -255,13 +279,16 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
 
             _titleText = new TextBlock
             {
-                Text = IdentityTitle,
                 FontWeight = FontWeights.SemiBold,
                 FontSize = 13,
                 Foreground = McpToastTheme.Text,
-                TextWrapping = TextWrapping.Wrap,
+                TextWrapping = TextWrapping.NoWrap,
+                TextTrimming = TextTrimming.CharacterEllipsis,
                 VerticalAlignment = VerticalAlignment.Center
             };
+            _titleText.Inlines.Add(_titleIdentityRun);
+            _titleText.Inlines.Add(_titlePidRun);
+            SetIdentityTitle(instanceIdentity);
             header.Children.Add(_titleText);
 
             Grid.SetRow(header, 0);
@@ -319,10 +346,17 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
             {
                 Opacity = 0, RenderTransform = _detailsShift
             };
+            _snoozeButton = CreateSnoozeButton();
+            // DockPanel, not StackPanel: the panel keeps the row's finite height as its constraint, so the explicit
+            // re-measure on each reveal sees its new entries.
+            _detailsBody = new DockPanel { LastChildFill = true };
+            DockPanel.SetDock(_snoozeButton, Dock.Bottom);
+            _detailsBody.Children.Add(_snoozeButton);
+            _detailsBody.Children.Add(_detailsPanel);
             _detailsRow = new Border
             {
                 Height = 0, ClipToBounds = true, Visibility = Visibility.Collapsed,
-                Child = _detailsPanel, Cursor = Cursors.Arrow
+                Child = _detailsBody, Cursor = Cursors.Arrow
             };
             // Reading/scrolling the preview must not invoke the card's dismiss action.
             _detailsUpHandler = (_, e) => e.Handled = true;
@@ -428,6 +462,7 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
                 {
                     _brandPointerMoved = true;
                     ScheduleBrandReveal();
+                    SchedulePidReveal();
                     ScheduleDetailsReveal();
                 }
             };
@@ -442,6 +477,7 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
                 _activityPointerEntered?.Invoke(_cardId);
                 _brandPointerMoved = true;
                 ScheduleBrandReveal();
+                SchedulePidReveal();
                 ScheduleDetailsReveal();
             };
             _mouseLeaveHandler = (_, __) =>
@@ -452,6 +488,7 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
                 _brandPointerOver = false;
                 _brandPointerMoved = false;
                 HideBrand(immediate: false);
+                HidePid(immediate: false);
                 ScheduleDetailsHide();
             };
             _mouseUpHandler = (_, e) =>
@@ -595,6 +632,7 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
                 _dragStarted = true;
                 HideDetails(immediate: true);
                 HideBrand(immediate: true);
+                HidePid(immediate: true);
                 UpdateLayout();
             }
             var point = new Point(_dragWindowStart.X + delta.X, _dragWindowStart.Y + delta.Y);
@@ -643,6 +681,7 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
             {
                 _brandPointerOver = _brandPointerMoved = true;
                 ScheduleBrandReveal();
+                SchedulePidReveal();
                 ScheduleDetailsReveal();
             }
         }
@@ -689,6 +728,8 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
 
             ApplyActivitySnapshot(_lastSnapshot, preserveSnapshot: true);
             _detailsPanel.RefreshLocalization();
+            if (_setPaused != null)
+                ShowPauseState(_snoozeButton, _pauseShown);
         }
 
         public void CloseImmediate()
@@ -773,17 +814,20 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
             var newReading = !_detailsRevealed;
             if (newReading)
             {
-                PrepareExpansion?.Invoke(157);
+                PrepareExpansion?.Invoke(DetailsExpansionHeight + (_snoozeButton.Visibility == Visibility.Visible ? SnoozeRowHeight : 0));
                 _detailsShift.Y = _growUp ? 6 : -6;
                 _detailsPanel.SetEntries(snapshot.RecentEntries);
+                // A pause set elsewhere (Settings, another AutoCAD) shows as Resume here.
+                if (_isPaused != null && _setPaused != null)
+                    ShowPauseState(_snoozeButton, _isPaused());
             }
             // New results refresh this view separately. A reversal/height retarget must
             // preserve its scroll position; only a genuinely new hover starts at the tail.
             _detailsRevealed = true;
             _detailsHiding = false;
             var generation = ++_detailsGeneration;
-            _detailsPanel.Measure(new Size(CardWidth - 28, double.PositiveInfinity));
-            var height = _detailsPanel.DesiredSize.Height;
+            _detailsBody.Measure(new Size(CardWidth - 28, double.PositiveInfinity));
+            var height = _detailsBody.DesiredSize.Height;
             _detailsRow.Visibility = Visibility.Visible;
             if (newReading)
                 _detailsPanel.ScrollToLatest();
@@ -969,11 +1013,131 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
             _brandRow.Visibility = _showBranding ? Visibility.Hidden : Visibility.Collapsed;
         }
 
-        /// <summary>"dwg-mcp 2027": names the gateway and the AutoCAD year, so cards from several
-        /// MCP gateways or AutoCAD years running side by side are told apart.</summary>
-        private string IdentityTitle => string.IsNullOrWhiteSpace(_instanceIdentity)
-            ? BrandAssets.ProductName
-            : _instanceIdentity;
+        /// <summary>
+        /// "dwg-mcp 2027 · Claude": the manager passes it again on every update, because the latest call may come
+        /// from another agent. Null or empty falls back to the product name.
+        /// </summary>
+        internal void SetIdentityTitle(string identity)
+        {
+            var title = string.IsNullOrWhiteSpace(identity) ? BrandAssets.ProductName : identity;
+            if (_titleIdentityRun.Text != title) _titleIdentityRun.Text = title;
+            _titleText.ToolTip = title + _titlePidRun.Text;
+        }
+
+        /// <summary>
+        /// The PID fades in on a deliberate hover, like the wordmark, but independently of the branding preference.
+        /// </summary>
+        private void SchedulePidReveal()
+        {
+            if (_dragPending || !_brandPointerOver || !_brandPointerMoved || _closedCallbackRaised || _isClosing
+                || _pidShown || _pidRevealTimer != null)
+                return;
+            if (!_motionEnabled())
+            {
+                FadePid(show: true, immediate: true);
+                return;
+            }
+            _pidRevealTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(BrandRevealDelayMs) };
+            _pidRevealTimer.Tick += (_, __) =>
+            {
+                CancelPidRevealTimer();
+                if (_brandPointerOver && !_dragPending && !_isClosing && !_closedCallbackRaised)
+                    FadePid(show: true, immediate: false);
+            };
+            _pidRevealTimer.Start();
+        }
+
+        private void HidePid(bool immediate)
+        {
+            CancelPidRevealTimer();
+            if (_pidShown || immediate)
+                FadePid(show: false, immediate: immediate || !_motionEnabled());
+        }
+
+        private void FadePid(bool show, bool immediate)
+        {
+            _pidShown = show;
+            var target = show ? 1.0 : 0.0;
+            if (immediate)
+            {
+                _pidBrush.BeginAnimation(Brush.OpacityProperty, null);
+                _pidBrush.Opacity = target;
+                return;
+            }
+            var fade = new DoubleAnimation(target, TimeSpan.FromMilliseconds(show ? BrandRevealDurationMs : BrandHideDurationMs))
+            {
+                EasingFunction = new QuadraticEase { EasingMode = show ? EasingMode.EaseOut : EasingMode.EaseIn }
+            };
+            // Settle on the base value so no clock outlives the fade; a reversed fade owns the brush by then.
+            fade.Completed += (_, __) =>
+            {
+                if (_pidShown != show || _closedCallbackRaised) return;
+                _pidBrush.BeginAnimation(Brush.OpacityProperty, null);
+                _pidBrush.Opacity = target;
+            };
+            _pidBrush.BeginAnimation(Brush.OpacityProperty, fade);
+        }
+
+        private void CancelPidRevealTimer()
+        {
+            _pidRevealTimer?.Stop();
+            _pidRevealTimer = null;
+        }
+
+        /// <summary>
+        /// "Pause for today" / "Resume" at the foot of the expanded card; absent when no handler was given.
+        /// </summary>
+        private Border CreateSnoozeButton()
+        {
+            var text = new TextBlock { FontSize = 11, Foreground = McpToastTheme.TextSecondary, VerticalAlignment = VerticalAlignment.Center };
+            _pauseIcon.FontFamily = McpToastTheme.IconFont;
+            _pauseIcon.FontSize = 11;
+            text.Inlines.Add(_pauseIcon);
+            text.Inlines.Add(_pauseText);
+            var button = new Border
+            {
+                Height = SnoozeRowHeight - 4,
+                Margin = new Thickness(0, 4, 0, 0),
+                Padding = new Thickness(6, 0, 6, 0),
+                CornerRadius = new CornerRadius(4),
+                Background = Brushes.Transparent,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                Cursor = Cursors.Hand,
+                Child = text,
+                Visibility = _setPaused == null ? Visibility.Collapsed : Visibility.Visible
+            };
+            ShowPauseState(button, paused: false);
+            if (_setPaused != null)
+            {
+                _snoozeUpHandler = (_, e) =>
+                {
+                    // The card's own click opens History; this click only pauses or resumes, and the card stays.
+                    e.Handled = true;
+                    if (!_isClosing && !_closedCallbackRaised) ShowPauseState(button, _setPaused(!_pauseShown));
+                };
+                button.MouseLeftButtonUp += _snoozeUpHandler;
+                button.MouseEnter += (_, __) => button.Background = McpToastTheme.ThumbnailBackground;
+                button.MouseLeave += (_, __) => button.Background = Brushes.Transparent;
+            }
+            return button;
+        }
+
+        private void ShowPauseState(Border button, bool paused)
+        {
+            _pauseShown = paused;
+            _pauseIcon.Text = paused ? "\uE768" : "\uE708";
+            var label = paused ? LocalizedOrFallback("toast.snooze.resume", "Resume") : LocalizedOrFallback("toast.snooze.today", "Pause for today");
+            _pauseText.Text = "  " + label;
+            button.ToolTip = paused
+                ? LocalizedOrFallback("toast.snooze.resume.help", "Notifications are paused in every AutoCAD until midnight. Click to show them again now.")
+                : LocalizedOrFallback("toast.snooze.today.help",
+                    "Hide activity notifications in every AutoCAD until midnight. Turn them back on in Settings or with MCPTOAST.");
+            System.Windows.Automation.AutomationProperties.SetName(button, label);
+        }
+
+        // This window runs inside AutoCAD; never take its PID from a gateway or report payload.
+        private static readonly int OwnPid = ReadOwnPid();
+        private static int ReadOwnPid() { using (var process = Process.GetCurrentProcess()) return process.Id; }
 
         private void CancelBrandRevealTimer()
         {
@@ -1109,7 +1273,6 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
             _iconText.Text = snapshot.LatestSuccess ? "\uE73E" : "\uE783";
             _iconText.Foreground = snapshot.HasFailure ? McpToastTheme.Error : McpToastTheme.Primary;
 
-            _titleText.Text = IdentityTitle;
             var animate = !preserveSnapshot && IsVisible && _motionEnabled();
             if (snapshot.IsStatus)
             {
@@ -1153,7 +1316,6 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
                 ApplyThumbnail(snapshot.ImagePath, animate);
             }
 
-            _titleText.ToolTip = _titleText.Text;
             _titleText.TextWrapping = TextWrapping.NoWrap;
             _titleText.TextTrimming = TextTrimming.CharacterEllipsis;
             _toolText.ToolTip = snapshot.IsStatus
@@ -1481,6 +1643,7 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
                 _closeHost.MouseLeftButtonUp -= _closeHostMouseUpHandler;
             }
             _detailsRow.MouseLeftButtonUp -= _detailsUpHandler;
+            if (_snoozeUpHandler != null) _snoozeButton.MouseLeftButtonUp -= _snoozeUpHandler;
             HideDetails(immediate: true);
             _detailsPanel.SetEntries(Array.AsReadOnly(new ToastActivityEntry[0]));
             _lastSnapshot = null;
@@ -1498,6 +1661,8 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
             MouseMove -= _mouseMoveHandler;
             MouseLeave -= _mouseLeaveHandler;
             CancelBrandRevealTimer();
+            CancelPidRevealTimer();
+            _pidBrush.BeginAnimation(Brush.OpacityProperty, null);
             _brandHideGeneration++;
             _brandCell.BeginAnimation(UIElement.OpacityProperty, null);
             MouseLeftButtonUp -= _mouseUpHandler;

@@ -39,8 +39,10 @@ namespace Bimwright.Dwg.Plugin.Handlers
 
             try
             {
-                var handles = CadQueryService.QueryHandles(doc.Database, options);
-                return CommandResult.Success(new { count = handles.Count, handles });
+                var typeHint = options.Layer == null && !options.ColorIndex.HasValue ? new CadEntityTypeHint() : null;
+                var handles = CadQueryService.QueryHandles(doc.Database, options, typeHint);
+                return handles.Count == 0 && typeHint != null ? CommandResult.Success(new { count = handles.Count, handles, hint = typeHint.ToJson("model") })
+                    : CommandResult.Success(new { count = handles.Count, handles });
             }
             catch (Exception ex)
             {

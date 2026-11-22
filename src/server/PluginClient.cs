@@ -8,6 +8,8 @@ using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Bimwright.Dwg.Plugin;
+using Bimwright.Dwg.Plugin.Reports.Model;
+using Bimwright.Dwg.Server.Tools;
 
 namespace Bimwright.Dwg.Server
 {
@@ -19,6 +21,7 @@ namespace Bimwright.Dwg.Server
         private readonly SemaphoreSlim _writeGate = new SemaphoreSlim(1, 1);
         private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(30);
         private static readonly SemaphoreSlim Calls = new SemaphoreSlim(TransportFraming.MaxConnections);
+        internal static volatile string ClientName;
 
         public PluginClient(Func<DiscoveryInfo> discoveryProvider) : this(discoveryProvider, null, null) { }
 
@@ -90,8 +93,40 @@ namespace Bimwright.Dwg.Server
                         if (health?.Id != healthId || health.Ok != true ||
                             (health.Result as JObject)?.Value<int?>("script_inputs_version") != ScriptInputContract.Version)
                             return Error(requestId, "SCRIPT_INPUTS_UNSUPPORTED: the plugin did not confirm data/compile_only support. No script was sent or executed. Update gateway and plugin together.");
+                        // Older plugins ignore result_contract and would report a legacy result as success.
+                        if (ScriptTaskContract.IsTaskV1(parameters as JToken ?? JToken.FromObject(parameters)) &&
+                            (health.Result as JObject)?.Value<int?>("script_task_contract_version") != ScriptTaskContract.Version)
+                            return Error(requestId, "SCRIPT_TASK_CONTRACT_UNSUPPORTED: the plugin did not confirm result_contract=task_v1 support. No script was sent or executed. Update gateway and plugin together.");
                     }
-                    var response = await SendToAsync(call, cmd, parameters, requestId, readTimeout, true);
+                    // Older plugins ignore unknown keys and would run an atomic batch non-atomically.
+                    if (cmd == "batch_execute" && BatchContract.IsAtomic(parameters as JToken ?? (parameters == null ? null : JToken.FromObject(parameters))))
+                    {
+                        var healthId = Guid.NewGuid().ToString("N");
+                        var health = await SendToAsync(call, "health", new JObject(), healthId, Timeout, true);
+                        if (health?.Id != healthId || health.Ok != true ||
+                            (health.Result as JObject)?.Value<int?>("atomic_batch_version") != BatchContract.AtomicVersion)
+                            return Error(requestId, "ATOMIC_BATCH_UNSUPPORTED: the plugin did not confirm atomic batch support. No command was sent or executed. Update gateway and plugin together.");
+                    }
+                    if (cmd == "report_task_result" && parameters is ReportTaskRequest report && report.CallIds != null)
+                    {
+                        ReportChanges changes;
+                        try { changes = ReportCallReceipts.Default.Resolve(report.CallIds, ReportTools.GatewaySession,
+                            call.Discovery.Pid, call.Discovery.ProcessStartUtc); }
+                        catch (ArgumentException ex) { return Error(requestId, ex.Message); }
+
+                        var healthId = Guid.NewGuid().ToString("N");
+                        var health = await SendToAsync(call, "health", new JObject(), healthId, Timeout, true);
+                        if (health?.Id != healthId || health.Ok != true
+                            || (health.Result as JObject)?.Value<int?>("report_changes_version") != ReportChanges.Version)
+                            return Error(requestId, "REPORT_HISTORY_UNSUPPORTED: the plugin did not confirm call reference support. No report was saved.");
+                        var wire = JObject.FromObject(report);
+                        wire["changes"] = JObject.FromObject(new { calls = changes.Calls, pid = call.Discovery.Pid, process_start_utc = call.Discovery.ProcessStartUtc });
+                        parameters = wire;
+                    }
+                    var capture = !ServerState.IsReadOnly && ServerState.Config?.EnableChangeHistoryOrDefault == true;
+                    var response = await SendToAsync(call, cmd, parameters, requestId, readTimeout, true, capture);
+                    ChangeHistoryCapture.Default.Complete(cmd, requestId, capture, response);
+                    ReportCallReceipts.Default.Remember(cmd, ReportTools.GatewaySession, response);
                     if (ServerState.IsReadOnly && response?.Ok == false
                         && (response.Error?.StartsWith("TARGET_LOST:", StringComparison.Ordinal) == true
                             || response.Error?.StartsWith("TARGET_CHANGED:", StringComparison.Ordinal) == true))
@@ -111,10 +146,17 @@ namespace Bimwright.Dwg.Server
             finally { Calls.Release(); }
         }
 
-        private Task<McpResponse> SendToAsync(TargetCall call, string cmd, object parameters, string id, TimeSpan readTimeout, bool validate)
+        private Task<McpResponse> SendToAsync(TargetCall call, string cmd, object parameters, string id, TimeSpan readTimeout, bool validate,
+            bool capture = false)
         {
             var discovery = call.Discovery;
-            var json = JsonConvert.SerializeObject(new McpRequest { Id = id, Cmd = cmd, Params = parameters, Auth = discovery.Token, Target = call.Context });
+            var clientName = ClientName;
+            var json = JsonConvert.SerializeObject(new McpRequest
+            {
+                Id = id, Cmd = cmd, Params = parameters, Auth = discovery.Token, Target = call.Context,
+                ChangeCaptureVersion = capture && ChangeCaptureContract.Tracks(cmd) ? ChangeCaptureContract.Version : null,
+                ClientName = string.IsNullOrWhiteSpace(clientName) ? null : clientName
+            });
             Func<Func<Task>, Task> write = async action =>
             {
                 await _writeGate.WaitAsync();
@@ -173,7 +215,10 @@ namespace Bimwright.Dwg.Server
                     : "plugin read timeout; host work may still be running. Inspect its outcome before retrying writes.");
             }
             if (line == null) return Error(requestId, "plugin closed connection");
-            return JsonConvert.DeserializeObject<McpResponse>(line);
+            var envelope = JObject.Parse(line);
+            var response = envelope.ToObject<McpResponse>();
+            response.ChangeCapture = envelope["_change_capture"] as JObject;
+            return response;
         }
 
         private static McpResponse Error(string id, string message) =>

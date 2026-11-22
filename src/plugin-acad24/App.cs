@@ -1,9 +1,11 @@
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.Runtime;
+using Bimwright.Dwg.Plugin.Localization;
 using Bimwright.Dwg.Plugin.ToolCatalog;
 using Bimwright.Dwg.Plugin.Views;
 using Bimwright.Dwg.Plugin.Views.Settings;
 using Bimwright.Dwg.Plugin.Views.Toast;
+using Bimwright.Dwg.Plugin.Views.Update;
 
 [assembly: ExtensionApplication(typeof(Bimwright.Dwg.Plugin.App))]
 [assembly: CommandClass(typeof(Bimwright.Dwg.Plugin.App))]
@@ -25,6 +27,7 @@ namespace Bimwright.Dwg.Plugin
         // burst of activity instead of once per call.
         private static readonly System.TimeSpan ClientPresenceGap = System.TimeSpan.FromSeconds(30);
         private static SettingsWindow _settings;
+        private static ReleaseNoticeCoordinator _releaseNotice;
         private static HistoryWindow _history;
         private static System.Windows.Threading.Dispatcher _uiDispatcher;
 
@@ -38,6 +41,7 @@ namespace Bimwright.Dwg.Plugin
         internal static bool ListenerRunning => _server != null && _server.IsRunning;
         internal static bool ListenerUsesPipe => _server != null && _server.Kind == TransportKind.Pipe;
         internal static int? ListenerPort => ListenerRunning ? _server.Port : null;
+        internal static string ListenerConnectionInfo => ListenerRunning ? _server.ConnectionInfo : null;
         internal static bool AutoStartTransport { get; private set; } = PluginSettings.DefaultAutoStartTransport;
         internal static string AutoStartSource { get; private set; } = "default";
         internal static string AutoStartSaveError { get; private set; }
@@ -48,9 +52,17 @@ namespace Bimwright.Dwg.Plugin
 
         public void Initialize()
         {
+            L.Initialize(PluginSettings.LoadUiLanguage());
             DiagnosticLog.MaintainLegacyLogs();
             OutputArtifactStore.MaintainInBackground();
+            Reports.Acad.ReportsModule.CleanupInBackground();
             LoadStartupPreference();
+            try
+            {
+                _releaseNotice = new ReleaseNoticeCoordinator();
+                _releaseNotice.SetEnabled(PluginSettings.LoadReleaseNotifications());
+            }
+            catch (System.Exception ex) { PluginLog.Debug("Release check could not start: " + ex.GetType().Name); }
             try
             {
                 InitializeToast();
@@ -78,8 +90,11 @@ namespace Bimwright.Dwg.Plugin
             try { _server?.Stop(); } catch { }
             try { ToolCatalogStore.Clear(); } catch { }
             try { CloseSettings(); } catch { }
+            try { _releaseNotice?.SetEnabled(false); } catch { }
+            _releaseNotice = null;
             try { _history?.Close(); } catch { }
             _history = null;
+            try { Reports.Acad.ReportsModule.Shutdown(); } catch { }
             try { ToastNotifier?.Shutdown(); } catch { }
             try { DocumentInvoker.Shutdown(); } catch { }
             try { View.DrawingRevision.Shutdown(); } catch { }
@@ -135,6 +150,12 @@ namespace Bimwright.Dwg.Plugin
         [CommandMethod("MCPTOAST", CommandFlags.Session)]
         public static void McpToast()
         {
+            if (_toastEnabled && ToastSnooze.IsActive())
+            {
+                var saved = ToastNotifier != null ? ToastNotifier.ResumeFromPause() : ToastSnooze.Resume(out _);
+                WriteLine(saved ? "Toasts resumed." : L.T("toast.status.saveFailed"));
+                return;
+            }
             SetToastEnabled(!_toastEnabled);
         }
 
@@ -148,6 +169,30 @@ namespace Bimwright.Dwg.Plugin
         public static void McpHistory()
         {
             ShowOrFocusHistory();
+        }
+
+        [CommandMethod("MCPREPORTS", CommandFlags.Session)]
+        public static void McpReports()
+        {
+            ShowReports(null);
+        }
+
+        /// <summary>Open the Reports window, on <paramref name="reportId"/> when given (a toast click).</summary>
+        internal static void ShowReports(string reportId)
+        {
+            var dispatcher = _uiDispatcher;
+            if (dispatcher != null && !dispatcher.CheckAccess())
+            {
+                if (!dispatcher.HasShutdownStarted && !dispatcher.HasShutdownFinished)
+                    dispatcher.BeginInvoke(new System.Action(() => ShowReports(reportId)));
+                return;
+            }
+            try
+            {
+                if (reportId == null) Reports.Acad.ReportsModule.ShowOrFocus();
+                else Reports.Acad.ReportsModule.ShowReport(reportId);
+            }
+            catch (System.Exception ex) { WriteLine("Reports could not open: " + ex.Message); }
         }
 
         internal static void ShowOrFocusHistory()
@@ -188,11 +233,17 @@ namespace Bimwright.Dwg.Plugin
         {
             _toastEnabled = enabled;
             var saved = PluginSettings.SaveEnableToast(enabled);
+            if (enabled && !ToastSnooze.ResumeIfPaused(out var resumeError))
+            {
+                saved = false;
+                if (!string.IsNullOrWhiteSpace(resumeError))
+                    PluginLog.Debug("Toast resume could not be saved: " + resumeError);
+            }
             WriteLine(enabled
                 ? "Toast notifications enabled (saved)."
                 : "Toast notifications disabled (saved).");
             if (!saved)
-                WriteLine("Toast preference could not be saved; this session is still using the new state.");
+                WriteLine(L.T("toast.status.saveFailed"));
             if (!string.IsNullOrEmpty(System.Environment.GetEnvironmentVariable(PluginSettings.EnvEnableToast)))
                 WriteLine($"{PluginSettings.EnvEnableToast} is set and re-applies at next launch.");
             ToastNotifier?.OnToastEnabledChanged(enabled, saved);
@@ -227,6 +278,7 @@ namespace Bimwright.Dwg.Plugin
             }
 
             var window = new SettingsWindow();
+            window.ReleaseNotificationsChanged += enabled => _releaseNotice?.SetEnabled(enabled);
             window.Closed += (_, __) =>
             {
                 if (ReferenceEquals(_settings, window))
@@ -291,7 +343,13 @@ namespace Bimwright.Dwg.Plugin
             var host = new McpToastHost();
             ToastNotifier = new McpToastNotifier(host, () => _toastEnabled);
             ToastNotifier.SetInstanceInfo(ToastTitle);
-            ToastNotifier.SetActivityClickHandler(_ => ShowOrFocusHistory());
+            // A card whose latest result is an agent report opens that report; any other card opens History.
+            ToastNotifier.SetActivityClickHandler(cardId =>
+            {
+                var reportId = ToastNotifier?.ReportFor(cardId);
+                if (reportId != null) ShowReports(reportId);
+                else ShowOrFocusHistory();
+            });
 
             // Anchor toasts to the AutoCAD window and reuse the host WPF dispatcher
             // when AutoCAD already runs one (its ribbon is WPF).
@@ -325,6 +383,8 @@ namespace Bimwright.Dwg.Plugin
         /// </summary>
         private static void OnIdleToast(object sender, System.EventArgs args)
         {
+            try { _releaseNotice?.OnIdle(); } catch (System.Exception ex) { PluginLog.Debug("Release notice idle failed: " + ex.GetType().Name); }
+            try { Reports.Acad.ReportsModule.OnIdle(); } catch (System.Exception ex) { PluginLog.Debug("Reports idle refresh failed: " + ex.Message); }
             var notifier = ToastNotifier;
             if (notifier == null)
                 return;

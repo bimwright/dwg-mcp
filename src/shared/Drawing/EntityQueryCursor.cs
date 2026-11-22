@@ -33,7 +33,7 @@ namespace Bimwright.Dwg.Plugin
             {
                 ["v"] = 1, ["snapshot"] = snapshot, ["query_hash"] = queryHash,
                 ["after_handle"] = numeric.ToString("X16", CultureInfo.InvariantCulture)
-            }.ToString(Formatting.None));
+            }.ToString(Formatting.None, Array.Empty<JsonConverter>()));
             var token = Encode(payload) + "." + Encode(Sign(payload));
             if (token.Length > MaxTokenLength) throw Invalid();
             return token;

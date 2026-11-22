@@ -60,6 +60,70 @@ internal static class SettingsIdleVisualTests
             Directory.Delete(sandbox);
         }
         Console.WriteLine("PASS: real Settings idle save failure preserves active duration and supports retry");
+        CheckPauseForTodaySetting();
+    }
+
+    // FC-TST-04
+    private static void CheckPauseForTodaySetting()
+    {
+        var previousPath = PluginSettings.FilePathOverride;
+        var previousNotifier = App.ToastNotifier;
+        var previousEnabled = App.ToastEnabled;
+        var sandbox = Path.Combine(Path.GetTempPath(), "dwg-toast-snooze-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(sandbox);
+        var path = Path.Combine(sandbox, "settings.json");
+        File.WriteAllText(path, "{\"toastIdleSeconds\":20,\"unrelated\":true}");
+        PluginSettings.FilePathOverride = path;
+        App.SetToastEnabled(true);
+        var host = new McpToastHost();
+        // Reuse this thread's dispatcher: a dedicated toast thread would create (and on Shutdown end) the AppDomain's
+        // WPF Application, after which no later window in this process becomes visible.
+        host.SetHostDispatcher(System.Windows.Threading.Dispatcher.CurrentDispatcher);
+        App.ToastNotifier = new McpToastNotifier(host, () => App.ToastEnabled);
+        var window = new SettingsWindow();
+        try
+        {
+            var enabled = Field<CheckBox>(window, "_toastEnabled");
+            var snoozed = Field<CheckBox>(window, "_toastSnoozed");
+            var apply = Field<Button>(window, "_apply");
+            if (!snoozed.IsEnabled || snoozed.IsChecked == true || ToastSnooze.IsActive())
+                throw new Exception("Pause for today must start enabled and unchecked.");
+
+            snoozed.IsChecked = true;
+            var saved = JObject.Parse(File.ReadAllText(path));
+            if (!ToastSnooze.IsActive() || string.IsNullOrWhiteSpace(saved.Value<string>("toastSnoozedDate"))
+                || !saved.Value<bool>("unrelated") || apply.IsEnabled)
+                throw new Exception("Pause for today must persist immediately without Apply while keeping other keys.");
+
+            snoozed.IsChecked = false;
+            if (ToastSnooze.IsActive() || JObject.Parse(File.ReadAllText(path))["toastSnoozedDate"] != null)
+                throw new Exception("Unchecking Pause for today must remove toastSnoozedDate immediately.");
+
+            if (!ToastSnooze.PauseForToday(out var error))
+                throw new Exception("External pause failed: " + error);
+            if (snoozed.IsChecked != true)
+                throw new Exception("Open Settings window did not sync live when ToastSnooze.Changed fired.");
+
+            enabled.IsChecked = false;
+            if (App.ToastEnabled || snoozed.IsEnabled)
+                throw new Exception("Turning toasts off must disable Pause for today.");
+
+            enabled.IsChecked = true;
+            if (!App.ToastEnabled || !snoozed.IsEnabled || snoozed.IsChecked == true || ToastSnooze.IsActive())
+                throw new Exception("Turning toasts back on must clear an active pause and re-enable the switch.");
+        }
+        finally
+        {
+            typeof(SettingsWindow).GetMethod("RevertIdle", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(window, null);
+            window.Close();
+            host.Shutdown();
+            App.SetToastEnabled(previousEnabled);
+            App.ToastNotifier = previousNotifier;
+            PluginSettings.FilePathOverride = previousPath;
+            File.Delete(path);
+            Directory.Delete(sandbox);
+        }
+        Console.WriteLine("PASS: Settings Pause for today saves immediately, tracks ToastSnooze.Changed, and clears when toasts turn on");
     }
 
     private static T Field<T>(object instance, string name) =>

@@ -14,6 +14,8 @@ namespace Bimwright.Dwg.Server;
 /// <summary>Size of the final MCP result, including content escaping and metadata.</summary>
 internal static class ResponseBudget
 {
+    private static readonly JsonSerializerSettings ReceiptJson = new() { DateParseHandling = DateParseHandling.None };
+
     internal static int Measure(CallToolResult result)
         => System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(result, McpJsonUtilities.DefaultOptions).Length;
 
@@ -21,15 +23,22 @@ internal static class ResponseBudget
     internal static IMcpServerBuilder Register(IMcpServerBuilder mcp, DwgMcpConfig config)
         => mcp.WithRequestFilters(filters => filters.AddCallToolFilter(next => async (request, ct) =>
         {
+            var clientName = request.Server?.ClientInfo?.Name;
+            if (!string.IsNullOrWhiteSpace(clientName)) PluginClient.ClientName = clientName;
             var result = await next(request, ct); // Execute exactly once, including writes.
+            if (ChangeHistoryResponse.Applies(request.Params?.Name))
+                return ChangeHistoryResponse.FitFinal(result, ChangeHistoryResponse.RequestCap(request.Params, config));
             var textRead = IsTextReadRequest(request.Params);
-            if (textRead || IsEntityQueryExtendedRequest(request.Params))
+            var bands = request.Params?.Name == "dwg_cluster_bands";
+            if (textRead || bands || IsEntityQueryExtendedRequest(request.Params))
             {
                 var countOnly = request.Params.Name == "dwg_count_entities";
                 var limit = Math.Min(countOnly ? EntityQueryResponse.DefaultCap : EntityQueryResponse.ReadRequestedCap(request.Params), config.ResponseBudgetBytesOrDefault);
                 // Fit signed per-row checkpoints exactly once, after argument decoration.
                 // Optional global warnings may add metadata, never trim the delivered page.
-                var fitted = textRead ? TextReadResponse.Fit(result, limit) : EntityQueryResponse.Fit(result, limit, countOnly);
+                var fitted = bands ? EntityQueryResponse.Fit(result, limit, toolName: "dwg_cluster_bands",
+                    collection: "bands", versionKey: "band_page_version", identityField: "band_id")
+                    : textRead ? TextReadResponse.Fit(result, limit) : EntityQueryResponse.Fit(result, limit, countOnly);
                 var previousMeta = fitted.Meta?.DeepClone().AsObject();
                 var decorated = Apply(fitted, config, true, request.Params.Name);
                 if (Measure(decorated) > limit) decorated.Meta = previousMeta;
@@ -43,7 +52,9 @@ internal static class ResponseBudget
                 (request.MatchedPrimitive as McpServerTool)?.ProtocolTool.Annotations?.ReadOnlyHint == true,
                 request.Params?.Name);
             // Argument warnings and global warning metadata must also fit the tool's cap.
-            return profile ? DrawingProfileResponse.Fit(result, profileLimit, profileSpace) : result;
+            if (profile) return DrawingProfileResponse.Fit(result, profileLimit, profileSpace);
+            AgentReportReminder.Default.RecordDelivery(result.Content?.OfType<TextContentBlock>().FirstOrDefault()?.Text);
+            return result;
         }));
 
     internal static bool IsTextReadRequest(CallToolRequestParams request)
@@ -68,6 +79,21 @@ internal static class ResponseBudget
         config.ValidateResponseBudget();
         var bytes = Measure(result);
         var limit = config.ResponseBudgetBytesOrDefault;
+        JObject data = null;
+        JToken reminder = null;
+        if (bytes > limit)
+        {
+            var text = result.Content?.OfType<TextContentBlock>().FirstOrDefault();
+            data = Parse(text?.Text);
+            if (data?["_report"]?.Type == JTokenType.String && data.Value<string>("_report") is AgentReportReminder.Text or AgentReportReminder.ShortText)
+            {
+                // An optional reminder cannot cause an otherwise deliverable result to spill.
+                reminder = data["_report"];
+                data.Remove("_report");
+                text.Text = data.ToString(Formatting.None);
+                bytes = Measure(result);
+            }
+        }
         if (bytes < config.ResponseWarnBytesOrDefault) return result;
         if (bytes <= limit)
         {
@@ -86,7 +112,6 @@ internal static class ResponseBudget
 
         // Output delivery is limited AFTER the tool returns. Neither annotation nor
         // outer ok proves native success, rollback, or absence of earlier effects.
-        var data = Parse(result.Content?.OfType<TextContentBlock>().FirstOrDefault()?.Text);
         var artifact = OutputArtifactStore.Write(System.Text.Json.JsonSerializer.Serialize(result, McpJsonUtilities.DefaultOptions), "mcp_tool_result");
         var budgetInfo = new JObject
         {
@@ -102,6 +127,7 @@ internal static class ResponseBudget
         {
             var receipt = Facts(data, textLimit);
             RetainTarget(data, receipt, Math.Max(0, textLimit));
+            RetainHistory(data, receipt);
             if (data == null && result.Content?.OfType<TextContentBlock>().FirstOrDefault() is TextContentBlock plain)
             {
                 receipt["message"] = plain.Text.Substring(0, Math.Min(Math.Max(0, textLimit), plain.Text.Length));
@@ -125,12 +151,13 @@ internal static class ResponseBudget
                 IsError = result.IsError,
                 Content = new[] { new TextContentBlock { Text = receipt.ToString(Formatting.None) } }
             };
-            if (Measure(compact) <= limit) return compact;
+            if (Measure(compact) <= limit) return AddReportReminderIfFits(compact, receipt, reminder, limit);
         }
         // Arbitrary diagnostic/numeric values must never turn a completed call into
         // a generic SDK exception. This fixed vocabulary fits the 4 KiB minimum.
         var minimal = MinimalFacts(data);
         RetainTarget(data, minimal, 0);
+        RetainHistory(data, minimal);
         if (data?["result"] is JObject innerData) minimal["result"] = MinimalFacts(innerData);
         if (data?["image_delivery"] is JObject imageData) minimal["image_delivery"] = MinimalFacts(imageData);
         if (result.Content?.OfType<ImageContentBlock>().Any() == true)
@@ -152,7 +179,26 @@ internal static class ResponseBudget
             finalBytes = Measure(fallback);
         }
         System.Diagnostics.Debug.Assert(finalBytes <= limit);
-        return fallback;
+        return AddReportReminderIfFits(fallback, minimal, reminder, limit);
+    }
+
+    private static void RetainHistory(JObject source, JObject destination)
+    {
+        if (source?["_history"] is not JObject history) return;
+        var receipt = new JObject();
+        foreach (var key in new[] { "call_id", "drawing_key", "status", "coverage", "observed", "stored" })
+            if (history[key] is JValue value && value.ToString().Length <= 64) receipt[key] = value.DeepClone();
+        destination["_history"] = receipt;
+    }
+
+    private static CallToolResult AddReportReminderIfFits(CallToolResult result, JObject receipt, JToken reminder, int limit)
+    {
+        if (reminder == null) return result;
+        var original = result.Content;
+        receipt["_report"] = reminder;
+        result.Content = new[] { new TextContentBlock { Text = receipt.ToString(Formatting.None) } };
+        if (Measure(result) > limit) result.Content = original;
+        return result;
     }
 
     // Retain only observed envelope metadata. Never use request/binding data or
@@ -196,8 +242,8 @@ internal static class ResponseBudget
 
     private static JObject Parse(string text)
     {
-        try { return JToken.Parse(text ?? "") as JObject; }
-        catch (JsonReaderException) { return null; }
+        try { return JsonConvert.DeserializeObject<JObject>(text ?? "", ReceiptJson); }
+        catch (JsonException) { return null; }
     }
 
     private static JObject Facts(JObject data, int textLimit)

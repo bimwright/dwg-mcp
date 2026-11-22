@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using Bimwright.Dwg.Plugin.Localization;
 using Newtonsoft.Json.Linq;
 
 namespace Bimwright.Dwg.Plugin
@@ -30,6 +31,19 @@ namespace Bimwright.Dwg.Plugin
 
         private static string FilePath =>
             string.IsNullOrWhiteSpace(FilePathOverride) ? DefaultFilePath : FilePathOverride;
+
+        internal static string LoadUiLanguage()
+        {
+            try
+            {
+                var value = JObject.Parse(File.ReadAllText(FilePath))["uiLanguage"];
+                return LocaleResolver.Resolve(value?.Type == JTokenType.String ? (string)value : null);
+            }
+            catch { return LocaleResolver.Default; }
+        }
+
+        internal static bool SaveUiLanguage(string locale)
+            => TryUpdate(root => root["uiLanguage"] = LocaleResolver.Resolve(locale), "SaveUiLanguage");
 
         public static bool LoadAutoStartTransport(out string source)
         {
@@ -90,6 +104,25 @@ namespace Bimwright.Dwg.Plugin
             return ReadShowBranding(FilePath) ?? DefaultShowBranding;
         }
 
+        public static string LoadToastSnoozedDate()
+        {
+            return ReadToastSnoozedDate(FilePath);
+        }
+
+        public static bool LoadReleaseNotifications()
+        {
+            try
+            {
+                if (!File.Exists(FilePath)) return true;
+                var value = JObject.Parse(File.ReadAllText(FilePath))["releaseNotificationsEnabled"];
+                return value?.Type != JTokenType.Boolean || value.Value<bool>();
+            }
+            catch { return false; }
+        }
+
+        public static bool SaveReleaseNotifications(bool enabled)
+            => TryUpdate(root => root["releaseNotificationsEnabled"] = enabled, "SaveReleaseNotifications");
+
         /// <summary>Persist only enableToast into the JSON file, preserving other keys.</summary>
         public static bool SaveEnableToast(bool enabled)
         {
@@ -107,6 +140,16 @@ namespace Bimwright.Dwg.Plugin
         public static bool SaveShowBranding(bool show)
         {
             return TryUpdate(root => root["showBranding"] = show, "SaveShowBranding");
+        }
+
+        /// <summary>Saves the pause date ("yyyy-MM-dd"), or removes the key when <paramref name="date"/> is null.</summary>
+        public static bool TrySaveToastSnoozedDate(string date, out string error)
+        {
+            return TryUpdate(root =>
+            {
+                if (date == null) root.Remove("toastSnoozedDate");
+                else root["toastSnoozedDate"] = date;
+            }, "SaveToastSnoozedDate", out error);
         }
 
         private static readonly object WriteGate = new object();
@@ -150,7 +193,7 @@ namespace Bimwright.Dwg.Plugin
                 var temporary = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
                 try
                 {
-                    File.WriteAllText(temporary, root.ToString(Newtonsoft.Json.Formatting.Indented));
+                    File.WriteAllText(temporary, root.ToString(Newtonsoft.Json.Formatting.Indented, Array.Empty<Newtonsoft.Json.JsonConverter>()));
                     if (File.Exists(path)) File.Replace(temporary, path, null);
                     else File.Move(temporary, path);
                 }
@@ -200,6 +243,21 @@ namespace Bimwright.Dwg.Plugin
                 if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
                     return null;
                 return JObject.Parse(File.ReadAllText(path))["enableToast"]?.Value<bool?>();
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        internal static string ReadToastSnoozedDate(string path)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+                    return null;
+                var value = JObject.Parse(File.ReadAllText(path))["toastSnoozedDate"];
+                return value?.Type == JTokenType.String ? (string)value : null;
             }
             catch
             {

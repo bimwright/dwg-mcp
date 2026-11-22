@@ -4,6 +4,18 @@ using System;
 using System.Collections.Generic;
 using Autodesk.AutoCAD.Geometry;
 
+namespace Autodesk.AutoCAD.Colors
+{
+    public enum ColorMethod { ByAci }
+
+    public sealed class Color
+    {
+        internal Color(short colorIndex) => ColorIndex = colorIndex;
+        public short ColorIndex { get; }
+        public static Color FromColorIndex(ColorMethod method, short index) => new Color(index);
+    }
+}
+
 namespace Autodesk.AutoCAD.Geometry
 {
     public partial struct Point3d
@@ -35,11 +47,16 @@ namespace Autodesk.AutoCAD.Geometry
 namespace Autodesk.AutoCAD.DatabaseServices
 {
     public enum UnitsValue { Undefined = 0, Inches = 1, Feet = 2, Millimeters = 4, Centimeters = 5, Meters = 6 }
-    public readonly struct Extents3d
+    public struct Extents3d
     {
-        public Point3d MinPoint { get; }
-        public Point3d MaxPoint { get; }
+        public Point3d MinPoint { get; private set; }
+        public Point3d MaxPoint { get; private set; }
         public Extents3d(Point3d min, Point3d max) { MinPoint = min; MaxPoint = max; }
+        public void AddExtents(Extents3d other)
+        {
+            MinPoint = new Point3d(Math.Min(MinPoint.X, other.MinPoint.X), Math.Min(MinPoint.Y, other.MinPoint.Y), Math.Min(MinPoint.Z, other.MinPoint.Z));
+            MaxPoint = new Point3d(Math.Max(MaxPoint.X, other.MaxPoint.X), Math.Max(MaxPoint.Y, other.MaxPoint.Y), Math.Max(MaxPoint.Z, other.MaxPoint.Z));
+        }
     }
     public partial class Database
     {
@@ -122,7 +139,10 @@ namespace Autodesk.AutoCAD.DatabaseServices
     public partial class MText : Entity, IDisposable
     {
         private string contents;
+        private string plainText;
+        internal int ProfilePlainTextReads;
         public string Contents { get { if (TextReadContentsFailure != null) throw TextReadContentsFailure; return contents; } set => contents = value; }
+        public string Text { get { ProfilePlainTextReads++; return plainText; } set => plainText = value; }
         public Point3d Location { get; set; }
         public double TextHeight { get; set; }
         public double Width { get; set; }

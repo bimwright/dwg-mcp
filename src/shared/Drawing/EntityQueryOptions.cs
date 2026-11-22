@@ -15,6 +15,15 @@ namespace Bimwright.Dwg.Plugin
         public const int DefaultMaxOutputBytes = 16384;
         public static IReadOnlyList<string> AllowedFields { get; } = Array.AsReadOnly(new[] { "handle", "type", "runtime_type", "layer", "color_index", "text", "position", "extents" });
         private static readonly string[] ExtensionKeys = { "bbox", "bbox_mode", "space", "fields", "cursor", "max_output_bytes" };
+        private static readonly Dictionary<string, string> NativeTypeNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["AcDbText"] = "DBText",
+            ["AcDbAttribute"] = "AttributeReference",
+            ["AcDbPolyline"] = "Polyline",
+            ["AcDb2dPolyline"] = "Polyline2d",
+            ["AcDb3dPolyline"] = "Polyline3d",
+            ["AcDb3dSolid"] = "Solid3d"
+        };
         public string EntityType { get; private set; }
         public string Layer { get; private set; }
         public int? ColorIndex { get; private set; }
@@ -36,6 +45,7 @@ namespace Bimwright.Dwg.Plugin
 
         public static bool RequiresDirectCall(string command, JToken parameters)
         {
+            if (command == "cluster_bands") return true;
             if (command == "get_selected_texts") return TextReadOptions.IsExtended(parameters);
             if (command == "get_drawing_profile")
             {
@@ -100,8 +110,14 @@ namespace Bimwright.Dwg.Plugin
                 ["bbox_mode"] = result.Bbox == null ? null : result.BboxMode, ["fields"] = new JArray(result.Fields),
                 ["order"] = "numeric_handle_ascending"
             };
-            using (var hash = SHA256.Create()) result.Fingerprint = BitConverter.ToString(hash.ComputeHash(Encoding.UTF8.GetBytes(canonical.ToString(Formatting.None)))).Replace("-", "").ToLowerInvariant();
+            result.Fingerprint = Hash(canonical);
             return result;
+        }
+
+        internal static string Hash(JObject canonical)
+        {
+            using (var hash = SHA256.Create())
+                return BitConverter.ToString(hash.ComputeHash(Encoding.UTF8.GetBytes(canonical.ToString(Formatting.None, Array.Empty<JsonConverter>())))).Replace("-", "").ToLowerInvariant();
         }
 
         public static string NormalizeType(string value)
@@ -109,6 +125,8 @@ namespace Bimwright.Dwg.Plugin
             var normalized = Normalize(value);
             if (normalized == "POLYLINE")
                 throw new ArgumentException("AMBIGUOUS_ENTITY_TYPE: uppercase POLYLINE is an ambiguous DXF token. Use LWPOLYLINE or Polyline for lightweight polylines; use Polyline2d, Polyline3d or an explicit qualified managed name for other types. No mesh or polyline family is inferred.");
+            if (normalized != null && normalized.Length > 4 && normalized.StartsWith("AcDb", StringComparison.OrdinalIgnoreCase))
+                normalized = NativeTypeNames.TryGetValue(normalized, out var managed) ? managed : normalized.Substring(4);
             if (string.Equals(normalized, "TEXT", StringComparison.OrdinalIgnoreCase)) return "DBText";
             if (string.Equals(normalized, "INSERT", StringComparison.OrdinalIgnoreCase)) return "BlockReference";
             if (string.Equals(normalized, "LWPOLYLINE", StringComparison.OrdinalIgnoreCase)) return "Polyline";
@@ -155,7 +173,7 @@ namespace Bimwright.Dwg.Plugin
         {
             var value = data[key];
             if (value == null || value.Type == JTokenType.Null) return null;
-            if (value.Type != JTokenType.Integer || !long.TryParse(value.ToString(Formatting.None), NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed))
+            if (value.Type != JTokenType.Integer || !long.TryParse(value.ToString(Formatting.None, Array.Empty<JsonConverter>()), NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed))
                 throw new ArgumentException(key + " must be an integer within Int64 range");
             return parsed;
         }

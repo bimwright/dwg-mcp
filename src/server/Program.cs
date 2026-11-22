@@ -35,6 +35,7 @@ namespace Bimwright.Dwg.Server
                 .AddMcpServer(ConfigureMcpServerOptions)
                 .WithStdioServerTransport();
             mcp = RegisterToolsets(mcp, enabled);
+            mcp.WithPrompts<Prompts.DwgPrompts>();
             mcp = ResponseBudget.Register(mcp, config);
             mcp = ToolArgumentGuard.Register(mcp);
 

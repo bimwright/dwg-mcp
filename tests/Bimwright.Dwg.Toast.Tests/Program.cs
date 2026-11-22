@@ -18,6 +18,11 @@ internal static class Program
         DiagnosticLog.LocalAppDataOverride = diagnosticsRoot;
         try
         {
+            if (args.Length == 1 && args[0] == "--localization")
+            {
+                LocalizationVisualTests.Run();
+                return 0;
+            }
             if (args.Length == 1 && args[0] == "--history-native-clipboard")
             {
                 HistoryDetailsVisualTests.CheckNativeClipboardCopy();
@@ -59,6 +64,19 @@ internal static class Program
                 PositionVisualTests.Run();
                 return 0;
             }
+            if (args.Length == 1 && args[0] == "--position-layout")
+            {
+                PositionVisualTests.Run(includeNativeDrag: false);
+                return 0;
+            }
+            if (args.Length == 1 && args[0] == "--manager")
+            {
+                PositionSettingsVisualTests.Run();
+                CheckSingleActivityCard();
+                CheckStatusAndClickLifecycle();
+                CheckPauseKeepsTheCard();
+                return 0;
+            }
             if (args.Length == 1 && args[0] == "--demo")
                 return ToastPreview.Run();
             if (args.Length == 1 && args[0] == "--activity")
@@ -84,8 +102,10 @@ internal static class Program
             ToastHistoryTests.Run();
             PositionSettingsVisualTests.Run();
             SettingsIdleVisualTests.Run();
+            LocalizationVisualTests.Run();
             CheckSingleActivityCard();
             CheckStatusAndClickLifecycle();
+            CheckPauseKeepsTheCard();
             Console.WriteLine("PASS: single-card activity manager and WPF guards");
             return 0;
         }
@@ -166,7 +186,7 @@ internal static class Program
                 var hasProductHeader = false;
                 foreach (var child in header.Children)
                 {
-                    if (child is TextBlock text && text.Text == "dwg-mcp")
+                    if (child is TextBlock text && PlainText(text) == ExpectedToastTitle())
                     {
                         hasProductHeader = true;
                         break;
@@ -248,13 +268,13 @@ internal static class Program
             if (window == null)
                 throw new Exception("The activity card was not created.");
             var footer = BrandRow(window);
-            if (TitleText(window) != "dwg-mcp" || ToolText(window) != "List Rooms"
+            if (TitleText(window) != ExpectedToastTitle() || ToolText(window) != "List Rooms"
                 || footer.Visibility != Visibility.Collapsed)
                 throw new Exception("A card opened with branding off must omit the wordmark row.");
             show = true;
             manager.ApplyShowBranding();
             Pump();
-            if (TitleText(window) != "dwg-mcp" || ToolText(window) != "List Rooms"
+            if (TitleText(window) != ExpectedToastTitle() || ToolText(window) != "List Rooms"
                 || footer.Visibility != Visibility.Hidden)
                 throw new Exception("Turning branding on must reserve a blank brand row and leave the text alone.");
         }
@@ -270,13 +290,13 @@ internal static class Program
             instanceIdentity: "dwg-mcp 2027");
         try
         {
-            if (TitleText(window) != "dwg-mcp 2027" || ToolText(window) != "List Rooms")
+            if (TitleText(window) != ExpectedToastTitle("dwg-mcp 2027") || ToolText(window) != "List Rooms")
                 throw new Exception("The title must carry the supplied instance identity above the tool.");
             window.SetShowBranding(false);
-            if (TitleText(window) != "dwg-mcp 2027" || BrandRow(window).Visibility != Visibility.Collapsed)
+            if (TitleText(window) != ExpectedToastTitle("dwg-mcp 2027") || BrandRow(window).Visibility != Visibility.Collapsed)
                 throw new Exception("Turning branding off must keep the title and collapse the wordmark row.");
             window.SetShowBranding(true);
-            if (TitleText(window) != "dwg-mcp 2027" || BrandRow(window).Visibility != Visibility.Hidden)
+            if (TitleText(window) != ExpectedToastTitle("dwg-mcp 2027") || BrandRow(window).Visibility != Visibility.Hidden)
                 throw new Exception("Turning branding on must keep the title and reserve the wordmark row.");
         }
         finally { window.CloseImmediate(); }
@@ -284,7 +304,7 @@ internal static class Program
         var plain = new McpToastWindow(snapshot, null, null, null, null, null);
         try
         {
-            if (TitleText(plain) != "dwg-mcp")
+            if (TitleText(plain) != ExpectedToastTitle())
                 throw new Exception("A card without identity must fall back to the product name.");
         }
         finally { plain.CloseImmediate(); }
@@ -346,10 +366,22 @@ internal static class Program
         return tool.Text;
     }
 
+    internal static string ExpectedToastTitle(string identity = "dwg-mcp") => $"{identity} · PID {Environment.ProcessId}";
+
     private static string TitleText(McpToastWindow window)
     {
         var title = (TextBlock)typeof(McpToastWindow).GetField("_titleText", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(window);
-        return title.Text;
+        return PlainText(title);
+    }
+
+    /// <summary>Text of a TextBlock built from Runs (TextBlock.Text stays empty then).</summary>
+    internal static string PlainText(TextBlock block)
+    {
+        if (block.Inlines.Count == 0) return block.Text;
+        var text = new System.Text.StringBuilder();
+        foreach (var inline in block.Inlines)
+            if (inline is System.Windows.Documents.Run run) text.Append(run.Text);
+        return text.ToString();
     }
 
     private static Grid BrandRow(McpToastWindow window)
@@ -528,6 +560,40 @@ internal static class Program
         {
             manager.DismissAllImmediate();
         }
+    }
+
+    /// <summary>
+    /// FC-TST-04: pausing from the expanded card keeps it open and offers Resume.
+    /// </summary>
+    private static void CheckPauseKeepsTheCard()
+    {
+        var aggregator = new ActivityAggregator();
+        var paused = false;
+        var pauses = 0;
+        var manager = new McpToastManager(Dispatcher.CurrentDispatcher, aggregator, motionEnabled: () => false,
+            isPaused: () => paused, setPaused: value => { pauses++; paused = value; return paused; });
+        try
+        {
+            if (aggregator.RecordResult("List Layers", "Done", true, null, true)) manager.Render();
+            Pump();
+            var window = Current(manager);
+            var pause = (Border)typeof(McpToastWindow).GetField("_snoozeButton", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(window);
+            if (window == null || pause.Visibility != Visibility.Visible)
+                throw new Exception("A manager given a pause action must offer the pause button.");
+            var click = new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.Left)
+                { RoutedEvent = UIElement.MouseLeftButtonUpEvent };
+            pause.RaiseEvent(click);
+            Pump();
+            var label = (System.Windows.Documents.Run)typeof(McpToastWindow).GetField("_pauseText", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(window);
+            if (pauses != 1 || !paused || !ReferenceEquals(Current(manager), window) || !window.IsVisible || !label.Text.Contains("Resume"))
+                throw new Exception("Pausing must keep the open card and offer Resume.");
+            if (aggregator.RecordResult("List Layers", "Done again", true, null, true)) manager.Render();
+            Pump();
+            if (!ReferenceEquals(Current(manager), window) || !label.Text.Contains("Resume"))
+                throw new Exception("A render while paused must keep the card and its Resume label.");
+        }
+        finally { manager.DismissAllImmediate(); }
+        Console.WriteLine("PASS: the pause button keeps the open card and turns into Resume");
     }
 
     private static McpToastWindow Current(McpToastManager manager)

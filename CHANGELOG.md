@@ -1,5 +1,46 @@
 # Changelog
 
+## 2.2.0
+
+- Update the gateway MCP SDK to 1.4.2.
+- Update the isolated AutoCAD scripting runtime to Roslyn 4.13.0.
+- Update Newtonsoft.Json to 13.0.4 and keep plugin JSON serialization compatible with older host-loaded versions.
+
+- Move the gateway to .NET 10 LTS. Setup includes the gateway runtime. The framework-dependent NuGet tool requires .NET 10.
+- Update the gateway SQLite provider and native engine used by ToolBaker and drawing history.
+
+### Drawing edits and scripting
+
+- Add opt-in `atomic=true` to `dwg_batch_execute`. Supported drawing commands run in one outer AutoCAD transaction. A failed step, including a reported per-entity error, rolls back earlier changes and skips later steps. The gateway checks `atomic_batch_version` before dispatch. The default remains `atomic=false`.
+- Add `dwg_attach_image` (issue #6). Link a local PNG, JPG, TIFF or BMP with an exact insertion point and width, optional height, rotation, layer and send-to-back. The image, definition, layer and draw order are written in one transaction. An existing definition is reused when its saved or resolved image path matches. Mapped network drives are refused.
+- Add `result_contract=task_v1` to `dwg_send_code`. Scripts return `McpTaskResult.Pass(value)` or `McpTaskResult.Fail(code, message, details)`. The result includes `_task.status` (`passed`, `failed` or `not_reported`). The gateway checks `script_task_contract_version` before dispatch. Calls without `task_v1` keep their legacy behavior.
+- Add optional `usage_context=project|test|unknown` to `dwg_send_code`. The gateway records it only when call logging is enabled. Compiler diagnostics now include an `excerpt` of up to two lines on either side of the error, a column marker and a 200-character cap per line.
+- Return `ACAD_BUSY` or `QUEUE_FULL` when host admission rejects a request before it starts.
+
+### Reports, workflows and localization
+
+- Add `dwg_report_task_result` and the `MCPREPORTS` window. Entity links can activate another drawing that is already open. Reports support clickable `dwg:` entity links for selection and zoom. The AutoCAD toast can open the report. Successful write responses can include a `_report` reminder when reporting is enabled in the tool catalog.
+- Expose the MCP prompts `dwg_translate_text` and `dwg_review_large_drawing`. Translation requires review before writeback. Large-drawing review uses WCS bounds and band clustering. Read-only sessions omit writeback and image capture.
+- Check for stable releases in the background at most once per 24 hours and show an optional notice in AutoCAD. Settings can disable the notice. The notice links to release information.
+- Add opt-in SQLite history for supported committed drawing edits. `dwg_record_change` records the goal and reason, `dwg_get_change_records` queries saved records, and `dwg_survey_change_impact` inspects supplied handles for context. Reports accept optional `call_ids` and `dwg_get_report_history` reads saved provenance even with AutoCAD closed.
+- Add English, Vietnamese and Simplified Chinese catalogs for the plugin UI. English is the default. Language changes in Settings take effect after restarting AutoCAD.
+
+### Toast
+
+Update the gateway and plugins together to see the agent name; an older gateway leaves it out.
+
+- The card title names the agent of the latest call from its MCP client name: `dwg-mcp 2027 · Claude` (Claude, Codex, Cline, Cursor, Windsurf, Antigravity, Gemini, Copilot, VS Code; any other client shows its own name, cleaned and capped at 20 characters). The gateway sends the name with each call (`client_name`); it is display text only.
+- The AutoCAD process ID (`· PID 12345`) fades in when you point at the card and fades out when you leave, with or without branding. It no longer shows all the time.
+- **Pause for today**: a button at the foot of the expanded card, and a switch in `MCPSETTINGS` → Toast, hide every card (errors included) in every AutoCAD on this computer until local midnight. Pressed on the card, the card stays open and the button turns into **Resume**, so a mis-click is undone at once. The choice is saved as the local date in `toastSnoozedDate`. Turn the switch off, or run `MCPTOAST`, to show cards again now; turning toasts on from `MCPTOAST` or Settings also ends the pause. While paused (or disabled), `dwg_report_task_result` returns `toast: "disabled"` (otherwise `"shown"`).
+
+### Large drawings and open documents
+
+- `dwg_list_blocks` reports direct and nested references and unused definitions. `dwg_get_drawing_profile` can page unused block definitions and collect opt-in DBText/MText counts, a height histogram and bounded samples. Profile pages preserve coverage and continuation under the response budget.
+- `dwg_list_layers(include_counts=true)` adds opt-in entity counts. Type filters normalize `AcDb` aliases, and zero-match count and select-by-type results can suggest types present in the requested space. Use `dwg_query_entities` for selection by WCS bounding box.
+- Add `dwg_list_open_documents` and standalone `dwg_activate_document`. Verify the new drawing with `dwg_switch_target` before writing.
+- Add read-only `dwg_cluster_bands` for X/Y band clustering with gap, WCS bounding-box, space and type filters, optional plain-text samples and cursor pagination. Entities without usable extents are counted separately.
+- The catalog exposes 54 tools by default and 78 with `--toolsets all`. Read-only mode exposes 23 by default and 29 with all toolsets.
+
 ## 2.1.2 — 2026-11-01
 
 - Add optional JSON `data` and `compile_only` to `dwg_send_code`, with structured compiler diagnostics and runtime source locations. Enhanced calls verify plugin support before dispatch and are refused inside batches/baked tools; code-only calls remain compatible.

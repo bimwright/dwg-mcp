@@ -27,6 +27,8 @@ namespace Bimwright.Dwg.Plugin.Cad
             var after = options.Cursor == null ? 0UL : EntityQueryCursor.Read(options.Cursor, snapshot, options.Fingerprint);
             var database = document.Database;
             var stats = new ScanStats();
+            var typeHint = countOnly && options.EntityType != null && options.Layer == null && !options.ColorIndex.HasValue
+                ? new CadEntityTypeHint() : null;
             var candidates = new SortedList<ulong, Candidate>();
             var rows = new JArray();
             var checkpoints = new JArray();
@@ -53,6 +55,7 @@ namespace Bimwright.Dwg.Plugin.Cad
                             stats.EntitiesRead++;
                         }
                         catch { stats.EntityReadFailed++; continue; }
+                        if (stats.Matched == 0) typeHint?.Observe(entity.GetType());
                         try
                         {
                             if (!Matches(entity, options)) continue;
@@ -89,7 +92,9 @@ namespace Bimwright.Dwg.Plugin.Cad
                 catch { stats.EnumerationFailed++; }
 
                 result = Header(database, options, snapshot, DocumentTargetGuard.Id(document), scope, stats, countOnly);
-                if (Encoding.UTF8.GetByteCount(result.ToString(Formatting.None)) > MaxRawBytes - 2048)
+                if (typeHint != null && stats.MembershipComplete && stats.Matched == 0)
+                    result["hint"] = typeHint.ToJson(options.Space);
+                if (Encoding.UTF8.GetByteCount(result.ToString(Formatting.None, Array.Empty<JsonConverter>())) > MaxRawBytes - 2048)
                     throw new InvalidOperationException("QUERY_OUTPUT_TOO_LARGE: query metadata exceeds the host candidate budget; shorten filter or layout names.");
                 if (!countOnly)
                 {
@@ -111,7 +116,7 @@ namespace Bimwright.Dwg.Plugin.Cad
                         rows.Add(row);
                         checkpoints.Add(EntityQueryCursor.Issue(snapshot, options.Fingerprint, candidate.Handle));
                         Update(result, stats, rows.Count);
-                        if (Encoding.UTF8.GetByteCount(result.ToString(Formatting.None)) > MaxRawBytes - 1024)
+                        if (Encoding.UTF8.GetByteCount(result.ToString(Formatting.None, Array.Empty<JsonConverter>())) > MaxRawBytes - 1024)
                         {
                             rows.RemoveAt(rows.Count - 1);
                             checkpoints.RemoveAt(checkpoints.Count - 1);
@@ -138,10 +143,10 @@ namespace Bimwright.Dwg.Plugin.Cad
                 ["source"] = new JObject { ["api"] = "AutoCAD managed DatabaseServices", ["method"] = "ForRead top-level BlockTableRecord enumeration",
                     ["counting"] = "full_enumeration", ["sampling"] = false, ["estimated"] = false,
                     ["bbox_basis"] = "WCS_3D_axis_aligned_GeometricExtents_inclusive",
-                    ["type_filter_basis"] = "managed_Name_or_FullName_with_TEXT_INSERT_LWPOLYLINE_aliases" }
+                    ["type_filter_basis"] = "managed_Name_or_FullName_with_AcDb_TEXT_INSERT_LWPOLYLINE_aliases" }
             };
             if (options.EntityType != null && stats.Matched == 0)
-                result["filter_hint"] = "Use an exact managed Name/FullName or TEXT, INSERT, LWPOLYLINE; inspect dwg_get_drawing_profile for observed types. No type family is inferred.";
+                result["filter_hint"] = "Use an exact managed Name/FullName or an AcDb, TEXT, INSERT, or LWPOLYLINE alias; inspect dwg_get_drawing_profile for observed types.";
             if (countOnly)
             {
                 result["query_count_version"] = 1;
@@ -173,13 +178,13 @@ namespace Bimwright.Dwg.Plugin.Cad
         private static JObject Arguments(EntityQueryOptions options)
         {
             var result = new JObject { ["paged"] = true, ["limit"] = options.Limit, ["space"] = options.Space,
-                ["fields"] = new JArray(options.Fields).ToString(Formatting.None) };
+                ["fields"] = new JArray(options.Fields).ToString(Formatting.None, Array.Empty<JsonConverter>()) };
             if (options.EntityType != null) result["entity_type"] = options.EntityType;
             if (options.Layer != null) result["layer"] = options.Layer;
             if (options.ColorIndex.HasValue) result["color_index"] = options.ColorIndex.Value;
             if (options.Bbox != null)
             {
-                result["bbox"] = new JObject { ["min"] = new JArray(options.Bbox.Take(3)), ["max"] = new JArray(options.Bbox.Skip(3)) }.ToString(Formatting.None);
+                result["bbox"] = new JObject { ["min"] = new JArray(options.Bbox.Take(3)), ["max"] = new JArray(options.Bbox.Skip(3)) }.ToString(Formatting.None, Array.Empty<JsonConverter>());
                 result["bbox_mode"] = options.BboxMode;
             }
             return result;

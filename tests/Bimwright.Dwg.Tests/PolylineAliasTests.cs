@@ -59,6 +59,9 @@ public sealed class PolylineAliasTests
     [InlineData("lwpolyline", "Polyline")]
     [InlineData("Polyline2d", "Polyline2d")]
     [InlineData("Polyline3d", "Polyline3d")]
+    [InlineData("AcDbPOLYLINE", "Polyline")]
+    [InlineData("AcDb2dPolyline", "Polyline2d")]
+    [InlineData("AcDb3dPolyline", "Polyline3d")]
     [InlineData("Autodesk.AutoCAD.DatabaseServices.Polyline", "Polyline")]
     public void Four_legacy_handlers_keep_lightweight_and_explicit_old_style_types_distinct(string filter, string expectedType)
     {
@@ -102,6 +105,25 @@ public sealed class PolylineAliasTests
             var sent = await Capture.Send(() => Call(operation, filter));
             Assert.Equal(filter, sent.Json().Value<string>("entity_type"));
             Assert.Null(sent.Json()["paged"]);
+        }
+    }
+
+    [Theory]
+    [InlineData(" AcDbText ", "DBText")]
+    [InlineData("acdbblockreference", "blockreference")]
+    [InlineData("AcDbMText", "MText")]
+    [InlineData("AcDbAttribute", "AttributeReference")]
+    [InlineData("AcDb3dSolid", "Solid3d")]
+    public async Task Native_aliases_share_the_managed_filter_and_wire_representation(string alias, string managed)
+    {
+        Assert.Equal(managed, EntityQueryOptions.NormalizeType(alias));
+        var native = EntityQueryOptions.Create(new JObject { ["entity_type"] = alias });
+        var canonical = EntityQueryOptions.Create(new JObject { ["entity_type"] = managed });
+        Assert.Equal(canonical.Fingerprint, native.Fingerprint);
+        foreach (var operation in new[] { "query", "count", "select_layer", "select_type", "paged_query", "spatial_count" })
+        {
+            var sent = await Capture.Send(() => Call(operation, alias));
+            Assert.Equal(managed, sent.Json().Value<string>("entity_type"));
         }
     }
 

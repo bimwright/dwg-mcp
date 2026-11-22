@@ -22,9 +22,8 @@ namespace Bimwright.Dwg.Tests
         {
             var tool = McpServerTool.Create(typeof(DrawingWriteTools).GetMethod(nameof(DrawingWriteTools.SetSystemVariable)));
             await using var server = McpServer.Create(new StreamServerTransport(new MemoryStream(), new MemoryStream()), new McpServerOptions());
-            var context = new RequestContext<CallToolRequestParams>(server, new JsonRpcRequest { Method = "tools/call", Id = new RequestId(1) })
-            {
-                Params = new CallToolRequestParams
+            var context = new RequestContext<CallToolRequestParams>(server, new JsonRpcRequest { Method = "tools/call", Id = new RequestId(1) },
+                new CallToolRequestParams
                 {
                     Name = "dwg_set_system_variable",
                     Arguments = new Dictionary<string, JsonElement>
@@ -32,8 +31,7 @@ namespace Bimwright.Dwg.Tests
                         ["name"] = JsonDocument.Parse(JsonSerializer.Serialize(name)).RootElement.Clone(),
                         ["value"] = JsonDocument.Parse(valueJson).RootElement.Clone()
                     }
-                }
-            };
+                });
 
             var capture = await Capture.Send(async () =>
             {

@@ -3,7 +3,7 @@
     <TargetFramework>net48</TargetFramework>
     <RootNamespace>Bimwright.Dwg.Plugin</RootNamespace>
     <AssemblyName>Bimwright.Dwg.Plugin.Acad22</AssemblyName>
-    <Version>2.1.2</Version>
+    <Version>2.2.0</Version>
     <IncludeSourceRevisionInInformationalVersion>true</IncludeSourceRevisionInInformationalVersion>
     <LangVersion>latest</LangVersion>
     <AutoCadVersionYear>2022</AutoCadVersionYear>
@@ -23,6 +23,7 @@
 
   <ItemGroup>
     <Reference Include="System.Drawing" />
+    <Reference Include="System.Net.Http" />
     <Reference Include="PresentationCore" />
     <Reference Include="PresentationFramework" />
     <Reference Include="WindowsBase" />
@@ -30,8 +31,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="4.8.0" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="4.13.0" />
   </ItemGroup>
 
   <ItemGroup>
@@ -43,4 +44,5 @@
   <ItemGroup>
     <ProjectReference Include="..\scripting\Bimwright.Dwg.Scripting.csproj" />
   </ItemGroup>
+  <Import Project="..\shared\Localization\Catalog\Catalog.props" />
 </Project>

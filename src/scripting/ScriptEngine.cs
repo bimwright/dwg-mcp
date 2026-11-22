@@ -45,13 +45,17 @@ namespace Bimwright.Dwg.Scripting
                 .WithEmitDebugInformation(true).WithFileEncoding(System.Text.Encoding.UTF8);
             var script = CSharpScript.Create(code, options, globals.GetType());
             var errors = script.Compile(token).Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
+            var sourceLines = ScriptExcerpt.SplitLines(code);
             var diagnostics = errors.Take(20).Select(d => {
                 var span = d.Location.GetMappedLineSpan();
-                return new Dictionary<string, object> {
+                var diagnostic = new Dictionary<string, object> {
                     ["source"] = "script", ["line"] = span.StartLinePosition.Line + 1,
                     ["column"] = span.StartLinePosition.Character + 1, ["code"] = d.Id,
                     ["message"] = d.GetMessage(), ["severity"] = "error"
                 };
+                var excerpt = ScriptExcerpt.Build(sourceLines, span.StartLinePosition.Line + 1, span.StartLinePosition.Character + 1);
+                if (excerpt != null) diagnostic["excerpt"] = excerpt;
+                return diagnostic;
             }).ToArray();
             var result = new Dictionary<string, object> {
                 ["ok"] = errors.Length == 0, ["result"] = null,

@@ -9,6 +9,8 @@ namespace Bimwright.Dwg.Plugin
         private static readonly object Gate = new object();
         private static Task _tail = Task.CompletedTask;
         internal const int MaxPendingRequests = 16;
+        internal const string QueueFullCode = "QUEUE_FULL";
+        internal const string QueueFullMessage = QueueFullCode + ": AutoCAD request queue is full (16 pending); command was not started. Retry after earlier requests finish.";
         private static int _pendingRequests;
 
         public static T Invoke<T>(Func<T> work)
@@ -36,7 +38,7 @@ namespace Bimwright.Dwg.Plugin
             if (Interlocked.Increment(ref _pendingRequests) > MaxPendingRequests)
             {
                 Interlocked.Decrement(ref _pendingRequests);
-                return Task.FromException<T>(new InvalidOperationException("AutoCAD request queue is full; command was not started."));
+                return Task.FromException<T>(new InvalidOperationException(QueueFullMessage));
             }
             var completion = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
             lock (Gate)

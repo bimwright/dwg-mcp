@@ -17,6 +17,24 @@ public class ResponseBudgetTests : OutputArtifactTestScope
     private static JObject Text(CallToolResult result) => JObject.Parse(((TextContentBlock)result.Content[0]).Text);
 
     [Theory]
+    [InlineData(false, AgentReportReminder.Text)]
+    [InlineData(true, AgentReportReminder.Text)]
+    [InlineData(false, AgentReportReminder.ShortText)]
+    [InlineData(true, AgentReportReminder.ShortText)]
+    public void Report_reminder_preserves_delivery_within_the_budget(bool compacted, string reminder)
+    {
+        var data = new JObject { ["ok"] = true, ["result"] = new string('x', 5000) };
+        var limit = compacted ? 4096 : ResponseBudget.Measure(Result(data));
+        data["_report"] = reminder;
+
+        var delivered = ResponseBudget.Apply(Result(data), new DwgMcpConfig { ResponseBudgetBytes = limit }, false, "dwg_create_line");
+
+        Assert.Equal(compacted, Text(delivered)["_response_budget"] != null);
+        Assert.Equal(compacted ? reminder : null, Text(delivered).Value<string>("_report"));
+        Assert.True(ResponseBudget.Measure(delivered) <= limit);
+    }
+
+    [Theory]
     [InlineData(true)]
     [InlineData(false)]
     public void Compacted_script_keeps_reported_execution_status_without_reading_user_DTO(bool scriptOk)

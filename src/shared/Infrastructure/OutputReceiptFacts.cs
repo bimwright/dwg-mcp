@@ -10,14 +10,14 @@ namespace Bimwright.Dwg.Plugin
         {
             var result = new JObject();
             if (data == null) return result;
-            foreach (var key in new[] { "index", "cmd", "ok", "command_ok", "outcome", "output_verified", "partial_failure", "transactional", "rollback",
+            foreach (var key in new[] { "index", "cmd", "ok", "command_ok", "outcome", "output_verified", "partial_failure", "transactional", "rollback", "counts_complete",
                 "mutation_applied", "error", "output_path", "saved_path", "count", "created_count", "modified_count", "failed_count" })
             {
                 var value = data[key];
                 if (!(value is JValue)) continue;
                 if (value.Type == JTokenType.String && value.Value<string>().Length > textLimit)
                 { result[key] = OutputArtifactStore.Preview(value.Value<string>(), textLimit); result[key + "_omitted"] = true; }
-                else if (value.ToString(Newtonsoft.Json.Formatting.None).Length <= 256) result[key] = value.DeepClone();
+                else if (value.ToString(Newtonsoft.Json.Formatting.None, Array.Empty<Newtonsoft.Json.JsonConverter>()).Length <= 256) result[key] = value.DeepClone();
                 else result[key + "_omitted"] = true;
             }
             foreach (var key in new[] { "file_receipt", "output_artifact" })
@@ -46,7 +46,7 @@ namespace Bimwright.Dwg.Plugin
                 var value = data?[key];
                 if (!(value is JValue)) continue;
                 var limit = key == "path" ? 1024 : 128;
-                if (value.ToString(Newtonsoft.Json.Formatting.None).Length <= limit) result[key] = value.DeepClone();
+                if (value.ToString(Newtonsoft.Json.Formatting.None, Array.Empty<Newtonsoft.Json.JsonConverter>()).Length <= limit) result[key] = value.DeepClone();
                 else result[key + "_omitted"] = true;
             }
             if (data?["preview"]?.Type == JTokenType.String && previewLimit > 0)

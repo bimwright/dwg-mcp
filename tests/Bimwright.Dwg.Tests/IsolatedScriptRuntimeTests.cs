@@ -10,7 +10,7 @@ namespace Bimwright.Dwg.Tests;
 public sealed class IsolatedScriptRuntimeTests
 {
     [Fact]
-    public async Task Host_core_4_0_can_coexist_with_the_actual_script_engine_4_8()
+    public async Task Host_core_4_0_can_coexist_with_the_actual_script_engine_4_13()
     {
         var probe = Path.Combine(AppContext.BaseDirectory, "script-probe", "Bimwright.Dwg.Scripting.Probe.dll");
         using var process = Process.Start(new ProcessStartInfo("dotnet") {
@@ -34,6 +34,6 @@ public sealed class IsolatedScriptRuntimeTests
         Assert.True(result.GetProperty("asyncGuard").GetBoolean());
         Assert.True(result.GetProperty("loadGuard").GetBoolean());
         Assert.Equal("4.0.0.0", result.GetProperty("hostCore").GetString());
-        Assert.Equal("4.8.0.0", result.GetProperty("engineCore").GetString());
+        Assert.Equal("4.13.0.0", result.GetProperty("engineCore").GetString());
     }
 }

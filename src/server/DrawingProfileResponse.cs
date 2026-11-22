@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Text.Json;
@@ -17,9 +18,16 @@ internal static class DrawingProfileResponse
     internal const int MaximumCap = 64 * 1024;
     private static readonly string[] Sections = { "types", "layers", "spaces" };
 
-    internal static CallToolResult FromJson(string json, int maxOutputBytes, string space = "all")
+    internal static CallToolResult FromJson(string json, int maxOutputBytes, string space = "all", bool includeTextStats = false)
     {
         var body = JObject.Parse(json);
+        if (includeTextStats && body.Value<bool?>("ok") == true
+            && ((body["result"] as JObject)?["text_stats"] is not JObject))
+        {
+            var refusal = new JObject { ["ok"] = false, ["error"] = "PROFILE_TEXT_STATS_UNSUPPORTED: the plugin did not return the requested text statistics. Update gateway and plugin together." };
+            ResponseBudget.RetainTarget(body, refusal);
+            return BoundOther(Text(refusal, true), maxOutputBytes);
+        }
         return Fit(Text(body, body.Value<bool?>("ok") != true), maxOutputBytes, space);
     }
 
@@ -56,6 +64,12 @@ internal static class DrawingProfileResponse
             || profile["histograms"] is not JObject histograms
             || Sections.Any(section => histograms[section] is not JObject table || table["rows"] is not JArray))
             return BoundOther(result, cap);
+        var tables = Sections.Select(section => (Section: section, Table: (JObject)histograms[section])).ToList();
+        if (profile["unused_blocks"] is JObject unused && unused["rows"] is JArray)
+            tables.Add(("unused_blocks", unused));
+        var textStats = profile["text_stats"] as JObject;
+        var samples = textStats?["samples"] as JArray;
+        var histogram = textStats?["height_histogram"] as JObject;
 
         // Keep the caller's content/metadata untouched. Repeated final fitting uses
         // the original header offsets, never a previously emitted next_offset.
@@ -68,9 +82,19 @@ internal static class DrawingProfileResponse
             Meta = result.Meta?.DeepClone().AsObject()
         };
         var fittedText = fitted.Content.OfType<TextContentBlock>().First();
+        const string compactNote = "See next_calls/blocked_sections.";
+        var compactGuidance = profile["output"]?.Value<string>("note") == compactNote;
         void Refresh()
         {
-            SetOutput(profile, cap);
+            SetOutput(profile, tables, cap);
+            if (compactGuidance) profile["output"]["note"] = compactNote;
+            if (samples != null && Count(textStats["samples_collected"]) is long collected)
+            {
+                var omitted = Math.Max(0, collected - samples.Count);
+                textStats["samples_omitted_for_budget"] = omitted;
+                if (omitted > 0) profile["output"]["complete"] = false;
+            }
+            if (histogram?.Value<bool?>("bins_omitted_for_budget") == true) profile["output"]["complete"] = false;
             fittedText.Text = body.ToString(Formatting.None);
         }
         Refresh();
@@ -79,6 +103,9 @@ internal static class DrawingProfileResponse
         // Profile data takes precedence over optional decoration. Every omitted
         // decoration is recorded in the delivered text, not only MCP metadata.
         var output = (JObject)profile["output"];
+        // Sub-default caps prioritize data over tutorial text. The default
+        // profile contract keeps its explanatory note even when rows are paged.
+        compactGuidance = cap < DefaultCap;
         if (body["_ignored_arguments"] != null)
         {
             body["_ignored_arguments"] = new JObject { ["details_omitted"] = true };
@@ -93,26 +120,33 @@ internal static class DrawingProfileResponse
         }
         Refresh();
         var bytes = ResponseBudget.Measure(fitted);
-        var tables = Sections.Select(section => (JArray)histograms[section]["rows"]).ToArray();
-        while (bytes > cap && tables.Any(rows => rows.Count > 0))
+        var rowLists = tables.Select(entry => (JArray)entry.Table["rows"]).ToList();
+        if (samples != null) rowLists.Add(samples);
+        while (bytes > cap && rowLists.Any(rows => rows.Count > 0))
         {
             var excess = bytes - cap;
             var removed = 0;
             do
             {
-                var tail = tables.Where(rows => rows.Count > 0)
+                var tail = rowLists.Where(rows => rows.Count > 0)
                     .Select(rows => new { Rows = rows, Bytes = EscapedBytes(rows.Last) })
                     .OrderByDescending(item => item.Bytes).First();
                 tail.Rows.RemoveAt(tail.Rows.Count - 1);
                 removed += tail.Bytes;
-            } while (removed < excess && tables.Any(rows => rows.Count > 0));
+            } while (removed < excess && rowLists.Any(rows => rows.Count > 0));
+            Refresh();
+            bytes = ResponseBudget.Measure(fitted);
+        }
+        if (bytes > cap && histogram?.Remove("bins") == true)
+        {
+            histogram["bins_omitted_for_budget"] = true;
             Refresh();
             bytes = ResponseBudget.Measure(fitted);
         }
         return bytes <= cap ? fitted : CoreTooLarge(profile, cap, body);
     }
 
-    private static void SetOutput(JObject profile, int cap)
+    private static void SetOutput(JObject profile, IReadOnlyList<(string Section, JObject Table)> tables, int cap)
     {
         var output = profile["output"] as JObject ?? new JObject();
         var omitted = new JObject();
@@ -123,9 +157,8 @@ internal static class DrawingProfileResponse
         var requested = profile["request"]?.Value<string>("section") ?? "summary";
         var snapshot = profile.Value<string>("snapshot");
         var complete = true;
-        foreach (var section in Sections)
+        foreach (var (section, table) in tables)
         {
-            var table = (JObject)profile["histograms"][section];
             var rows = (JArray)table["rows"];
             var offset = Count(table["offset"]);
             var total = Count(table["total_groups"]);
@@ -157,21 +190,20 @@ internal static class DrawingProfileResponse
                 blocked.Add(new JObject
                 {
                     ["section"] = section, ["offset"] = offset.Value,
-                    ["reason"] = cap < MaximumCap ? "no_row_fits_effective_cap; increase max_output_bytes up to 65536 and the gateway --response-budget-bytes if it is lower"
+                    ["reason"] = cap < MaximumCap ? "no_row_fits_effective_cap; increase"
                         : "no_row_can_be_delivered_at_max_output_bytes_65536"
                 });
                 continue;
             }
-            next.Add(new JObject
+            var arguments = new JObject
             {
-                ["tool"] = "dwg_get_drawing_profile",
-                ["arguments"] = new JObject
-                {
-                    ["section"] = section, ["offset"] = selected ? offset.Value + rows.Count : 0,
-                    ["expected_snapshot"] = snapshot, ["max_output_bytes"] = cap,
-                    ["space"] = profile["request"]?.Value<string>("space") ?? "all"
-                }
-            });
+                ["section"] = section, ["offset"] = selected ? offset.Value + rows.Count : 0,
+                ["expected_snapshot"] = snapshot, ["max_output_bytes"] = cap,
+                ["space"] = profile["request"]?.Value<string>("space") ?? "all"
+            };
+            if (profile["request"]?["include_text_stats"]?.Type == JTokenType.Boolean
+                && profile["request"].Value<bool>("include_text_stats")) arguments["include_text_stats"] = true;
+            next.Add(new JObject { ["tool"] = "dwg_get_drawing_profile", ["arguments"] = arguments });
         }
         output["budget_bytes"] = cap;
         output["complete"] = complete;
@@ -180,11 +212,12 @@ internal static class DrawingProfileResponse
         output["not_requested"] = notRequested;
         output["next_calls"] = next;
         output["blocked_sections"] = blocked;
-        output["note"] = "Histograms are paged; omitted counts are groups remaining after this page (all groups for sections not requested). Prior offsets are not repeated. " +
-            "Use next_calls to retrieve omitted groups under expected_snapshot; each call rescans and rejects a changed snapshot. " +
-            (cap < MaximumCap ? "For a blocked empty page inspect blocked_sections, increase max_output_bytes up to 65536, and increase the gateway --response-budget-bytes if limiting. "
-                : "A row blocked at 65536 cannot be delivered by this tool. ") +
-            "No unchanged-offset continuation is issued for a blocked section; identifiers are not shortened. Coverage.complete describes the scan, not output completeness.";
+        // Keep shared guidance short: it is serialized inside MCP text and must
+        // leave room for actual rows, text statistics and continuation arguments.
+        output["note"] = "omitted counts remaining groups; prior offsets are not repeated. next_calls rescan under expected_snapshot. " +
+            (cap < MaximumCap ? "For blocked_sections increase max_output_bytes (max 65536) and gateway --response-budget-bytes. "
+                : "Rows blocked at 65536 cannot be delivered. ") +
+            "coverage.complete describes the scan, not delivery.";
         profile["output"] = output;
     }
 

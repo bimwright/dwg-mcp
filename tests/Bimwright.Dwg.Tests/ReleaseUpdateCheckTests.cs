@@ -10,6 +10,7 @@ using Xunit;
 using System.Net;
 using System.Text;
 using Bimwright.Dwg.Server;
+using Bimwright.Dwg.Plugin;
 using Newtonsoft.Json.Linq;
 
 namespace Bimwright.Dwg.Tests;
@@ -116,6 +117,29 @@ public sealed class ReleaseUpdateCheckTests
         var result = await Check(client);
         Assert.Equal("unknown", result.Value<string>("status"));
         Assert.Equal("invalid_release_metadata", result.Value<string>("reason"));
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.OK, "v0.2.2")]
+    [InlineData(HttpStatusCode.ServiceUnavailable, null)]
+    public async Task AutoCAD_background_check_reserves_the_daily_interval_even_on_failure(HttpStatusCode status, string? cachedTag)
+    {
+        var path = Path.GetTempFileName();
+        var handler = new Handler { Status = status };
+        using var client = new HttpClient(handler);
+        var metadata = new ReleaseMetadataClient("0.2.1", client);
+        try
+        {
+            if (status == HttpStatusCode.OK)
+                Assert.Equal(cachedTag, (await ReleaseNoticeCheck.CheckAsync(path, metadata.GetLatestAsync, CancellationToken.None))?.Tag);
+            else
+                await Assert.ThrowsAsync<HttpRequestException>(() => ReleaseNoticeCheck.CheckAsync(path, metadata.GetLatestAsync, CancellationToken.None));
+
+            var next = await ReleaseNoticeCheck.CheckAsync(path, metadata.GetLatestAsync, CancellationToken.None);
+            Assert.Equal(cachedTag, next?.Tag);
+            Assert.Equal(1, handler.Calls);
+        }
+        finally { File.Delete(path); }
     }
 
     [Fact]

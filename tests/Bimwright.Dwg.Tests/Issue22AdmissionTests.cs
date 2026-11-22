@@ -22,6 +22,7 @@ namespace Bimwright.Dwg.Tests
                 var rejected = DwgApiExecutor.InvokeAsync(() => 1);
                 var error = await Assert.ThrowsAsync<InvalidOperationException>(() => rejected);
                 Assert.Contains("not started", error.Message);
+                Assert.StartsWith("QUEUE_FULL: ", error.Message);
             }
             finally { release.TrySetResult(42); await Task.WhenAll(queued); }
             Assert.Equal(7, await DwgApiExecutor.InvokeAsync(() => 7));

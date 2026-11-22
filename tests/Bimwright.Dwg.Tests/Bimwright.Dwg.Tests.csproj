@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <IsPackable>false</IsPackable>
     <LangVersion>latest</LangVersion>
     <RootNamespace>Bimwright.Dwg.Tests</RootNamespace>
@@ -16,8 +16,8 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
     <PackageReference Include="xunit" Version="2.6.2" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.5.4" />
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="4.8.0" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="4.13.0" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\server\Bimwright.Dwg.Server.csproj" />
@@ -41,7 +41,22 @@
     <Compile Include="..\..\src\shared\Infrastructure\SchemaValidator.cs" LinkBase="Shared\Infrastructure" />
     <Compile Include="..\..\src\shared\Infrastructure\ResponseSizeGuard.cs" LinkBase="Shared\Infrastructure" />
     <Compile Include="..\..\src\shared\Infrastructure\BatchExecutor.cs" LinkBase="Shared\Infrastructure" />
-    <Compile Include="..\..\src\shared\Cad\CadWire.cs" LinkBase="Shared\Cad" />
+    <Compile Include="..\..\src\shared\Handlers\BatchExecuteHandler.cs" LinkBase="Shared\Handlers" />
+    <Compile Include="..\..\src\shared\Infrastructure\DocumentChangeCapture.cs" LinkBase="Shared\Infrastructure" />
+    <Compile Include="..\..\src\shared\Cad\ImageAttachInput.cs" LinkBase="Shared\Cad" />
+    <!-- Report model/binding/storage are host-free; ReportLimits comes from the server assembly. -->
+    <Compile Include="..\..\src\shared\Reports\Model\*.cs" Exclude="..\..\src\shared\Reports\Model\ReportLimits.cs;..\..\src\shared\Reports\Model\ReportChanges.cs;..\..\src\shared\Reports\Model\AgentReport.cs;..\..\src\shared\Reports\Model\ReportDocument.cs;..\..\src\shared\Reports\Model\ReportLink.cs;..\..\src\shared\Reports\Model\ReportJson.cs" LinkBase="Shared\Reports\Model" />
+    <Compile Include="..\..\src\shared\Reports\Binding\*.cs" LinkBase="Shared\Reports\Binding" />
+    <Compile Include="..\..\src\shared\Reports\Storage\*.cs" Exclude="..\..\src\shared\Reports\Storage\ReportStore.cs" LinkBase="Shared\Reports\Storage" />
+    <!-- Reports view models need only ICommand/INotifyPropertyChanged; the WPF views stay in the plugin. -->
+    <Compile Include="..\..\src\shared\Reports\Presentation\*.cs" LinkBase="Shared\Reports\Presentation" />
+    <Compile Include="..\..\src\shared\Reports\Navigation\*.cs" LinkBase="Shared\Reports\Navigation" />
+    <Compile Include="..\..\src\shared\Presentation\Common\*.cs" LinkBase="Shared\Presentation\Common" />
+    <Compile Include="..\..\src\shared\Config\ReportsWindowState.cs" LinkBase="Shared\Config" />
+    <Compile Include="..\..\src\shared\Config\PluginSettings.Reports.cs" LinkBase="Shared\Config" />
+    <Compile Include="..\..\src\shared\Views\Toast\AgentDisplayName.cs" LinkBase="Shared\Views\Toast" />
+    <Compile Include="..\..\src\shared\Views\Toast\ToastSnooze.cs" LinkBase="Shared\Views\Toast" />
+    <Compile Include="..\..\src\shared\Views\Toast\ToastReportRoute.cs" LinkBase="Shared\Views\Toast" />
     <Compile Include="..\..\src\shared\Cad\CadPrimitiveValidation.cs" LinkBase="Shared\Cad" />
     <Compile Include="..\..\src\shared\Cad\CadTransformService.cs" LinkBase="Shared\Cad" />
     <Compile Include="..\..\src\shared\Annotation\AnnotationRequestValidation.cs" LinkBase="Shared\Annotation" />
@@ -65,10 +80,11 @@
     <Compile Include="..\..\src\shared\Views\Toast\ActivityHistory.cs" LinkBase="Shared\Views\Toast" />
     <Compile Include="..\..\src\shared\Views\Toast\ActivityHistoryDetails.cs" LinkBase="Shared\Views\Toast" />
     <Compile Include="..\..\src\shared\Security\PathAllowlist.cs" LinkBase="Shared\Security" />
-    <Compile Include="..\..\src\shared\Localization\L.cs" LinkBase="Shared\Localization" />
+    <Compile Include="..\..\src\shared\Localization\*.cs" LinkBase="Shared\Localization" />
     <Compile Include="..\..\src\shared\Config\PluginSettings.cs" LinkBase="Shared\Config" />
     <Compile Include="..\..\src\shared\ToolCatalog\ToolCatalogStore.cs" LinkBase="Shared\ToolCatalog" />
     <Compile Include="..\..\src\shared\Infrastructure\PluginLog.cs" LinkBase="Shared\Infrastructure" />
+    <Compile Include="..\..\src\shared\Infrastructure\ReleaseNoticeCheck.cs" LinkBase="Shared\Infrastructure" />
     <Compile Include="..\..\src\shared\Transport\ITransportServer.cs" LinkBase="Shared\Transport" />
     <Compile Include="..\..\src\shared\Transport\PipeTransportServer.cs" LinkBase="Shared\Transport" />
     <Compile Include="..\..\src\shared\Transport\TcpTransportServer.cs" LinkBase="Shared\Transport" />
@@ -78,9 +94,15 @@
   <ItemGroup>
     <Compile Include="..\..\src\shared\Handlers\SendCodeHandler.cs" LinkBase="Shared\Handlers" />
     <Compile Include="..\..\src\shared\Handlers\DrawingProfileHandler.cs" LinkBase="Shared\Handlers" />
+    <Compile Include="..\..\src\shared\Handlers\ListLayersHandler.cs" LinkBase="Shared\Handlers" />
+    <Compile Include="..\..\src\shared\Cad\CadLayerService.cs" LinkBase="Shared\Cad" />
+    <Compile Include="..\..\src\shared\Handlers\Blocks\ListBlocksHandler.cs" LinkBase="Shared\Handlers" />
+    <Compile Include="..\..\src\shared\Blocks\BlockUsageReader.cs" LinkBase="Shared\Blocks" />
     <Compile Include="..\..\src\shared\Cad\CadQueryService.cs" LinkBase="Shared\Cad" />
     <Compile Include="..\..\src\shared\Cad\CadEntityProperties.cs" LinkBase="Shared\Cad" />
     <Compile Include="..\..\src\shared\Cad\CadEntityPageService.cs" LinkBase="Shared\Cad" />
+    <Compile Include="..\..\src\shared\Cad\CadBandQuery.cs" LinkBase="Shared\Cad" />
+    <Compile Include="..\..\src\shared\Handlers\ClusterBandsHandler.cs" LinkBase="Shared\Handlers" />
     <Compile Include="..\..\src\shared\Cad\CadEntityProjection.cs" LinkBase="Shared\Cad" />
     <Compile Include="..\..\src\shared\Cad\CadTextReadService.cs" LinkBase="Shared\Cad" />
     <Compile Include="..\..\src\shared\Handlers\QueryEntitiesHandler.cs" LinkBase="Shared\Handlers" />
@@ -102,4 +124,5 @@
     <ItemGroup><ScriptingProbeFiles Include="../Bimwright.Dwg.Scripting.Probe/bin/$(Configuration)/net8.0/**/*" /></ItemGroup>
     <Copy SourceFiles="@(ScriptingProbeFiles)" DestinationFiles="@(ScriptingProbeFiles->'$(OutDir)script-probe/%(RecursiveDir)%(Filename)%(Extension)')" />
   </Target>
+  <Import Project="..\..\src\shared\Localization\Catalog\Catalog.props" />
 </Project>

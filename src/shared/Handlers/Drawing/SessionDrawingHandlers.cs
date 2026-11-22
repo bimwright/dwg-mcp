@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
 using Microsoft.Win32;
@@ -8,12 +9,101 @@ using Newtonsoft.Json.Linq;
 
 namespace Bimwright.Dwg.Plugin.Handlers
 {
+    public sealed class ListOpenDocumentsHandler : IAcadSessionCommand
+    {
+        public string Name => "list_open_documents";
+        public string Description => "List open drawing identities and save status in this AutoCAD session.";
+        public CommandSchema Schema => CommandSchema.Empty;
+        public CommandResult Execute(Document doc, JToken parameters) => CommandResult.Fail(DrawingSessionContract.StandaloneError(Name));
+
+        public CommandResult ExecuteSession(JToken parameters)
+        {
+            var documents = Application.DocumentManager;
+            var active = documents.MdiActiveDocument;
+            var entries = documents.Cast<Document>().Select(document => new
+            {
+                name = Path.GetFileName(document.Name),
+                path = document.IsNamedDrawing ? document.Database.Filename : null,
+                document_id = DocumentTargetGuard.Id(document),
+                active = document == active,
+                has_unsaved_changes = HasUnsavedChanges(document)
+            }).ToArray();
+            return CommandResult.Success(new { count = entries.Length, documents = entries });
+        }
+
+        private static bool? HasUnsavedChanges(Document document)
+        {
+            // ActiveX Saved is per document. Application.GetSystemVariable("DBMOD")
+            // would return the active drawing's state for every entry.
+            try
+            {
+                var acadDocument = document.GetAcadDocument();
+                var saved = acadDocument?.GetType().InvokeMember("Saved", BindingFlags.GetProperty, null, acadDocument, null);
+                return saved is bool value ? !value : (bool?)null;
+            }
+            catch (Exception) { return null; }
+        }
+    }
+
+    public sealed class ActivateDocumentHandler : IAcadSessionCommand
+    {
+        public string Name => "activate_document";
+        public string Description => "Activate an open drawing by its current document lifetime ID.";
+        public CommandSchema Schema => CommandSchemas.ActivateDocument;
+        public CommandResult Execute(Document doc, JToken parameters) => CommandResult.Fail(DrawingSessionContract.StandaloneError(Name));
+
+        public CommandResult ExecuteSession(JToken parameters)
+        {
+            var validation = SchemaValidator.Validate(Name, parameters, Schema);
+            if (!validation.Ok) return CommandResult.Fail(validation.Error);
+            var documentId = parameters.Value<string>("document_id");
+            var documents = Application.DocumentManager;
+            if (!documents.IsApplicationContext)
+                return CommandResult.Fail("AutoCAD is not in application context. No drawing was activated; retry when idle.");
+            if (Convert.ToInt32(Application.GetSystemVariable("SDI")) != 0)
+                return CommandResult.Fail("dwg_activate_document requires multi-document mode (SDI=0). No drawing was activated.");
+
+            Document target = null;
+            foreach (Document document in documents)
+            {
+                if (!string.IsNullOrEmpty(document.CommandInProgress))
+                    return CommandResult.Fail("ACAD_BUSY: AutoCAD has a command in progress. No drawing was activated.");
+                if (string.Equals(DocumentTargetGuard.Id(document), documentId, StringComparison.Ordinal))
+                    target = document;
+            }
+            if (target == null)
+                return CommandResult.Fail("DOCUMENT_NOT_OPEN: document_id is not open in this AutoCAD session. Refresh dwg_list_open_documents.");
+
+            var changed = documents.MdiActiveDocument != target;
+            try
+            {
+                if (changed) documents.MdiActiveDocument = target;
+                if (documents.MdiActiveDocument != target)
+                    return CommandResult.Fail("AutoCAD did not confirm activation. Inspect dwg_health before retrying.");
+                return CommandResult.Success(new
+                {
+                    document_id = documentId,
+                    name = Path.GetFileName(target.Name),
+                    activated = true,
+                    changed,
+                    target_verification_required = changed,
+                    instruction = changed ? "Call dwg_health, then dwg_switch_target with this PID and the observed expected_document_id before using drawing tools." : null
+                });
+            }
+            catch (Exception ex)
+            {
+                return CommandResult.Fail("AutoCAD could not confirm activation: " + ErrorSanitizer.Sanitize(ex.Message) +
+                    ". Inspect dwg_health before retrying.");
+            }
+        }
+    }
+
     public class ListRecentDrawingsHandler : IAcadSessionCommand
     {
         public string Name => "list_recent_drawings";
         public string Description => "List this AutoCAD product's recent DWG files without opening or locking a drawing.";
         public CommandSchema Schema => CommandSchemas.ListRecentDrawings;
-        public CommandResult Execute(Document doc, JToken parameters) => CommandResult.Fail("list_recent_drawings is a standalone session command; it is not supported inside drawing batches or baked tools.");
+        public CommandResult Execute(Document doc, JToken parameters) => CommandResult.Fail(DrawingSessionContract.StandaloneError(Name));
 
         public CommandResult ExecuteSession(JToken parameters)
         {
@@ -59,7 +149,7 @@ namespace Bimwright.Dwg.Plugin.Handlers
         public string Name => "open_drawing";
         public string Description => "Open a DWG in the AutoCAD session without closing or saving any drawing.";
         public CommandSchema Schema => CommandSchemas.OpenDrawing;
-        public CommandResult Execute(Document doc, JToken parameters) => CommandResult.Fail("open_drawing is a standalone session command; it is not supported inside drawing batches or baked tools.");
+        public CommandResult Execute(Document doc, JToken parameters) => CommandResult.Fail(DrawingSessionContract.StandaloneError(Name));
 
         public CommandResult ExecuteSession(JToken parameters)
         {

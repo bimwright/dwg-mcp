@@ -11,7 +11,7 @@ namespace Bimwright.Dwg.Plugin.ToolBaker
                 ["kind"] = "preset",
                 ["handler_tool"] = handlerTool,
                 ["fixed_args"] = fixedArgs ?? new JObject()
-            }.ToString(Newtonsoft.Json.Formatting.None);
+            }.ToString(Newtonsoft.Json.Formatting.None, System.Array.Empty<Newtonsoft.Json.JsonConverter>());
         }
 
         public static string BuildMacro(string[] sequence)
@@ -20,7 +20,7 @@ namespace Bimwright.Dwg.Plugin.ToolBaker
             {
                 ["kind"] = "macro",
                 ["sequence"] = new JArray(sequence ?? new string[0])
-            }.ToString(Newtonsoft.Json.Formatting.None);
+            }.ToString(Newtonsoft.Json.Formatting.None, System.Array.Empty<Newtonsoft.Json.JsonConverter>());
         }
     }
 }

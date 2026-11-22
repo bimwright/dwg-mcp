@@ -10,7 +10,7 @@
   <a href="https://github.com/bimwright/dwg-mcp/actions/workflows/build.yml"><img src="https://github.com/bimwright/dwg-mcp/actions/workflows/build.yml/badge.svg" alt="build" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="license" /></a>
   <a href="#phiên-bản-autocad-hỗ-trợ"><img src="https://img.shields.io/badge/AutoCAD-2022--2027-186BFF" alt="AutoCAD 2022-2027" /></a>
-  <a href="#công-cụ"><img src="https://img.shields.io/badge/MCP-45%20default%20%2B%20optional-6C47FF" alt="MCP tools" /></a>
+  <a href="#công-cụ"><img src="https://img.shields.io/badge/MCP-54%20default%20%2B%20optional-6C47FF" alt="MCP tools" /></a>
 </p>
 
 <p align="center">
@@ -35,7 +35,7 @@ Quy trình thông thường rất đau đầu: chọn text từng entity, copy s
 
 Gồm hai phần:
 
-- **Bimwright.Dwg.Server**: MCP server .NET 8, được Claude Code, Cursor, OpenCode hoặc MCP client khác khởi chạy.
+- **Bimwright.Dwg.Server**: MCP server .NET 10, được Claude Code, Cursor, OpenCode hoặc MCP client khác khởi chạy.
 - **Bimwright.Dwg.Plugin**: các shell add-in theo từng phiên bản AutoCAD, thực thi lệnh trực tiếp lên database bản vẽ.
 
 Agent nói MCP. Server nói với plugin qua local wire: TCP NDJSON cho AutoCAD 2022–2024, và Named Pipe (loopback, tránh firewall prompt) cho 2025–2027. Plugin nói AutoCAD .NET API.
@@ -85,7 +85,7 @@ AI agent cho phép mô tả "dịch tất cả text đã chọn sang tiếng Vi�
               v
 +---------------------------+
 | Bimwright.Dwg.Server      |
-| .NET 8 / C#               |
+| .NET 10 / C#               |
 +---------------------------+
               |
                | TCP NDJSON (2022-2024) / Named Pipe (2025-2027)
@@ -112,9 +112,9 @@ Xem [ARCHITECTURE.md](ARCHITECTURE.md) để biết chi tiết về threading, d
 
 Tải setup ZIP từ [GitHub Releases](https://github.com/bimwright/dwg-mcp/releases/latest) (`DwgMcp.Setup-*-win-x64.zip`). Xem `packedAutocadYears` trong `manifest.json` và `PackageContents.xml` của bundle trong ZIP đã tải để biết các năm có plugin; xem ghi chú phát hành để biết các năm đã kiểm chứng trên AutoCAD đang chạy. Source có shell cho 2022–2027, còn plugin đóng gói và host đã kiểm chứng tùy từng bản phát hành. Năm chưa có trong gói cần build plugin từ source với AutoCAD SDK tương ứng. Giải nén rồi chạy `install.ps1` (xem README tiếng Anh để copy-paste đầy đủ).
 
-**NuGet (chỉ gateway):** `dotnet tool install --global Bimwright.Dwg.Server --version 2.1.2` cần .NET 8 và không cài plugin AutoCAD. Cài plugin cùng phiên bản từ Setup ZIP.
+**NuGet (chỉ gateway):** `dotnet tool install --global Bimwright.Dwg.Server --version 2.2.0` cần .NET 10 và không cài plugin AutoCAD. Cài plugin cùng phiên bản từ Setup ZIP.
 
-**Claude Desktop:** tải `dwg-mcp-desktop-2.1.2.mcpb` và checksum trong cùng release, rồi cài qua Settings → Extensions → Advanced settings. Extension chỉ chạy đúng executable của Setup 2.1.2, không cài gateway/plugin và không tự chọn bản NuGet/PATH khác. File override phải khớp SHA-256.
+**Claude Desktop:** tải `dwg-mcp-desktop-2.2.0.mcpb` và checksum trong cùng release, rồi cài qua Settings → Extensions → Advanced settings. Extension chỉ chạy đúng executable của Setup 2.2.0, không cài gateway/plugin và không tự chọn bản NuGet/PATH khác. File override phải khớp SHA-256.
 
 **Developer:** `pwsh scripts/install.ps1 -Version 2024` từ repo sau khi build; hoặc `NETLOAD` DLL Debug.
 
@@ -164,9 +164,9 @@ Call log **mặc định tắt**. Dùng `--enable-call-log` / `--disable-call-lo
 
 ## Toast hoạt động và History
 
-Toast mặc định bật, dùng một thẻ không lấy focus bàn phím: tiêu đề `dwg-mcp <năm>`, dòng tool mới nhất và bộ đếm **Success · Failed · Capture**. Bộ đếm cuộn kiểu odometer; ảnh nằm giữa khung cố định, giữ ít nhất 5 giây và chuyển ảnh bằng cross-fade. Tắt **Animation effects** trong Windows để cập nhật ngay không animation. Hover giữ thẻ mở; thời gian idle là 10/20/30/60 giây (mặc định 20). AutoCAD thu nhỏ hoặc modal thì giữ số đếm và hiện lại khi có thể. `MCPTOAST` bật/tắt; `MCPSETTINGS` chỉnh toast và branding. Branding mặc định tắt, chỉ hiện khi hover và lưu qua lần khởi động; lỗi lưu được báo nhưng lựa chọn vẫn có hiệu lực trong phiên.
+Toast mặc định bật, dùng một thẻ không lấy focus bàn phím: tiêu đề `dwg-mcp <năm> · <Agent>` (ví dụ `dwg-mcp 2027 · Claude`; `· PID 12345` chỉ hiện dần khi rê chuột vào thẻ, kể cả khi tắt branding), dòng tool mới nhất và bộ đếm **Success · Failed · Capture**. Bộ đếm cuộn kiểu odometer; ảnh nằm giữa khung cố định, giữ ít nhất 5 giây và chuyển ảnh bằng cross-fade. Tắt **Animation effects** trong Windows để cập nhật ngay không animation. Rê chuột giữ thẻ mở và mở danh sách kết quả gần đây kèm nút **Tạm dừng hôm nay** (Pause for today, cũng có trong `MCPSETTINGS` → Thông báo): tắt tạm sẽ ẩn mọi thẻ (kể cả lỗi) ở tất cả tiến trình AutoCAD trên máy tới 0 giờ địa phương, giữ thẻ mở và đổi nút thành **Tiếp tục** (Resume) để hoàn tác ngay; bật lại bằng nút này, công tắc trong `MCPSETTINGS`, hoặc lệnh `MCPTOAST`. Thời gian idle là 10/20/30/60 giây (mặc định 20). AutoCAD thu nhỏ hoặc modal thì giữ số đếm và hiện lại khi có thể. `MCPTOAST` bật/tắt (hoặc bỏ tắt tạm nếu đang bật); mọi thao tác bật toast cũng xoá tắt tạm. Branding mặc định tắt, chỉ hiện khi hover và lưu qua lần khởi động; lỗi lưu được báo nhưng lựa chọn vẫn có hiệu lực trong phiên.
 
-Bấm thân thẻ mở/focus **History** rồi đóng thẻ; × chỉ đóng; bấm thumbnail mở ảnh qua allowlist rồi đóng thẻ. `MCPHISTORY` mở cùng cửa sổ modeless. History giữ 1.000 kết quả gọn gần nhất của lệnh qua plugin trong RAM, kể cả khi toast tắt; hỗ trợ tìm kiếm, lọc Success/Failed và Read/Write, thời lượng và chi tiết khi chọn dòng. Đóng thẻ không xoá History; **New session** xoá danh sách. History không thêm file call log và không giữ raw input, body code hay JSON kết quả. Tool chỉ chạy ở server chưa có trong History. `enableToast`, `toastIdleSeconds`, `showBranding` lưu tại `%LOCALAPPDATA%\Bimwright\dwg-mcp\settings.json`.
+Bấm thân thẻ mở/focus **History** rồi đóng thẻ; × chỉ đóng; bấm thumbnail mở ảnh qua allowlist rồi đóng thẻ. `MCPHISTORY` mở cùng cửa sổ modeless. History giữ 1.000 kết quả gọn gần nhất của lệnh qua plugin trong RAM, kể cả khi toast tắt; hỗ trợ tìm kiếm, lọc Success/Failed và Read/Write, thời lượng và chi tiết khi chọn dòng. Đóng thẻ không xoá History; **New session** xoá danh sách. History không thêm file call log và không giữ raw input, body code hay JSON kết quả. Tool chỉ chạy ở server chưa có trong History. `enableToast`, `toastSnoozedDate`, `toastIdleSeconds`, `showBranding` lưu tại `%LOCALAPPDATA%\Bimwright\dwg-mcp\settings.json`.
 
 ---
 
@@ -180,9 +180,25 @@ SHA-256 chỉ quan sát file trên disk lúc capture, không chứng minh memory
 
 Sau reconnect, đối chiếu initialize và `tools/list` mới trên cùng connection với `client_verification`, gồm `_meta["bimwright/dwg-mcp/runtime"]`, schema và annotations. Server không thể tự chứng minh client đã refresh cache. Health vẫn có trong read-only; `openWorldHint=true` vì tùy chọn GitHub. Có từ v2.1.1; cập nhật gateway và plugin từ cùng release. CI đã build đủ sáu plugin AutoCAD 2022–2027; xem release notes để biết phạm vi kiểm chứng.
 
+## Reports, prompt và thao tác ghi
+
+Gõ `MCPREPORTS` trong AutoCAD để mở cửa sổ Reports. Bấm link entity `dwg:` trong báo cáo để chọn và zoom tới đối tượng. `dwg_report_task_result` nhận `call_ids` tùy chọn. `dwg_get_report_history` đọc lịch sử đã lưu kể cả khi AutoCAD đã đóng. Đặt `BIMWRIGHT_DWG_ENABLE_CHANGE_HISTORY=true` trên gateway để ghi lịch sử các thay đổi bản vẽ được hỗ trợ sau khi commit.
+
+Lịch sử từng bản vẽ nằm tại `%LOCALAPPDATA%\Bimwright\dwg-mcp\history\<drawing_key>.db`. Lý do do người dùng nhập có thể chứa dữ liệu nhạy cảm. Đóng tất cả gateway dwg-mcp trước khi sao lưu hoặc xóa cơ sở dữ liệu của bản vẽ cùng các tệp SQLite đi kèm. Báo cáo tham chiếu dữ liệu đã xóa sẽ hiện `history_unavailable`. Tắt capture sẽ dừng ghi mới.
+
+Plugin AutoCAD mặc định gọi `api.github.com` để kiểm tra bản phát hành ổn định mới. Lần gọi mạng chạy nền tối đa một lần mỗi 24 giờ. Tắt **Kiểm tra bản phát hành dwg-mcp mới** trong Settings để ngừng kiểm tra.
+
+Dùng MCP prompt `dwg_translate_text` để duyệt bản dịch trước khi ghi lại, hoặc `dwg_review_large_drawing` để lấy profile và đọc vùng dày bằng `dwg_cluster_bands`. Ở chế độ read-only, prompt dịch dừng ở bước duyệt và prompt đọc bản vẽ bỏ qua chụp ảnh.
+
+`dwg_attach_image` gắn tham chiếu ảnh PNG, JPG, TIFF hoặc BMP local theo điểm chèn và chiều rộng. Có thể đặt chiều cao, góc xoay, layer và thứ tự vẽ. `dwg_batch_execute` mặc định chạy batch logic. Dùng `atomic=true` với lệnh bản vẽ được hỗ trợ để rollback khi một bước lỗi, kể cả lỗi được báo theo entity.
+
+Với `dwg_send_code(result_contract="task_v1")`, script trả `McpTaskResult.Pass(value)` hoặc `McpTaskResult.Fail(code, message, details)`. Đọc `ok` và `_task.status`. `ACAD_BUSY` và `QUEUE_FULL` cho biết lệnh chưa chạy. Có thể gọi lại khi AutoCAD sẵn sàng.
+
+Dùng `dwg_list_open_documents` để tìm bản vẽ rồi gọi riêng `dwg_activate_document`. Sau khi đổi bản vẽ, xác minh `document_id` mới bằng `dwg_switch_target` trước khi ghi. Trong Settings, chọn tiếng Anh, tiếng Việt hoặc tiếng Trung giản thể rồi mở lại AutoCAD để áp dụng.
+
 ## Công cụ
 
-Bản 2.1.2 mặc định expose 45 tool: query (gồm `dwg_get_drawing_profile` và `dwg_inspect_lisp`), modify, meta (gồm `dwg_send_code`/`dwg_run_lisp`), view, và `dwg_capture_view_image` mặc định bật. Các toolset tùy chọn ToolBaker, annotation, block, dimension, export, và drawing được kích hoạt qua `--toolsets`, nâng tổng diện tích bề mặt MCP lên 69 tool. Số tool đăng ký có tính `dwg_run_lisp`, hiện chỉ trả từ chối; không verdict nào cấp quyền thực thi.
+Bản 2.2.0 mặc định expose 54 tool: query (gồm `dwg_get_drawing_profile` và `dwg_inspect_lisp`), modify, meta (gồm `dwg_send_code`/`dwg_run_lisp`), view, và `dwg_capture_view_image` mặc định bật. Các toolset tùy chọn ToolBaker, annotation, block, dimension, export, và drawing được kích hoạt qua `--toolsets`, nâng tổng diện tích bề mặt MCP lên 78 tool. Số tool đăng ký có tính `dwg_run_lisp`, hiện chỉ trả từ chối; không verdict nào cấp quyền thực thi.
 
 CAD tool chạy trên active document hiện tại của AutoCAD target đang chọn. Entity input và entity id trả về dùng AutoCAD hex handle, ví dụ `7F5AD`, do tool selection, creation, hoặc properties trả về. Creation, copy, offset, và modify response identify entity tạo/sửa bằng hex handle.
 
@@ -208,6 +224,7 @@ Theo `output.next_calls` để phân trang `types`, `layers` hoặc `spaces`; m�
 | `dwg_create_layer` | Đảm bảo layer tồn tại, không ghi đè property của layer đã có |
 | `dwg_create_line` | Tạo một line trong drawing space hiện tại |
 | `dwg_create_circle` | Tạo một circle trong drawing space hiện tại |
+| `dwg_attach_image` | Chèn ảnh raster liên kết (PNG/JPG/TIFF/BMP) đúng vị trí và kích thước |
 | `dwg_create_point` | Tạo một point và trả về hex handle |
 | `dwg_create_polyline` | Tạo lightweight polyline từ vertices và trả về hex handle |
 | `dwg_create_rectangle` | Tạo rectangle polyline và trả về hex handle |
@@ -229,7 +246,8 @@ Theo `output.next_calls` để phân trang `types`, `layers` hoặc `spaces`; m�
 | `dwg_switch_target` | Chọn và xác minh instance; chuyển instance cần `pid:`/`id:`, thêm `rebind=true` khi rời target đang sống và đã xác minh. Không có trong read-only |
 | `dwg_list_recent_drawings` | Liệt kê tối đa 50 DWG recent của AutoCAD đang kết nối, có lọc tên; không cần drawing active |
 | `dwg_open_drawing` | Mở DWG theo path tuyệt đối, tùy chọn đọc-only; tái sử dụng file đã mở, không lưu/đóng drawing; mặc định chờ 600s ([chi tiết](README.md#drawing-session-tools)) |
-| `dwg_batch_execute` | Chạy nhiều wire command nội bộ như một logical batch |
+| `dwg_report_task_result` | Lưu báo cáo công việc (kết quả, tóm tắt, nội dung Markdown có link entity `dwg:<handle>`) thành file local cho người dùng AutoCAD; không sửa drawing |
+| `dwg_batch_execute` | Chạy batch logic hoặc dùng `atomic=true` để rollback các lệnh bản vẽ được hỗ trợ |
 | `dwg_send_code` | Chạy C# snippet trên AutoCAD .NET API (globals `doc`/`db`/`ed`, hỗ trợ `return` value + stdout capture, cooperative cancel 30s; `MCPDISABLECODE`/`MCPENABLECODE` bật/tắt theo session) |
 | `dwg_run_lisp` | Giữ để tương thích: mọi input `file`/`code`/`command` đều bị từ chối với `lisp_execution_blocked`. Tool không đọc file, không gửi plugin và không thực thi. Dùng `dwg_inspect_lisp` để phân tích tĩnh. |
 | `dwg_inspect_lisp` | Quét an toàn tĩnh cho file `.lsp` hoặc AutoLISP inline — phát hiện exec process (`startapp`/`shell`), COM nguy hiểm (`WScript.Shell`/`XMLHTTP`), persistence (`acaddoc.lsp`, ghi registry), xóa file, `(load …)` tầng hai, obfuscation (`eval`/`read`). Trả `verdict` clean/caution/dangerous + findings. Phân tích local thuần; không thực thi, không cần AutoCAD; dùng được cả dưới `--read-only`. `clean` không chứng nhận an toàn. Report luôn có `execution_authorized=false` và `safety_assured=false`. |
@@ -453,7 +471,7 @@ Bảo mật dựa trên:
 dwg-mcp/
 ├── src/
 │   ├── Bimwright.Dwg.sln
-│   ├── server/            # .NET 8 MCP server (global tool)
+│   ├── server/            # .NET 10 MCP server (global tool)
 │   ├── shared/            # Handlers, clustering, rewriting, unicode
 │   ├── plugin-acad22/     # AutoCAD 2022 shell (.NET 4.8)
 │   ├── plugin-acad23/     # AutoCAD 2023 shell (.NET 4.8)
@@ -499,19 +517,22 @@ Thông báo bên thứ ba: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
 
 ## Quyền và chế độ tự động
 
-Mọi tool trừ `dwg_send_code` khai báo đủ cờ read-only, destructive, idempotent và open-world. Chế độ full có 69 tool; read-only mặc định có 17, còn `--toolsets all --read-only` expose 23 tool đọc bên dưới. Zoom có thể đổi trạng thái UI tạm thời. Chuyển target bị loại trong read-only; capture, inspect region và restore cũng bị loại vì tạo file ảnh. `dwg_health` là tool đọc; tùy chọn kiểm tra cập nhật có thể gọi GitHub.
+Mọi tool trừ `dwg_send_code` khai báo đủ cờ read-only, destructive, idempotent và open-world. Chế độ full có 78 tool; read-only mặc định có 23, còn `--toolsets all --read-only` expose 29 tool đọc bên dưới. Zoom có thể đổi trạng thái UI tạm thời. Chuyển target bị loại trong read-only; capture, inspect region và restore cũng bị loại vì tạo file ảnh. `dwg_health` là tool đọc; tùy chọn kiểm tra cập nhật có thể gọi GitHub.
 
 Chỉ cấp quyền bằng rule chính xác cho tool bạn muốn dùng. Tránh wildcard `mcp__dwg-mcp__*` vì nó cấp cả quyền sửa bản vẽ/file và thực thi mã. `dwg_send_code` không có annotations và không nằm trong allowlist đọc này; quyền cho phép lâu dài phải là lựa chọn rõ ràng trong MCP client.
 
 <!-- read-only-allowlist:start -->
 ```text
+mcp__dwg-mcp__dwg_cluster_bands
 mcp__dwg-mcp__dwg_count_entities
 mcp__dwg-mcp__dwg_create_bake_issue_draft
 mcp__dwg-mcp__dwg_get_block_attributes
+mcp__dwg-mcp__dwg_get_change_records
 mcp__dwg-mcp__dwg_get_current_target
 mcp__dwg-mcp__dwg_get_drawing_info
 mcp__dwg-mcp__dwg_get_drawing_profile
 mcp__dwg-mcp__dwg_get_entity_properties
+mcp__dwg-mcp__dwg_get_report_history
 mcp__dwg-mcp__dwg_get_selected_texts
 mcp__dwg-mcp__dwg_get_variables
 mcp__dwg-mcp__dwg_health
@@ -521,10 +542,13 @@ mcp__dwg-mcp__dwg_list_bake_suggestions
 mcp__dwg-mcp__dwg_list_baked_tools
 mcp__dwg-mcp__dwg_list_blocks
 mcp__dwg-mcp__dwg_list_layers
+mcp__dwg-mcp__dwg_list_open_documents
 mcp__dwg-mcp__dwg_list_recent_drawings
 mcp__dwg-mcp__dwg_query_entities
+mcp__dwg-mcp__dwg_report_task_result
 mcp__dwg-mcp__dwg_select_by_layer
 mcp__dwg-mcp__dwg_select_by_type
+mcp__dwg-mcp__dwg_survey_change_impact
 mcp__dwg-mcp__dwg_zoom_extents
 mcp__dwg-mcp__dwg_zoom_to_entity
 mcp__dwg-mcp__dwg_zoom_window

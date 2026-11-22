@@ -16,7 +16,10 @@ namespace Bimwright.Dwg.Plugin
                 ["setup_plugin"] = identity.DeepClone(),
                 ["has_active_document"] = JValue.CreateNull(),
                 ["state_probe"] = "unavailable",
-                ["script_inputs_version"] = ScriptInputContract.Version
+                ["script_inputs_version"] = ScriptInputContract.Version,
+                ["atomic_batch_version"] = BatchContract.AtomicVersion,
+                ["script_task_contract_version"] = ScriptTaskContract.Version,
+                ["report_changes_version"] = Reports.Model.ReportChanges.Version
             };
             try
             {

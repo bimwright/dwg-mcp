@@ -18,11 +18,14 @@
     <Compile Include="../../src/shared/Views/Toast/ToastScrollBarStyles.cs" Link="ToastScrollBarStyles.cs" />
 
     <Compile Include="../../src/shared/Views/Toast/ActivityAggregator.cs" Link="ActivityAggregator.cs" />
+    <Compile Include="../../src/shared/Views/Toast/AgentDisplayName.cs" Link="AgentDisplayName.cs" />
+    <Compile Include="../../src/shared/Views/Toast/ToastSnooze.cs" Link="ToastSnooze.cs" />
     <Compile Include="../../src/shared/Views/Toast/McpToastWindow.cs" Link="McpToastWindow.cs" />
     <Compile Include="../../src/shared/Views/Toast/RollingToastNumber.cs" Link="RollingToastNumber.cs" />
     <Compile Include="../../src/shared/Views/Toast/McpToastManager.cs" Link="McpToastManager.cs" />
     <Compile Include="../../src/shared/Views/Toast/McpToastHost.cs" Link="McpToastHost.cs" />
     <Compile Include="../../src/shared/Views/Toast/McpToastNotifier.cs" Link="McpToastNotifier.cs" />
+    <Compile Include="../../src/shared/Views/Toast/ToastReportRoute.cs" Link="ToastReportRoute.cs" />
     <Compile Include="../../src/shared/Config/PluginSettings.cs" Link="PluginSettings.cs" />
     <Compile Include="../../src/shared/Infrastructure/PluginLog.cs" Link="PluginLog.cs" />
     <Compile Include="../../src/shared/Infrastructure/PluginTarget.cs" Link="PluginTarget.cs" />
@@ -43,7 +46,19 @@
     <Compile Include="../../src/shared/Views/Toast/ToolNameFormatter.cs" Link="ToolNameFormatter.cs" />
     <Compile Include="../../src/shared/Security/PathAllowlist.cs" Link="PathAllowlist.cs" />
     <Compile Include="../../src/shared/Views/BrandAssets.cs" Link="BrandAssets.cs" />
-    <Compile Include="../../src/shared/Localization/L.cs" Link="Localization\L.cs" />
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <Compile Include="../../src/shared/Views/BimwrightStyles.cs" Link="BimwrightStyles.cs" />
+    <Compile Include="../../src/shared/Views/HistoryChrome.cs" Link="HistoryChrome.cs" />
+    <Compile Include="../../src/shared/Views/ReportAssets.cs" Link="ReportAssets.cs" />
+    <Compile Include="../../src/shared/Views/ScrollBarFadeBehavior.cs" Link="ScrollBarFadeBehavior.cs" />
+    <Compile Include="../../src/shared/Reports/Views/*.cs" LinkBase="Reports\Views" />
+    <Compile Include="../../src/shared/Reports/Presentation/*.cs" LinkBase="Reports\Presentation" />
+    <Compile Include="../../src/shared/Reports/Model/*.cs" LinkBase="Reports\Model" />
+    <Compile Include="../../src/shared/Presentation/Common/*.cs" LinkBase="Presentation" />
+    <Compile Include="../../src/shared/Config/ReportsWindowState.cs" Link="ReportsWindowState.cs" />
+    <Compile Include="../../src/shared/Infrastructure/ReleaseMetadataClient.cs" Link="ReleaseMetadataClient.cs" />
+    <Compile Include="../../src/shared/Views/Update/ReleaseNoticeWindow.cs" Link="ReleaseNoticeWindow.cs" />
+    <Compile Include="../../src/shared/Localization/*.cs" LinkBase="Shared\Localization" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
   </ItemGroup>
+  <Import Project="..\..\src\shared\Localization\Catalog\Catalog.props" />
 </Project>

@@ -14,7 +14,11 @@ namespace Bimwright.Dwg.Plugin
         public static bool AutoStartTransport => PluginSettings.LoadAutoStartTransport(out _);
         public static string AutoStartSource { get { PluginSettings.LoadAutoStartTransport(out var source); return source; } }
         public static string AutoStartSaveError => null;
-        public static void SetToastEnabled(bool enabled) => ToastEnabled = enabled;
+        public static void SetToastEnabled(bool enabled)
+        {
+            ToastEnabled = enabled;
+            if (enabled) ToastSnooze.ResumeIfPaused(out _);
+        }
         public static void StartListener() { }
         public static int HistoryOpenCount { get; private set; }
         public static void ShowOrFocusHistory() => HistoryOpenCount++;

@@ -28,17 +28,19 @@ namespace Bimwright.Dwg.Server.Tools
             "Reports exact managed runtime type, layer and per-space counts with source/coverage; incomplete reads report observed counts and null exact totals. " +
             "Block inserts count once; nested block contents, uninserted definitions and xref contents are not expanded. " +
             "The default final MCP output cap is 16384 UTF-8 bytes, independent of the global response budget. " +
-            "Content identifies omitted groups and next_calls for types/layers/spaces. Each page rescans; pass expected_snapshot from the previous result when offset is positive. " +
+            "The all-space summary also lists unused block definitions. Follow next_calls for paged tables including unused_blocks. Each page rescans; pass expected_snapshot when offset is positive. " +
+            "Opt in to text_stats for counts of top-level DBText and MText, a fixed 20-bin nominal text-height histogram in drawing units, and a bounded text preview. " +
             "A changed document/revision refuses continuation. No geometry, selection or drawing changes.")]
         public static async Task<CallToolResult> GetDrawingProfile(
-            [Description("summary (default), types, layers or spaces. Summary starts all tables at offset zero.")] string section = "summary",
+            [Description("summary (default), types, layers, spaces, or unused_blocks. Summary starts all tables at offset zero. unused_blocks requires space=all and lists named non-layout definitions with no active direct or nested references.")] string section = "summary",
             [Description("Ordinal group offset for the selected table, default 0; positive offsets require expected_snapshot.")] int offset = 0,
             [Description("Maximum final MCP result bytes, default 16384; supported range 4096..65536. A smaller global budget still applies.")] int max_output_bytes = DrawingProfileOptions.DefaultMaxOutputBytes,
             [Description("Snapshot token from a previous profile result. Required for positive offsets; mismatches require restarting at offset zero.")] string expected_snapshot = null,
-            [Description("all (default), model or layout:<exact layout name>. Model snapshots ignore viewport navigation; layout/all snapshots track it.")] string space = "all")
+            [Description("all (default), model or layout:<exact layout name>. Model snapshots ignore viewport navigation; layout/all snapshots track it.")] string space = "all",
+            [Description("Include text_stats for the selected space. Off by default. Preview reads at most the first 8 text entities and caps each sample at 120 UTF-16 code units.")] bool include_text_stats = false)
         {
             DrawingProfileOptions options;
-            try { options = DrawingProfileOptions.Create(section, offset, max_output_bytes, expected_snapshot, space); }
+            try { options = DrawingProfileOptions.Create(section, offset, max_output_bytes, expected_snapshot, space, include_text_stats); }
             catch (ArgumentException ex)
             {
                 return DrawingProfileResponse.FromJson(JsonConvert.SerializeObject(new { ok = false, error = ex.Message }), DrawingProfileOptions.DefaultMaxOutputBytes);
@@ -46,7 +48,9 @@ namespace Bimwright.Dwg.Server.Tools
             var request = new JObject { ["section"] = section, ["offset"] = offset, ["max_output_bytes"] = max_output_bytes };
             if (expected_snapshot != null) request["expected_snapshot"] = expected_snapshot;
             if (options.Space != "all") request["space"] = options.Space;
-            return DrawingProfileResponse.FromJson(await ToolGateway.LoggedCall("get_drawing_profile", request, request), max_output_bytes, options.Space);
+            if (options.IncludeTextStats) request["include_text_stats"] = true;
+            return DrawingProfileResponse.FromJson(await ToolGateway.LoggedCall("get_drawing_profile", request, request), max_output_bytes,
+                options.Space, options.IncludeTextStats);
         }
 
         [McpServerTool(Name = "dwg_get_entity_properties", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false), Description(
@@ -78,11 +82,25 @@ namespace Bimwright.Dwg.Server.Tools
 
         [McpServerTool(Name = "dwg_list_layers", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false), Description(
             "List layers in the current AutoCAD drawing with small scalar properties " +
-            "such as color index, locked/frozen/off state.")]
-        public static Task<string> ListLayers()
+            "such as color index, locked/frozen/off state. Opt in to entity_count for top-level model and layout entities, including zero for empty layers. " +
+            "If counts_complete=false, entity_count is null and observed_entity_count reports the entities that could be counted.")]
+        public static async Task<string> ListLayers(
+            [Description("Include entity counts for each layer across model space and paper-space layouts. Off by default. Block and xref contents are not expanded.")] bool include_counts = false)
         {
-            var request = new { };
-            return ToolGateway.LoggedCall("list_layers", request, request);
+            var request = new JObject();
+            if (include_counts) request["include_counts"] = true;
+            var json = await ToolGateway.LoggedCall("list_layers", request, request);
+            if (!include_counts) return json;
+
+            var response = JObject.Parse(json);
+            if (response.Value<bool?>("ok") != true
+                || (response["result"] as JObject)?["counts_complete"]?.Type == JTokenType.Boolean)
+                return json;
+
+            response["ok"] = false;
+            response["result"] = null;
+            response["error"] = "LAYER_COUNTS_UNSUPPORTED: the plugin did not return the requested layer counts. Update gateway and plugin together.";
+            return response.ToString(Formatting.None);
         }
 
         [McpServerTool(Name = "dwg_query_entities", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false), Description(
@@ -94,7 +112,7 @@ namespace Bimwright.Dwg.Server.Tools
             "Requires matching plugin support; unconfirmed legacy replies are refused. Call directly, outside batches, for paged reads. " +
             "Use fields=[\"handle\"] for paged spatial handles without changing selection.")]
         public static Task<string> QueryEntities(
-            [Description("Optional managed type name, case-insensitive. TEXT/INSERT/LWPOLYLINE aliases are supported. Exact uppercase POLYLINE is refused; use Polyline/LWPOLYLINE, Polyline2d or Polyline3d explicitly.")] string entity_type = null,
+            [Description("Optional exact managed type name or AcDb, TEXT, INSERT, or LWPOLYLINE alias, case-insensitive. Exact uppercase POLYLINE is refused; use Polyline/LWPOLYLINE, Polyline2d or Polyline3d explicitly.")] string entity_type = null,
             [Description("Optional layer name filter. Case-insensitive.")] string layer = null,
             [Description("Optional ACI color index filter. Valid range: 1-256.")] int? color_index = null,
             [Description("Optional maximum number of returned entities. The plugin clamps this to 1-5000.")] int? limit = null,
@@ -128,13 +146,45 @@ namespace Bimwright.Dwg.Server.Tools
             return ToolGateway.LoggedCall("query_entities", request, request);
         }
 
+        [McpServerTool(Name = "dwg_cluster_bands", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false), Description(
+            "Group top-level entity extents along X or Y in ascending order. Extents that overlap or are separated by at most gap belong to the same band. " +
+            "Returns each band's full WCS bbox and entity count. Optional text samples include up to five DBText/MText previews per band. " +
+            "Read-only. Follow output.next_calls with the same clustering options. Changes to the drawing or options invalidate the cursor. " +
+            "Entities without finite extents are excluded and counted in coverage.extents_unavailable. " +
+            "An incomplete source scan returns coverage without bands or continuation. Call directly, outside batches.")]
+        public static Task<string> ClusterBands(
+            [Description("WCS axis: x or y.")] string axis,
+            [Description("Maximum finite, nonnegative gap between extents in drawing units.")] double gap,
+            [Description("Optional JSON object {min:[x,y,z],max:[x,y,z]} in WCS drawing units. Uses inclusive extents intersection.")] string bbox = null,
+            [Description("model (default) or layout:<exact layout name>.")] string space = null,
+            [Description("Optional JSON array of 1..16 exact managed entity types or query aliases, e.g. [\"Line\",\"TEXT\"].")] string types = null,
+            [Description("Include up to five text samples per band, each at most 120 UTF-16 units.")] bool sample_texts = false,
+            [Description("Opaque cursor from output.next_calls.")] string cursor = null,
+            [Description("Maximum bands per page, clamped to 1..128.")] int limit = BandQueryOptions.MaxBandsPerPage,
+            [Description("Final MCP output budget in bytes, 4096..65536, subject to the global budget.")] int? max_output_bytes = null)
+        {
+            var request = new JObject { ["axis"] = axis, ["gap"] = gap, ["sample_texts"] = sample_texts, ["limit"] = limit };
+            try
+            {
+                AddSpatialOptions(request, bbox, null, space);
+                if (types != null) request["types"] = JArray.Parse(types);
+                if (cursor != null) request["cursor"] = cursor;
+                if (max_output_bytes.HasValue) request["max_output_bytes"] = max_output_bytes.Value;
+                BandQueryOptions.Create(request);
+            }
+            catch (Exception ex) when (ex is ArgumentException || ex is JsonException || ex is OverflowException)
+            { return ToolInputError("INVALID_ARGUMENT: " + ex.Message); }
+            return ToolGateway.LoggedCall("cluster_bands", request, request);
+        }
+
         [McpServerTool(Name = "dwg_count_entities", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false), Description(
             "Count AutoCAD entities matching type/layer/color; legacy calls read model space. " +
             "Optional bbox/space use the same inclusive WCS extents filter as paged query, report INSUNITS and unknown extents separately. " +
             "Incomplete spatial counts return null count/exact_match_count plus observed matched_count; no estimated count is invented. " +
+            "An exact zero returns hint.available_types with up to 20 managed types observed in the whole queried space before applying filters. " +
             "Spatial counts require matching plugin support and direct calls outside batches.")]
         public static Task<string> CountEntities(
-            [Description("Optional managed type name, case-insensitive. TEXT/INSERT/LWPOLYLINE aliases are supported. Exact uppercase POLYLINE is refused; use Polyline/LWPOLYLINE, Polyline2d or Polyline3d explicitly.")] string entity_type = null,
+            [Description("Optional exact managed type name or AcDb, TEXT, INSERT, or LWPOLYLINE alias, case-insensitive. Exact uppercase POLYLINE is refused; use Polyline/LWPOLYLINE, Polyline2d or Polyline3d explicitly.")] string entity_type = null,
             [Description("Optional layer name filter. Case-insensitive.")] string layer = null,
             [Description("Optional ACI color index filter. Valid range: 1-256.")] int? color_index = null,
             [Description("JSON object {min:[x,y,z],max:[x,y,z]} in WCS drawing units.")] string bbox = null,
@@ -155,10 +205,11 @@ namespace Bimwright.Dwg.Server.Tools
 
         [McpServerTool(Name = "dwg_select_by_layer", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false), Description(
             "Return handles for model-space entities on a required layer, with optional type/color filters. " +
+            "For bbox filtering, use dwg_query_entities with bbox, the same filters, and fields=[\"handle\"] for handles only. " +
             "This does not change AutoCAD pickfirst selection.")]
         public static Task<string> SelectByLayer(
             [Description("Required layer name filter. Case-insensitive.")] string layer,
-            [Description("Optional managed type name, case-insensitive. Exact uppercase POLYLINE is refused; use Polyline/LWPOLYLINE, Polyline2d or Polyline3d explicitly.")] string entity_type = null,
+            [Description("Optional exact managed type name or AcDb, TEXT, INSERT, or LWPOLYLINE alias, case-insensitive. Exact uppercase POLYLINE is refused; use Polyline/LWPOLYLINE, Polyline2d or Polyline3d explicitly.")] string entity_type = null,
             [Description("Optional ACI color index filter. Valid range: 1-256.")] int? color_index = null,
             [Description("Optional maximum number of returned handles. The plugin clamps this to 1-5000.")] int? limit = null)
         {
@@ -170,9 +221,11 @@ namespace Bimwright.Dwg.Server.Tools
 
         [McpServerTool(Name = "dwg_select_by_type", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false), Description(
             "Return handles for model-space entities of a required type, with optional layer/color filters. " +
+            "For bbox filtering, use dwg_query_entities with bbox, the same filters, and fields=[\"handle\"] for handles only. " +
+            "An empty result returns hint.available_types with up to 20 managed types observed in model space before applying filters. " +
             "This does not change AutoCAD pickfirst selection.")]
         public static Task<string> SelectByType(
-            [Description("Required managed type name, case-insensitive. TEXT/INSERT/LWPOLYLINE aliases are supported. Exact uppercase POLYLINE is refused; use Polyline/LWPOLYLINE, Polyline2d or Polyline3d explicitly.")] string entity_type,
+            [Description("Required exact managed type name or AcDb, TEXT, INSERT, or LWPOLYLINE alias, case-insensitive. Exact uppercase POLYLINE is refused; use Polyline/LWPOLYLINE, Polyline2d or Polyline3d explicitly.")] string entity_type,
             [Description("Optional layer name filter. Case-insensitive.")] string layer = null,
             [Description("Optional ACI color index filter. Valid range: 1-256.")] int? color_index = null,
             [Description("Optional maximum number of returned handles. The plugin clamps this to 1-5000.")] int? limit = null)
@@ -287,7 +340,8 @@ namespace Bimwright.Dwg.Server.Tools
             var request = new JObject();
             if (!string.IsNullOrWhiteSpace(entityType))
             {
-                request["entity_type"] = entityType;
+                request["entity_type"] = entityType.TrimStart().StartsWith("AcDb", StringComparison.OrdinalIgnoreCase)
+                    ? EntityQueryOptions.NormalizeType(entityType) : entityType;
             }
 
             if (!string.IsNullOrWhiteSpace(layer))

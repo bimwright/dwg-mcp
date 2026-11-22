@@ -29,8 +29,10 @@ public readonly struct ObjectId : IEquatable<ObjectId>
 {
     internal readonly ProfileObjectSlot Slot;
     internal ObjectId(ProfileObjectSlot slot) { Slot = slot; }
+    public static ObjectId Null => default;
     public bool IsNull => Slot == null;
     public bool IsErased => Slot?.Erased ?? false;
+    public bool IsEffectivelyErased => IsErased || Slot?.Value.OwnerId.IsErased == true;
     public Handle Handle => Slot?.Value.Handle ?? default;
     public bool Equals(ObjectId other) => ReferenceEquals(Slot, other.Slot);
     public override bool Equals(object other) => other is ObjectId id && Equals(id);
@@ -42,6 +44,7 @@ public readonly struct ObjectId : IEquatable<ObjectId>
 public partial class DBObject
 {
     public ObjectId ObjectId { get; internal set; }
+    public ObjectId OwnerId { get; set; }
     public Handle Handle { get; internal set; }
 
     protected void ProfileWrite()
@@ -58,6 +61,7 @@ public partial class Database
     private TransactionManager profileTransactions;
     private long profileNextHandle = 1;
     public ObjectId BlockTableId { get; internal set; }
+    public ObjectId LayerTableId { get; internal set; }
     public TransactionManager TransactionManager => profileTransactions ??= new TransactionManager(this);
     internal List<ObjectId> ProfileOpenedIds { get; } = new();
     internal List<OpenMode> ProfileOpenModes { get; } = new();
@@ -108,6 +112,8 @@ public sealed class Transaction : IDisposable
         return id.Slot.Value;
     }
     public void Commit() { if (ended) throw new ObjectDisposedException(nameof(Transaction)); database.ProfileTransactionCommits++; }
+    public void Abort() => throw new NotSupportedException("Read-only fixture.");
+    public void AddNewlyCreatedDBObject(DBObject value, bool add) => throw new NotSupportedException("Read-only fixture.");
     public void Dispose()
     {
         if (ended) return;
@@ -142,6 +148,21 @@ public class SymbolTable : DBObject, IEnumerable
 
 public class BlockTable : SymbolTable { }
 
+public class LayerTable : SymbolTable
+{
+    public bool Has(string name) => ProfileNames.ContainsKey(name);
+    public void UpgradeOpen() => throw new NotSupportedException("Read-only fixture.");
+    public ObjectId Add(LayerTableRecord value) => throw new NotSupportedException("Read-only fixture.");
+}
+
+public class LayerTableRecord : SymbolTableRecord
+{
+    public Autodesk.AutoCAD.Colors.Color Color { get; set; } = new Autodesk.AutoCAD.Colors.Color(7);
+    public bool IsLocked { get; set; }
+    public bool IsFrozen { get; set; }
+    public bool IsOff { get; set; }
+}
+
 public sealed class SymbolTableEnumerator : IEnumerator, IDisposable
 {
     private readonly ProfileIdEnumerator inner;
@@ -158,6 +179,9 @@ public class BlockTableRecord : SymbolTableRecord, IEnumerable
 {
     public const string ModelSpace = "*Model_Space";
     internal List<ObjectId> ProfileEntities { get; } = new();
+    internal List<ObjectId> ProfileReferenceIds { get; } = new();
+    internal List<ObjectId> ProfileAnonymousIds { get; } = new();
+    internal Exception ProfileReferenceFailure;
     internal int? ProfileEnumerationFaultAfter;
     internal Action<int> ProfileOnMoveNext;
     internal int ProfileEnumerationStarts;
@@ -169,6 +193,16 @@ public class BlockTableRecord : SymbolTableRecord, IEnumerable
         set { isLayout = value; ProfileWrite(); }
     }
     public ObjectId LayoutId { get; set; }
+    public bool IsAnonymous { get; set; }
+    public bool IsDependent { get; set; }
+    public bool IsDynamicBlock { get; set; }
+    public ObjectIdCollection GetAnonymousBlockIds() => new ObjectIdCollection(ProfileAnonymousIds);
+    public ObjectIdCollection GetBlockReferenceIds(bool directOnly, bool forceValidity)
+    {
+        if (!directOnly) throw new InvalidOperationException("The fixture provides only direct reference IDs.");
+        if (ProfileReferenceFailure != null) throw ProfileReferenceFailure;
+        return new ObjectIdCollection(ProfileReferenceIds);
+    }
     public bool IsFromExternalReference
     {
         get { if (ProfileXrefFailure != null) throw ProfileXrefFailure; return isFromExternalReference; }
@@ -185,6 +219,12 @@ public class BlockTableRecord : SymbolTableRecord, IEnumerable
         return new BlockTableRecordEnumerator(ProfileEntities, ProfileEnumerationFaultAfter, ProfileOnMoveNext);
     }
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+}
+
+public sealed class ObjectIdCollection : List<ObjectId>, IDisposable
+{
+    internal ObjectIdCollection(IEnumerable<ObjectId> ids) : base(ids) { }
+    public void Dispose() { }
 }
 
 public sealed class BlockTableRecordEnumerator : IEnumerator, IDisposable

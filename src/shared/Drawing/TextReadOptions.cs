@@ -62,7 +62,7 @@ namespace Bimwright.Dwg.Plugin
                 ["handles"] = result.Handles == null ? JValue.CreateNull() : (JToken)new JArray(result.Handles),
                 ["grouping_strength"] = result.GroupingStrength, ["include_entities"] = result.IncludeEntities
             };
-            result.Fingerprint = Hash(digest.ToString(Formatting.None));
+            result.Fingerprint = Hash(digest.ToString(Formatting.None, Array.Empty<JsonConverter>()));
             return result;
         }
 
@@ -73,10 +73,10 @@ namespace Bimwright.Dwg.Plugin
                 ["groupingStrength"] = GroupingStrength, ["includeEntities"] = IncludeEntities,
                 ["space"] = Query.Space
             };
-            if (Handles != null) result["handles"] = new JArray(Handles).ToString(Formatting.None);
+            if (Handles != null) result["handles"] = new JArray(Handles).ToString(Formatting.None, Array.Empty<JsonConverter>());
             else
             {
-                result["bbox"] = new JObject { ["min"] = new JArray(Query.Bbox.Take(3)), ["max"] = new JArray(Query.Bbox.Skip(3)) }.ToString(Formatting.None);
+                result["bbox"] = new JObject { ["min"] = new JArray(Query.Bbox.Take(3)), ["max"] = new JArray(Query.Bbox.Skip(3)) }.ToString(Formatting.None, Array.Empty<JsonConverter>());
                 result["bbox_mode"] = Query.BboxMode;
             }
             return result;

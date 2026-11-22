@@ -22,11 +22,14 @@ namespace Bimwright.Dwg.Tests
             Assert.Equal(new[]
             {
                 "dwg_accept_bake_suggestion",
+                "dwg_activate_document",
                 "dwg_apply_unicode_style",
+                "dwg_attach_image",
                 "dwg_batch_execute",
                 "dwg_capture_view_image",
                 "dwg_change_color",
                 "dwg_change_layer",
+                "dwg_cluster_bands",
                 "dwg_collapse_and_rewrite",
                 "dwg_copy_entities",
                 "dwg_count_entities",
@@ -52,10 +55,12 @@ namespace Bimwright.Dwg.Tests
                 "dwg_explode_block",
                 "dwg_export_dxf",
                 "dwg_get_block_attributes",
+                "dwg_get_change_records",
                 "dwg_get_current_target",
                 "dwg_get_drawing_info",
                 "dwg_get_drawing_profile",
                 "dwg_get_entity_properties",
+                "dwg_get_report_history",
                 "dwg_get_selected_texts",
                 "dwg_get_variables",
                 "dwg_health",
@@ -67,12 +72,15 @@ namespace Bimwright.Dwg.Tests
                 "dwg_list_baked_tools",
                 "dwg_list_blocks",
                 "dwg_list_layers",
+                "dwg_list_open_documents",
                 "dwg_list_recent_drawings",
                 "dwg_move_entities",
                 "dwg_offset_entities",
                 "dwg_open_drawing",
                 "dwg_purge_drawing",
                 "dwg_query_entities",
+                "dwg_record_change",
+                "dwg_report_task_result",
                 "dwg_restore_view",
                 "dwg_rotate_entities",
                 "dwg_run_baked_tool",
@@ -84,6 +92,7 @@ namespace Bimwright.Dwg.Tests
                 "dwg_send_code",
                 "dwg_set_block_attributes",
                 "dwg_set_system_variable",
+                "dwg_survey_change_impact",
                 "dwg_switch_target",
                 "dwg_translate_and_rewrite",
                 "dwg_update_texts",
@@ -236,11 +245,13 @@ namespace Bimwright.Dwg.Tests
             Assert.Equal(new[]
             {
                 "BatchTools",
+                "ChangeHistoryTools",
                 "CodeTools",
                 "HealthTools",
                 "MetaTools",
                 "ModifyTools",
                 "QueryTools",
+                "ReportTools",
                 "ViewTools"
             }, defaultTypeNames);
 
@@ -250,9 +261,11 @@ namespace Bimwright.Dwg.Tests
                 readOnly: true);
             Assert.Equal(new[]
             {
+                "ChangeHistoryTools",
                 "HealthTools",
                 "MetaTools",
                 "QueryTools",
+                "ReportTools",
                 "ViewTools"
             }, defaultReadOnlyTypeNames);
 
@@ -264,8 +277,8 @@ namespace Bimwright.Dwg.Tests
             // meta alone carries dwg_send_code (rvt-mcp parity); read-only strips it.
             var metaWriteTypeNames = InvokeToolTypeResolver(method, new[] { "meta" }, readOnly: false);
             var metaReadOnlyTypeNames = InvokeToolTypeResolver(method, new[] { "meta" }, readOnly: true);
-            Assert.Equal(new[] { "BatchTools", "CodeTools", "MetaTools" }, metaWriteTypeNames);
-            Assert.Equal(new[] { "MetaTools" }, metaReadOnlyTypeNames);
+            Assert.Equal(new[] { "BatchTools", "ChangeHistoryTools", "CodeTools", "MetaTools", "ReportTools" }, metaWriteTypeNames);
+            Assert.Equal(new[] { "ChangeHistoryTools", "MetaTools", "ReportTools" }, metaReadOnlyTypeNames);
 
             var toolBakerWriteTypeNames = InvokeToolTypeResolver(method, new[] { "toolbaker" }, readOnly: false);
             var toolBakerReadOnlyTypeNames = InvokeToolTypeResolver(method, new[] { "toolbaker" }, readOnly: true);

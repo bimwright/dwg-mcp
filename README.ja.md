@@ -10,7 +10,7 @@
   <a href="https://github.com/bimwright/dwg-mcp/actions/workflows/build.yml"><img src="https://github.com/bimwright/dwg-mcp/actions/workflows/build.yml/badge.svg" alt="build" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="license" /></a>
   <a href="#サポート対象autocadバージョン"><img src="https://img.shields.io/badge/AutoCAD-2022--2027-186BFF" alt="AutoCAD 2022-2027" /></a>
-  <a href="#ツール"><img src="https://img.shields.io/badge/MCP-45%20default%20%2B%20optional-6C47FF" alt="MCP tools" /></a>
+  <a href="#ツール"><img src="https://img.shields.io/badge/MCP-54%20default%20%2B%20optional-6C47FF" alt="MCP tools" /></a>
 </p>
 
 <p align="center">
@@ -35,7 +35,7 @@
 
 2つの部分から構成されます:
 
-- **Bimwright.Dwg.Server**: .NET 8 のMCPサーバーで、Claude Code、Cursor、OpenCode、またはその他の stdio MCP クライアントから起動されます。
+- **Bimwright.Dwg.Server**: .NET 10 のMCPサーバーで、Claude Code、Cursor、OpenCode、またはその他の stdio MCP クライアントから起動されます。
 - **Bimwright.Dwg.Plugin**: バージョン固有のAutoCADアドインシェルで、AutoCAD内にロードされ、図面データベースに対してコマンドを実行します。
 
 エージェントはMCPで通信します。サーバーはローカルワイヤー経由でプラグインと通信します。AutoCAD 2022–2024 ではTCP NDJSON、2025–2027 では名前付きパイプ（ループバック、ファイアウォールプロンプトを回避）を使用します。プラグインはAutoCAD .NET APIと通信します。
@@ -85,7 +85,7 @@ AIエージェントは、「選択したすべてのテキストをベトナム
               v
 +---------------------------+
 | Bimwright.Dwg.Server      |
-| .NET 8 / C#               |
+| .NET 10 / C#               |
 +---------------------------+
               |
               | TCP NDJSON (2022-2024) / 名前付きパイプ (2025-2027)
@@ -112,9 +112,9 @@ AIエージェントは、「選択したすべてのテキストをベトナム
 
 [GitHub Releases](https://github.com/bimwright/dwg-mcp/releases/latest) から setup ZIP（`DwgMcp.Setup-*-win-x64.zip`）を入手してください。同梱する年次バージョンは、ダウンロードしたZIP内の `manifest.json` の `packedAutocadYears` と bundle の `PackageContents.xml` で確認し、実行中のAutoCADで検証済みの年次バージョンはリリースノートで確認してください。ソースには2022–2027のシェルがありますが、同梱プラグインと実ホストの検証範囲はリリースごとに異なります。未同梱の年次バージョンは、対応するAutoCAD SDKでソースからビルドします。展開して `install.ps1` を実行してください（全文は英語 README）。
 
-**NuGet（ゲートウェイのみ）:** `dotnet tool install --global Bimwright.Dwg.Server --version 2.1.2` は .NET 8 が必要です。AutoCAD プラグインは同じバージョンの Setup ZIP から別途インストールしてください。
+**NuGet（ゲートウェイのみ）:** `dotnet tool install --global Bimwright.Dwg.Server --version 2.2.0` は .NET 10 が必要です。AutoCAD プラグインは同じバージョンの Setup ZIP から別途インストールしてください。
 
-**Claude Desktop:** 同じリリースの `dwg-mcp-desktop-2.1.2.mcpb` とチェックサムを取得し、Settings → Extensions → Advanced settings からインストールします。拡張機能は Setup 2.1.2 の特定の実行ファイルだけを起動し、ゲートウェイやプラグインをインストールしません。NuGet/PATH へのフォールバックはなく、override も同じ SHA-256 が必要です。
+**Claude Desktop:** 同じリリースの `dwg-mcp-desktop-2.2.0.mcpb` とチェックサムを取得し、Settings → Extensions → Advanced settings からインストールします。拡張機能は Setup 2.2.0 の特定の実行ファイルだけを起動し、ゲートウェイやプラグインをインストールしません。NuGet/PATH へのフォールバックはなく、override も同じ SHA-256 が必要です。
 
 **開発者:** ビルド後 `pwsh scripts/install.ps1 -Version 2024`、または Debug DLL を `NETLOAD`。
 
@@ -164,9 +164,9 @@ PID、またはインスタンスが一つだけの4桁年で初期ターゲッ�
 
 ## アクティビティ通知と History
 
-通知は既定で有効です。キーボードフォーカスを奪わない1枚のカードに `dwg-mcp <年>`、最新ツール名、**Success · Failed · Capture** を表示します。数字はオドメーター式に動き、画像は固定フレームの中央に表示され、最低5秒保持してクロスフェードします。Windows の **Animation effects** が無効なら即時更新します。ホバー中は閉じず、アイドル時間は10/20/30/60秒（既定20秒）。AutoCAD が最小化中またはモーダル状態ならカウントを保持して後で表示します。`MCPTOAST` で切り替え、`MCPSETTINGS` で設定します。Branding は既定で無効、ホバー時のみ表示し、再起動後も設定を保持します。保存失敗を表示してもセッション内の選択は有効です。
+通知は既定で有効です。キーボードフォーカスを奪わない1枚のカードに `dwg-mcp <年> · <Agent>`（例: `dwg-mcp 2027 · Claude`、ホストのプロセス ID `· PID 12345` はブランディング設定に関係なくホバー時にフェードイン）、最新ツール名、**Success · Failed · Capture** を表示します。数字はオドメーター式に動き、画像は固定フレームの中央に表示され、最低5秒保持してクロスフェードします。Windows の **Animation effects** が無効なら即時更新します。ホバー中は閉じず、最近の結果一覧と下部の **Pause for today** ボタンが開きます（`MCPSETTINGS` にも同スイッチがあります）。一時停止するとこの PC 上のすべての AutoCAD でローカルの深夜 0 時まで通知（エラーを含む）を非表示にし、カードは開いたまま **Resume** に切り替わって誤操作をすぐ取り消せます。`MCPSETTINGS` や `MCPTOAST` でも即時再開できます。アイドル時間は10/20/30/60秒（既定20秒）。AutoCAD が最小化中またはモーダル状態ならカウントを保持して後で表示します。`MCPTOAST` で切り替え（有効中に一時停止中なら再開）、通知を有効にする操作はすべて一時停止も解除します。Branding は既定で無効、ホバー時のみ表示し、再起動後も設定を保持します。保存失敗を表示してもセッション内の選択は有効です。
 
-カード本体をクリックすると **History** を開く／フォーカスしてカードを閉じます。×は閉じるだけ、サムネイルは許可された画像を開いてカードを閉じます。`MCPHISTORY` も同じモデルレスウィンドウを開きます。プラグイン処理済み呼び出しの最新1,000件の簡潔な結果をメモリに保持し、通知が無効でも検索、Success/Failed・Read/Write フィルター、実行時間、選択詳細を利用できます。カードを閉じても履歴は残り、**New session** で消去します。永続ログを追加せず、生の入力、コード本文、JSON 結果は保持しません。サーバーのみのツール通知はまだ含みません。設定キー `enableToast`、`toastIdleSeconds`、`showBranding` は `%LOCALAPPDATA%\Bimwright\dwg-mcp\settings.json` に保存します。
+カード本体をクリックすると **History** を開く／フォーカスしてカードを閉じます。×は閉じるだけ、サムネイルは許可された画像を開いてカードを閉じます。`MCPHISTORY` も同じモデルレスウィンドウを開きます。プラグイン処理済み呼び出しの最新1,000件の簡潔な結果をメモリに保持し、通知が無効でも検索、Success/Failed・Read/Write フィルター、実行時間、選択詳細を利用できます。カードを閉じても履歴は残り、**New session** で消去します。永続ログを追加せず、生の入力、コード本文、JSON 結果は保持しません。サーバーのみのツール通知はまだ含みません。設定キー `enableToast`、`toastSnoozedDate`、`toastIdleSeconds`、`showBranding` は `%LOCALAPPDATA%\Bimwright\dwg-mcp\settings.json` に保存します。
 
 ---
 
@@ -182,9 +182,25 @@ GitHub 確認は同じ stable release/tag に両 component を照合し、共有
 
 reconnect 後、同じ接続の新しい initialize と `tools/list` の `_meta["bimwright/dwg-mcp/runtime"]`・schema・annotations を `client_verification` と比較します。server 自体は client cache refresh を証明できません。read-only でも利用可能で、GitHub option のため `openWorldHint=true` です。[agent guide](AGENTS.md)。v2.1.1 で利用できます。gateway と plugin は同じリリースから更新してください。CI は AutoCAD 2022–2027 の全6プラグインをビルド済みです。検証範囲はリリースノートを参照してください。
 
+## Reports、MCP プロンプト、編集
+
+AutoCAD で `MCPREPORTS` を実行すると Reports が開きます。報告内の `dwg:` リンクをクリックすると対象エンティティが選択され、ズームします。`dwg_report_task_result` は省略可能な `call_ids` を受け取ります。AutoCAD を閉じた後も `dwg_get_report_history` で保存済みの履歴を読めます。ゲートウェイで `BIMWRIGHT_DWG_ENABLE_CHANGE_HISTORY=true` を設定すると、対応する図面編集のコミット後に変更履歴を記録します。
+
+図面ごとの変更履歴は `%LOCALAPPDATA%\Bimwright\dwg-mcp\history\<drawing_key>.db` に保存されます。ユーザーが入力する理由には機密情報が含まれる場合があります。バックアップまたは削除の前に、すべての dwg-mcp ゲートウェイを終了し、該当するデータベースと関連する SQLite ファイルをまとめて扱ってください。削除済みの履歴を参照するレポートには `history_unavailable` が表示されます。キャプチャをオフにすると新規記録が止まります。
+
+AutoCAD プラグインは既定で `api.github.com` にアクセスして安定版の更新を確認します。バックグラウンドでの通信は 24 時間に最大 1 回です。停止するには Settings で dwg-mcp の新しいリリースを確認する設定をオフにします。
+
+MCP プロンプト `dwg_translate_text` では書き戻し前に翻訳を確認できます。`dwg_review_large_drawing` は図面のプロファイルを取得し、密集領域を `dwg_cluster_bands` で調べます。読み取り専用モードでは翻訳は確認までとなり、図面レビューで画像は取得しません。
+
+`dwg_attach_image` はローカルの PNG、JPG、TIFF、BMP を挿入点と幅を指定して参照としてアタッチします。高さ、回転、画層、描画順も指定できます。`dwg_batch_execute` は既定で論理バッチを実行します。対応コマンドで `atomic=true` を指定すると、個別エンティティのエラーを含め、ステップが失敗した際にロールバックします。
+
+`dwg_send_code(result_contract="task_v1")` ではスクリプトから `McpTaskResult.Pass(value)` または `McpTaskResult.Fail(code, message, details)` を返し、`ok` と `_task.status` を確認します。`ACAD_BUSY` と `QUEUE_FULL` は未実行を示します。AutoCAD が応答可能になってから再試行できます。
+
+`dwg_list_open_documents` で対象図面を探し、`dwg_activate_document` を単独で呼び出します。図面を切り替えた後は、書き込み前に `dwg_switch_target` で新しい `document_id` を確認します。Settings で英語、ベトナム語、簡体字中国語を選び、AutoCAD を再起動すると反映されます。
+
 ## ツール
 
-2.1.2 のデフォルト起動では45のツール（クエリ（`dwg_get_drawing_profile` と `dwg_inspect_lisp` 含む）、変更、メタ（`dwg_send_code`/`dwg_run_lisp` 含む）、ビュー、およびデフォルト有効の `dwg_capture_view_image`）が公開されます。オプショナルのToolBaker、注釈、ブロック、寸法、エクスポート、作図ツールセットは `--toolsets` で有効にでき、MCPサーフェス全体は69ツールになります。 登録数には拒否のみを返す `dwg_run_lisp` が含まれます。スキャン判定は実行を許可しません。
+2.2.0 のデフォルト起動では54のツール（クエリ（`dwg_get_drawing_profile` と `dwg_inspect_lisp` 含む）、変更、メタ（`dwg_send_code`/`dwg_run_lisp` 含む）、ビュー、およびデフォルト有効の `dwg_capture_view_image`）が公開されます。オプショナルのToolBaker、注釈、ブロック、寸法、エクスポート、作図ツールセットは `--toolsets` で有効にでき、MCPサーフェス全体は78ツールになります。 登録数には拒否のみを返す `dwg_run_lisp` が含まれます。スキャン判定は実行を許可しません。
 
 一般的なCADツールは、選択されたAutoCADターゲットの現在アクティブなドキュメントに対して動作します。エンティティ入力と返されるエンティティIDは、`7F5AD` のようなAutoCAD 16進ハンドルを使用します。作成、コピー、オフセット、および変更の応答は、生成または変更されたエンティティを16進ハンドルで識別します。
 
@@ -210,6 +226,7 @@ reconnect 後、同じ接続の新しい initialize と `tools/list` の `_meta[
 | `dwg_create_layer` | 既存の画層のプロパティを上書きせずに画層を作成する |
 | `dwg_create_line` | 現在の図面空間に1本の線を作成 |
 | `dwg_create_circle` | 現在の図面空間に1つの円を作成 |
+| `dwg_attach_image` | リンクされたラスター画像（PNG/JPG/TIFF/BMP）を正確な位置とサイズで貼り付け |
 | `dwg_create_point` | 1つの点を作成し、その16進ハンドルを返す |
 | `dwg_create_polyline` | 頂点から軽量ポリラインを作成し、その16進ハンドルを返す |
 | `dwg_create_rectangle` | 長方形ポリラインを作成し、その16進ハンドルを返す |
@@ -231,7 +248,8 @@ reconnect 後、同じ接続の新しい initialize と `tools/list` の `_meta[
 | `dwg_switch_target` | インスタンスを選択・確認。別のインスタンスには `pid:`/`id:`、稼働中の確認済みターゲットから離れるには `rebind=true` も必要。読み取り専用モードでは除外 |
 | `dwg_list_recent_drawings` | 接続中の AutoCAD の最近の DWG を最大50件取得、名前で絞り込み可能；図面不要 |
 | `dwg_open_drawing` | 絶対パスの DWG を開く、読み取り専用を指定可能；既存図面を再利用し保存・閉じる操作なし；既定600秒（[詳細](README.md#drawing-session-tools)） |
-| `dwg_batch_execute` | 複数の内部ワイヤーコマンドを論理バッチとして実行 |
+| `dwg_report_task_result` | タスク報告（結果、要約、`dwg:<handle>` エンティティリンク付き Markdown 本文）を AutoCAD ユーザー向けのローカルファイルとして保存；図面は変更しない |
+| `dwg_batch_execute` | 論理バッチを実行。対応する図面コマンドは `atomic=true` でロールバック可能 |
 | `dwg_send_code` | AutoCAD .NET API でC#スニペットを実行（globals `doc`/`db`/`ed`、`return` 値 + stdout キャプチャ、30秒の協調キャンセル。`MCPDISABLECODE`/`MCPENABLECODE` でセッション単位に切替） |
 | `dwg_run_lisp` | 互換性用エンドポイント。すべての `file`/`code`/`command` を `lisp_execution_blocked` で拒否します。ファイル読込、プラグインへの送信、実行は行いません。静的解析には `dwg_inspect_lisp` を使用してください。 |
 | `dwg_inspect_lisp` | `.lsp` ファイルやインライン AutoLISP の静的スキャン — プロセス実行（`startapp`/`shell`）、危険な COM（`WScript.Shell`/`XMLHTTP`）、永続化（`acaddoc.lsp`、レジストリ書込）、ファイル削除、二段階 `(load …)`、難読化（`eval`/`read`）を検出。`verdict` clean/caution/dangerous + findings を返す。純粋なローカル解析 — 実行せず AutoCAD 不要、`--read-only` でも利用可。 `clean` は安全性を保証しません。レポートは `execution_authorized=false` と `safety_assured=false` を返します。 |
@@ -459,7 +477,7 @@ rewrite成功時の `final_text_height` は、Unicode正規化と最終scaleの�
 dwg-mcp/
 ├── src/
 │   ├── Bimwright.Dwg.sln
-│   ├── server/            # .NET 8 MCP サーバー (グローバルツール)
+│   ├── server/            # .NET 10 MCP サーバー (グローバルツール)
 │   ├── shared/            # ハンドラー、クラスタリング、書き換え、Unicode
 │   ├── plugin-acad22/     # AutoCAD 2022 シェル (.NET 4.8)
 │   ├── plugin-acad23/     # AutoCAD 2023 シェル (.NET 4.8)
@@ -503,19 +521,22 @@ AutoCAD および Autodesk は Autodesk, Inc. の登録商標です。bimwright 
 
 ## 権限と自動モード
 
-`dwg_send_code` 以外の各ツールは read-only、destructive、idempotent、open-world の各属性を明示します。通常の全ツールモードは69ツール、既定の読み取り専用モードは17ツール、`--toolsets all --read-only` は以下の23読み取り専用ツールです。ズームは一時的なUI状態を変更できます。ターゲット切り替えは読み取り専用モードから除外されます。キャプチャ、領域検査、ビュー復元も画像ファイルを作成するため除外されます。`dwg_health` は読み取り専用ですが、明示的な更新チェックではGitHubに接続できます。
+`dwg_send_code` 以外の各ツールは read-only、destructive、idempotent、open-world の各属性を明示します。通常の全ツールモードは78ツール、既定の読み取り専用モードは23ツール、`--toolsets all --read-only` は以下の29読み取り専用ツールです。ズームは一時的なUI状態を変更できます。ターゲット切り替えは読み取り専用モードから除外されます。キャプチャ、領域検査、ビュー復元も画像ファイルを作成するため除外されます。`dwg_health` は読み取り専用ですが、明示的な更新チェックではGitHubに接続できます。
 
 許可するツールだけに正確なルールを設定してください。`mcp__dwg-mcp__*` のワイルドカードは図面編集、ファイル書き込み、コード実行も許可するため避けてください。`dwg_send_code` は annotations を持たず、この読み取り専用リストには含まれません。継続的な実行許可はMCPクライアントで明示的に選択してください。
 
 <!-- read-only-allowlist:start -->
 ```text
+mcp__dwg-mcp__dwg_cluster_bands
 mcp__dwg-mcp__dwg_count_entities
 mcp__dwg-mcp__dwg_create_bake_issue_draft
 mcp__dwg-mcp__dwg_get_block_attributes
+mcp__dwg-mcp__dwg_get_change_records
 mcp__dwg-mcp__dwg_get_current_target
 mcp__dwg-mcp__dwg_get_drawing_info
 mcp__dwg-mcp__dwg_get_drawing_profile
 mcp__dwg-mcp__dwg_get_entity_properties
+mcp__dwg-mcp__dwg_get_report_history
 mcp__dwg-mcp__dwg_get_selected_texts
 mcp__dwg-mcp__dwg_get_variables
 mcp__dwg-mcp__dwg_health
@@ -525,10 +546,13 @@ mcp__dwg-mcp__dwg_list_bake_suggestions
 mcp__dwg-mcp__dwg_list_baked_tools
 mcp__dwg-mcp__dwg_list_blocks
 mcp__dwg-mcp__dwg_list_layers
+mcp__dwg-mcp__dwg_list_open_documents
 mcp__dwg-mcp__dwg_list_recent_drawings
 mcp__dwg-mcp__dwg_query_entities
+mcp__dwg-mcp__dwg_report_task_result
 mcp__dwg-mcp__dwg_select_by_layer
 mcp__dwg-mcp__dwg_select_by_type
+mcp__dwg-mcp__dwg_survey_change_impact
 mcp__dwg-mcp__dwg_zoom_extents
 mcp__dwg-mcp__dwg_zoom_to_entity
 mcp__dwg-mcp__dwg_zoom_window

@@ -249,7 +249,7 @@ namespace Bimwright.Dwg.Plugin.Blocks
                 return token.Value<string>();
             }
 
-            return token.ToString(Formatting.None);
+            return token.ToString(Formatting.None, Array.Empty<JsonConverter>());
         }
     }
 }

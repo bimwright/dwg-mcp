@@ -13,6 +13,12 @@ namespace Bimwright.Dwg.Plugin
         public const string AskUser = "Ask the user which path to open, then call dwg_open_drawing. Do not open a file before the user chooses.";
         public const string AskForPath = "No matching recent DWG files were found. Ask the user for an absolute path on the AutoCAD machine, then call dwg_open_drawing. Do not guess a path.";
 
+        public static bool IsStandaloneDrawingCommand(string command)
+            => command is "list_recent_drawings" or "open_drawing" or "list_open_documents" or "activate_document";
+
+        public static string StandaloneError(string command)
+            => command + " is a standalone session command and is not allowed inside drawing batches or baked tools.";
+
         public static void ValidateTimeout(int seconds)
         {
             if (seconds < 1 || seconds > 900)

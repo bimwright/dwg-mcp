@@ -47,7 +47,7 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
         {
             if (token == null || token.Type == JTokenType.Null) return string.Empty;
             var remaining = 256;
-            return Clip(Redact(token, 0, ref remaining).ToString(Formatting.Indented));
+            return Clip(Redact(token, 0, ref remaining).ToString(Formatting.Indented, Array.Empty<JsonConverter>()));
         }
 
         internal static string Result(string json)
@@ -93,7 +93,7 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
                 // Results sometimes embed JSON in a string; apply the same key policy.
                 var trimmed = value.TrimStart();
                 if (trimmed.StartsWith("{") || trimmed.StartsWith("["))
-                    try { return new JValue(Redact(JToken.Parse(value), depth + 1, ref remaining).ToString(Formatting.None)); }
+                    try { return new JValue(Redact(JToken.Parse(value), depth + 1, ref remaining).ToString(Formatting.None, Array.Empty<JsonConverter>())); }
                     catch (JsonException) { return new JValue("[unavailable: invalid embedded JSON]"); }
                 return new JValue(value.StartsWith("data:", StringComparison.OrdinalIgnoreCase) ? "[binary omitted]" : Text(value));
             }

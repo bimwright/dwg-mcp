@@ -7,6 +7,7 @@ using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.Geometry;
 using Bimwright.Dwg.Plugin;
+using Bimwright.Dwg.Plugin.Cad;
 using Bimwright.Dwg.Plugin.Handlers;
 using Bimwright.Dwg.Plugin.View;
 using Bimwright.Dwg.Server;
@@ -374,6 +375,75 @@ public sealed class EntityQueryPageTests : IDisposable
     }
 
     private static JObject Paged(params string[] fields) => new() { ["paged"] = true, ["fields"] = new JArray(fields) };
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Legacy_empty_reads_hint_only_live_model_space_types(bool select)
+    {
+        var f = new Fixture();
+        f.Add(new Circle(), 0x10);
+        f.Add(new DBText(), 0x11);
+        var erased = f.Add(new MText(), 0x12);
+        erased.ObjectId.Slot.Erased = true;
+        var layout = f.Add(new Line(), 0x13, space: 1);
+        IAcadCommand handler = select ? new SelectByTypeHandler() : new CountEntitiesHandler();
+
+        var request = new JObject { ["entity_type"] = "AcDbText", ["layer"] = "missing" };
+        var empty = Body(handler.Execute(f.Document, request));
+        Assert.Equal(0, empty.Value<int>("count"));
+        Assert.Null(empty["hint"]);
+        Assert.DoesNotContain(erased.ObjectId, f.Database.ProfileOpenedIds);
+        Assert.DoesNotContain(layout.ObjectId, f.Database.ProfileOpenedIds);
+        Assert.Equal(1, f.Spaces[0].ProfileEnumerationStarts);
+
+        request.Remove("layer");
+        request["color_index"] = 5;
+        var wrongColor = Body(handler.Execute(f.Document, request));
+        Assert.Equal(0, wrongColor.Value<int>("count"));
+        Assert.Null(wrongColor["hint"]);
+        request.Remove("color_index");
+        request["entity_type"] = "AcDbLine";
+        var wrongType = Body(handler.Execute(f.Document, request));
+        Assert.Equal("model", wrongType["hint"].Value<string>("space"));
+        Assert.Equal(new[] { typeof(Circle).FullName, typeof(DBText).FullName }, wrongType["hint"]["available_types"].Values<string>());
+        request["entity_type"] = "AcDbText";
+        var match = Body(handler.Execute(f.Document, request));
+        Assert.Equal(1, match.Value<int>("count"));
+        Assert.Null(match["hint"]);
+    }
+
+    [Fact]
+    public void Spatial_zero_hint_describes_the_named_layout_before_bbox_and_requires_an_exact_zero()
+    {
+        var f = new Fixture();
+        f.Add(new Line(), 0x10);
+        var text = f.Add(new DBText(), 0x11, space: 1);
+        f.Add(new MText(), 0x12, space: 1);
+        f.Add(new Circle(), 0x13, space: 2);
+        var request = new JObject { ["entity_type"] = "AcDbText", ["space"] = "layout:Layout A", ["bbox"] = Box(10, 10, 10, 20, 20, 20) };
+        var empty = Count(f, request);
+        Assert.Equal(0, empty.Value<int>("count"));
+        Assert.Equal("layout:Layout A", empty["hint"].Value<string>("space"));
+        Assert.Equal(new[] { typeof(DBText).FullName, typeof(MText).FullName }, empty["hint"]["available_types"].Values<string>());
+
+        text.ObjectId.Slot.OpenFailure = new InvalidOperationException("unavailable entity");
+        var incomplete = Count(f, request);
+        Assert.Equal(JTokenType.Null, incomplete["count"].Type);
+        Assert.Null(incomplete["hint"]);
+    }
+
+    [Fact]
+    public void Type_hint_retains_twenty_distinct_names_in_stable_order()
+    {
+        var types = Enumerable.Range(1, 24).Select(rank => typeof(Line).MakeArrayType(rank)).ToArray();
+        var hint = new CadEntityTypeHint();
+        foreach (var type in Enumerable.Reverse(types).Concat(types)) hint.Observe(type);
+        var result = hint.ToJson("model");
+        Assert.Equal(types.Select(type => type.FullName).OrderBy(name => name, StringComparer.Ordinal).Take(20),
+            result["available_types"].Values<string>());
+        Assert.True(result.Value<bool>("types_truncated"));
+    }
+
     private static JObject Box(double x0, double y0, double z0, double x1, double y1, double z1)
         => new() { ["min"] = new JArray(x0, y0, z0), ["max"] = new JArray(x1, y1, z1) };
     private static CommandResult Execute(Fixture f, JObject request) => new QueryEntitiesHandler().Execute(f.Document, request);
@@ -408,6 +478,147 @@ public sealed class EntityQueryPageTests : IDisposable
         Assert.Equal(0, f.Database.TransactionManager.NumberOfActiveTransactions);
         Assert.Equal(f.Database.ProfileTransactionStarts, f.Database.ProfileTransactionDisposals);
     }
+    [Fact]
+    public void Bands_group_full_extents_on_either_axis_and_filter_by_space_bbox_and_type()
+    {
+        var fixture = new Fixture();
+        fixture.Add(new Line(), 11, min: new Point3d(6, 2, 0), max: new Point3d(8, 3, 0));
+        fixture.Add(new Line(), 12, min: new Point3d(0, 0, -2), max: new Point3d(4, 1, 1));
+        fixture.Add(new DBText { TextString = "Label" }, 13, min: new Point3d(8, 20, 0), max: new Point3d(10, 22, 1));
+        fixture.Add(new Line(), 14, min: new Point3d(30, 0, 0), max: new Point3d(32, 1, 0));
+        fixture.Add(new Line(), 15, space: 1, min: new Point3d(1, 1, 0), max: new Point3d(2, 2, 0));
+
+        var x = BandPage(fixture, JObject.Parse("{axis:'x',gap:2,sample_texts:true}"));
+        Assert.Equal(new[] { 3, 1 }, x["bands"].Select(row => row.Value<int>("entity_count")));
+        Assert.Equal(new[] { 0d, 0d, -2d }, x["bands"][0]["bbox"]["min"].Values<double>());
+        Assert.Equal(new[] { 10d, 22d, 1d }, x["bands"][0]["bbox"]["max"].Values<double>());
+        Assert.Equal("Label", x["bands"][0]["text_samples"][0].Value<string>("text"));
+        var y = BandPage(fixture, JObject.Parse("{axis:'y',gap:2}"));
+        Assert.Equal(new[] { 3, 1 }, y["bands"].Select(row => row.Value<int>("entity_count")));
+        Assert.Equal(32, y["bands"][0]["bbox"]["max"][0].Value<double>());
+        Assert.Null(y["bands"][0]["text_samples"]);
+
+        var filtered = BandPage(fixture, JObject.Parse("{axis:'X',gap:0,types:['AcDbLine'],bbox:{min:[4,0,-1],max:[6,3,1]}}"));
+        Assert.Equal(new[] { 1, 1 }, filtered["bands"].Select(row => row.Value<int>("entity_count")));
+        Assert.Equal(0, filtered["bands"][0]["bbox"]["min"][0].Value<double>());
+        var layout = BandPage(fixture, JObject.Parse("{axis:'y',gap:0,space:'layout:layout a',types:['Line']}"));
+        Assert.Equal(1, layout.Value<int>("entity_count"));
+        Assert.Equal(1, layout.Value<int>("band_count"));
+        AssertReadOnly(fixture);
+    }
+
+    [Fact]
+    public void Bands_continue_from_the_last_delivered_row_and_reject_changed_or_tampered_cursors()
+    {
+        var fixture = new Fixture();
+        var label = new string('界', 119) + "😀suffix";
+        for (var i = 0; i < 24; i++)
+        for (var j = 0; j < 7; j++)
+            fixture.Add(new DBText { TextString = label }, i * 7 + j + 1,
+                min: new Point3d(i * 10, j, 0), max: new Point3d(i * 10 + 1, j + 1, 0));
+
+        var request = JObject.Parse("{axis:'x',gap:0,sample_texts:true,types:['TEXT']}");
+        var first = BandPage(fixture, request, 8192);
+        Assert.InRange(first["bands"].Count(), 1, 23);
+        Assert.Equal(5, first["bands"][0]["text_samples"].Count());
+        Assert.Equal(new string('界', 119), first["bands"][0]["text_samples"][0].Value<string>("text"));
+        Assert.True(first["bands"][0]["text_samples"][0].Value<bool>("truncated"));
+        var next = NextBand(first);
+        var cursor = next.Value<string>("cursor");
+        var tampered = (JObject)next.DeepClone();
+        tampered["cursor"] = (cursor[0] == 'A' ? "B" : "A") + cursor.Substring(1);
+        Assert.StartsWith("CURSOR_INVALID:", new ClusterBandsHandler().Execute(fixture.Document, tampered).Error);
+        var changed = (JObject)next.DeepClone();
+        changed["gap"] = 1;
+        Assert.StartsWith("CURSOR_QUERY_MISMATCH:", new ClusterBandsHandler().Execute(fixture.Document, changed).Error);
+
+        var delivered = first["bands"].Select(row => row.Value<int>("band_id")).ToList();
+        while (next != null)
+        {
+            var page = BandPage(fixture, next, 8192);
+            Assert.NotEmpty(page["bands"]);
+            Assert.Equal(24, page.Value<int>("band_count"));
+            delivered.AddRange(page["bands"].Select(row => row.Value<int>("band_id")));
+            Assert.InRange(delivered.Count, 1, 24);
+            next = page["output"]["next_calls"].Any() ? NextBand(page) : null;
+        }
+        Assert.Equal(Enumerable.Range(1, 24), delivered);
+        fixture.Entities[0].ColorIndex = 2;
+        Assert.StartsWith("QUERY_CHANGED:", new ClusterBandsHandler().Execute(fixture.Document, NextBand(first)).Error);
+    }
+
+    [Fact]
+    public void Bands_skip_unavailable_extents_and_continue_after_the_last_delivered_band()
+    {
+        var fixture = new Fixture();
+        fixture.Add(new Line(), 1);
+        fixture.Add(new Line { QueryExtentsFailure = new InvalidOperationException() }, 2);
+        fixture.Add(new Line(), 3, min: new Point3d(100, 0, 0), max: new Point3d(101, 1, 0));
+        var page = BandPage(fixture, JObject.Parse("{axis:'x',gap:1,limit:1}"));
+        Assert.Equal(2, page.Value<int?>("band_count"));
+        Assert.Equal(2, page.Value<int?>("entity_count"));
+        Assert.Equal(1, page["coverage"].Value<int>("extents_unavailable"));
+        Assert.True(page["coverage"].Value<bool>("scan_complete"));
+        Assert.Equal(1, Assert.Single(page["bands"]).Value<int>("band_id"));
+        var last = BandPage(fixture, NextBand(page));
+        Assert.Equal(2, Assert.Single(last["bands"]).Value<int>("band_id"));
+        Assert.True(last["output"].Value<bool>("complete"));
+    }
+
+    [Fact]
+    public void Bands_withhold_pages_after_an_entity_open_failure()
+    {
+        var fixture = new Fixture();
+        fixture.Add(new Line(), 1);
+        var unreadable = fixture.Add(new Line(), 2);
+        unreadable.ObjectId.Slot.OpenFailure = new InvalidOperationException();
+
+        var page = BandPage(fixture, JObject.Parse("{axis:'x',gap:0}"));
+        Assert.False(page["coverage"].Value<bool>("scan_complete"));
+        Assert.Equal(1, page["coverage"].Value<int>("entity_read_failed"));
+        Assert.Null(page.Value<int?>("band_count"));
+        Assert.Empty(page["bands"]);
+        Assert.Empty(page["output"]["next_calls"]);
+    }
+
+    [Theory]
+    [InlineData("{axis:'z',gap:0}")]
+    [InlineData("{axis:'x',gap:-1}")]
+    [InlineData("{axis:'x',gap:Infinity}")]
+    [InlineData("{axis:'x',gap:0,types:[]}")]
+    [InlineData("{axis:'x',gap:0,bbox:{min:[2,0,0],max:[1,1,1]}}")]
+    [InlineData("{axis:'x',gap:0,space:'all'}")]
+    public void Invalid_band_options_fail_before_reading(string json)
+    {
+        var fixture = new Fixture();
+        var result = new ClusterBandsHandler().Execute(fixture.Document, JObject.Parse(json));
+        Assert.False(result.Ok);
+        Assert.Equal(0, fixture.Database.ProfileTransactionStarts);
+    }
+
+    private static JObject BandPage(Fixture fixture, JObject request, int cap = 16384)
+    {
+        var raw = Body(new ClusterBandsHandler().Execute(fixture.Document, request));
+        var result = EntityQueryResponse.Fit(new CallToolResult
+        {
+            Content = new[] { new TextContentBlock { Text = new JObject { ["ok"] = true, ["result"] = raw }.ToString(Formatting.None) } }
+        }, cap, toolName: "dwg_cluster_bands", collection: "bands", versionKey: "band_page_version", identityField: "band_id");
+        Assert.True(FinalBytes(result) <= cap);
+        var page = Deliver(result);
+        Assert.Null(page["_checkpoints"]);
+        return page;
+    }
+
+    private static JObject NextBand(JObject page)
+    {
+        var next = Assert.Single(page["output"]["next_calls"]);
+        Assert.Equal("dwg_cluster_bands", next.Value<string>("tool"));
+        var args = (JObject)next["arguments"].DeepClone();
+        Assert.Null(args["paged"]);
+        if (args["types"]?.Type == JTokenType.String) args["types"] = JArray.Parse(args.Value<string>("types"));
+        return args;
+    }
+
     private sealed class Fixture
     {
         internal Database Database { get; } = new();

@@ -14,20 +14,25 @@ namespace Bimwright.Dwg.Plugin
         public const int MaxMaxOutputBytes = 65536;
         public const int MaxCandidateRows = 128;
 
-        private DrawingProfileOptions(string section, int offset, int maxOutputBytes, string expectedSnapshot, string space)
-        { Section = section; Offset = offset; MaxOutputBytes = maxOutputBytes; ExpectedSnapshot = expectedSnapshot; Space = space; }
+        private DrawingProfileOptions(string section, int offset, int maxOutputBytes, string expectedSnapshot, string space, bool includeTextStats)
+        {
+            Section = section; Offset = offset; MaxOutputBytes = maxOutputBytes;
+            ExpectedSnapshot = expectedSnapshot; Space = space; IncludeTextStats = includeTextStats;
+        }
 
         public string Section { get; }
         public int Offset { get; }
         public int MaxOutputBytes { get; }
         public string ExpectedSnapshot { get; }
         public string Space { get; }
+        public bool IncludeTextStats { get; }
+        internal bool IncludeUnusedBlocks => Space == "all" && (Section == "summary" || Section == "unused_blocks");
 
         public static DrawingProfileOptions Create(string section = "summary", int offset = 0,
-            int maxOutputBytes = DefaultMaxOutputBytes, string expectedSnapshot = null, string space = "all")
+            int maxOutputBytes = DefaultMaxOutputBytes, string expectedSnapshot = null, string space = "all", bool includeTextStats = false)
         {
-            if (section != "summary" && section != "types" && section != "layers" && section != "spaces")
-                throw new ArgumentException("section must be summary, types, layers, or spaces.", nameof(section));
+            if (section != "summary" && section != "types" && section != "layers" && section != "spaces" && section != "unused_blocks")
+                throw new ArgumentException("section must be summary, types, layers, spaces, or unused_blocks.", nameof(section));
             if (offset < 0) throw new ArgumentException("offset must not be negative.", nameof(offset));
             if (section == "summary" && offset != 0)
                 throw new ArgumentException("summary requires offset=0.", nameof(offset));
@@ -42,7 +47,9 @@ namespace Bimwright.Dwg.Plugin
             else if (space != null && space.StartsWith("layout:", StringComparison.OrdinalIgnoreCase)
                 && !string.IsNullOrWhiteSpace(space.Substring(7)) && space.Length <= 1024) space = "layout:" + space.Substring(7);
             else throw new ArgumentException("space must be all, model or layout:<exact layout name>.", nameof(space));
-            return new DrawingProfileOptions(section, offset, maxOutputBytes, expectedSnapshot, space);
+            if (section == "unused_blocks" && space != "all")
+                throw new ArgumentException("unused_blocks requires space=all to check references across the drawing.", nameof(space));
+            return new DrawingProfileOptions(section, offset, maxOutputBytes, expectedSnapshot, space, includeTextStats);
         }
     }
 
@@ -59,8 +66,19 @@ namespace Bimwright.Dwg.Plugin
         private readonly Dictionary<string, long> types = new Dictionary<string, long>(StringComparer.Ordinal);
         private readonly Dictionary<string, long> layers = new Dictionary<string, long>(StringComparer.Ordinal);
         private readonly List<Space> spaces = new List<Space>();
+        private readonly List<(string Name, string Handle)> unusedBlocks = new List<(string, string)>();
+        private bool blockUsageComplete = true;
         private long idsSeen, erasedSkipped, entitiesRead, entityReadFailed, spaceReadFailed, spaceEnumerationFailed;
         private long typeUnknown, layerUnknown, xrefUnknown, blockReferences, xrefInserts;
+        private bool PopulationComplete => entityReadFailed == 0 && spaceReadFailed == 0 && spaceEnumerationFailed == 0;
+        internal bool LayerCountsComplete => PopulationComplete && layerUnknown == 0;
+
+        internal DrawingProfile(bool includeTextStats)
+        {
+            if (includeTextStats) TextStats = new DrawingProfileTextStats();
+        }
+
+        internal DrawingProfileTextStats TextStats { get; }
 
         internal Space AddSpace(string id, string name, string kind, string recordName,
             string layoutName, string nameSource, bool complete)
@@ -77,13 +95,22 @@ namespace Bimwright.Dwg.Plugin
         internal void FailedEnumeration(Space space = null)
         { spaceEnumerationFailed++; if (space != null) space.Complete = false; }
         internal void FailedEntityRead(Space space)
-        { entityReadFailed++; space.Complete = false; }
+        { entityReadFailed++; if (space != null) space.Complete = false; }
+        internal void AddUnusedBlock(string name, string handle) => unusedBlocks.Add((name, handle));
+        internal void FailedBlockUsageRead() => blockUsageComplete = false;
 
-        internal void ReadEntity(Space space, string runtimeType, string layer, bool blockReference, bool? xref)
+        internal void ReadLayer(string layer)
+        {
+            if (string.IsNullOrEmpty(layer)) layerUnknown++; else Increment(layers, layer);
+        }
+
+        internal long ObservedLayerCount(string layer)
+            => !string.IsNullOrEmpty(layer) && layers.TryGetValue(layer, out var count) ? count : 0;
+
+        internal void ReadEntity(Space space, string runtimeType, bool blockReference, bool? xref)
         {
             entitiesRead++; space.Count++;
             if (string.IsNullOrEmpty(runtimeType)) typeUnknown++; else Increment(types, runtimeType);
-            if (string.IsNullOrEmpty(layer)) layerUnknown++; else Increment(layers, layer);
             if (!blockReference) return;
             blockReferences++;
             if (xref == null) xrefUnknown++;
@@ -95,10 +122,10 @@ namespace Bimwright.Dwg.Plugin
 
         internal JObject ToJson(string documentId, string snapshot, DrawingProfileOptions options)
         {
-            var populationComplete = entityReadFailed == 0 && spaceReadFailed == 0 && spaceEnumerationFailed == 0;
+            var populationComplete = PopulationComplete;
             var complete = populationComplete && typeUnknown == 0 && layerUnknown == 0 && xrefUnknown == 0;
             var orderedSpaces = spaces.OrderBy(s => s.Name, StringComparer.Ordinal).ThenBy(s => s.Id, StringComparer.Ordinal);
-            return new JObject
+            var result = new JObject
             {
                 ["profile_version"] = 1, ["document_id"] = documentId, ["snapshot"] = snapshot,
                 ["source"] = new JObject
@@ -132,8 +159,7 @@ namespace Bimwright.Dwg.Plugin
                         .Select(p => new JObject { ["name"] = p.Key, ["count"] = p.Value }), types.Count,
                         populationComplete && typeUnknown == 0, options),
                     ["layers"] = Table("layers", layers.OrderBy(p => p.Key, StringComparer.Ordinal)
-                        .Select(p => new JObject { ["name"] = p.Key, ["count"] = p.Value }), layers.Count,
-                        populationComplete && layerUnknown == 0, options),
+                        .Select(p => new JObject { ["name"] = p.Key, ["count"] = p.Value }), layers.Count, LayerCountsComplete, options),
                     ["spaces"] = Table("spaces", orderedSpaces.Select(s => new JObject
                     {
                         ["name"] = s.Name, ["kind"] = s.Kind, ["id"] = s.Id, ["record_name"] = s.RecordName,
@@ -146,16 +172,104 @@ namespace Bimwright.Dwg.Plugin
                 ["summary"] = "Observed " + entitiesRead.ToString(CultureInfo.InvariantCulture) + " top-level entities in "
                     + spaces.Count.ToString(CultureInfo.InvariantCulture) + " spaces; profile " + (complete ? "complete." : "incomplete; counts are observed facts, not an estimate of unreadable data.")
             };
+            if (options.IncludeUnusedBlocks)
+            {
+                var rows = unusedBlocks.OrderBy(block => block.Name, StringComparer.Ordinal)
+                    .ThenBy(block => block.Handle, StringComparer.Ordinal)
+                    .Select(block => new JObject { ["name"] = block.Name, ["handle"] = block.Handle });
+                result["unused_blocks"] = Table("unused_blocks", rows,
+                    blockUsageComplete ? unusedBlocks.Count : (int?)null, blockUsageComplete, options);
+            }
+            if (TextStats != null)
+            {
+                result["request"]["include_text_stats"] = true;
+                result["text_stats"] = TextStats.ToJson(populationComplete);
+            }
+            return result;
         }
 
-        private static JObject Table(string section, IEnumerable<JObject> rows, int groups, bool complete, DrawingProfileOptions options)
+        private static JObject Table(string section, IEnumerable<JObject> rows, int? groups, bool complete, DrawingProfileOptions options)
         {
             var selected = options.Section == "summary" || options.Section == section;
             var offset = options.Section == section ? options.Offset : 0;
             return new JObject
             {
-                ["offset"] = offset, ["total_groups"] = groups, ["counts_complete"] = complete,
+                ["offset"] = offset, ["total_groups"] = groups.HasValue ? new JValue(groups.Value) : JValue.CreateNull(), ["counts_complete"] = complete,
                 ["rows"] = selected ? new JArray(rows.Skip(offset).Take(DrawingProfileOptions.MaxCandidateRows)) : new JArray()
+            };
+        }
+    }
+
+    /// <summary>One-pass text statistics with fixed height bins and bounded sample reads.</summary>
+    internal sealed class DrawingProfileTextStats
+    {
+        private const int SampleLimit = 8;
+        private const int SampleMaxUtf16Units = 120;
+        private static readonly double[] UpperBounds =
+            { 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 3, 5, 10, 20, 50, 100, 200, 500, 1000, 5000, 10000 };
+
+        private readonly long[] heights = new long[UpperBounds.Length + 1];
+        private readonly JArray samples = new JArray();
+        private long dbTextCount, mTextCount, heightUnknown;
+        private int sampleAttempts, sampleReadFailed;
+
+        internal void Observe(bool multiline, double? height)
+        {
+            if (multiline) mTextCount++; else dbTextCount++;
+            if (!height.HasValue || height.Value <= 0 || double.IsNaN(height.Value) || double.IsInfinity(height.Value))
+            {
+                heightUnknown++;
+                return;
+            }
+            var index = Array.BinarySearch(UpperBounds, height.Value);
+            heights[index >= 0 ? index + 1 : ~index]++;
+        }
+
+        internal bool TryStartSample()
+        {
+            if (sampleAttempts >= SampleLimit) return false;
+            sampleAttempts++;
+            return true;
+        }
+
+        internal void AddSample(string handle, bool multiline, string text)
+        {
+            if (string.IsNullOrWhiteSpace(text)) return;
+            var length = Math.Min(text.Length, SampleMaxUtf16Units);
+            if (length < text.Length && char.IsSurrogatePair(text[length - 1], text[length])) length--;
+            samples.Add(new JObject
+            {
+                ["handle"] = handle, ["type"] = multiline ? "MText" : "DBText",
+                ["text"] = text.Substring(0, length), ["truncated"] = length < text.Length
+            });
+        }
+
+        internal void FailedSampleRead() => sampleReadFailed++;
+
+        internal JObject ToJson(bool populationComplete)
+        {
+            var bins = new JArray();
+            for (var i = 0; i < heights.Length; i++)
+            {
+                var lower = i == 0 ? 0 : UpperBounds[i - 1];
+                var upper = i < UpperBounds.Length ? new JValue(UpperBounds[i]) : JValue.CreateNull();
+                bins.Add(new JArray(lower, upper, heights[i]));
+            }
+
+            return new JObject
+            {
+                ["counts_complete"] = populationComplete,
+                ["dbtext_count"] = populationComplete ? new JValue(dbTextCount) : JValue.CreateNull(),
+                ["mtext_count"] = populationComplete ? new JValue(mTextCount) : JValue.CreateNull(),
+                ["observed_dbtext_count"] = dbTextCount, ["observed_mtext_count"] = mTextCount,
+                ["height_histogram"] = new JObject
+                {
+                    ["unit"] = "drawing_units", ["counts_complete"] = populationComplete && heightUnknown == 0,
+                    ["unknown_count"] = heightUnknown,
+                    ["columns"] = new JArray("min_inclusive", "max_exclusive", "count"), ["bins"] = bins
+                },
+                ["sample_limit"] = SampleLimit, ["sample_max_utf16_units"] = SampleMaxUtf16Units,
+                ["sample_read_failed"] = sampleReadFailed, ["samples_collected"] = samples.Count, ["samples"] = samples
             };
         }
     }

@@ -97,6 +97,26 @@ namespace Bimwright.Dwg.Server.Tools
             return ToolGateway.LoggedCall("open_drawing", request, request);
         }
 
+        [McpServerTool(Name = "dwg_list_open_documents", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false), Description(
+            "List open drawings in the bound AutoCAD instance, including name, path, document_id, active and has_unsaved_changes. " +
+            "Path is null for an unnamed drawing; has_unsaved_changes is null if AutoCAD cannot report it. " +
+            "Works without an active drawing. Lists session metadata without switching drawings or reading entities in inactive drawings.")]
+        public static Task<string> ListOpenDocuments()
+            => ToolGateway.LoggedCall("list_open_documents", new { }, new { });
+
+        [McpServerTool(Name = "dwg_activate_document", ReadOnly = false, Destructive = false, Idempotent = true, OpenWorld = false), Description(
+            "Activate an already-open drawing in the bound AutoCAD instance using its current document_id from dwg_list_open_documents. " +
+            "Requires a verified current target and runs as a standalone call in idle multi-document mode. Never opens, saves or closes a drawing. " +
+            "After a change, inspect dwg_health and call dwg_switch_target with the same PID and the observed expected_document_id before using drawing tools. " +
+            "The activation receipt does not confirm the new target. Unavailable in --read-only.")]
+        public static Task<string> ActivateDocument(
+            [Description("Lifetime ID of the intended open drawing from dwg_list_open_documents.")] string document_id)
+        {
+            if (string.IsNullOrWhiteSpace(document_id)) return Refuse("document_id is required.");
+            var request = new { document_id };
+            return ToolGateway.LoggedCall("activate_document", request, request);
+        }
+
         private static Task<string> Refuse(string error)
             => Task.FromResult(JsonConvert.SerializeObject(new McpResponse { Ok = false, Error = error }));
 

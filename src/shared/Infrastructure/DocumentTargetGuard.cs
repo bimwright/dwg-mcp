@@ -29,6 +29,9 @@ namespace Bimwright.Dwg.Plugin
             => TargetContract.CheckInstance(expected, Pid, StartUtc, TargetContract.IsWrite(command));
 
         internal static void CheckDocument(JObject expected, Document document, string command)
-            => TargetContract.CheckDocument(expected, Id(document), TargetContract.IsWrite(command));
+        {
+            if (TargetContract.RequiresVerifiedDrawing(command)) TargetContract.CheckVerifiedDrawing(expected, Id(document));
+            else TargetContract.CheckDocument(expected, Id(document), TargetContract.IsWrite(command));
+        }
     }
 }

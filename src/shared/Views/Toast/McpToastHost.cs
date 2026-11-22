@@ -28,6 +28,9 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
         private volatile int _idleSeconds;
         private Action<long> _activityClick = _ => { };
         private volatile string _instanceIdentity;
+        private volatile string _agentName;
+        private volatile Func<bool> _isPaused;
+        private volatile Func<bool, bool> _setPaused;
         private Func<bool> _frameUsable = () => true;
         private Application _toastApplication;
 
@@ -61,6 +64,30 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
         public void SetInstanceIdentity(string identity)
         {
             _instanceIdentity = string.IsNullOrWhiteSpace(identity) ? null : identity;
+        }
+
+        /// <summary>
+        /// Agent of the latest MCP call ("Claude"), or null when the gateway did not name one. The open card's title
+        /// follows it on the next render.
+        /// </summary>
+        public void SetAgentName(string agent)
+        {
+            _agentName = string.IsNullOrWhiteSpace(agent) ? null : agent;
+        }
+
+        /// <summary>"dwg-mcp 2027 · Claude"; null leaves the card's own product-name fallback.</summary>
+        private string IdentityTitle()
+        {
+            var identity = _instanceIdentity;
+            var agent = _agentName;
+            if (agent == null) return identity;
+            return (identity ?? Views.BrandAssets.ProductName) + " · " + agent;
+        }
+
+        internal void SetPauseHandlers(Func<bool> isPaused, Func<bool, bool> setPaused)
+        {
+            _isPaused = isPaused;
+            _setPaused = setPaused;
         }
 
         public void SetFrameUsableProvider(Func<bool> provider)
@@ -274,10 +301,12 @@ namespace Bimwright.Dwg.Plugin.Views.Toast
                 Aggregator,
                 () => _frameUsable(),
                 showBranding: () => _showBranding,
-                instanceIdentity: () => _instanceIdentity,
+                instanceIdentity: IdentityTitle,
                 onClick: id => _activityClick(id),
                 positionOptions: () => _position,
-                positionChanged: value => SetPosition(value));
+                positionChanged: value => SetPosition(value),
+                isPaused: () => _isPaused?.Invoke() ?? false,
+                setPaused: _setPaused != null ? (Func<bool, bool>)(paused => _setPaused?.Invoke(paused) ?? false) : null);
         }
 
         private void PostToManager(Action<McpToastManager> action)

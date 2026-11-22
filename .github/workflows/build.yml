@@ -38,7 +38,7 @@ jobs:
         with:
           dotnet-version: |
             8.0.x
-            10.0.x
+            10.0.404
 
       - name: Run installer regression tests
         run: ./tests/installer/relocate.Tests.ps1 -ResultPath installer-tests.json
@@ -68,10 +68,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup .NET 8
+      - name: Setup .NET 8 and .NET 10
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 8.0.x
+          dotnet-version: |
+            8.0.x
+            10.0.404
 
       - name: Build server
         run: dotnet build src/server/Bimwright.Dwg.Server.csproj -c Release
@@ -90,7 +92,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 10.0.x
+          dotnet-version: 10.0.404
       - name: WPF behavior on .NET 10
         run: dotnet run --project tests/Bimwright.Dwg.Toast.Tests -c Release -f net10.0-windows
 
@@ -121,7 +123,7 @@ jobs:
         with:
           dotnet-version: |
             8.0.x
-            10.0.x
+            10.0.404
 
       # AutoCAD references come from Autodesk's AutoCAD.NET NuGet packages, so every year builds here.
       - name: Build plugin
