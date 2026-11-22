@@ -31,6 +31,8 @@ namespace Bimwright.Dwg.Server.Tools
             "usage_context=project|test labels real work versus testing in the gateway call log only. " +
             "Enhanced calls require a matching plugin and must be direct calls, outside batch/baked tools; unsupported plugins are refused before code is sent. " +
             "Execution has cooperative 30s cancellation. " +
+            "A loaded DLL whose metadata cannot be read is left out of the compile and listed in skipped_references. " +
+            "A result above 1 MiB is saved whole to a local output_artifact and replaced by a compact receipt with mutation_applied=null and, up to the plug-in's 10 MiB cutoff, a schema of key names; read the artifact instead of re-running the script. " +
             "An active drawing is required: when none is open, use dwg_list_recent_drawings and dwg_open_drawing first; the host refuses before executing code. " +
             "doc, db and ed are supplied from that active drawing. " +
             "Put database writes in one using transaction from db.TransactionManager.StartTransaction(), and Commit only after validation succeeds. " +

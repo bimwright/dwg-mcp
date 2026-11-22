@@ -1,4 +1,6 @@
 using System;
+using System.IO;
+using System.Linq;
 using System.Text;
 using System.Text.Json;
 using Bimwright.Dwg.Server;
@@ -49,7 +51,8 @@ public class ResponseBudgetTests : OutputArtifactTestScope
         Assert.True(data.Value<bool>("ok"));
         Assert.Equal(scriptOk, data["result"].Value<bool>("ok"));
         Assert.Null(data["result"]["result"]);
-        Assert.Null(data["mutation_applied"]);
+        // Unknown, as in rvt-mcp: never a value read from the script's own DTO.
+        Assert.Equal(JTokenType.Null, data["mutation_applied"].Type);
         Assert.Null(compact.IsError);
         Assert.Contains("Do not replay", data["_response_budget"].Value<string>("guidance"));
         Assert.True(ResponseBudget.Measure(compact) <= 4096);
@@ -135,6 +138,78 @@ public class ResponseBudgetTests : OutputArtifactTestScope
         Assert.True(compact.IsError);
     }
 
+    // FC-RSP-05: higher thresholds only for results with an image block.
+    [Fact]
+    public void Send_code_text_results_use_the_family_limits_and_other_results_keep_80_MiB()
+    {
+        var text = Result(new JObject { ["ok"] = true });
+        Assert.Equal((1024 * 1024, 64 * 1024, 256 * 1024), ResponseBudget.Limits(new DwgMcpConfig(), "dwg_send_code", text));
+        Assert.Equal((80 * 1024 * 1024, 1024 * 1024, 8 * 1024 * 1024), ResponseBudget.Limits(new DwgMcpConfig(), "dwg_query_entities", text));
+        var image = new CallToolResult { Content = new System.Collections.Generic.List<ContentBlock> { ImageContentBlock.FromBytes(new byte[] { 1 }, "image/png") } };
+        Assert.Equal(80 * 1024 * 1024, ResponseBudget.Limits(new DwgMcpConfig(), "dwg_send_code", image).Limit);
+        Assert.Equal(4096, ResponseBudget.Limits(Small, "dwg_send_code", text).Limit);
+    }
+
+    [Fact]
+    public void Send_code_over_1_MiB_spills_with_unknown_mutation_and_a_schema()
+    {
+        var data = new JObject { ["ok"] = true, ["result"] = new JObject
+        {
+            ["ok"] = true, ["error"] = null, ["stdout"] = "",
+            ["result"] = new JArray(Enumerable.Range(0, 30000).Select(i => new JObject { ["handle"] = i.ToString("X"), ["layer"] = "L" + i, ["note"] = new string('x', 20) }))
+        }};
+        var original = Result(data);
+        Assert.InRange(ResponseBudget.Measure(original), 1024 * 1024 + 1, 8 * 1024 * 1024);
+
+        var compact = ResponseBudget.Apply(original, new DwgMcpConfig(), false, "dwg_send_code");
+
+        Assert.True(ResponseBudget.Measure(compact) <= 1024 * 1024);
+        var receipt = Text(compact);
+        Assert.Equal("compacted", receipt["_response_budget"].Value<string>("status"));
+        Assert.True(File.Exists(receipt["output_artifact"].Value<string>("path")));
+        Assert.Equal(JTokenType.Null, receipt["mutation_applied"].Type);
+        Assert.Equal(new[] { "ok", "error", "stdout", "result" }, receipt["schema"]["root"].Values<string>());
+        Assert.Equal(new[] { "handle", "layer", "note" }, receipt["schema"]["root.result"].Values<string>());
+        Assert.DoesNotContain("L29999", receipt.ToString());
+        Assert.Contains("Do not replay", receipt["_response_budget"].Value<string>("guidance"));
+    }
+
+    [Fact]
+    public void Schema_of_a_wide_result_keeps_the_first_names_and_reports_truncation()
+    {
+        var wide = new JObject();
+        for (var i = 0; i < 200000; i++) wide["k" + i] = new JObject { ["v" + i] = i };
+
+        var schema = ResponseBudget.Schema(wide, out var truncated);
+
+        Assert.True(truncated);
+        Assert.Equal(ResponseBudget.SchemaMaxNames, schema["root"].Count());
+        Assert.True(schema.Count <= ResponseBudget.SchemaMaxPaths);
+    }
+
+    [Fact]
+    public void Send_code_result_compacted_by_the_plugin_reports_unknown_mutation()
+    {
+        var plugin = new JObject { ["ok"] = true, ["result"] = new JObject
+        {
+            ["ok"] = true, ["truncated"] = true, ["original_size_bytes"] = 11 * 1024 * 1024,
+            ["output_artifact"] = new JObject { ["path"] = "fixture.json", ["complete"] = true }, ["preview"] = "{"
+        }};
+
+        var delivered = Text(ResponseBudget.Apply(Result(plugin), new DwgMcpConfig(), false, "dwg_send_code"));
+
+        Assert.Equal(JTokenType.Null, delivered["mutation_applied"].Type);
+        Assert.True(delivered["result"].Value<bool>("truncated"));
+        var other = Text(ResponseBudget.Apply(Result((JObject)plugin.DeepClone()), new DwgMcpConfig(), false, "dwg_update_texts"));
+        Assert.Null(other["mutation_applied"]);
+    }
+    [Fact]
+    public void A_1_MiB_text_result_of_another_tool_is_still_delivered_inline()
+    {
+        var data = new JObject { ["ok"] = true, ["result"] = new string('x', 2 * 1024 * 1024) };
+        var delivered = ResponseBudget.Apply(Result(data), new DwgMcpConfig(), true, "dwg_get_entity_properties");
+        Assert.Null(Text(delivered)["_response_budget"]);
+    }
     [Fact]
     public void Oversized_health_failure_keeps_its_structured_target_error()
     {

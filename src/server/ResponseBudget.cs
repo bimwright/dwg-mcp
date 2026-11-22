@@ -77,8 +77,9 @@ internal static class ResponseBudget
     internal static CallToolResult Apply(CallToolResult result, DwgMcpConfig config, bool readOnly, string toolName)
     {
         config.ValidateResponseBudget();
+        if (toolName == SendCode) MarkPluginSpill(result);
         var bytes = Measure(result);
-        var limit = config.ResponseBudgetBytesOrDefault;
+        var (limit, warn, strongWarn) = Limits(config, toolName, result);
         JObject data = null;
         JToken reminder = null;
         if (bytes > limit)
@@ -94,14 +95,14 @@ internal static class ResponseBudget
                 bytes = Measure(result);
             }
         }
-        if (bytes < config.ResponseWarnBytesOrDefault) return result;
+        if (bytes < warn) return result;
         if (bytes <= limit)
         {
             var previousMeta = result.Meta;
             result.Meta = previousMeta?.DeepClone().AsObject() ?? new JsonObject();
             result.Meta["bimwright/dwg-mcp/response_budget"] = new JsonObject
             {
-                ["level"] = bytes >= config.ResponseStrongWarnBytesOrDefault ? "strong_warning" : "warning",
+                ["level"] = bytes >= strongWarn ? "strong_warning" : "warning",
                 ["original_bytes"] = bytes, ["budget_bytes"] = limit
             };
             if (Measure(result) <= limit) return result;
@@ -123,6 +124,8 @@ internal static class ResponseBudget
                 ? "Read output_artifact if available; otherwise narrow future reads. Completeness applies to the MCP result received, not output already omitted upstream."
                 : "Do not replay this operation to recover output. Read output_artifact if available and inspect drawing/files; effects may already exist. Completeness applies to this MCP result, not output already omitted upstream."
         };
+        var schemaTruncated = false;
+        var schema = toolName == SendCode && data?["result"] is JContainer stored ? Schema(stored, out schemaTruncated) : null;
         foreach (var textLimit in new[] { 256, 64, 0, -1 })
         {
             var receipt = Facts(data, textLimit);
@@ -146,6 +149,7 @@ internal static class ResponseBudget
                 receipt["image_delivery"] = new JObject { ["ok"] = false, ["omitted"] = true, ["reason"] = "final_response_budget" };
             receipt["_response_budget"] = budgetInfo.DeepClone();
             receipt["output_artifact"] = OutputReceiptFacts.Receipt(artifact, Math.Max(0, textLimit));
+            if (toolName == SendCode) SendCodeReceipt(receipt, schema, schemaTruncated, textLimit);
             var compact = new CallToolResult
             {
                 IsError = result.IsError,
@@ -165,6 +169,7 @@ internal static class ResponseBudget
         budgetInfo["minimal_receipt"] = true;
         minimal["_response_budget"] = budgetInfo;
         minimal["output_artifact"] = OutputReceiptFacts.Receipt(artifact, 0);
+        if (toolName == SendCode) SendCodeReceipt(minimal, null, false, -1);
         var fallback = new CallToolResult { IsError = result.IsError,
             Content = new[] { new TextContentBlock { Text = minimal.ToString(Formatting.None) } } };
         var finalBytes = Measure(fallback);
@@ -180,6 +185,78 @@ internal static class ResponseBudget
         }
         System.Diagnostics.Debug.Assert(finalBytes <= limit);
         return AddReportReminderIfFits(fallback, minimal, reminder, limit);
+    }
+
+    internal const string SendCode = "dwg_send_code";
+    // FC-RSP-05: the 80 MiB default exists for inline images. A send_code result has none, so it follows the family
+    // thresholds, as rvt-mcp send_code does. Explicitly configured thresholds still win.
+    internal const int TextBudgetBytes = 1024 * 1024, TextWarnBytes = 64 * 1024, TextStrongWarnBytes = 256 * 1024;
+    internal const int SchemaMaxPaths = 50, SchemaMaxNames = 100;
+
+    internal static (int Limit, int Warn, int StrongWarn) Limits(DwgMcpConfig config, string toolName, CallToolResult result)
+    {
+        if (toolName != SendCode || result.Content?.OfType<ImageContentBlock>().Any() == true)
+            return (config.ResponseBudgetBytesOrDefault, config.ResponseWarnBytesOrDefault, config.ResponseStrongWarnBytesOrDefault);
+        var limit = config.ResponseBudgetBytes ?? TextBudgetBytes;
+        return (limit, Math.Min(config.ResponseWarnBytes ?? TextWarnBytes, limit), Math.Min(config.ResponseStrongWarnBytes ?? TextStrongWarnBytes, limit));
+    }
+
+    // rvt-mcp parity for a spilled script result: the script may or may not have changed the drawing (mutation_applied
+    // null unless the envelope reported it), and the key names of the stored result say how to query the artifact.
+    private static void SendCodeReceipt(JObject receipt, JObject schema, bool schemaTruncated, int textLimit)
+    {
+        if (receipt["mutation_applied"] == null) receipt["mutation_applied"] = JValue.CreateNull();
+        if (textLimit < 64 || schema == null) return;
+        if (!schemaTruncated && System.Text.Encoding.UTF8.GetByteCount(schema.ToString(Formatting.None)) <= textLimit * 8) receipt["schema"] = schema;
+        else receipt["schema_truncated"] = true;
+    }
+
+    // A result above the plug-in's 10 MiB cutoff arrives as the plug-in's own receipt (truncated + output_artifact):
+    // it too says the drawing state is unknown.
+    private static void MarkPluginSpill(CallToolResult result)
+    {
+        if (result.Content?.OfType<TextContentBlock>().FirstOrDefault() is not TextContentBlock block
+            || block.Text == null || !block.Text.Contains("\"output_artifact\"", StringComparison.Ordinal)) return;
+        if (Parse(block.Text) is not JObject data || data["mutation_applied"] != null || data["result"] is not JObject inner
+            || inner["truncated"]?.Type != JTokenType.Boolean || !inner.Value<bool>("truncated") || inner["output_artifact"] == null) return;
+        data["mutation_applied"] = JValue.CreateNull();
+        block.Text = data.ToString(Formatting.None);
+    }
+
+    /// <summary>
+    /// Property names by path, no values (rvt-mcp spill schema). Arrays are sampled, depth is bounded, and at most
+    /// <see cref="SchemaMaxPaths"/> paths of <see cref="SchemaMaxNames"/> names are kept, so a wide result stays linear.
+    /// </summary>
+    internal static JObject Schema(JToken token, out bool truncated)
+    {
+        var schema = new JObject();
+        var seen = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.HashSet<string>>(StringComparer.Ordinal);
+        var cut = false;
+        void Walk(JToken node, string path, int depth)
+        {
+            var objects = node is JObject single ? new[] { single } : (node as JArray)?.OfType<JObject>().Take(20).ToArray() ?? Array.Empty<JObject>();
+            if (objects.Length == 0) return;
+            if (!seen.TryGetValue(path, out var names))
+            {
+                if (seen.Count >= SchemaMaxPaths) { cut = true; return; }
+                seen[path] = names = new System.Collections.Generic.HashSet<string>(StringComparer.Ordinal);
+                schema[path] = new JArray();
+            }
+            var list = (JArray)schema[path];
+            foreach (var property in objects.SelectMany(o => o.Properties()))
+            {
+                if (!names.Contains(property.Name))
+                {
+                    if (names.Count >= SchemaMaxNames) { cut = true; continue; }
+                    names.Add(property.Name);
+                    list.Add(property.Name);
+                }
+                if (depth < 3 && property.Value is JContainer child) Walk(child, path + "." + property.Name, depth + 1);
+            }
+        }
+        Walk(token, "root", 0);
+        truncated = cut;
+        return schema;
     }
 
     private static void RetainHistory(JObject source, JObject destination)
