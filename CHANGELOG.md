@@ -12,14 +12,16 @@ This release was prepared as 2.2.0 and ships as 2.5.1, the shared release number
 - Update the gateway SQLite provider and native engine used by ToolBaker and drawing history.
 - Add `BIMWRIGHT_KEEP_ALL_LOGS` (`1`, `true`, `yes` or `on`) for the gateway and the AutoCAD plugin. When set, no log, call record, journal or report is deleted automatically: retention pruning, diagnostic and legacy `debug.log` compaction and report retention are skipped, and the diagnostic log rolls to a timestamped archive instead of replacing its single backup. Rotation still happens. It never turns on a recorder or changes what is recorded. Startup writes one diagnostic line when it is on. Unset, retention is unchanged.
 - Fix the Setup installer keeping plug-ins from an earlier release in the bundle. A year already in `Bimwright.Dwg.bundle` but not selected in this run is now replaced from the package, or removed with a warning when the package does not ship it, so every plug-in matches the installed server. `-WhatIf` previews the replace/remove actions and `Verified:` covers every year left in the bundle.
+- The gateway now sends the MCP client name from `initialize` with each request to the AutoCAD plugin (`client_name`, left out when the client sends no name). The plugin uses it only for the toast title; an older plugin ignores it.
 
 ### Drawing edits and scripting
 
 - Add opt-in `atomic=true` to `dwg_batch_execute`. Supported drawing commands run in one outer AutoCAD transaction. A failed step, including a reported per-entity error, rolls back earlier changes and skips later steps. The gateway checks `atomic_batch_version` before dispatch. The default remains `atomic=false`.
 - Add `dwg_attach_image` (issue #6). Link a local PNG, JPG, TIFF or BMP with an exact insertion point and width, optional height, rotation, layer and send-to-back. The image, definition, layer and draw order are written in one transaction. An existing definition is reused when its saved or resolved image path matches. Mapped network drives are refused.
 - Add `result_contract=task_v1` to `dwg_send_code`. Scripts return `McpTaskResult.Pass(value)` or `McpTaskResult.Fail(code, message, details)`. The result includes `_task.status` (`passed`, `failed` or `not_reported`). The gateway checks `script_task_contract_version` before dispatch. Calls without `task_v1` keep their legacy behavior.
-- Add optional `usage_context=project|test|unknown` to `dwg_send_code`. The gateway records it only when call logging is enabled. Compiler diagnostics now include an `excerpt` of up to two lines on either side of the error, a column marker and a 200-character cap per line.
+- Add optional `usage_context=project|test|unknown` to `dwg_send_code`. The gateway records it only when call logging is enabled. Compiler diagnostics now include an `excerpt` (issue #4) of up to two lines on either side of the error, a column marker and a 200-character cap per line.
 - Return `ACAD_BUSY` or `QUEUE_FULL` when host admission rejects a request before it starts.
+- An older plugin is refused before anything is sent: `atomic=true` returns `ATOMIC_BATCH_UNSUPPORTED` and `result_contract=task_v1` returns `SCRIPT_TASK_CONTRACT_UNSUPPORTED`. An atomic batch with a command outside the supported drawing reads and edits returns `ATOMIC_UNSUPPORTED_COMMANDS` before any step runs. Under `task_v1`, a script that does not return `McpTaskResult.Pass` or `McpTaskResult.Fail` gets `TASK_RESULT_REQUIRED`.
 
 ### Reports, workflows and localization
 
@@ -28,6 +30,9 @@ This release was prepared as 2.2.0 and ships as 2.5.1, the shared release number
 - Check for stable releases in the background at most once per 24 hours and show an optional notice in AutoCAD. Settings can disable the notice. The notice links to release information.
 - Add opt-in SQLite history for supported committed drawing edits. `dwg_record_change` records the goal and reason, `dwg_get_change_records` queries saved records, and `dwg_survey_change_impact` inspects supplied handles for context. Reports accept optional `call_ids` and `dwg_get_report_history` reads saved provenance even with AutoCAD closed.
 - Add English, Vietnamese and Simplified Chinese catalogs for the plugin UI. English is the default. Language changes in Settings take effect after restarting AutoCAD.
+- `dwg_report_task_result` saves each report as a local file under `%LOCALAPPDATA%\Bimwright\dwg-mcp\reports` and never changes a drawing. Links that do not resolve come back in `links.unresolved`. Sending the same `task_id` again from the same gateway session replaces the report. Reports older than `reportRetentionDays` in `settings.json` (1 to 3650, default 30) are deleted when AutoCAD starts.
+- Drawing history capture is off by default. Set `BIMWRIGHT_DWG_ENABLE_CHANGE_HISTORY=true` on the gateway to turn it on; `--read-only` never captures, and `dwg_record_change` returns `HISTORY_DISABLED` while it is off. Each drawing's history is stored in `%LOCALAPPDATA%\Bimwright\dwg-mcp\history\<drawing_key>.db`.
+- The release check is on by default and contacts `api.github.com`. Turning off **Check for new dwg-mcp releases** in Settings (`releaseNotificationsEnabled` in `settings.json`) stops the lookup as well as the notice.
 
 ### Toast
 
@@ -39,10 +44,10 @@ Update the gateway and plugins together to see the agent name; an older gateway 
 
 ### Large drawings and open documents
 
-- `dwg_list_blocks` reports direct and nested references and unused definitions. `dwg_get_drawing_profile` can page unused block definitions and collect opt-in DBText/MText counts, a height histogram and bounded samples. Profile pages preserve coverage and continuation under the response budget.
-- `dwg_list_layers(include_counts=true)` adds opt-in entity counts. Type filters normalize `AcDb` aliases, and zero-match count and select-by-type results can suggest types present in the requested space. Use `dwg_query_entities` for selection by WCS bounding box.
-- Add `dwg_list_open_documents` and standalone `dwg_activate_document`. Verify the new drawing with `dwg_switch_target` before writing.
-- Add read-only `dwg_cluster_bands` for X/Y band clustering with gap, WCS bounding-box, space and type filters, optional plain-text samples and cursor pagination. Entities without usable extents are counted separately.
+- `dwg_list_blocks` reports direct and nested references and unused definitions (issue #4). `dwg_get_drawing_profile` can page unused block definitions and collect opt-in DBText/MText counts, a height histogram and bounded samples. Profile pages preserve coverage and continuation under the response budget.
+- `dwg_list_layers(include_counts=true)` adds opt-in entity counts (issue #4). Type filters normalize `AcDb` aliases, and zero-match count and select-by-type results can suggest types present in the requested space. Use `dwg_query_entities` for selection by WCS bounding box.
+- Add `dwg_list_open_documents` and standalone `dwg_activate_document` (issue #4). Verify the new drawing with `dwg_switch_target` before writing.
+- Add read-only `dwg_cluster_bands` (issue #4) for X/Y band clustering with gap, WCS bounding-box, space and type filters, optional plain-text samples and cursor pagination. Entities without usable extents are counted separately.
 - The catalog exposes 54 tools by default and 78 with `--toolsets all`. Read-only mode exposes 23 by default and 29 with all toolsets.
 
 ## 2.1.2 — 2026-11-01
