@@ -26,7 +26,7 @@ namespace Bimwright.Dwg.Scripting
         public static (object Value, string Error) Evaluate(
             string code, object globals, Assembly[] assemblies, string[] imports, CancellationToken cancellationToken)
         {
-            var options = Options(globals, assemblies, imports);
+            var options = Options(globals, assemblies, imports, out _);
             try
             {
                 return (CSharpScript.EvaluateAsync(code, options, globals, globals.GetType(), cancellationToken)
@@ -41,7 +41,7 @@ namespace Bimwright.Dwg.Scripting
         public static Dictionary<string, object> Execute(
             string code, object globals, Assembly[] assemblies, string[] imports, bool compileOnly, CancellationToken token)
         {
-            var options = Options(globals, assemblies, imports).WithFilePath("script")
+            var options = Options(globals, assemblies, imports, out var skipped).WithFilePath("script")
                 .WithEmitDebugInformation(true).WithFileEncoding(System.Text.Encoding.UTF8);
             var script = CSharpScript.Create(code, options, globals.GetType());
             var errors = script.Compile(token).Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
@@ -59,10 +59,13 @@ namespace Bimwright.Dwg.Scripting
             }).ToArray();
             var result = new Dictionary<string, object> {
                 ["ok"] = errors.Length == 0, ["result"] = null,
-                ["error"] = errors.Length == 0 ? null : "compile error: " + string.Join("\n", errors.Select(d => d.ToString())),
+                ["error"] = errors.Length == 0 ? null : "compile error: " + string.Join("\n", errors.Select(d => d.ToString())) + SkippedNote(skipped),
                 ["compiled"] = errors.Length == 0, ["compile_only"] = compileOnly, ["executed"] = false,
                 ["diagnostics"] = diagnostics, ["location"] = null
             };
+            // rvt-mcp #38: a loaded DLL whose metadata Roslyn cannot read is left out of the compile and listed here.
+            if (skipped.Length != 0)
+                result["skipped_references"] = skipped.Select(s => new Dictionary<string, object> { ["name"] = s.Name, ["reason"] = s.Reason }).ToArray();
             if (errors.Length != 0 || compileOnly) return result;
             result["executed"] = true;
             try { result["result"] = script.RunAsync(globals, token).GetAwaiter().GetResult().ReturnValue; }
@@ -84,7 +87,11 @@ namespace Bimwright.Dwg.Scripting
         }
 
 
-        private static ScriptOptions Options(object globals, Assembly[] assemblies, string[] imports)
+        private static string SkippedNote(SkippedScriptReference[] skipped) =>
+            skipped.Length == 0 ? string.Empty
+                : "\nSkipped references (unreadable metadata): " + string.Join(", ", skipped.Select(s => s.Name));
+
+        private static ScriptOptions Options(object globals, Assembly[] assemblies, string[] imports, out SkippedScriptReference[] skipped)
         {
             var compilerAssemblies = new[] {
                 typeof(Compilation).Assembly, typeof(CSharpCompilation).Assembly,
@@ -100,8 +107,9 @@ namespace Bimwright.Dwg.Scripting
             }
             foreach (var assembly in compilerAssemblies) references[assembly.GetName().Name] = assembly;
             references[globals.GetType().Assembly.GetName().Name] = globals.GetType().Assembly;
+            var metadata = ScriptReferences.FromPaths(references.Values.Select(a => a.Location), out skipped);
             return ScriptOptions.Default.WithSourceResolver(null)
-                .WithReferences(references.Values).WithImports(imports);
+                .WithReferences(metadata).WithImports(imports);
         }
     }
 }

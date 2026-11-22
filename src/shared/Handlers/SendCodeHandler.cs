@@ -93,6 +93,9 @@ namespace Bimwright.Dwg.Plugin.Handlers
                 if (payload["diagnostics"] is System.Collections.Generic.Dictionary<string, object>[] diagnostics)
                     foreach (var diagnostic in diagnostics)
                         diagnostic["message"] = ErrorSanitizer.Sanitize((string)diagnostic["message"]);
+                if (payload.TryGetValue("skipped_references", out var skippedValue) && skippedValue is System.Collections.Generic.Dictionary<string, object>[] skipped)
+                    foreach (var skip in skipped)
+                        skip["reason"] = ErrorSanitizer.Sanitize((string)skip["reason"]);
             }
             catch (OperationCanceledException) { return CommandResult.Fail("execution cancelled after 30s"); }
             catch (Exception ex)
