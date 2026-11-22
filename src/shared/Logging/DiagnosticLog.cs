@@ -84,6 +84,8 @@ namespace Bimwright.Dwg.Plugin
             {
                 var root = Path.GetFullPath(Path.Combine(LocalAppDataOverride ?? Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Bimwright", "dwg-mcp"));
                 if (!Queue.TryAdd(new Entry { Cleanup = true, Root = root })) Interlocked.Increment(ref _dropped);
+                if (LogRetentionPolicy.KeepAll)
+                    Write("LogRetention", LogRetentionPolicy.EnvironmentVariable + " is on: automatic deletion of logs, journals and reports is skipped.");
             }
             catch { Interlocked.Increment(ref _dropped); }
         }
@@ -163,8 +165,13 @@ namespace Bimwright.Dwg.Plugin
                     BoundedLogFile.CompactDiagnostics(backup, FileBytes);
                     if (File.Exists(path) && new FileInfo(path).Length + bytes.Length > FileBytes)
                     {
-                        if (File.Exists(backup)) File.Delete(backup);
-                        File.Move(path, backup);
+                        // Keep-all archives with a timestamp instead of replacing the single backup.
+                        if (LogRetentionPolicy.KeepAll) BoundedLogFile.Rotate(path, DateTime.UtcNow);
+                        else
+                        {
+                            if (File.Exists(backup)) File.Delete(backup);
+                            File.Move(path, backup);
+                        }
                     }
                     using (var stream = new FileStream(path, FileMode.Append, FileAccess.Write, FileShare.Read)) stream.Write(bytes, 0, bytes.Length);
                     return true;

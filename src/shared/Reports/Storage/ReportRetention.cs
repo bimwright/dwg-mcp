@@ -8,6 +8,7 @@ namespace Bimwright.Dwg.Plugin.Reports.Storage
         public static int Cleanup(string directory, TimeSpan retention, DateTime utcNow, Action<string> log)
         {
             var deleted = 0;
+            if (LogRetentionPolicy.KeepAll) return deleted; // BIMWRIGHT_KEEP_ALL_LOGS keeps every report.
             var cutoff = utcNow.ToUniversalTime().Subtract(retention);
             try
             {

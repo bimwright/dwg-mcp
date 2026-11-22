@@ -70,7 +70,7 @@ namespace Bimwright.Dwg.Plugin
                 stream.Write(bytes, 0, bytes.Length);
         }
 
-        private static void Rotate(string path, DateTime utc)
+        internal static void Rotate(string path, DateTime utc)
         {
             var archive = Path.Combine(Path.GetDirectoryName(path), Path.GetFileNameWithoutExtension(path) + "-" + utc.ToString("yyyyMMdd-HHmmssfffffff", System.Globalization.CultureInfo.InvariantCulture) + "-" + Guid.NewGuid().ToString("N") + Path.GetExtension(path));
             File.Move(path, archive);
@@ -106,6 +106,7 @@ namespace Bimwright.Dwg.Plugin
 
         private static void Prune(string directory, string group, string active, long budget, DateTime cutoff)
         {
+            if (LogRetentionPolicy.KeepAll) return; // Keep every archive; no budget refusal either.
             var files = Files(directory, group);
             long total = files.Sum(p => new FileInfo(p).Length);
             foreach (var file in files)
@@ -173,6 +174,7 @@ namespace Bimwright.Dwg.Plugin
         public static void CompactDiagnostics(string path, long budget)
         {
             RefuseLink(path);
+            if (LogRetentionPolicy.KeepAll) return; // Never trim a log tail while keep-all is on.
             if (!File.Exists(path) || new FileInfo(path).Length <= budget) return;
             var temporary = path + ".compact-" + Guid.NewGuid().ToString("N");
             try

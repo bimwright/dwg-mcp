@@ -162,6 +162,8 @@ AI agent 让“把选中的文字全部翻译成越南语”这类意图可以�
 
 调用日志**默认关闭**。用 `--enable-call-log` / `--disable-call-log`（JSON `enableCallLog`；环境变量 `BIMWRIGHT_DWG_ENABLE_CALL_LOG`）切换。优先级为 JSON → 环境变量 → CLI；同一开关对中最后出现的 flag 生效。关闭时不创建或追加调用日志、调用 journal，也不删除旧日志。开启时，`%LOCALAPPDATA%\Bimwright\dwg-mcp\dwg-mcp-calls.jsonl` 仅记录脱敏参数及耗时/成败元数据，不记录响应。code 字段（包括嵌套 batch）仅含字符长度和原始 UTF-8 body 的 SHA-256；可能回显 source 的代码相关错误正文被省略。尚未实现代码 body cache 或 body journal。ToolBaker adaptive usage、诊断日志和内存 History 是独立功能；plugin 没有持久化调用日志 writer。
 
+在 gateway 和 AutoCAD 的环境中都设置 `BIMWRIGHT_KEEP_ALL_LOGS=1`（也可用 `true`、`yes` 或 `on`，不区分大小写），即可保留所有日志记录、journal 和报告，例如在开发机上。它会跳过所有自动删除：调用日志、会话日志和 journal 的保留清理，诊断日志和旧 `debug.log` 的截断压缩，以及报告保留期清理（`reportRetentionDays`）。日志仍会轮转，但诊断日志会滚动为带时间戳的归档文件，而不是替换唯一的备份，因此不会覆盖任何内容。它不会开启调用日志，也不会改变记录的内容。输出 artifact、截图、变更历史、ToolBaker 数据和 discovery 文件保持现有行为。此时磁盘占用会无限增长。开启时，启动会在诊断日志中写入一行说明。
+
 ## 活动通知与 History
 
 通知默认开启，使用不抢占键盘焦点的单张卡片，标题显示 `dwg-mcp <年份> · <Agent>`（例如 `dwg-mcp 2027 · Claude`；AutoCAD 进程 PID `· PID 12345` 在指针悬停于卡片时淡入，不受品牌开关影响），下方显示最新工具名称和 **Success · Failed · Capture** 计数。数字按里程表方式滚动；图像在固定框内居中，至少保留5秒，以 cross-fade 切换。关闭 Windows **Animation effects** 后即时更新。悬停保持卡片打开并展开最近结果列表及底部的 **今天暂停**（Pause for today，也在 `MCPSETTINGS` → 通知 中提供）：暂停后会在本机所有 AutoCAD 进程中隐藏所有活动通知（包括错误）直至本地午夜，卡片保留并切换为 **恢复**（Resume）以便立即撤销误触；也可在 `MCPSETTINGS` 或执行 `MCPTOAST` 提前恢复。空闲时间可选10/20/30/60秒（默认20秒）。AutoCAD 最小化或有模态窗口时保留计数，恢复可用后显示。`MCPTOAST` 切换通知（开启或处于暂停时可解除暂停）；任何开启通知的操作都会结束暂停。Branding 默认关闭，仅悬停时显示，重启后保留选择；保存失败会提示，但本次会话的选择仍生效。
