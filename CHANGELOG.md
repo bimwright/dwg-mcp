@@ -21,7 +21,7 @@ This release was prepared as 2.2.0 and ships as 2.5.1, the shared release number
 - Add `result_contract=task_v1` to `dwg_send_code`. Scripts return `McpTaskResult.Pass(value)` or `McpTaskResult.Fail(code, message, details)`. The result includes `_task.status` (`passed`, `failed` or `not_reported`). The gateway checks `script_task_contract_version` before dispatch. Calls without `task_v1` keep their legacy behavior.
 - Add optional `usage_context=project|test|unknown` to `dwg_send_code`. The gateway records it only when call logging is enabled. Compiler diagnostics now include an `excerpt` (issue #4) of up to two lines on either side of the error, a column marker and a 200-character cap per line.
 - Return `ACAD_BUSY` or `QUEUE_FULL` when host admission rejects a request before it starts.
-- An older plugin is refused before anything is sent: `atomic=true` returns `ATOMIC_BATCH_UNSUPPORTED` and `result_contract=task_v1` returns `SCRIPT_TASK_CONTRACT_UNSUPPORTED`. An atomic batch that contains commands it cannot roll back (views, files, system variables, `send_code`, purge, text rewrite) returns `ATOMIC_UNSUPPORTED_COMMANDS` before any step runs. Under `task_v1`, a script that does not return `McpTaskResult.Pass` or `McpTaskResult.Fail` gets `TASK_RESULT_REQUIRED`.
+- An older plugin is refused before anything is sent: `atomic=true` returns `ATOMIC_BATCH_UNSUPPORTED` and `result_contract=task_v1` returns `SCRIPT_TASK_CONTRACT_UNSUPPORTED`. An atomic batch with a command outside the supported drawing reads and edits returns `ATOMIC_UNSUPPORTED_COMMANDS` before any step runs. Under `task_v1`, a script that does not return `McpTaskResult.Pass` or `McpTaskResult.Fail` gets `TASK_RESULT_REQUIRED`.
 
 ### Reports, workflows and localization
 
