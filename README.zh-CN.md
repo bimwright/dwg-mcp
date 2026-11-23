@@ -156,6 +156,8 @@ AI agent 让“把选中的文字全部翻译成越南语”这类意图可以�
 
 `dwg_send_code` 通过 `meta` 默认注册。用 `--enable-send-code` / `--disable-send-code` 控制 server（JSON `enableSendCode`；环境变量 `BIMWRIGHT_DWG_ENABLE_SEND_CODE`）。禁用时，含 C# 的批处理会在发送任何命令前整体拒绝。`MCPDISABLECODE` / `MCPENABLECODE` 只控制 AutoCAD 会话侧，不能覆盖 server 的禁用设置。`dwg_run_lisp` 保留注册以兼容旧客户端，但 server 和 plugin 均拒绝所有请求。此版本没有 LISP 隔离执行环境或脚本信任机制。`--read-only` 会移除这两个工具。
 
+`dwg_send_code` 的文本结果（不含图像）使用 64 KiB / 256 KiB / 1 MiB 阈值，而不是默认的 80 MiB 预算（除非显式配置了阈值）：64 KiB 起警告，256 KiB 起强警告，超过 1 MiB 的结果保存到本地 `output_artifact` 并返回精简回执。较低的上限可能在工具运行后压缩回复，但不会取消或自动重试操作；重复写入前请先检查结果。
+
 `dwg_send_code` 仅接受内联同步片段，执行前拒绝 `async`/`await` 和 `#load` 指令。AutoCAD API 必须留在调用线程，不要移至 `Task.Run` 或其他线程。只返回 JSON DTO，嵌套的 AutoCAD/COM 对象也会被拒绝。`dwg_inspect_lisp` 仍可用于静态分析；超过 2,000,000 字符的源码因无法完整检查而被标记为危险，200 条 findings 的显示上限不会停止危险级别检测。正则匹配设有超时；超时扫描会报告检查不完整并标记为危险，不会返回 `clean`。
 
 ---
