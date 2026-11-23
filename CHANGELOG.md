@@ -1,6 +1,6 @@
 # Changelog
 
-## 2.5.1
+## 2.5.1 — 2026-11-23
 
 This release was prepared as 2.2.0 and ships as 2.5.1, the shared release number of the four bimwright gateways (rvt-mcp, dwg-mcp, nwd-mcp, ipt-mcp). The number does not mark breaking changes; the entries below list what changed since 2.1.2.
 
