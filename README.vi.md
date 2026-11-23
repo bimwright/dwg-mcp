@@ -71,6 +71,8 @@ AI agent cho phép mô tả "dịch tất cả text đã chọn sang tiếng Vi�
 | update_texts | ~10 |
 | apply_unicode_style | ~4 |
 
+Benchmark: thời gian, kích thước kết quả, token ước tính và trạng thái của từng tool cho cả 78 tool trên AutoCAD 2025, chạy trên bản vẽ tổng hợp: [docs/benchmarks/2026-11-23-autocad-2025.md](docs/benchmarks/2026-11-23-autocad-2025.md).
+
 ---
 
 ## Kiến trúc
@@ -132,6 +134,8 @@ Tải setup ZIP từ [GitHub Releases](https://github.com/bimwright/dwg-mcp/rele
 ```
 
 `dwg_send_code` mặc định có sẵn qua `meta`. `--enable-send-code` / `--disable-send-code` điều khiển server (JSON `enableSendCode`; env `BIMWRIGHT_DWG_ENABLE_SEND_CODE`). Khi tắt, batch chứa C# cũng bị từ chối trước khi gửi bất kỳ lệnh nào. `MCPDISABLECODE` tắt C# trong session AutoCAD; `MCPENABLECODE` chỉ bật lại phía host, không ghi đè công tắc server. `dwg_run_lisp` giữ tên để tương thích nhưng từ chối mọi yêu cầu ở cả server và plugin. Bản này chưa có môi trường cách ly LISP hoặc cơ chế xác lập script tin cậy. `--read-only` gỡ cả hai tool.
+
+Kết quả text của `dwg_send_code` (không có ảnh) dùng ngưỡng 64 KiB / 256 KiB / 1 MiB thay cho budget mặc định 80 MiB, trừ khi các ngưỡng được cấu hình riêng: cảnh báo từ 64 KiB, cảnh báo mạnh từ 256 KiB, và trên 1 MiB kết quả được lưu vào `output_artifact` cục bộ kèm một receipt gọn. Budget thấp hơn có thể thu gọn phản hồi sau khi tool đã chạy; nó không hủy hay tự chạy lại thao tác, nên hãy kiểm tra kết quả trước khi lặp lại một lệnh ghi.
 
 Từ 2.1.2, `dwg_send_code(code, data?, compile_only=false)` hỗ trợ JSON input riêng. `data` là JSON riêng, truy cập trong C# bằng `Newtonsoft.Json.Linq.JToken`, tối đa 512 KiB UTF-8, độ sâu 64, key không trùng và số hữu hạn. Nhận object/array/scalar; JSON null được coi là không truyền data, chuỗi ngày giữ nguyên. Ví dụ `code: "return (double)data[\"width\"] * (double)data[\"height\"];", data: {"width":12.5,"height":4}`. `compile_only=true` chỉ biên dịch, không chạy câu lệnh và không sinh stdout; vẫn cần target đã xác minh và drawing active. Đọc `result.ok`, `compiled`, `executed`, `diagnostics` (nguồn, dòng/cột từ 1, mã lỗi, nội dung, mức độ) và `location` nếu có lỗi runtime. Dòng lỗi khớp code gốc vì không chèn data vào source. Cần gateway/plugin cùng hỗ trợ; plugin cũ bị từ chối trước khi gửi code. Lệnh có data/compile_only phải gọi trực tiếp, không đặt trong batch/baked tool. Cách gọi chỉ có code vẫn được hỗ trợ. Giá trị data không vào call log; History chỉ giữ độ dài và SHA-256.
 
