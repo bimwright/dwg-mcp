@@ -71,6 +71,8 @@ AIエージェントは、「選択したすべてのテキストをベトナム
 | update_texts | ~10 |
 | apply_unicode_style | ~4 |
 
+ベンチマーク：AutoCAD 2025 上の合成図面で全78ツールを実行した、ツールごとの所要時間、結果サイズ、推定トークン数、ステータス：[docs/benchmarks/2026-11-23-autocad-2025.md](docs/benchmarks/2026-11-23-autocad-2025.md)。
+
 ---
 
 ## アーキテクチャ

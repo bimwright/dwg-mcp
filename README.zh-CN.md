@@ -71,6 +71,8 @@ AI agent 让“把选中的文字全部翻译成越南语”这类意图可以�
 | update_texts | ~10 |
 | apply_unicode_style | ~4 |
 
+基准测试：在 AutoCAD 2025 上用合成图纸运行全部 78 个工具，记录每个工具的耗时、结果大小、估算 token 数和状态：[docs/benchmarks/2026-11-23-autocad-2025.md](docs/benchmarks/2026-11-23-autocad-2025.md)。
+
 ---
 
 ## 架构

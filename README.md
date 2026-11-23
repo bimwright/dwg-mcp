@@ -71,6 +71,8 @@ AI agents make it possible to describe "translate all selected text to Vietnames
 | update_texts | ~10 |
 | apply_unicode_style | ~4 |
 
+Benchmark: duration, result size, estimated tokens and status per tool for all 78 tools on AutoCAD 2025, on a synthetic drawing: [docs/benchmarks/2026-11-23-autocad-2025.md](docs/benchmarks/2026-11-23-autocad-2025.md).
+
 ---
 
 ## Architecture

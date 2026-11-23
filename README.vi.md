@@ -71,6 +71,8 @@ AI agent cho phép mô tả "dịch tất cả text đã chọn sang tiếng Vi�
 | update_texts | ~10 |
 | apply_unicode_style | ~4 |
 
+Benchmark: thời gian, kích thước kết quả, token ước tính và trạng thái của từng tool cho cả 78 tool trên AutoCAD 2025, chạy trên bản vẽ tổng hợp: [docs/benchmarks/2026-11-23-autocad-2025.md](docs/benchmarks/2026-11-23-autocad-2025.md).
+
 ---
 
 ## Kiến trúc
