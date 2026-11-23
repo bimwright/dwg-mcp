@@ -28,7 +28,9 @@ namespace Bimwright.Dwg.Plugin.Drawing
                     return null;
                 }
 
-                doc.Database.SaveAs(filename, DwgVersion.Current);
+                // The open file is locked by its own document: plain SaveAs(path, version) fails with
+                // eFilerError. bBakAndRename writes a temporary file, keeps the .bak and renames it into place.
+                doc.Database.SaveAs(filename, true, DwgVersion.Current, doc.Database.SecurityParameters);
                 return filename;
             }
             else
