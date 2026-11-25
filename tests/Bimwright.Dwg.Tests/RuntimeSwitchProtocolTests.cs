@@ -79,6 +79,10 @@ namespace Bimwright.Dwg.Tests
                 var instructions = initialize["result"].Value<string>("instructions");
                 Assert.Equal(names.Contains("dwg_report_task_result"),
                     instructions.Contains(ServerInstructions.Reporting, StringComparison.Ordinal));
+                // INSTR-MAX-2KB and INSTR-SAFETY-BLOCK on the wire, for every flag combination above.
+                Assert.True(Encoding.UTF8.GetByteCount(instructions) <= 2048, $"{Encoding.UTF8.GetByteCount(instructions)} bytes for '{flags}'.");
+                Assert.EndsWith(ServerInstructions.SafetyAndPermissions, instructions, StringComparison.Ordinal);
+                Assert.All((JArray)listed["result"]["tools"], tool => Assert.True(tool.Value<string>("description").Length <= 4096));
                 var config = DwgMcpConfig.Load(flags.Split(' ', StringSplitOptions.RemoveEmptyEntries),
                     Path.Combine(root, "absent-config.json"), _ => null);
                 var previousConfig = ServerState.Config;
