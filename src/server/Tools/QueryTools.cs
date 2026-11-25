@@ -30,7 +30,9 @@ namespace Bimwright.Dwg.Server.Tools
             "The default final MCP output cap is 16384 UTF-8 bytes, independent of the global response budget. " +
             "The all-space summary also lists unused block definitions. Follow next_calls for paged tables including unused_blocks. Each page rescans; pass expected_snapshot when offset is positive. " +
             "Opt in to text_stats for counts of top-level DBText and MText, a fixed 20-bin nominal text-height histogram in drawing units, and a bounded text preview. " +
-            "A changed document/revision refuses continuation. No geometry, selection or drawing changes.")]
+            "A changed document/revision refuses continuation. No geometry, selection or drawing changes. " +
+            "Start a large-drawing read with section='summary'. PROFILE_CHANGED requires a fresh summary. The snapshot binds the space scope: omit the old expected_snapshot when changing space. " +
+            "Scoped replies report scope.requested_space; an older plugin that ignores space is refused with PROFILE_SCOPE_UNSUPPORTED. The output cap limits output, not scan time.")]
         public static async Task<CallToolResult> GetDrawingProfile(
             [Description("summary (default), types, layers, spaces, or unused_blocks. Summary starts all tables at offset zero. unused_blocks requires space=all and lists named non-layout definitions with no active direct or nested references.")] string section = "summary",
             [Description("Ordinal group offset for the selected table, default 0; positive offsets require expected_snapshot.")] int offset = 0,
@@ -110,7 +112,9 @@ namespace Bimwright.Dwg.Server.Tools
             "BBox tests inclusive WCS 3D axis-aligned extents, not exact geometry clipping, in selected-space drawing units without INSUNITS conversion. " +
             "Unavailable bbox-filter extents/population read failures are counted and block continuation; changed drawing/filter/fields rejects the cursor. " +
             "Requires matching plugin support; unconfirmed legacy replies are refused. Call directly, outside batches, for paged reads. " +
-            "Use fields=[\"handle\"] for paged spatial handles without changing selection.")]
+            "Use fields=[\"handle\"] for paged spatial handles without changing selection. " +
+            "Do not combine include_geometry=true with paged options. Incomplete matching reads report coverage, null exact_match_count and observed matched_count with no continuation. " +
+            "A batch containing paged query/count is refused before any step runs. An older plugin returns QUERY_FEATURE_UNSUPPORTED; legacy-parameter reads still work.")]
         public static Task<string> QueryEntities(
             [Description("Optional exact managed type name or AcDb, TEXT, INSERT, or LWPOLYLINE alias, case-insensitive. Exact uppercase POLYLINE is refused; use Polyline/LWPOLYLINE, Polyline2d or Polyline3d explicitly.")] string entity_type = null,
             [Description("Optional layer name filter. Case-insensitive.")] string layer = null,
@@ -245,7 +249,9 @@ namespace Bimwright.Dwg.Server.Tools
             "Source limits5000 text records/8MiB UTF-8; incomplete sources produce no groups or continuation. " +
             "Model snapshots ignore viewport navigation; entity changes refuse continuation. Explicit-source calls must be direct outside batches/baked tools. " +
             "Each cluster has id, text, entity_count, in_block (bool) and " +
-            "rewrite_mode only on the legacy selection path. Explicit-source groups never supply writable numeric IDs.")]
+            "rewrite_mode only on the legacy selection path. Explicit-source groups never supply writable numeric IDs. " +
+            "Keep camelCase groupingStrength/includeEntities when following next_calls. If whole clusters do not fit, raise max_output_bytes or use includeEntities=false, weaker grouping or a narrower source. " +
+            "TEXT_FEATURE_UNSUPPORTED means an older plugin; there is no fallback to pickfirst selection.")]
         public static Task<string> GetSelectedTexts(
             [Description("Optional grouping strength: weak, normal, or strong. Use weak when an image/layout reference indicates nearby labels should stay separate.")] string groupingStrength = "normal",
             [Description("When true, include each child text entity's handle/text/position so callers can recover from over-grouped clusters.")] bool includeEntities = false,

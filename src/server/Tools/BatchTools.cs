@@ -19,7 +19,9 @@ namespace Bimwright.Dwg.Server.Tools
             "Default atomic=false: commands are sequential and earlier effects can remain after a later failure; use AutoCAD UNDO for drawing edits and backups for file changes. " +
             "atomic=true runs the batch in one AutoCAD transaction: the first failed step aborts it, every drawing effect is undone (rolled_back=true, mutation_applied=false) and later steps are skipped. " +
             "atomic=true accepts only drawing reads and database edits (create/modify/erase entities, layers, blocks, dimensions, texts); views, files, system variables, send_code, purge and text rewrite tools are refused before any step runs. " +
-            "Requires matching plugin support; an unconfirmed plugin is refused before the batch is sent.")]
+            "Requires matching plugin support; an unconfirmed plugin is refused before the batch is sent. " +
+            "send_code steps are refused when --disable-send-code is set. For output_artifact verify path/bytes/SHA-256 before reading; scope=plugin_result precedes plugin truncation, " +
+            "scope=mcp_tool_result holds only what the gateway received, and complete=false means storage failed or limits were hit. Never replay writes to recover output.")]
         public static Task<string> BatchExecute(
             [Description("JSON array: [{\"cmd\":\"get_selected_texts\",\"params\":{}}]. Wire command names are unprefixed.")] string commands,
             [Description("true = all-or-nothing in one AutoCAD transaction. Default false.")] bool atomic = false)

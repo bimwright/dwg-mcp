@@ -14,7 +14,9 @@ namespace Bimwright.Dwg.Server.Tools
         [McpServerTool(Name = "dwg_list_available_targets", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false), Description(
             "List running AutoCAD instances with target_id, PID and process start time. In full mode select the intended instance using dwg_switch_target(target='pid:<PID>'). " +
             "In --read-only, start or restart the gateway with --target pid:<PID> or id:<target_id>; dwg_switch_target is unavailable. " +
-            "Supports per-instance discovery and legacy AutoCAD 2022 through 2027 discovery files.")]
+            "Supports per-instance discovery and legacy AutoCAD 2022 through 2027 discovery files. " +
+            "In --read-only, the initial selection happens on the first host read or health call (dwg_get_current_target reports none before that) and --target never authorizes writes. " +
+            "On AMBIGUOUS_TARGET, TARGET_LOST or TARGET_CHANGED there, list targets and restart/reconnect the gateway with the intended explicit --target; never route to another instance automatically.")]
         public static Task<string> ListAvailableTargets()
         {
             var targets = AuthToken.ListAvailable(null, out var sandbox)
@@ -38,7 +40,10 @@ namespace Bimwright.Dwg.Server.Tools
         }
 
         [McpServerTool(Name = "dwg_get_current_target", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false), Description(
-            "Return this gateway's binding state, PID, process start, generation, selection confirmation and drawing identity. No discovery or drawing changes.")]
+            "Return this gateway's binding state, PID, process start, generation, selection confirmation and drawing identity. No discovery or drawing changes. " +
+            "Each host response's _target records the observed execution context, not the requested binding or proof of success: drawing calls observe the locked drawing before the guard/handler; " +
+            "session calls observe the active drawing after the operation. A refused drawing guard can still report the observed changed drawing. " +
+            "Missing _target means no receipt is available; never infer it from the expected target. Batch receipts are context, not proof that every step succeeded or affected only that drawing.")]
         public static Task<string> GetCurrentTarget()
         {
             return Ok(ToolGateway.Client.CurrentTarget);
@@ -50,7 +55,10 @@ namespace Bimwright.Dwg.Server.Tools
             "Without rebind=true, selecting the same process preserves its drawing lifetime pin, including with verify=false. expected_document_id explicitly sets that pin, even without verification. " +
             "Leaving a live confirmed instance requires rebind=true. A changed drawing must match an explicit expected_document_id or be intentionally accepted with rebind=true. " +
             "Failed verification preserves the previous binding. Inspect health after opening/switching drawings before accepting a new pin. " +
-            "Unavailable in --read-only. Changes routing only; never activates, saves or closes drawings. Calls pending under an older binding are refused before sending.")]
+            "Unavailable in --read-only. Changes routing only; never activates, saves or closes drawings. Calls pending under an older binding are refused before sending. " +
+            "The gateway keeps one PID and process start and never falls through to another instance on loss; inspect dwg_get_current_target and dwg_health target. " +
+            "Update gateway and plugin together: an old plugin cannot be verified for writes. " +
+            "Subagents must not call this; they report a needed instance or drawing change to the parent.")]
         public static async Task<string> SwitchTarget(
             [Description("pid:<PID> or id:acad-<year>-<PID> for a different bound instance; an unambiguous AutoCAD year (2022-2027) is accepted for initial selection.")] string target,
             [Description("Verify host and active drawing before allowing writes; default true.")] bool verify = true,
@@ -102,7 +110,8 @@ namespace Bimwright.Dwg.Server.Tools
         [McpServerTool(Name = "dwg_list_open_documents", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false), Description(
             "List open drawings in the bound AutoCAD instance, including name, path, document_id, active and has_unsaved_changes. " +
             "Path is null for an unnamed drawing; has_unsaved_changes is null if AutoCAD cannot report it. " +
-            "Works without an active drawing. Lists session metadata without switching drawings or reading entities in inactive drawings.")]
+            "Works without an active drawing. Lists session metadata without switching drawings or reading entities in inactive drawings. " +
+            "To work on another drawing, pass its document_id to a standalone dwg_activate_document call; in --read-only, ask the user to activate it in AutoCAD.")]
         public static Task<string> ListOpenDocuments()
             => ToolGateway.LoggedCall("list_open_documents", new { }, new { });
 
