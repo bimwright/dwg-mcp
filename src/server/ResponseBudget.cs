@@ -26,6 +26,7 @@ internal static class ResponseBudget
             var clientName = request.Server?.ClientInfo?.Name;
             if (!string.IsNullOrWhiteSpace(clientName)) PluginClient.ClientName = clientName;
             var result = await next(request, ct); // Execute exactly once, including writes.
+            ClientSandbox.MarkError(result);
             if (ChangeHistoryResponse.Applies(request.Params?.Name))
                 return ChangeHistoryResponse.FitFinal(result, ChangeHistoryResponse.RequestCap(request.Params, config));
             var textRead = IsTextReadRequest(request.Params);

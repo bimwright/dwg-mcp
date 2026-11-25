@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Report `CLIENT_SANDBOXED` when the MCP client runs the gateway inside a Windows AppContainer (rvt-mcp#71, for example Codex Desktop). There the gateway can neither read AutoCAD's discovery files nor reach AutoCAD, and before it only reported no target. When the sandbox is detected and no AutoCAD is found, target tools and `dwg_switch_target` refuse with `CLIENT_SANDBOXED` and send nothing, `dwg_list_available_targets` adds a `sandbox` block and a `note`, and `dwg_health` reports `CLIENT_SANDBOXED`. `dwg_health` includes the `sandbox` block whenever the sandbox is detected. The message explains that the sandbox protects the computer and that a person must choose to let this one MCP server run outside it, preferably with a per-server exception. The gateway never tries to bypass the sandbox. Outside a sandbox nothing changes.
+
 ## 2.5.1 — 2026-11-23
 
 This release was prepared as 2.2.0 and ships as 2.5.1, the shared release number of the four bimwright gateways (rvt-mcp, dwg-mcp, nwd-mcp, ipt-mcp). The number does not mark breaking changes; the entries below list what changed since 2.1.2.

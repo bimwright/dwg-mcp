@@ -70,6 +70,23 @@ namespace Bimwright.Dwg.Tests.Helpers
             }
         }
 
+        /// <summary>Run a tool through the real gateway path (no SendOverride) while holding the shared gate.</summary>
+        public static async Task<T> Unstubbed<T>(Func<Task<T>> call)
+        {
+            await Gate.WaitAsync();
+            var previous = ToolGateway.SendOverride;
+            try
+            {
+                ToolGateway.SendOverride = null;
+                return await call();
+            }
+            finally
+            {
+                ToolGateway.SendOverride = previous;
+                Gate.Release();
+            }
+        }
+
         public JObject Json()
         {
             if (Parameters == null)

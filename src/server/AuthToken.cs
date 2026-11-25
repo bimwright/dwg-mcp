@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace Bimwright.Dwg.Server
 {
@@ -12,10 +13,14 @@ namespace Bimwright.Dwg.Server
     {
         public static readonly string[] AllVersions = { "2022", "2023", "2024", "2025", "2026", "2027" };
 
+        /// <summary>Test seam: discovery root for the current async flow only.</summary>
+        internal static readonly System.Threading.AsyncLocal<string> RootOverride = new System.Threading.AsyncLocal<string>();
+
         public static string DefaultRoot
         {
             get
             {
+                if (!string.IsNullOrWhiteSpace(RootOverride.Value)) return RootOverride.Value;
                 var localAppData = Environment.GetEnvironmentVariable("LOCALAPPDATA");
                 if (string.IsNullOrWhiteSpace(localAppData))
                     localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
@@ -70,7 +75,8 @@ namespace Bimwright.Dwg.Server
             root = string.IsNullOrWhiteSpace(root) ? DefaultRoot : root;
             target = NormalizeTarget(target);
 
-            var available = ListAvailable(root);
+            var available = ListAvailableOrSandboxed(root, out var sandboxRefusal);
+            if (sandboxRefusal != null) throw new InvalidOperationException(sandboxRefusal);
             var matches = available.Where(info => target == null || info.Target == target
                 || target == "pid:" + info.Pid || target == "id:" + info.TargetId).ToArray();
             if (matches.Length > 1)
@@ -90,6 +96,32 @@ namespace Bimwright.Dwg.Server
 
             throw new InvalidOperationException(
                 "Plugin not responding - run MCPSTART in AutoCAD (no acad-YYYY.json or portAcad24.txt discovery file found).");
+        }
+
+        /// <summary>
+        /// FC-TGT-07: inside a detected client sandbox with zero live targets, returns
+        /// no targets and the sandbox report. A discovery failure caused by the sandbox
+        /// (for example Access Denied) counts as zero targets. Otherwise behaves like ListAvailable.
+        /// </summary>
+        internal static IReadOnlyList<DiscoveryInfo> ListAvailable(string root, out JObject sandbox)
+        {
+            root = string.IsNullOrWhiteSpace(root) ? DefaultRoot : root;
+            var available = ListAvailableOrSandboxed(root, out var refusal);
+            sandbox = refusal == null ? null : ClientSandbox.Report(ClientSandbox.Detect(root), JsonDiscoveryDir(root));
+            return available;
+        }
+
+        private static IReadOnlyList<DiscoveryInfo> ListAvailableOrSandboxed(string root, out string sandboxRefusal)
+        {
+            sandboxRefusal = null;
+            IReadOnlyList<DiscoveryInfo> available;
+            try { available = ListAvailable(root); }
+            catch (Exception) when (ClientSandbox.Detect(root).Detected)
+            {
+                available = Array.Empty<DiscoveryInfo>();
+            }
+            if (available.Count == 0 && ClientSandbox.Detect(root).Detected) sandboxRefusal = ClientSandbox.Message;
+            return available;
         }
 
         public static string NormalizeTarget(string target)
@@ -311,7 +343,7 @@ namespace Bimwright.Dwg.Server
             return pipeName;
         }
 
-        private static string JsonDiscoveryDir(string root)
+        internal static string JsonDiscoveryDir(string root)
             => Path.Combine(root, "dwg-mcp");
 
         private static string LegacyDiscoveryPath(string root)
