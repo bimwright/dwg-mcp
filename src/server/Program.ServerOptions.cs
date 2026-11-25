@@ -19,8 +19,7 @@ namespace Bimwright.Dwg.Server
                 Description = "Model Context Protocol gateway for Autodesk AutoCAD DWG workflows",
                 WebsiteUrl = "https://github.com/bimwright/dwg-mcp"
             };
-            opts.ServerInstructions = ServerInstructions.Text;
-            if (AgentReportReminder.Enabled) opts.ServerInstructions += "\n\n" + ServerInstructions.Reporting;
+            opts.ServerInstructions = ServerInstructions.Compose(AgentReportReminder.Enabled);
         }
     }
 }

@@ -32,13 +32,13 @@ namespace Bimwright.Dwg.Server.Tools
             "loaded server/plugin versions, build ids and alignment. A busy UI can make document state unavailable; " +
             "health does not require or lock an active drawing. No target still returns gateway identity with ok:false " +
             "and host_connected:false. Legacy plugins without health/identity remain unverified, not assumed corrupt. " +
-            "Inspect both update.components and the full update.notification message, lookup_reason, protected_component_reasons " +
-            "and unobserved_components. UPDATE_CHECK_UNAVAILABLE reports external lookup failure, not a runtime fault " +
+            "Inspect both update.components and the full update.notification message, lookup_reason, protected_components/protected_component_reasons " +
+            "and unobserved_components, then follow agent_action. UPDATE_CHECK_UNAVAILABLE reports external lookup failure, not a runtime fault " +
             "or request for installation authorization. LOCAL_VERSION_AHEAD is informational: never downgrade or " +
             "automatically replace development builds. Only update_guidance.mode=prepare_update with " +
             "bundle_update_proposal_allowed=true permits an update proposal and needs installation authorization " +
             "(reuse existing permission); other modes contain check/review steps only. " +
-            "comparison_reason=release_revision_unavailable means missing external evidence, not a broken local build. " +
+            "comparison_reason=release_revision_unavailable means missing external evidence, not a broken local build: stop the update workflow, not otherwise healthy AutoCAD work. " +
             "After reconnect compare fresh initialize and tools/list metadata/schema/annotations on that connection " +
             "with client_verification; the server cannot prove client cache refresh. Matching revisions do not " +
             "verify artifact bytes, compatibility or publisher trust. Read-only; never installs, downloads packages, " +

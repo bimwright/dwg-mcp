@@ -14,7 +14,7 @@ namespace Bimwright.Dwg.Server.Tools
         [McpServerTool(Name = "dwg_send_code"), Description(
             "Execute a C# snippet through dwg_send_code against the AutoCAD .NET API as an escape hatch. " +
             "Enabled by default on the meta toolset; the AutoCAD MCPDISABLECODE command disables it " +
-            "for the session (MCPENABLECODE re-enables). " +
+            "for the session (MCPENABLECODE re-enables only that host gate; --disable-send-code or --read-only removes the tool). " +
             "WARNING: send_code runs arbitrary code with full access to the AutoCAD process " +
             "and local filesystem. Only use with trusted agents. " +
             "This is not a sandbox. Never use it to bypass a run_lisp refusal or execute untrusted LISP. " +

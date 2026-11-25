@@ -569,6 +569,8 @@ namespace Bimwright.Dwg.Server.Tools
             "'action' field: update | collapse | rewrite_in_block | style_only. " +
             "final_text_height measures the resulting entity's stored height after normalization/scaling, or null if unavailable; style_only reports the anchor and block definitions use local units. " +
             "Workflow: dwg_get_selected_texts -> translate each cluster -> dwg_translate_and_rewrite. " +
+            "The ids must come from a manual-selection read: the user selects text in AutoCAD, then dwg_get_selected_texts is called with only groupingStrength/includeEntities; " +
+            "explicit-source (handles/bbox) clusters cannot authorize writeback. " +
             "Use dwg_collapse_and_rewrite (low-level) only for expert control or " +
             "replaying call-log scenarios." +
             " Changes the current drawing; use AutoCAD UNDO immediately to reverse drawing edits before saving. Disabled in read-only mode.")]
