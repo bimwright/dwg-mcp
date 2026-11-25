@@ -51,7 +51,8 @@ namespace Bimwright.Dwg.Server.Tools
         }
 
         [McpServerTool(Name = "dwg_capture_view_image", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false), Description(
-            "Capture the active drawing to a raster image (.png/.jpg/.jpeg/.bmp) using AutoCAD's in-process document preview API. "
+            "Write a raster image file (.png/.jpg/.jpeg/.bmp) capturing the active drawing via AutoCAD's in-process document preview API "
+            + "(disabled in read-only mode; delete a new file to undo, overwritten image bytes cannot be restored by AutoCAD UNDO - restore a backup). "
             + "No desktop automation, zoom, geometry edits or DWG save. Wait for zoom/commands to complete before capturing. "
             + "If output_path is omitted, saves to %LOCALAPPDATA%\\Bimwright\\dwg-mcp\\captures\\ with an auto-generated name. "
             + "Returns inline MCP image content (up to 8 MiB) plus JSON with image path, actual dimensions, SHA-256, timestamp, document fingerprint, layout, viewport and camera. "
@@ -59,8 +60,7 @@ namespace Bimwright.Dwg.Server.Tools
             + "Camera coordinates describe the active viewport; do not assume one pixel-to-world mapping for tiled views or paper layouts. "
             + "Persist the response alongside the image when building a reading atlas. "
             + "Visual reading: inspect each new image before choosing the next region (normalized top-left-origin rectangle) and keep ancestor capture IDs for dwg_restore_view. "
-            + "A failed image_delivery is not a failed zoom: take a smaller fresh capture. Verify inferred labels/dimensions against CAD text and entity data, and do not claim unseen regions were reviewed." +
-            " Writes an image file; disabled in read-only mode. Delete a new image to undo file creation. Overwritten image bytes cannot be restored by AutoCAD UNDO; restore a backup.")]
+            + "A failed image_delivery is not a failed zoom: take a smaller fresh capture. Verify inferred labels/dimensions against CAD text and entity data, and do not claim unseen regions were reviewed.")]
         public static async Task<CallToolResult> CaptureViewImage(
             [Description("Optional absolute output path ending in .png, .jpg, .jpeg, or .bmp. If omitted, an auto-named PNG is written to the captures directory.")] string output_path = null,
             [Description("Requested longer image dimension (default 1600, clamped to 64-8192), using the current viewport aspect ratio. AutoCAD may round the actual dimensions returned.")] int? pixel_size = null,

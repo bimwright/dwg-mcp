@@ -32,17 +32,16 @@ namespace Bimwright.Dwg.Server.Tools
             "Enhanced calls require a matching plugin and must be direct calls, outside batch/baked tools; unsupported plugins are refused before code is sent. " +
             "Execution has cooperative 30s cancellation. " +
             "A loaded DLL whose metadata cannot be read is left out of the compile and listed in skipped_references. " +
-            "A result above 1 MiB is saved whole to a local output_artifact and replaced by a compact receipt with mutation_applied=null and, up to the plug-in's 10 MiB cutoff, a schema of key names; read the artifact instead of re-running the script. " +
             "An active drawing is required: when none is open, use dwg_list_recent_drawings and dwg_open_drawing first; the host refuses before executing code. " +
-            "doc, db and ed are supplied from that active drawing. " +
+            "doc, db and ed are supplied from that active drawing. When modifying existing entities, call dwg_survey_change_impact first and read back after. " +
             "Put database writes in one using transaction from db.TransactionManager.StartTransaction(), and Commit only after validation succeeds. " +
             "Return host warnings and handled errors in your DTO. AutoCAD UNDO can reverse drawing edits; " +
             "filesystem writes are outside it, and the gateway does not roll back earlier committed transactions after a later script error. " +
             "Default namespaces: System, System.Collections.Generic, System.Linq, Autodesk.AutoCAD.ApplicationServices, " +
             "Autodesk.AutoCAD.DatabaseServices, Autodesk.AutoCAD.EditorInput, Autodesk.AutoCAD.Geometry. " +
-            "Large result/stdout is stored as complete UTF-8 JSON before the 10 MiB plugin cutoff, with output_artifact path/bytes/SHA-256/preview when storage permits. " +
-            "The final MCP budget may store a second artifact of the full MCP result it received; inspect scope and upstream truncation. Artifact retention is 7 days, 256 MiB total, 64 files; files above 128 MiB are unavailable. " +
-            "Keep results small and never repeat a drawing mutation just to recover output.")]
+            "Results above 1 MiB (and large result/stdout before the 10 MiB plugin cutoff) are saved whole as UTF-8 JSON to a local output_artifact (path/bytes/SHA-256/preview) and replaced by a compact receipt with mutation_applied=null and, up to 10 MiB, a schema of key names; " +
+            "inspect scope and upstream truncation. Retention is 7 days, 256 MiB total, 64 files (128 MiB/file max). " +
+            "Keep results small, read the artifact, and never repeat a drawing mutation just to recover output.")]
         public static Task<string> SendCode(
             [Description("C# code to execute")] string code,
             [Description("Optional JSON input, up to 512 KiB UTF-8. Available as data (JToken); null is treated as omitted.")] JsonElement? data = null,

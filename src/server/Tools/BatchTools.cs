@@ -14,14 +14,14 @@ namespace Bimwright.Dwg.Server.Tools
         [McpServerTool(Name = "dwg_batch_execute", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false), Description(
             "Run multiple internal DWG commands sequentially as a logical batch. commands must be a JSON array of {cmd, params}. " +
             "run_lisp is blocked in this build, including batches; use dwg_inspect_lisp for analysis only." +
-            " Each step reports index, command_ok, effective ok, outcome and nullable mutation_applied; file-output steps also report output_verified. Read nested results/file_receipt and output_artifact for omitted details. " +
-            "May change drawing data or files; disabled in read-only mode even when a particular batch only contains reads. " +
+            " Each step reports index, command_ok, effective ok, outcome and nullable mutation_applied; file-output steps also report output_verified. Read nested results/file_receipt and output_artifact for omitted details. _target on a batch is context, not per-step proof (see dwg_get_current_target). " +
+            "May change drawing data or files; disabled in read-only mode even when a particular batch only contains reads. When modifying existing entities, call dwg_survey_change_impact first and read back after. " +
             "Default atomic=false: commands are sequential and earlier effects can remain after a later failure; use AutoCAD UNDO for drawing edits and backups for file changes. " +
             "atomic=true runs the batch in one AutoCAD transaction: the first failed step aborts it, every drawing effect is undone (rolled_back=true, mutation_applied=false) and later steps are skipped. " +
             "atomic=true accepts only drawing reads and database edits (create/modify/erase entities, layers, blocks, dimensions, texts); views, files, system variables, send_code, purge and text rewrite tools are refused before any step runs. " +
             "Requires matching plugin support; an unconfirmed plugin is refused before the batch is sent. " +
             "send_code steps are refused when --disable-send-code is set. For output_artifact verify path/bytes/SHA-256 before reading; scope=plugin_result precedes plugin truncation, " +
-            "scope=mcp_tool_result holds only what the gateway received, and complete=false means storage failed or limits were hit. Never replay writes to recover output.")]
+            "scope=mcp_tool_result holds only what the gateway received, and complete=false means storage failed or limits were hit. Artifacts expire after 7 days (256 MiB/64 files, 128 MiB/file); copy needed files elsewhere (separate from opt-in call logging). Never replay writes to recover output.")]
         public static Task<string> BatchExecute(
             [Description("JSON array: [{\"cmd\":\"get_selected_texts\",\"params\":{}}]. Wire command names are unprefixed.")] string commands,
             [Description("true = all-or-nothing in one AutoCAD transaction. Default false.")] bool atomic = false)

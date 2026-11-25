@@ -24,7 +24,7 @@ namespace Bimwright.Dwg.Server
             + "before your final answer (not for chat-only answers).";
 
         internal const string ToolIndex =
-            "Tools (dwg_ prefix):\n"
+            "Tools (dwg_; more via --toolsets all):\n"
             + "- read: get_drawing_profile (large drawings), query_entities, get_entity_properties, list_layers\n"
             + "- edit: create_line, create_text, insert_block, move_entities, erase_entities, update_texts\n"
             + "- text: get_selected_texts -> translate_and_rewrite\n"

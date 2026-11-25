@@ -56,7 +56,7 @@ namespace Bimwright.Dwg.Server.Tools
             "Leaving a live confirmed instance requires rebind=true. A changed drawing must match an explicit expected_document_id or be intentionally accepted with rebind=true. " +
             "Failed verification preserves the previous binding. Inspect health after opening/switching drawings before accepting a new pin. " +
             "Unavailable in --read-only. Changes routing only; never activates, saves or closes drawings. Calls pending under an older binding are refused before sending. " +
-            "The gateway keeps one PID and process start and never falls through to another instance on loss; inspect dwg_get_current_target and dwg_health target. " +
+            "The gateway keeps one PID and process start and never falls through to another instance on loss; inspect dwg_get_current_target (also for _target receipt semantics) and dwg_health target. " +
             "Update gateway and plugin together: an old plugin cannot be verified for writes. " +
             "Subagents must not call this; they report a needed instance or drawing change to the parent.")]
         public static async Task<string> SwitchTarget(
@@ -90,7 +90,7 @@ namespace Bimwright.Dwg.Server.Tools
 
         [McpServerTool(Name = "dwg_open_drawing", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false), Description(
             "Open an existing .dwg from an absolute drive/UNC path on the AutoCAD machine, not the MCP client. This is the tool to use when no drawing is open. " +
-            "Ask the user which recent path to open first. activate=true (default) makes it active; false requires an existing active drawing and restores that drawing after opening (not a viewless background database). " +
+            "Call dwg_list_recent_drawings and ask the user which path to open first; after opening, confirm the new pin with dwg_health and dwg_switch_target. activate=true (default) makes it active; false requires an existing active drawing and restores that drawing after opening (not a viewless background database). " +
             "read_only=false (default) requests writable access; true requests read-only access. Reuses an already-open drawing without reopening it; an access-mode mismatch is refused rather than closing or changing it. " +
             "Never saves, closes or overwrites drawings. Runs in application context without a document lock, requires idle multi-document mode (SDI=0), and is not supported inside batch/baked drawing workflows. " +
             "DWG only: no DXF, templates, cloud URLs, audit or recovery. Native AutoCAD dialogs may require the user. timeout_seconds: 1-900, default 600; timing out does not cancel an Open already running, so inspect AutoCAD before retrying. " +
