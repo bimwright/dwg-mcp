@@ -75,7 +75,8 @@ namespace Bimwright.Dwg.Server
             try { return Client.Capture(command); }
             catch (InvalidOperationException ex) when (ex.Message.StartsWith("TARGET_", StringComparison.Ordinal)
                 || ex.Message.StartsWith("DOCUMENT_", StringComparison.Ordinal)
-                || ex.Message.StartsWith("AMBIGUOUS_TARGET:", StringComparison.Ordinal))
+                || ex.Message.StartsWith("AMBIGUOUS_TARGET:", StringComparison.Ordinal)
+                || ex.Message.StartsWith(ClientSandbox.Code + ":", StringComparison.Ordinal))
             {
                 // The SDK hides ordinary exception messages. Only routing refusals
                 // are exposed so clients can select/reverify the intended target.

@@ -17,7 +17,7 @@ namespace Bimwright.Dwg.Server.Tools
             "Supports per-instance discovery and legacy AutoCAD 2022 through 2027 discovery files.")]
         public static Task<string> ListAvailableTargets()
         {
-            var targets = AuthToken.ListAvailable()
+            var targets = AuthToken.ListAvailable(null, out var sandbox)
                 .Select(info => new
                 {
                     target = info.Target,
@@ -32,6 +32,8 @@ namespace Bimwright.Dwg.Server.Tools
                 })
                 .ToArray();
 
+            // FC-TGT-07: sandboxed with zero targets keeps the success shape and explains why.
+            if (sandbox != null) return Ok(new { targets, sandbox, note = ClientSandbox.Message });
             return Ok(new { targets });
         }
 

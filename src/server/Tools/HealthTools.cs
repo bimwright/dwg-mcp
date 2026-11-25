@@ -96,6 +96,10 @@ namespace Bimwright.Dwg.Server.Tools
 
             HealthRuntimeInfo.Enrich(health, gateway, connected);
             health["binding"] = client.CurrentTarget;
+            // FC-TGT-07: report the client sandbox only when detected, so normal health is unchanged.
+            var root = AuthToken.DefaultRoot;
+            var sandbox = ClientSandbox.Detect(root);
+            if (sandbox.Detected) health["sandbox"] = ClientSandbox.Report(sandbox, AuthToken.JsonDiscoveryDir(root));
             var plugin = connected ? health["setup_plugin"] as JObject : null;
             health["update"] = check_updates
                 ? await updates.CheckAsync(gateway, plugin, cancellationToken)
@@ -114,7 +118,7 @@ namespace Bimwright.Dwg.Server.Tools
 
         private static string TargetFailureCode(string message, string fallback)
         {
-            foreach (var code in new[] { "AMBIGUOUS_TARGET", "TARGET_CHANGED", "TARGET_LOST", "TARGET_UNCONFIRMED", "DOCUMENT_CHANGED", "DOCUMENT_UNCONFIRMED", "PAIRING_REQUIRED" })
+            foreach (var code in new[] { "AMBIGUOUS_TARGET", "TARGET_CHANGED", "TARGET_LOST", "TARGET_UNCONFIRMED", "DOCUMENT_CHANGED", "DOCUMENT_UNCONFIRMED", "PAIRING_REQUIRED", ClientSandbox.Code })
                 if (message?.StartsWith(code + ":", StringComparison.Ordinal) == true) return code;
             return fallback;
         }
