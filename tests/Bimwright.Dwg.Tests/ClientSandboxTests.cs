@@ -1,14 +1,22 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.IO.Pipes;
 using System.Linq;
 using System.Net.Http;
+using System.Reflection;
+using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Bimwright.Dwg.Server;
 using Bimwright.Dwg.Server.Tools;
 using Bimwright.Dwg.Tests.Helpers;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using ModelContextProtocol;
 using ModelContextProtocol.Protocol;
+using ModelContextProtocol.Server;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Xunit;
@@ -254,6 +262,102 @@ namespace Bimwright.Dwg.Tests
 
                 var tool = await Capture.Unstubbed(() => Assert.ThrowsAsync<InvalidOperationException>(() => MetaTools.ListOpenDocuments()));
                 Assert.DoesNotContain("CLIENT_SANDBOXED", tool.Message);
+            });
+
+        [Fact]
+        public Task FC_TGT_07_protocol_sets_isError_true_for_switch_target_and_change_history_in_sandbox()
+            => InScope(true, async root =>
+            {
+                await Capture.Unstubbed(async () =>
+                {
+                    var pipe = "dwg-client-sandbox-" + Guid.NewGuid().ToString("N");
+                    using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+                    using var input = new NamedPipeServerStream(pipe, PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
+                    using var output = new NamedPipeClientStream(".", pipe, PipeDirection.InOut, PipeOptions.Asynchronous);
+                    await Task.WhenAll(input.WaitForConnectionAsync(timeout.Token), output.ConnectAsync(timeout.Token));
+
+                    var health = new HealthTools(new PluginClient(() => AuthToken.Resolve()),
+                        new ReleaseUpdateCheck(new HttpClient(new ReleaseUpdateCheckTests.Handler())), Gateway());
+                    var tools = typeof(MetaTools).GetMethods(BindingFlags.Public | BindingFlags.Static)
+                        .Concat(typeof(ChangeHistoryTools).GetMethods(BindingFlags.Public | BindingFlags.Static))
+                        .Where(m => m.GetCustomAttribute<McpServerToolAttribute>() != null)
+                        .Select(m => McpServerTool.Create(m))
+                        .Concat(typeof(HealthTools).GetMethods(BindingFlags.Public | BindingFlags.Instance)
+                            .Where(m => m.GetCustomAttribute<McpServerToolAttribute>() != null)
+                            .Select(m => McpServerTool.Create(m, _ => health)))
+                        .ToArray();
+
+                    var builder = Host.CreateApplicationBuilder();
+                    builder.Logging.ClearProviders();
+                    var mcp = builder.Services.AddMcpServer().WithStreamServerTransport(input, input).WithTools(tools);
+                    mcp = ResponseBudget.Register(mcp, ServerState.Config);
+                    ToolArgumentGuard.Register(mcp, new ServerLogger(Path.Combine(root, "calls.jsonl"), () => false));
+                    using var host = builder.Build();
+                    await host.StartAsync(timeout.Token);
+
+                    using var reader = new StreamReader(output, new UTF8Encoding(false), false, 1024, leaveOpen: true);
+                    using var writer = new StreamWriter(output, new UTF8Encoding(false), 1024, leaveOpen: true) { AutoFlush = true };
+                    var nextId = 1;
+                    async Task<JObject> Call(string method, object parameters)
+                    {
+                        var id = nextId++;
+                        await writer.WriteLineAsync(JsonConvert.SerializeObject(new { jsonrpc = "2.0", id, method, @params = parameters }));
+                        while (true)
+                        {
+                            var reply = JObject.Parse(await reader.ReadLineAsync().WaitAsync(TimeSpan.FromSeconds(15)));
+                            if (reply.Value<int?>("id") != id) continue;
+                            Assert.Null(reply["error"]);
+                            return (JObject)reply["result"];
+                        }
+                    }
+
+                    try
+                    {
+                        await Call("initialize", new
+                        {
+                            protocolVersion = "2025-06-18",
+                            capabilities = new { },
+                            clientInfo = new { name = "client-sandbox-test", version = "1" }
+                        });
+                        await writer.WriteLineAsync("{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\"}");
+
+                        var listResult = await Call("tools/call", new { name = "dwg_list_available_targets", arguments = new { } });
+                        Assert.NotEqual(true, listResult.Value<bool?>("isError"));
+                        var listBody = JObject.Parse(listResult["content"][0].Value<string>("text"));
+                        Assert.True(listBody.Value<bool>("ok"));
+                        AssertSandboxBlock(listBody["result"]["sandbox"], root);
+
+                        var switchResult = await Call("tools/call", new { name = "dwg_switch_target", arguments = new { target = "pid:12345" } });
+                        Assert.True(switchResult.Value<bool?>("isError"));
+                        var switchBody = JObject.Parse(switchResult["content"][0].Value<string>("text"));
+                        Assert.False(switchBody.Value<bool>("ok"));
+                        Assert.Equal(ClientSandbox.Message, switchBody.Value<string>("error"));
+
+                        var recordsResult = await Call("tools/call", new { name = "dwg_get_change_records", arguments = new { } });
+                        Assert.True(recordsResult.Value<bool?>("isError"));
+                        var recordsBody = JObject.Parse(recordsResult["content"][0].Value<string>("text"));
+                        Assert.False(recordsBody.Value<bool>("ok"));
+                        Assert.Equal(ClientSandbox.Message, recordsBody.Value<string>("error"));
+
+                        var impactResult = await Call("tools/call", new { name = "dwg_survey_change_impact", arguments = new { handles = new[] { "AB" } } });
+                        Assert.True(impactResult.Value<bool?>("isError"));
+                        var impactBody = JObject.Parse(impactResult["content"][0].Value<string>("text"));
+                        Assert.False(impactBody.Value<bool>("ok"));
+                        Assert.Equal(ClientSandbox.Message, impactBody.Value<string>("error"));
+
+                        var docsResult = await Call("tools/call", new { name = "dwg_list_open_documents", arguments = new { } });
+                        Assert.True(docsResult.Value<bool?>("isError"));
+                        Assert.Contains(ClientSandbox.Message, docsResult["content"][0].Value<string>("text"));
+
+                        var healthResult = await Call("tools/call", new { name = "dwg_health", arguments = new { } });
+                        Assert.True(healthResult.Value<bool?>("isError"));
+                        var healthBody = JObject.Parse(healthResult["content"][0].Value<string>("text"));
+                        Assert.Equal("CLIENT_SANDBOXED", healthBody["error"].Value<string>("code"));
+                        AssertSandboxBlock(healthBody["sandbox"], root);
+                    }
+                    finally { await host.StopAsync(timeout.Token); }
+                    return true;
+                });
             });
     }
 }

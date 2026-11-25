@@ -1,8 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using System.Threading;
+using ModelContextProtocol.Protocol;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
 namespace Bimwright.Dwg.Server
@@ -79,6 +82,30 @@ namespace Bimwright.Dwg.Server
             ["evidence"] = new JArray(result.Evidence),
             ["data_dir"] = dataDir
         };
+
+        /// <summary>
+        /// FC-ERR-03 / FC-TGT-07: tools that catch CLIENT_SANDBOXED into a JSON McpResponse
+        /// (such as dwg_switch_target and change-history tools) still carry MCP isError=true on the wire.
+        /// </summary>
+        internal static void MarkError(CallToolResult result)
+        {
+            if (result == null || result.IsError == true) return;
+            var text = result.Content?.OfType<TextContentBlock>().FirstOrDefault()?.Text;
+            if (string.IsNullOrWhiteSpace(text) || !text.Contains(Code, StringComparison.Ordinal)) return;
+            try
+            {
+                if (JToken.Parse(text) is not JObject obj) return;
+                if (obj["ok"]?.Type != JTokenType.Boolean || obj.Value<bool>("ok")) return;
+                var error = obj["error"];
+                if (error?.Type == JTokenType.String
+                    && error.Value<string>().StartsWith(Code + ":", StringComparison.Ordinal))
+                    result.IsError = true;
+                else if (error is JObject errorObj
+                    && string.Equals(errorObj.Value<string>("code"), Code, StringComparison.Ordinal))
+                    result.IsError = true;
+            }
+            catch (JsonException) { }
+        }
 
         internal static bool? ProbeTokenIsAppContainer()
         {
