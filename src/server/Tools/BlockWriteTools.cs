@@ -48,6 +48,7 @@ namespace Bimwright.Dwg.Server.Tools
 
         [McpServerTool(Name = "dwg_set_block_attributes", ReadOnly = false, Destructive = false, Idempotent = true, OpenWorld = false), Description(
             "Set attribute values on a block reference identified by handle. attributes is a JSON object." +
+            " Call dwg_survey_change_impact on target handles first and read back after." +
             " Changes the current drawing; use AutoCAD UNDO immediately to reverse drawing edits before saving. Disabled in read-only mode.")]
         public static Task<string> SetBlockAttributes(
             [Description("AutoCAD handle of the block reference.")] string handle,
@@ -71,6 +72,7 @@ namespace Bimwright.Dwg.Server.Tools
 
         [McpServerTool(Name = "dwg_explode_block", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false), Description(
             "Explode a block reference identified by handle." +
+            " Call dwg_survey_change_impact on target handles first and read back after." +
             " Changes the current drawing; use AutoCAD UNDO immediately to reverse drawing edits before saving. Disabled in read-only mode.")]
         public static Task<string> ExplodeBlock(
             [Description("AutoCAD handle of the block reference.")] string handle)

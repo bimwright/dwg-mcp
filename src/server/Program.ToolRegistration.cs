@@ -9,6 +9,16 @@ namespace Bimwright.Dwg.Server
 {
     public partial class Program
     {
+        // TOOL-ALWAYSLOAD (BW-MCP-UPGRADE-001): startup and report tools preload even under Tool Search; never send_code.
+        internal const string AlwaysLoadMetadataKey = "anthropic/alwaysLoad";
+        internal static readonly string[] AlwaysLoadToolNames =
+        {
+            "dwg_health",
+            "dwg_list_available_targets",
+            "dwg_switch_target",
+            "dwg_report_task_result",
+        };
+
         internal static readonly (string[] Toolsets, Type ToolType, bool ExcludeWhenReadOnly,
             Func<IMcpServerBuilder, IMcpServerBuilder> Register)[] ToolRegistrations =
         {
@@ -17,7 +27,7 @@ namespace Bimwright.Dwg.Server
             (new[] { "modify" }, typeof(ModifyTools), true, static mcp => mcp.WithTools<ModifyTools>()),
             (new[] { "meta" }, typeof(MetaTools), false, RegisterMetaToolsWithReadOnlyPolicy),
             (new[] { "meta" }, typeof(BatchTools), true, static mcp => mcp.WithTools<BatchTools>()),
-            (new[] { "meta" }, typeof(ReportTools), false, static mcp => mcp.WithTools<ReportTools>()),
+            (new[] { "meta" }, typeof(ReportTools), false, RegisterReportToolsWithAlwaysLoad),
             (new[] { "meta" }, typeof(ChangeHistoryTools), false, RegisterChangeHistoryTools),
             (new[] { "toolbaker" }, typeof(ToolBakerTools), false, static mcp => mcp.WithTools<ToolBakerTools>()),
             (new[] { "toolbaker" }, typeof(ToolBakerWriteTools), true, static mcp => mcp.WithTools<ToolBakerWriteTools>()),
@@ -72,7 +82,8 @@ namespace Bimwright.Dwg.Server
             tool.ProtocolTool.Meta = new System.Text.Json.Nodes.JsonObject
             {
                 [HealthRuntimeInfo.ClientRuntimeMetadataKey] = System.Text.Json.Nodes.JsonNode.Parse(
-                    HealthRuntimeInfo.ClientRuntime(GatewayRuntime.Identity).ToString())
+                    HealthRuntimeInfo.ClientRuntime(GatewayRuntime.Identity).ToString()),
+                [AlwaysLoadMetadataKey] = true
             };
             return mcp.WithTools(new[] { tool });
         }
@@ -83,7 +94,10 @@ namespace Bimwright.Dwg.Server
                 .Select(method => McpServerTool.Create(method)));
         private static IMcpServerBuilder RegisterMetaToolsWithReadOnlyPolicy(IMcpServerBuilder mcp)
             => mcp.WithTools(ReadOnlyPolicy.ExposedMethods(typeof(MetaTools), ServerState.IsReadOnly)
-                .Select(method => McpServerTool.Create(method)));
+                .Select(CreateToolWithAlwaysLoad));
+        private static IMcpServerBuilder RegisterReportToolsWithAlwaysLoad(IMcpServerBuilder mcp)
+            => mcp.WithTools(ReadOnlyPolicy.ExposedMethods(typeof(ReportTools), ServerState.IsReadOnly)
+                .Select(CreateToolWithAlwaysLoad));
         private static IMcpServerBuilder RegisterViewToolsWithReadOnlyPolicy(IMcpServerBuilder mcp)
             => mcp.WithTools(ReadOnlyPolicy.ExposedMethods(typeof(ViewTools), ServerState.IsReadOnly)
                 .Select(method => McpServerTool.Create(method)));
@@ -91,6 +105,17 @@ namespace Bimwright.Dwg.Server
         private static IMcpServerBuilder RegisterChangeHistoryTools(IMcpServerBuilder mcp)
             => mcp.WithTools(ReadOnlyPolicy.ExposedMethods(typeof(ChangeHistoryTools), ServerState.IsReadOnly)
                 .Select(method => McpServerTool.Create(method)));
+
+        private static McpServerTool CreateToolWithAlwaysLoad(System.Reflection.MethodInfo method)
+        {
+            var tool = McpServerTool.Create(method);
+            if (AlwaysLoadToolNames.Contains(tool.ProtocolTool.Name, StringComparer.Ordinal))
+            {
+                var meta = tool.ProtocolTool.Meta ??= new System.Text.Json.Nodes.JsonObject();
+                meta[AlwaysLoadMetadataKey] = true;
+            }
+            return tool;
+        }
 
     }
 }

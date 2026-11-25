@@ -16,7 +16,7 @@ namespace Bimwright.Dwg.Server.Tools
         [McpServerTool(Name = "dwg_get_drawing_info", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false), Description(
             "Return small JSON-safe metadata for the current AutoCAD drawing: " +
             "drawing name when available, current layer, current space/layout, " +
-            "and database unit scalars.")]
+            "and database unit scalars (INSUNITS=0 stays unitless/unknown).")]
         public static Task<string> GetDrawingInfo()
         {
             var request = new { };
@@ -108,7 +108,7 @@ namespace Bimwright.Dwg.Server.Tools
         [McpServerTool(Name = "dwg_query_entities", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false), Description(
             "Query model-space AutoCAD entities with optional filters for entity type, layer, and ACI color index. " +
             "Existing calls retain their legacy fields, geometry option and order. Set paged=true or supply spatial/field options for bounded numeric-handle pages. " +
-            "Paged defaults are handle/type/layer and 16384 final MCP UTF-8 bytes. Content reports omissions and next_calls; echo their filters/fields with the signed cursor. " +
+            "Paged defaults are handle/type/layer and 16384 final MCP UTF-8 bytes. Content reports omissions and next_calls; echo their filters/fields with the signed cursor (limit/max_output_bytes may change across pages; each page rescans without caching). " +
             "BBox tests inclusive WCS 3D axis-aligned extents, not exact geometry clipping, in selected-space drawing units without INSUNITS conversion. " +
             "Unavailable bbox-filter extents/population read failures are counted and block continuation; changed drawing/filter/fields rejects the cursor. " +
             "Requires matching plugin support; unconfirmed legacy replies are refused. Call directly, outside batches, for paged reads. " +
@@ -127,7 +127,7 @@ namespace Bimwright.Dwg.Server.Tools
             [Description("model (default) or layout:<exact human layout name>, case-insensitive. Top-level entities only; no block/xref expansion.")] string space = null,
             [Description("JSON array from handle,type,runtime_type,layer,color_index,text,position,extents. Default handle/type/layer; handle always included. Unsupported field values are null with unavailable_fields.")] string fields = null,
             [Description("Opaque cursor from output.next_calls. Echo the same matching/field options; changed snapshots refuse continuation.")] string cursor = null,
-            [Description("Paged final MCP byte cap, default 16384, range4096..65536; lower global cap still applies.")] int? max_output_bytes = null)
+            [Description("Paged final MCP byte cap, default 16384, range 4096..65536; lower global cap still applies.")] int? max_output_bytes = null)
         {
             var typeError = ValidateEntityType(entity_type);
             if (typeError != null) return ToolInputError(typeError);
@@ -243,11 +243,11 @@ namespace Bimwright.Dwg.Server.Tools
         [McpServerTool(Name = "dwg_get_selected_texts", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false), Description(
             "Read and cluster text. Existing two-argument calls use AutoCAD pickfirst selection and legacy rewrite IDs. " +
             "Supply handles or bbox to read without selecting anything; choose exactly one explicit source. " +
-            "Explicit-source mode reads top-level DBText/MText/MLeader, does not expand blocks/xrefs, clusters the full declared source before paging whole clusters, and returns read-only cluster_key values. " +
+            "Explicit-source mode reads top-level DBText/MText/MLeader (and direct attributes/constant definitions only), does not expand blocks/xrefs, clusters the full declared source before paging whole clusters, and returns read-only cluster_key values. " +
             "It leaves legacy rewrite state unchanged. For per-entity writes use includeEntities=true then dwg_update_texts by handle; cluster rewrite still requires manual selection. " +
-            "Cursor, content omissions and next_calls follow the bounded query pattern (default16384 final MCP UTF-8 bytes). " +
-            "Source limits5000 text records/8MiB UTF-8; incomplete sources produce no groups or continuation. " +
-            "Model snapshots ignore viewport navigation; entity changes refuse continuation. Explicit-source calls must be direct outside batches/baked tools. " +
+            "Cursor, content omissions and next_calls follow the bounded query pattern (default 16384 final MCP UTF-8 bytes). " +
+            "Source limits 5000 text records / 8 MiB UTF-8; incomplete sources produce no groups or continuation. " +
+            "Model snapshots ignore viewport navigation while layout snapshots track it; entity changes refuse continuation. Explicit-source calls must be direct outside batches/baked tools. " +
             "Each cluster has id, text, entity_count, in_block (bool) and " +
             "rewrite_mode only on the legacy selection path. Explicit-source groups never supply writable numeric IDs. " +
             "Keep camelCase groupingStrength/includeEntities when following next_calls. If whole clusters do not fit, raise max_output_bytes or use includeEntities=false, weaker grouping or a narrower source. " +
@@ -255,12 +255,12 @@ namespace Bimwright.Dwg.Server.Tools
         public static Task<string> GetSelectedTexts(
             [Description("Optional grouping strength: weak, normal, or strong. Use weak when an image/layout reference indicates nearby labels should stay separate.")] string groupingStrength = "normal",
             [Description("When true, include each child text entity's handle/text/position so callers can recover from over-grouped clusters.")] bool includeEntities = false,
-            [Description("Explicit source JSON array of0..5000 hexadecimal handle values; deduplicated. Mutually exclusive with bbox.")] string handles = null,
+            [Description("Explicit source JSON array of 0..5000 hexadecimal handle values; deduplicated. Mutually exclusive with bbox.")] string handles = null,
             [Description("Explicit source JSON object {min:[x,y,z],max:[x,y,z]} in WCS drawing units; mutually exclusive with handles.")] string bbox = null,
-            [Description("intersects or contains inclusive3D extents test; requires bbox.")] string bbox_mode = null,
-            [Description("model(default for explicit source) or layout:<exact name>. Top-level text only.")] string space = null,
+            [Description("intersects or contains inclusive 3D extents test; requires bbox.")] string bbox_mode = null,
+            [Description("model (default for explicit source) or layout:<exact name>. Top-level text only.")] string space = null,
             [Description("Opaque whole-cluster continuation from output.next_calls. Echo same source/grouping/includeEntities.")] string cursor = null,
-            [Description("Explicit-source final MCP UTF-8 cap4096..65536(default16384), subject to lower global cap.")] int? max_output_bytes = null)
+            [Description("Explicit-source final MCP UTF-8 cap 4096..65536 (default 16384), subject to lower global cap.")] int? max_output_bytes = null)
         {
             if (handles != null || bbox != null || bbox_mode != null || space != null || cursor != null || max_output_bytes.HasValue)
             {

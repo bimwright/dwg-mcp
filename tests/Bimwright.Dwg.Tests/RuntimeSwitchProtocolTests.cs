@@ -79,10 +79,33 @@ namespace Bimwright.Dwg.Tests
                 var instructions = initialize["result"].Value<string>("instructions");
                 Assert.Equal(names.Contains("dwg_report_task_result"),
                     instructions.Contains(ServerInstructions.Reporting, StringComparison.Ordinal));
-                // INSTR-MAX-2KB and INSTR-SAFETY-BLOCK on the wire, for every flag combination above.
+                // INSTR-MAX-2KB, INSTR-SAFETY-BLOCK (FC-SRV-06), INSTR-MOVE-TO-TOOL, TOOL-ALWAYSLOAD on the wire for every flag combo.
                 Assert.True(Encoding.UTF8.GetByteCount(instructions) <= 2048, $"{Encoding.UTF8.GetByteCount(instructions)} bytes for '{flags}'.");
                 Assert.EndsWith(ServerInstructions.SafetyAndPermissions, instructions, StringComparison.Ordinal);
-                Assert.All((JArray)listed["result"]["tools"], tool => Assert.True(tool.Value<string>("description").Length <= 4096));
+                var wireTools = (JArray)listed["result"]["tools"];
+                Assert.All(wireTools, tool =>
+                {
+                    var desc = tool.Value<string>("description");
+                    Assert.True(desc.Length <= 4096, $"{tool["name"]} description length {desc.Length} > 4096");
+                    Assert.True(Encoding.UTF8.GetByteCount(desc) <= 4096, $"{tool["name"]} description bytes > 4096");
+                    if (tool["inputSchema"]?["properties"] is JObject props)
+                        foreach (var prop in props.Properties())
+                        {
+                            var pdesc = prop.Value.Value<string>("description") ?? "";
+                            Assert.True(Encoding.UTF8.GetByteCount(pdesc) <= 2048,
+                                $"{tool["name"]}.{prop.Name} description bytes > 2048");
+                        }
+                });
+                var expectedAlwaysLoad = Program.AlwaysLoadToolNames.Where(names.Contains).OrderBy(n => n, StringComparer.Ordinal).ToArray();
+                var actualAlwaysLoad = wireTools
+                    .Where(t => t["_meta"]?[Program.AlwaysLoadMetadataKey]?.Value<bool>() == true)
+                    .Select(t => t.Value<string>("name"))
+                    .OrderBy(n => n, StringComparer.Ordinal)
+                    .ToArray();
+                Assert.Equal(expectedAlwaysLoad, actualAlwaysLoad);
+                var healthTool = wireTools.FirstOrDefault(t => t.Value<string>("name") == "dwg_health");
+                if (healthTool != null)
+                    Assert.NotNull(healthTool["_meta"]?[HealthRuntimeInfo.ClientRuntimeMetadataKey]);
                 var config = DwgMcpConfig.Load(flags.Split(' ', StringSplitOptions.RemoveEmptyEntries),
                     Path.Combine(root, "absent-config.json"), _ => null);
                 var previousConfig = ServerState.Config;
@@ -110,6 +133,7 @@ namespace Bimwright.Dwg.Tests
                     {
                         Assert.Null(tool["annotations"]);
                         Assert.Null(tool["_meta"]?["anthropic/requiresUserInteraction"]);
+                        Assert.Null(tool["_meta"]?[Program.AlwaysLoadMetadataKey]);
                         continue;
                     }
                     foreach (var hint in new[] { "readOnlyHint", "destructiveHint", "idempotentHint", "openWorldHint" })

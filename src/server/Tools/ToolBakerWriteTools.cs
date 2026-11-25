@@ -15,6 +15,7 @@ namespace Bimwright.Dwg.Server.Tools
     {
         [McpServerTool(Name = "dwg_run_baked_tool", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false), Description(
             "Run a baked DWG tool by name. Params must be a JSON object for the baked tool." +
+            " When modifying existing entities, call dwg_survey_change_impact first and read back after." +
             " May change drawing data and files according to the accepted tool. Review the tool before running; use AutoCAD UNDO for drawing edits, but file changes require a backup or manual cleanup. No universal rollback is provided; disabled in read-only mode.")]
         public static Task<string> RunBakedTool(
             [Description("Baked tool name.")] string name,

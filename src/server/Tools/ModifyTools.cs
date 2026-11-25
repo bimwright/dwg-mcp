@@ -18,6 +18,7 @@ namespace Bimwright.Dwg.Server.Tools
             "All items are written in a single transaction so one Ctrl+Z undoes the batch. " +
             "If applyUnicodeStyle=true, the same call also reassigns successfully updated " +
             "entities to the Unicode text style." +
+            " Call dwg_survey_change_impact on target handles first and read back after." +
             " Changes the current drawing; use AutoCAD UNDO immediately to reverse drawing edits before saving. Disabled in read-only mode.")]
         public static Task<string> UpdateTexts(
             [Description("JSON array: [{\"handle\":\"2A4F\",\"new_text\":\"...\"}]")] string items,
@@ -338,6 +339,7 @@ namespace Bimwright.Dwg.Server.Tools
             "Move entities identified by handle to an existing layer. If create_layer=true, " +
             "the layer is ensured first using color_index or default 7. Returns one result " +
             "record per handle; bad handles do not abort siblings." +
+            " Call dwg_survey_change_impact on target handles first and read back after." +
             " Changes the current drawing; use AutoCAD UNDO immediately to reverse drawing edits before saving. Disabled in read-only mode.")]
         public static Task<string> ChangeLayer(
             [Description("JSON array of AutoCAD handles, e.g. [\"7F5AD\",\"2A4F\"].")] string handles,
@@ -378,6 +380,7 @@ namespace Bimwright.Dwg.Server.Tools
             "Apply an AutoCAD ACI color index to entities identified by handle. handles is a JSON array " +
             "of AutoCAD handle strings. color_index is validated by AutoCAD-side handling as ACI range 1-256. " +
             "Returns per-item {handle, ok, error}; bad handles do not abort siblings." +
+            " Call dwg_survey_change_impact on target handles first and read back after." +
             " Changes the current drawing; use AutoCAD UNDO immediately to reverse drawing edits before saving. Disabled in read-only mode.")]
         public static Task<string> ChangeColor(
             [Description("JSON array of AutoCAD handles, e.g. [\"7F5AD\",\"2A4F\"].")] string handles,
@@ -401,6 +404,7 @@ namespace Bimwright.Dwg.Server.Tools
             "Move entities identified by handle by a displacement vector. handles is a JSON array " +
             "of AutoCAD handle strings. vector is a JSON point object with numeric x, y, and optional z fields. " +
             "Returns per-item {handle, ok, error}; bad handles do not abort siblings." +
+            " Call dwg_survey_change_impact on target handles first and read back after." +
             " Changes the current drawing; use AutoCAD UNDO immediately to reverse drawing edits before saving. Disabled in read-only mode.")]
         public static Task<string> MoveEntities(
             [Description("JSON array of AutoCAD handles, e.g. [\"7F5AD\",\"2A4F\"].")] string handles,
@@ -429,6 +433,7 @@ namespace Bimwright.Dwg.Server.Tools
             "Rotate entities identified by handle around basePoint on the Z axis. handles is a JSON array " +
             "of AutoCAD handle strings. basePoint is a JSON point object, and angleDegrees is in degrees. " +
             "Returns per-item {handle, ok, error}; bad handles do not abort siblings." +
+            " Call dwg_survey_change_impact on target handles first and read back after." +
             " Changes the current drawing; use AutoCAD UNDO immediately to reverse drawing edits before saving. Disabled in read-only mode.")]
         public static Task<string> RotateEntities(
             [Description("JSON array of AutoCAD handles, e.g. [\"7F5AD\",\"2A4F\"].")] string handles,
@@ -459,6 +464,7 @@ namespace Bimwright.Dwg.Server.Tools
             "Scale entities identified by handle around basePoint. handles is a JSON array " +
             "of AutoCAD handle strings. basePoint is a JSON point object. scale must be finite, positive, " +
             "and less than or equal to 1000. Returns per-item {handle, ok, error}; bad handles do not abort siblings." +
+            " Call dwg_survey_change_impact on target handles first and read back after." +
             " Changes the current drawing; use AutoCAD UNDO immediately to reverse drawing edits before saving. Disabled in read-only mode.")]
         public static Task<string> ScaleEntities(
             [Description("JSON array of AutoCAD handles, e.g. [\"7F5AD\",\"2A4F\"].")] string handles,
@@ -516,6 +522,7 @@ namespace Bimwright.Dwg.Server.Tools
         [McpServerTool(Name = "dwg_erase_entities", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false), Description(
             "Erase entities identified by handle. handles is a JSON array of AutoCAD handle strings. " +
             "Returns per-item {handle, ok, error}; bad handles do not abort siblings." +
+            " Call dwg_survey_change_impact on target handles first and read back after." +
             " Changes the current drawing; use AutoCAD UNDO immediately to reverse drawing edits before saving. Disabled in read-only mode.")]
         public static Task<string> EraseEntities(
             [Description("JSON array of AutoCAD handles, e.g. [\"7F5AD\",\"2A4F\"].")] string handles)
@@ -573,6 +580,7 @@ namespace Bimwright.Dwg.Server.Tools
             "explicit-source (handles/bbox) clusters cannot authorize writeback. " +
             "Use dwg_collapse_and_rewrite (low-level) only for expert control or " +
             "replaying call-log scenarios." +
+            " Call dwg_survey_change_impact on target handles first and read back after." +
             " Changes the current drawing; use AutoCAD UNDO immediately to reverse drawing edits before saving. Disabled in read-only mode.")]
         public static Task<string> TranslateAndRewrite(
             [Description("JSON array: [{\"id\":0,\"new_text\":\"translated text\",\"render_mode\":\"mtext\",\"width_policy\":\"preserve\"}]")] string translations,
@@ -594,6 +602,7 @@ namespace Bimwright.Dwg.Server.Tools
             "MUST be called after translating text to Vietnamese or any non-ASCII language on " +
             "drawings that use SHX fonts lacking the required glyphs (otherwise text " +
             "renders as '?')." +
+            " Call dwg_survey_change_impact on target handles first and read back after." +
             " Changes the current drawing; use AutoCAD UNDO immediately to reverse drawing edits before saving. Disabled in read-only mode.")]
         public static Task<string> ApplyUnicodeStyle(
             [Description("Optional JSON array of target handles, e.g. [\"7F5AD\",\"2A4F\"]. Omit or pass \"\" to use the current pickfirst selection.")] string handles = "")
@@ -632,6 +641,7 @@ namespace Bimwright.Dwg.Server.Tools
             "rewrite_in_block. If applyUnicodeStyle=true, the same call reassigns " +
             "surviving entities to the Unicode text style and scales height." +
             " final_text_height measures the resulting entity's stored height after normalization/scaling, or null if unavailable; block definitions use local units." +
+            " Call dwg_survey_change_impact on target handles first and read back after." +
             " Changes the current drawing; use AutoCAD UNDO immediately to reverse drawing edits before saving. Disabled in read-only mode.")]
         public static Task<string> CollapseAndRewrite(
             [Description("JSON: {\"clusters\":[{\"anchor_handle\":\"...\",\"new_text\":\"...\",\"delete_handles\":[\"...\"],\"convert_to_mtext\":true,\"mtext_width\":0}]}")] string clusters,
