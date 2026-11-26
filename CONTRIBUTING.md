@@ -4,10 +4,11 @@ Contributions are welcome. This document covers the basics.
 
 ## Getting Started
 
-1. Fork the repo and clone your fork.
+1. Fork the repo and clone your fork. Requires Windows and the .NET 10 SDK.
 2. Build: `dotnet build src/Bimwright.Dwg.sln -c Debug`
 3. Run tests: `dotnet test tests/Bimwright.Dwg.Tests/Bimwright.Dwg.Tests.csproj`
    Run the host-free rewrite executor regressions with `dotnet test tests/Bimwright.Dwg.Rewriting.Tests/Bimwright.Dwg.Rewriting.Tests.csproj`.
+   Run `pwsh -NoProfile -File scripts/check-public-tree.ps1` before opening a PR.
 4. Toast window and animation changes: run the WPF harness on Windows, `dotnet run --project tests/Bimwright.Dwg.Toast.Tests`. It needs no AutoCAD.
 
 ## Plugin Development
@@ -29,6 +30,7 @@ Do not commit Autodesk DLLs. The plugin projects reference Autodesk's `AutoCAD.N
 - Namespace: `Bimwright.Dwg.Server` (server), `Bimwright.Dwg.Plugin` (plugin/shared).
 - One handler per file in `src/shared/Handlers/`.
 - Pure logic (no AutoCAD dependency) goes in Clustering/, Rewriting/, Unicode/ for testability.
+- Keep `ServerInstructions` within 2,048 UTF-8 bytes, each tool description within 4,096 characters/bytes, and each parameter description within 2,048 UTF-8 bytes. Tools that modify existing entities should point to `dwg_survey_change_impact` before editing.
 
 ## License
 
