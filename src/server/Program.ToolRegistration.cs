@@ -11,6 +11,7 @@ namespace Bimwright.Dwg.Server
     {
         // TOOL-ALWAYSLOAD (BW-MCP-UPGRADE-001): startup and report tools preload even under Tool Search; never send_code.
         internal const string AlwaysLoadMetadataKey = "anthropic/alwaysLoad";
+        internal const string AntigravityAlwaysLoadMetadataKey = "antigravity/alwaysLoad";
         internal static readonly string[] AlwaysLoadToolNames =
         {
             "dwg_health",
@@ -83,7 +84,8 @@ namespace Bimwright.Dwg.Server
             {
                 [HealthRuntimeInfo.ClientRuntimeMetadataKey] = System.Text.Json.Nodes.JsonNode.Parse(
                     HealthRuntimeInfo.ClientRuntime(GatewayRuntime.Identity).ToString()),
-                [AlwaysLoadMetadataKey] = true
+                [AlwaysLoadMetadataKey] = true,
+                [AntigravityAlwaysLoadMetadataKey] = true
             };
             return mcp.WithTools(new[] { tool });
         }
@@ -113,6 +115,7 @@ namespace Bimwright.Dwg.Server
             {
                 var meta = tool.ProtocolTool.Meta ??= new System.Text.Json.Nodes.JsonObject();
                 meta[AlwaysLoadMetadataKey] = true;
+                meta[AntigravityAlwaysLoadMetadataKey] = true;
             }
             return tool;
         }
