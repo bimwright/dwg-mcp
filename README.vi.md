@@ -114,9 +114,9 @@ Xem [ARCHITECTURE.md](ARCHITECTURE.md) để biết chi tiết về threading, d
 
 Tải setup ZIP từ [GitHub Releases](https://github.com/bimwright/dwg-mcp/releases/latest) (`DwgMcp.Setup-*-win-x64.zip`). Xem `packedAutocadYears` trong `manifest.json` và `PackageContents.xml` của bundle trong ZIP đã tải để biết các năm có plugin; xem ghi chú phát hành để biết các năm đã kiểm chứng trên AutoCAD đang chạy. Source có shell cho 2022–2027, còn plugin đóng gói và host đã kiểm chứng tùy từng bản phát hành. Năm chưa có trong gói cần build plugin từ source với AutoCAD SDK tương ứng. Giải nén rồi chạy `install.ps1` (xem README tiếng Anh để copy-paste đầy đủ).
 
-**NuGet (chỉ gateway):** `dotnet tool install --global Bimwright.Dwg.Server --version 2.5.1` cần .NET 10 và không cài plugin AutoCAD. Cài plugin cùng phiên bản từ Setup ZIP.
+**NuGet (chỉ gateway):** `dotnet tool install --global Bimwright.Dwg.Server --version 2.5.2` cần .NET 10 và không cài plugin AutoCAD. Cài plugin cùng phiên bản từ Setup ZIP.
 
-**Claude Desktop:** tải `dwg-mcp-desktop-2.5.1.mcpb` và checksum trong cùng release, rồi cài qua Settings → Extensions → Advanced settings. Extension chỉ chạy đúng executable của Setup 2.5.1, không cài gateway/plugin và không tự chọn bản NuGet/PATH khác. File override phải khớp SHA-256.
+**Claude Desktop:** tải `dwg-mcp-desktop-2.5.2.mcpb` và checksum trong cùng release, rồi cài qua Settings → Extensions → Advanced settings. Extension chỉ chạy đúng executable của Setup 2.5.2, không cài gateway/plugin và không tự chọn bản NuGet/PATH khác. File override phải khớp SHA-256.
 
 **Developer:** `pwsh scripts/install.ps1 -Version 2024` từ repo sau khi build; hoặc `NETLOAD` DLL Debug.
 
@@ -204,7 +204,7 @@ Dùng `dwg_list_open_documents` để tìm bản vẽ rồi gọi riêng `dwg_ac
 
 ## Công cụ
 
-Bản 2.5.1 mặc định expose 54 tool: query (gồm `dwg_get_drawing_profile` và `dwg_inspect_lisp`), modify, meta (gồm `dwg_send_code`/`dwg_run_lisp`), view, và `dwg_capture_view_image` mặc định bật. Các toolset tùy chọn ToolBaker, annotation, block, dimension, export, và drawing được kích hoạt qua `--toolsets`, nâng tổng diện tích bề mặt MCP lên 78 tool. Số tool đăng ký có tính `dwg_run_lisp`, hiện chỉ trả từ chối; không verdict nào cấp quyền thực thi.
+Bản 2.5.2 mặc định expose 54 tool: query (gồm `dwg_get_drawing_profile` và `dwg_inspect_lisp`), modify, meta (gồm `dwg_send_code`/`dwg_run_lisp`), view, và `dwg_capture_view_image` mặc định bật. Các toolset tùy chọn ToolBaker, annotation, block, dimension, export, và drawing được kích hoạt qua `--toolsets`, nâng tổng diện tích bề mặt MCP lên 78 tool. Số tool đăng ký có tính `dwg_run_lisp`, hiện chỉ trả từ chối; không verdict nào cấp quyền thực thi.
 
 CAD tool chạy trên active document hiện tại của AutoCAD target đang chọn. Entity input và entity id trả về dùng AutoCAD hex handle, ví dụ `7F5AD`, do tool selection, creation, hoặc properties trả về. Creation, copy, offset, và modify response identify entity tạo/sửa bằng hex handle.
 

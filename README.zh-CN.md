@@ -114,9 +114,9 @@ AI agent 让“把选中的文字全部翻译成越南语”这类意图可以�
 
 从 [GitHub Releases](https://github.com/bimwright/dwg-mcp/releases/latest) 下载 setup ZIP（`DwgMcp.Setup-*-win-x64.zip`）。请查看已下载ZIP内 `manifest.json` 的 `packedAutocadYears` 和 bundle 的 `PackageContents.xml`，确认实际包含哪些年份的插件；在运行中的AutoCAD上已验证的年份请查阅发行说明。源码提供2022–2027的shell，但打包插件和实机验证范围取决于具体版本。未包含的年份需要用对应的AutoCAD SDK从源码构建插件。解压后运行 `install.ps1`（完整命令见英文 README）。
 
-**NuGet（仅 gateway）：** `dotnet tool install --global Bimwright.Dwg.Server --version 2.5.1` 需要 .NET 10。AutoCAD 插件须另外从相同版本的 Setup ZIP 安装。
+**NuGet（仅 gateway）：** `dotnet tool install --global Bimwright.Dwg.Server --version 2.5.2` 需要 .NET 10。AutoCAD 插件须另外从相同版本的 Setup ZIP 安装。
 
-**Claude Desktop：** 下载同一发行版的 `dwg-mcp-desktop-2.5.1.mcpb` 及其校验文件，通过 Settings → Extensions → Advanced settings 安装。扩展仅启动 Setup 2.5.1 提供的指定 executable，不安装 gateway/plugin，也不回退到 NuGet/PATH。override 文件必须匹配同一 SHA-256。
+**Claude Desktop：** 下载同一发行版的 `dwg-mcp-desktop-2.5.2.mcpb` 及其校验文件，通过 Settings → Extensions → Advanced settings 安装。扩展仅启动 Setup 2.5.2 提供的指定 executable，不安装 gateway/plugin，也不回退到 NuGet/PATH。override 文件必须匹配同一 SHA-256。
 
 **开发者：** 本地 build 后 `pwsh scripts/install.ps1 -Version 2024`，或 `NETLOAD` Debug DLL。
 
@@ -206,7 +206,7 @@ MCP 提示词 `dwg_translate_text` 用于在写回前审核译文，`dwg_review_
 
 ## Tools
 
-2.5.1 默认启动暴露 54 个工具：query（含 `dwg_get_drawing_profile` 和 `dwg_inspect_lisp`）、modify、meta（含 `dwg_send_code`/`dwg_run_lisp`）、view 和默认启用的 `dwg_capture_view_image`。可选 ToolBaker、annotation、block、dimension、export 和 drawing 工具集，通过 `--toolsets` 启用，把后端可用的 MCP surface 扩充到 78 个工具。 注册数量包含仅返回拒绝的 `dwg_run_lisp`；任何扫描判定都不授权执行。
+2.5.2 默认启动暴露 54 个工具：query（含 `dwg_get_drawing_profile` 和 `dwg_inspect_lisp`）、modify、meta（含 `dwg_send_code`/`dwg_run_lisp`）、view 和默认启用的 `dwg_capture_view_image`。可选 ToolBaker、annotation、block、dimension、export 和 drawing 工具集，通过 `--toolsets` 启用，把后端可用的 MCP surface 扩充到 78 个工具。 注册数量包含仅返回拒绝的 `dwg_run_lisp`；任何扫描判定都不授权执行。
 
 通用 CAD 工具作用于所选 AutoCAD 目标中的当前活动文档。实体输入与返回的实体 ID 使用 AutoCAD 十六进制 handle，例如 `7F5AD`，由选择、创建或属性工具返回。创建、复制、偏移和修改操作的响应会用十六进制 handle 标识所生成或修改的实体。
 
