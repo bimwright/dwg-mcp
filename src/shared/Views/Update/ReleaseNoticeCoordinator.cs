@@ -27,7 +27,7 @@ internal sealed class ReleaseNoticeCoordinator
         var version = _currentText?.Split('-')[0];
         if (version != null && StableRelease.TryVersion(version, out _currentVersion))
             _metadata = new ReleaseMetadataClient(version);
-        _timer.Tick += (_, __) => StartCheck();
+        _timer.Tick += (_, __) => StartCheck(ReleaseNoticeCheck.Interval);
     }
 
     internal void SetEnabled(bool enabled)
@@ -36,7 +36,7 @@ internal sealed class ReleaseNoticeCoordinator
         {
             if (_timer.IsEnabled || _metadata == null) return;
             _timer.Start();
-            StartCheck();
+            StartCheck(ReleaseNoticeCheck.Interval);
             return;
         }
 
@@ -53,9 +53,19 @@ internal sealed class ReleaseNoticeCoordinator
         catch (Exception ex) { PluginLog.Debug("Release notice close failed: " + ex.GetType().Name); }
     }
 
-    private void StartCheck()
+    /// <summary>
+    /// Triggered when the user opens History or Reports: refreshes with a 30-minute
+    /// cooldown if notifications are enabled and no notice is already shown.
+    /// </summary>
+    internal void TriggerFromUi()
     {
-        if (_check != null) return;
+        if (_metadata == null || _window != null || !PluginSettings.LoadReleaseNotifications()) return;
+        StartCheck(ReleaseNoticeCheck.InteractiveInterval);
+    }
+
+    private void StartCheck(TimeSpan interval)
+    {
+        if (_check != null || _metadata == null) return;
         _cancellation = new CancellationTokenSource();
         var ct = _cancellation.Token;
         _check = Task.Run(async () =>
@@ -64,7 +74,7 @@ internal sealed class ReleaseNoticeCoordinator
             try
             {
                 var path = Path.Combine(Path.GetDirectoryName(PluginSettings.DefaultFilePath), "release-check.txt");
-                var release = await ReleaseNoticeCheck.CheckAsync(path, _metadata.GetLatestAsync, ct).ConfigureAwait(false);
+                var release = await ReleaseNoticeCheck.CheckAsync(path, _metadata.GetLatestAsync, ct, interval).ConfigureAwait(false);
                 return PluginSettings.LoadReleaseNotifications() ? release : null;
             }
             catch (OperationCanceledException) { return null; }
@@ -89,10 +99,13 @@ internal sealed class ReleaseNoticeCoordinator
         if (release == null || release.VersionText == _shownVersion || release.Version < _currentVersion
             || (release.Version == _currentVersion && !_currentText.Contains("-"))) return;
 
+        var skipPath = Path.Combine(Path.GetDirectoryName(PluginSettings.DefaultFilePath), "release-skip.txt");
+        if (ReleaseNoticeCheck.IsSkipped(skipPath, release.VersionText)) return;
+
         try
         {
             _window?.Close();
-            var window = new ReleaseNoticeWindow(_currentText, release);
+            var window = new ReleaseNoticeWindow(_currentText, release, skipPath);
             _window = window;
             window.Closed += (_, __) => _window = null;
             Application.ShowModelessWindow(window);

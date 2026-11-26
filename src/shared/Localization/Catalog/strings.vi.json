@@ -245,5 +245,10 @@
   "history.durationUnit": "ms",
   "history.codeCompleted": "Lời gọi có khả năng chạy mã đã hoàn tất.",
   "history.codeFailed": "Lời gọi có khả năng chạy mã đã thất bại.",
-  "reports.host.process": "Tiến trình: {pid} - {status}"
+  "reports.host.process": "Tiến trình: {pid} - {status}",
+  "releaseNotice.whatsNew": "Có gì mới",
+  "releaseNotice.previewPrompt": "Xem trước prompt cập nhật cho agent",
+  "releaseNotice.copyPrompt": "Sao chép prompt",
+  "releaseNotice.copied": "Đã sao chép ✓",
+  "releaseNotice.skip": "Bỏ qua bản này"
 }

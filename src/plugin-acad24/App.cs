@@ -168,12 +168,14 @@ namespace Bimwright.Dwg.Plugin
         [CommandMethod("MCPHISTORY", CommandFlags.Session)]
         public static void McpHistory()
         {
+            _releaseNotice?.TriggerFromUi();
             ShowOrFocusHistory();
         }
 
         [CommandMethod("MCPREPORTS", CommandFlags.Session)]
         public static void McpReports()
         {
+            _releaseNotice?.TriggerFromUi();
             ShowReports(null);
         }
 

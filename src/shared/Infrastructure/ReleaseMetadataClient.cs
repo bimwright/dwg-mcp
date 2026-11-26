@@ -16,20 +16,94 @@ internal sealed class StableRelease
     internal string Tag { get; }
     internal string VersionText { get; }
     internal Version Version { get; }
+    internal string? ReleaseNotes { get; }
     internal string Url => "https://github.com/bimwright/dwg-mcp/releases/tag/" + Tag;
 
-    private StableRelease(string tag, string versionText, Version version)
+    private StableRelease(string tag, string versionText, Version version, string? releaseNotes)
     {
         Tag = tag;
         VersionText = versionText;
         Version = version;
+        ReleaseNotes = string.IsNullOrWhiteSpace(releaseNotes) ? null : releaseNotes;
     }
 
-    internal static StableRelease? FromTag(string? tag)
+    internal static StableRelease? FromTag(string? tag, string? releaseNotes = null)
     {
         if (tag == null) return null;
         var text = tag.StartsWith("v", StringComparison.Ordinal) ? tag.Substring(1) : tag;
-        return TryVersion(text, out var version) ? new StableRelease(tag, text, version!) : null;
+        return TryVersion(text, out var version) ? new StableRelease(tag, text, version!, releaseNotes) : null;
+    }
+
+    internal static string? FormatReleaseNotes(string? markdown, int maxChars = 1500)
+    {
+        if (string.IsNullOrWhiteSpace(markdown)) return null;
+        var lines = markdown!.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
+        var sb = new StringBuilder();
+        var prevBlank = true;
+        foreach (var raw in lines)
+        {
+            var trimmed = raw.Trim();
+            if (trimmed.StartsWith("### Distribution", StringComparison.OrdinalIgnoreCase)
+                || trimmed.StartsWith("### Validation", StringComparison.OrdinalIgnoreCase)
+                || trimmed.StartsWith("Source commit:", StringComparison.OrdinalIgnoreCase))
+                break;
+
+            if (trimmed.Length == 0)
+            {
+                if (!prevBlank && sb.Length > 0)
+                {
+                    sb.AppendLine();
+                    prevBlank = true;
+                }
+                continue;
+            }
+
+            var line = StripMarkdownInline(trimmed);
+            if (line.StartsWith("### ") || line.StartsWith("## ") || line.StartsWith("# "))
+                line = line.TrimStart('#', ' ');
+            else if (line.StartsWith("- ") || line.StartsWith("* "))
+                line = "• " + line.Substring(2).Trim();
+
+            if (sb.Length > 0 && sb.Length + line.Length + 2 > maxChars)
+            {
+                var remaining = maxChars - sb.Length - 1;
+                if (remaining > 20)
+                    sb.Append(line.Substring(0, remaining).TrimEnd()).Append('…');
+                else
+                    sb.Append('…');
+                break;
+            }
+
+            sb.AppendLine(line);
+            prevBlank = false;
+        }
+        var result = sb.ToString().Trim();
+        return result.Length == 0 ? null : result;
+    }
+
+    private static string StripMarkdownInline(string text)
+    {
+        var sb = new StringBuilder(text.Length);
+        var i = 0;
+        while (i < text.Length)
+        {
+            if (text[i] == '[')
+            {
+                var closeBracket = text.IndexOf(']', i + 1);
+                if (closeBracket > i && closeBracket + 1 < text.Length && text[closeBracket + 1] == '(')
+                {
+                    var closeParen = text.IndexOf(')', closeBracket + 2);
+                    if (closeParen > closeBracket + 1)
+                    {
+                        sb.Append(text, i + 1, closeBracket - i - 1);
+                        i = closeParen + 1;
+                        continue;
+                    }
+                }
+            }
+            sb.Append(text[i++]);
+        }
+        return sb.ToString().Replace("**", string.Empty).Replace("`", string.Empty);
     }
 
     internal static bool TryVersion(string value, out Version? version)
@@ -61,7 +135,8 @@ internal sealed class ReleaseMetadataClient
         if (metadata["draft"]?.Type != JTokenType.Boolean || metadata["prerelease"]?.Type != JTokenType.Boolean
             || metadata.Value<bool>("draft") || metadata.Value<bool>("prerelease") || metadata["tag_name"]?.Type != JTokenType.String)
             throw new InvalidDataException("The API did not return a published stable release.");
-        return StableRelease.FromTag(metadata.Value<string>("tag_name"))
+        var notes = StableRelease.FormatReleaseNotes(metadata["body"]?.Type == JTokenType.String ? metadata.Value<string>("body") : null);
+        return StableRelease.FromTag(metadata.Value<string>("tag_name"), notes)
             ?? throw new InvalidDataException("Release version is not a supported semantic version.");
     }
 
