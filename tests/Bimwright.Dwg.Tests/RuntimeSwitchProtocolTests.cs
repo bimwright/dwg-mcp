@@ -28,6 +28,7 @@ namespace Bimwright.Dwg.Tests
         [InlineData("--toolsets all --disable-toolbaker", 72, true, true)]
         [InlineData("--toolsets query", 12, false, false)]
         [InlineData("--toolsets meta", 15, true, true)]
+        [InlineData("--toolsets modify", 21, false, false)]
         [InlineData("--toolsets code", 2, true, true)]
         [InlineData("--toolsets meta,code", 15, true, true)]
         [InlineData("--toolsets meta --disable-send-code", 14, false, true)]
@@ -82,6 +83,13 @@ namespace Bimwright.Dwg.Tests
                 // INSTR-MAX-2KB, INSTR-SAFETY-BLOCK (FC-SRV-06), INSTR-MOVE-TO-TOOL, TOOL-ALWAYSLOAD on the wire for every flag combo.
                 Assert.True(Encoding.UTF8.GetByteCount(instructions) <= 2048, $"{Encoding.UTF8.GetByteCount(instructions)} bytes for '{flags}'.");
                 Assert.EndsWith(ServerInstructions.SafetyAndPermissions, instructions, StringComparison.Ordinal);
+                Assert.Contains("Use only registered tools", instructions, StringComparison.Ordinal);
+                if (!names.Contains("dwg_switch_target"))
+                    Assert.Contains("If switching is unavailable, start reads with --target pid:<PID>", instructions, StringComparison.Ordinal);
+                if (!names.Contains("dwg_health"))
+                    Assert.Contains("if available, call dwg_health(check_updates=true)", instructions, StringComparison.Ordinal);
+                if (!names.Contains("dwg_switch_target") || !names.Contains("dwg_survey_change_impact"))
+                    Assert.Contains("Include meta in writable mode if verification or survey is missing", instructions, StringComparison.Ordinal);
                 var wireTools = (JArray)listed["result"]["tools"];
                 Assert.All(wireTools, tool =>
                 {
@@ -96,13 +104,19 @@ namespace Bimwright.Dwg.Tests
                                 $"{tool["name"]}.{prop.Name} description bytes > 2048");
                         }
                 });
-                var expectedAlwaysLoad = Program.AlwaysLoadToolNames.Where(names.Contains).OrderBy(n => n, StringComparer.Ordinal).ToArray();
-                var actualAlwaysLoad = wireTools
-                    .Where(t => t["_meta"]?[Program.AlwaysLoadMetadataKey]?.Value<bool>() == true)
-                    .Select(t => t.Value<string>("name"))
-                    .OrderBy(n => n, StringComparer.Ordinal)
-                    .ToArray();
-                Assert.Equal(expectedAlwaysLoad, actualAlwaysLoad);
+                // TOOL-ALWAYSLOAD: test the public contract independently of the registration allowlist.
+                var alwaysLoadKeys = new[] { "anthropic/alwaysLoad", "antigravity/alwaysLoad" };
+                var expectedAlwaysLoad = new[] { "dwg_health", "dwg_list_available_targets", "dwg_report_task_result", "dwg_switch_target" }
+                    .Where(names.Contains).ToArray();
+                foreach (var alwaysLoadKey in alwaysLoadKeys)
+                {
+                    var actualAlwaysLoad = wireTools
+                        .Where(t => t["_meta"]?[alwaysLoadKey] is { Type: JTokenType.Boolean } flag && flag.Value<bool>())
+                        .Select(t => t.Value<string>("name"))
+                        .OrderBy(n => n, StringComparer.Ordinal)
+                        .ToArray();
+                    Assert.Equal(expectedAlwaysLoad, actualAlwaysLoad);
+                }
                 var healthTool = wireTools.FirstOrDefault(t => t.Value<string>("name") == "dwg_health");
                 if (healthTool != null)
                     Assert.NotNull(healthTool["_meta"]?[HealthRuntimeInfo.ClientRuntimeMetadataKey]);
@@ -133,7 +147,8 @@ namespace Bimwright.Dwg.Tests
                     {
                         Assert.Null(tool["annotations"]);
                         Assert.Null(tool["_meta"]?["anthropic/requiresUserInteraction"]);
-                        Assert.Null(tool["_meta"]?[Program.AlwaysLoadMetadataKey]);
+                        foreach (var alwaysLoadKey in alwaysLoadKeys)
+                            Assert.Null(tool["_meta"]?[alwaysLoadKey]);
                         continue;
                     }
                     foreach (var hint in new[] { "readOnlyHint", "destructiveHint", "idempotentHint", "openWorldHint" })

@@ -6,18 +6,20 @@ namespace Bimwright.Dwg.Server
     internal static class ServerInstructions
     {
         internal const string Product =
-            "dwg-mcp - Autodesk AutoCAD 2022-2027 MCP gateway for DWG drawings: metadata, layers, blocks, entities, lines, text, dimensions, "
-            + "DBText/MText, SHX/Unicode style repair, Vietnamese translation writeback, note cleanup, text rewriting, view capture, DXF export. "
-            + "Tools act on the active drawing; entities are hex handles.";
+            "dwg-mcp - Autodesk AutoCAD 2022-2027 MCP gateway for DWG: layers, blocks, entities, dimensions, "
+            + "DBText/MText, SHX/Unicode, Vietnamese translation, text rewriting, view capture, DXF export. "
+            + "Active drawing entities use hex handles.";
 
         internal const string Session =
-            "Start: dwg_list_available_targets, then dwg_switch_target('pid:<PID>') to verify instance and drawing before writes "
-            + "(--read-only: launch with --target pid:<PID>). Then dwg_health(check_updates=true) once; follow its update guidance. "
+            "Use only registered tools. If available, list with dwg_list_available_targets. "
+            + "Verify drawing before writes: dwg_switch_target(target='pid:<PID>'). If switching is unavailable, start reads with --target pid:<PID>. "
+            + "Then, if available, call dwg_health(check_updates=true) once. "
             + "Subagents never switch or rebind the parent's target. "
             + "Never retry a timed-out write without checking it; ACAD_BUSY/QUEUE_FULL mean not started: retry when AutoCAD is idle. "
             + "Verify output_artifact SHA-256 before reading; never replay a write to recover output. "
             // INSTR-SURVEY-HINT
-            + "Before modifying existing entities call dwg_survey_change_impact; afterwards read the result back.";
+            + "Before modifying existing entities call dwg_survey_change_impact; afterwards read the result back. "
+            + "Include meta in writable mode if verification or survey is missing.";
 
         internal const string Reporting =
             "After AutoCAD work that changed a drawing or found entities to check, call dwg_report_task_result once "
@@ -30,7 +32,7 @@ namespace Bimwright.Dwg.Server
             + "- text: get_selected_texts -> translate_and_rewrite\n"
             + "- view: capture_view_image -> inspect_view_region\n"
             + "- drawings: list_open_documents, open_drawing, save_drawing, export_dxf\n"
-            + "- meta: batch_execute, send_code, run_baked_tool";
+            + "- batch_execute, send_code, run_baked_tool";
 
         // INSTR-SAFETY-BLOCK / FC-SRV-06 / BW-PERM-001 R-C: always the last block.
         internal const string SafetyAndPermissions =

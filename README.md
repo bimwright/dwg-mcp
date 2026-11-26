@@ -144,9 +144,9 @@ Restart AutoCAD, then restart wired MCP clients to load `dwg-mcp`.
 
 **Uninstall:** `uninstall.ps1` removes the bundle, the server copies, discovery files and caches under `%LOCALAPPDATA%\Bimwright\dwg-mcp\` (settings, config, logs and captures are kept; `-Purge` removes those too). Client config entries are never touched — remove the `dwg-mcp` entry yourself, or run `install.ps1 -Uninstall -Client <names>` first.
 
-**NuGet (gateway only):** `dotnet tool install --global Bimwright.Dwg.Server --version 2.5.1` installs the framework-dependent gateway and requires .NET 10. Install the matching AutoCAD plugins from the Setup ZIP separately; the NuGet package does not install plugins.
+**NuGet (gateway only):** `dotnet tool install --global Bimwright.Dwg.Server --version 2.5.2` installs the framework-dependent gateway and requires .NET 10. Install the matching AutoCAD plugins from the Setup ZIP separately; the NuGet package does not install plugins.
 
-**Claude Desktop:** download `dwg-mcp-desktop-2.5.1.mcpb` and its checksum from the same release, then install it through Settings → Extensions → Advanced settings. It launches the exact gateway executable supplied by the 2.5.1 Setup ZIP; it does not install the gateway or plugins and does not fall back to a NuGet/PATH copy. An executable override must have the same SHA-256.
+**Claude Desktop:** download `dwg-mcp-desktop-2.5.2.mcpb` and its checksum from the same release, then install it through Settings → Extensions → Advanced settings. It launches the exact gateway executable supplied by the 2.5.2 Setup ZIP; it does not install the gateway or plugins and does not fall back to a NuGet/PATH copy. An executable override must have the same SHA-256.
 
 **Developer (local SDK):** `dotnet build` the year you have, then `pwsh scripts/install.ps1 -Years 2024` from the repo (copies that year’s `bin` output). `NETLOAD` remains available for Debug DLLs.
 
@@ -262,7 +262,7 @@ Use `dwg_list_open_documents` to find the drawing and `dwg_activate_document` as
 
 ## Tools
 
-Version 2.5.1 exposes 54 tools at default startup: query (including `dwg_get_drawing_profile` and `dwg_inspect_lisp`), modify, meta (including `dwg_send_code`/`dwg_run_lisp`), view, and default-on `dwg_capture_view_image`. Optional ToolBaker, annotation, block, dimension, export, and drawing toolsets, enabled through `--toolsets`, bring the backed MCP surface to 78 tools. The registered counts include `dwg_run_lisp`, which only returns a refusal; no scan verdict authorizes execution.
+Version 2.5.2 exposes 54 tools at default startup: query (including `dwg_get_drawing_profile` and `dwg_inspect_lisp`), modify, meta (including `dwg_send_code`/`dwg_run_lisp`), view, and default-on `dwg_capture_view_image`. Optional ToolBaker, annotation, block, dimension, export, and drawing toolsets, enabled through `--toolsets`, bring the backed MCP surface to 78 tools. The registered counts include `dwg_run_lisp`, which only returns a refusal; no scan verdict authorizes execution.
 
 With no drawing open, use `dwg_list_recent_drawings` → user chooses → `dwg_open_drawing(path)`. Both are standalone `meta` tools; recent is available under `--read-only`, open is not (even with file `read_only=true`). Native dialogs may require the user; timeouts do not cancel an Open already running. See [drawing session tools](#drawing-session-tools) for parameters, API references and verification limits.
 

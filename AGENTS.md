@@ -3,7 +3,7 @@
 
 # AGENTS.md — dwg-mcp health and update contract
 
-These instructions apply to dwg-mcp v2.5.1, v2.1.2 and v2.1.1. Earlier v2.0.1 does not expose `dwg_health`.
+These instructions apply to dwg-mcp v2.5.2, v2.5.1, v2.1.2 and v2.1.1. Earlier v2.0.1 does not expose `dwg_health`.
 
 ## Session startup
 
