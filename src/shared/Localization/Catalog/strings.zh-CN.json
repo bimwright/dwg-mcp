@@ -245,5 +245,10 @@
   "history.durationUnit": "毫秒",
   "history.codeCompleted": "可执行代码的调用已完成。",
   "history.codeFailed": "可执行代码的调用失败。",
-  "reports.host.process": "进程：{pid} - {status}"
+  "reports.host.process": "进程：{pid} - {status}",
+  "releaseNotice.whatsNew": "更新内容",
+  "releaseNotice.previewPrompt": "预览代理更新提示词",
+  "releaseNotice.copyPrompt": "复制提示词",
+  "releaseNotice.copied": "已复制 ✓",
+  "releaseNotice.skip": "跳过此版本"
 }

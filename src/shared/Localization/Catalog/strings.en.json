@@ -245,5 +245,10 @@
   "history.durationUnit": "ms",
   "history.codeCompleted": "Code-capable call completed.",
   "history.codeFailed": "Code-capable call failed.",
-  "reports.host.process": "Process: {pid} - {status}"
+  "reports.host.process": "Process: {pid} - {status}",
+  "releaseNotice.whatsNew": "What's new",
+  "releaseNotice.previewPrompt": "Preview agent update prompt",
+  "releaseNotice.copyPrompt": "Copy prompt",
+  "releaseNotice.copied": "Copied ✓",
+  "releaseNotice.skip": "Skip this version"
 }
