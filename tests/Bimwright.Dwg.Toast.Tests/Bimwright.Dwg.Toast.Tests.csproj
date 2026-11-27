@@ -57,6 +57,7 @@
     <Compile Include="../../src/shared/Presentation/Common/*.cs" LinkBase="Presentation" />
     <Compile Include="../../src/shared/Config/ReportsWindowState.cs" Link="ReportsWindowState.cs" />
     <Compile Include="../../src/shared/Infrastructure/ReleaseMetadataClient.cs" Link="ReleaseMetadataClient.cs" />
+    <Compile Include="../../src/shared/Infrastructure/ReleaseNoticeCheck.cs" Link="ReleaseNoticeCheck.cs" />
     <Compile Include="../../src/shared/Views/Update/ReleaseNoticeWindow.cs" Link="ReleaseNoticeWindow.cs" />
     <Compile Include="../../src/shared/Localization/*.cs" LinkBase="Shared\Localization" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
